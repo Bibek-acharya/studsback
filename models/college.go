@@ -43,6 +43,11 @@ type College struct {
 	Alumni           []byte         `gorm:"type:jsonb" json:"alumni,omitempty"`            // Alumni list for frontend alumni section
 	Departments      []byte         `gorm:"type:jsonb" json:"departments,omitempty"`       // Array of departments
 	CollegeReviews   []byte         `gorm:"type:jsonb" json:"college_reviews,omitempty"`   // Array of reviews
+	AcademicFitScore int            `gorm:"default:5" json:"academic_fit_score"`
+	CampusLifeScore  int            `gorm:"default:5" json:"campus_life_score"`
+	CareerFitScore   int            `gorm:"default:5" json:"career_fit_score"`
+	BalancedFitScore int            `gorm:"default:5" json:"balanced_fit_score"`
+	ProfileTags      []byte         `gorm:"type:jsonb" json:"profile_tags,omitempty"` // Array of student profile tags
 }
 
 // CreateCollegeRequest represents college creation input
@@ -67,6 +72,11 @@ type CreateCollegeRequest struct {
 	ImageURL         string   `json:"image_url"`
 	FeaturedPrograms []string `json:"featured_programs"`
 	Amenities        []string `json:"amenities"`
+	AcademicFitScore int      `json:"academic_fit_score"`
+	CampusLifeScore  int      `json:"campus_life_score"`
+	CareerFitScore   int      `json:"career_fit_score"`
+	BalancedFitScore int      `json:"balanced_fit_score"`
+	ProfileTags      []string `json:"profile_tags"`
 }
 
 // UpdateCollegeRequest represents college update input
@@ -91,4 +101,9 @@ type UpdateCollegeRequest struct {
 	ImageURL         string   `json:"image_url"`
 	FeaturedPrograms []string `json:"featured_programs"`
 	Amenities        []string `json:"amenities"`
+	AcademicFitScore *int     `json:"academic_fit_score"`
+	CampusLifeScore  *int     `json:"campus_life_score"`
+	CareerFitScore   *int     `json:"career_fit_score"`
+	BalancedFitScore *int     `json:"balanced_fit_score"`
+	ProfileTags      []string `json:"profile_tags"`
 }

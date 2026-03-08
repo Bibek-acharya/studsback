@@ -20,9 +20,10 @@ type User struct {
 	UpdatedAt   time.Time      `json:"updated_at"`
 	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
 	Email       string         `gorm:"uniqueIndex;not null" json:"email" binding:"required,email"`
-	Password    string         `gorm:"not null" json:"-"`
+	Password    *string        `json:"-"`
 	FirstName   string         `gorm:"not null" json:"first_name" binding:"required"`
 	LastName    string         `gorm:"not null" json:"last_name" binding:"required"`
+	GoogleID    *string        `gorm:"uniqueIndex;default:null" json:"google_id"`
 	Role        string         `gorm:"default:'student'" json:"role"`                                          // student, job_seeker, teacher, admin
 	Preferences *Preferences   `gorm:"type:jsonb;serializer:json;default:'null'" json:"preferences,omitempty"` // user preferences from onboarding
 }
@@ -33,22 +34,27 @@ func (u *User) HashPassword(password string) error {
 	if err != nil {
 		return err
 	}
-	u.Password = string(hashedPassword)
+	hashedStr := string(hashedPassword)
+	u.Password = &hashedStr
 	return nil
 }
 
 // CheckPassword verifies the password
 func (u *User) CheckPassword(password string) error {
-	return bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password))
+	if u.Password == nil {
+		return bcrypt.ErrMismatchedHashAndPassword
+	}
+	return bcrypt.CompareHashAndPassword([]byte(*u.Password), []byte(password))
 }
 
 // RegisterRequest represents registration input
 type RegisterRequest struct {
-	Email     string `json:"email" binding:"required,email"`
-	Password  string `json:"password" binding:"required,min=6"`
-	FirstName string `json:"first_name" binding:"required"`
-	LastName  string `json:"last_name" binding:"required"`
-	Role      string `json:"role"`
+	Email          string `json:"email" binding:"required,email"`
+	Password       string `json:"password" binding:"required,min=6"`
+	FirstName      string `json:"first_name" binding:"required"`
+	LastName       string `json:"last_name" binding:"required"`
+	Role           string `json:"role"`
+	EducationLevel string `json:"education_level"`
 }
 
 // LoginRequest represents login input

@@ -25,6 +25,10 @@ func SetupRoutes(router *gin.Engine) {
 		{
 			auth.POST("/register", handlers.Register)
 			auth.POST("/login", handlers.Login)
+			auth.POST("/send-otp", handlers.SendOTP)
+			auth.POST("/verify-otp", handlers.VerifyOTP)
+			auth.GET("/google", handlers.GoogleLogin)
+			auth.GET("/google/callback", handlers.GoogleCallback)
 		}
 
 		// Public college routes (no authentication required)
@@ -45,10 +49,42 @@ func SetupRoutes(router *gin.Engine) {
 			education.GET("/rankings", handlers.GetEducationRankings)
 			education.GET("/exams", handlers.GetEducationExams)
 			education.GET("/exams/:id", handlers.GetEducationExamByID)
-			education.GET("/scholarships", handlers.GetEducationScholarships)
+			education.GET("/scholarships", handlers.GetScholarships)
+			education.GET("/scholarships/:id", handlers.GetScholarshipByID)
+			education.GET("/scholarships/:id/similar", handlers.GetSimilarScholarships)
+			education.POST("/scholarships/:id/apply", middleware.AuthMiddleware(), handlers.ApplyScholarship)
 			education.GET("/courses", handlers.GetEducationCourses)
 			education.GET("/courses/:id", handlers.GetEducationCourseByID)
+			education.GET("/courses/:id/details", handlers.GetEducationCourseDetailsByID)
 			education.GET("/admissions", handlers.GetEducationAdmissions)
+			education.GET("/news", handlers.GetEducationNews)
+			education.GET("/events", handlers.GetEducationEvents)
+		}
+
+		tools := v1.Group("/tools")
+		{
+			tools.POST("/scholarship-finder/recommendations", handlers.GetScholarshipFinderRecommendations)
+			tools.POST("/college-recommender/recommendations", handlers.GetCollegeRecommenderRecommendations)
+		}
+
+		// Forum routes
+		forum := v1.Group("/forum")
+		{
+			forum.GET("/posts", handlers.GetForumPosts)
+			forum.GET("/posts/:id/comments", handlers.GetForumPostComments)
+
+			// Protected forum interactions
+			protectedForum := forum.Group("")
+			protectedForum.Use(middleware.AuthMiddleware())
+			{
+				protectedForum.POST("/posts", handlers.CreateForumPost)
+				protectedForum.POST("/posts/:id/like", handlers.LikeForumPost)
+				protectedForum.POST("/posts/:id/dislike", handlers.DislikeForumPost)
+				protectedForum.POST("/posts/:id/save", handlers.SaveForumPost)
+				protectedForum.PUT("/posts/:id", handlers.UpdateForumPost)
+				protectedForum.DELETE("/posts/:id", handlers.DeleteForumPost)
+				protectedForum.POST("/posts/:id/comments", handlers.CreateForumComment)
+			}
 		}
 
 		// Protected routes (authentication required)
@@ -57,6 +93,8 @@ func SetupRoutes(router *gin.Engine) {
 		{
 			protected.GET("/profile", handlers.GetProfile)
 			protected.POST("/preferences", handlers.SavePreferences)
+			protected.POST("/counselling/bookings", handlers.CreateCounsellingBooking)
+			protected.GET("/counselling/bookings/my", handlers.GetMyCounsellingBookings)
 
 			// Admin only routes
 			admin := protected.Group("/admin")

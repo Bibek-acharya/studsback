@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"strconv"
+	"strings"
 
 	"studsphere/backend/config"
 	"studsphere/backend/models"
@@ -47,6 +48,11 @@ type CollegeResponse struct {
 	Alumni           interface{} `json:"alumni,omitempty"`
 	Departments      interface{} `json:"departments,omitempty"`
 	CollegeReviews   interface{} `json:"college_reviews,omitempty"`
+	AcademicFitScore int         `json:"academic_fit_score"`
+	CampusLifeScore  int         `json:"campus_life_score"`
+	CareerFitScore   int         `json:"career_fit_score"`
+	BalancedFitScore int         `json:"balanced_fit_score"`
+	ProfileTags      interface{} `json:"profile_tags,omitempty"`
 }
 
 func parseJSONField(data []byte, fallback interface{}) interface{} {
@@ -103,6 +109,11 @@ func buildCollegeResponse(college models.College) CollegeResponse {
 		Alumni:           parseJSONField(college.Alumni, []interface{}{}),
 		Departments:      parseJSONField(college.Departments, []interface{}{}),
 		CollegeReviews:   parseJSONField(college.CollegeReviews, []interface{}{}),
+		AcademicFitScore: college.AcademicFitScore,
+		CampusLifeScore:  college.CampusLifeScore,
+		CareerFitScore:   college.CareerFitScore,
+		BalancedFitScore: college.BalancedFitScore,
+		ProfileTags:      parseJSONField(college.ProfileTags, []interface{}{}),
 	}
 }
 
@@ -127,7 +138,20 @@ func GetColleges(c *gin.Context) {
 
 	// Filter by type (Public/Private)
 	if collegeType := c.Query("type"); collegeType != "" {
-		baseQuery = baseQuery.Where("college_type = ?", collegeType)
+		typesRaw := strings.Split(collegeType, ",")
+		types := make([]string, 0, len(typesRaw))
+		for _, t := range typesRaw {
+			trimmed := strings.TrimSpace(t)
+			if trimmed != "" {
+				types = append(types, trimmed)
+			}
+		}
+
+		if len(types) == 1 {
+			baseQuery = baseQuery.Where("college_type = ?", types[0])
+		} else if len(types) > 1 {
+			baseQuery = baseQuery.Where("college_type IN ?", types)
+		}
 	}
 
 	// Filter by verified status
@@ -150,7 +174,17 @@ func GetColleges(c *gin.Context) {
 
 	// Search by name
 	if search := c.Query("search"); search != "" {
-		baseQuery = baseQuery.Where("name ILIKE ? OR affiliation ILIKE ?", "%"+search+"%", "%"+search+"%")
+		searchLike := "%" + search + "%"
+		baseQuery = baseQuery.Where(
+			"name ILIKE ? OR full_name ILIKE ? OR affiliation ILIKE ? OR location ILIKE ? OR CAST(featured_programs AS TEXT) ILIKE ? OR CAST(courses AS TEXT) ILIKE ? OR CAST(programs_list AS TEXT) ILIKE ?",
+			searchLike,
+			searchLike,
+			searchLike,
+			searchLike,
+			searchLike,
+			searchLike,
+			searchLike,
+		)
 	}
 
 	// Sorting
@@ -209,9 +243,14 @@ func GetColleges(c *gin.Context) {
 // GetCollegeByID retrieves a single college by ID
 func GetCollegeByID(c *gin.Context) {
 	collegeID := c.Param("id")
+	parsedID, err := strconv.ParseUint(collegeID, 10, 64)
+	if err != nil || parsedID == 0 {
+		utils.ErrorResponse(c, 400, "Invalid college ID")
+		return
+	}
 
 	var college models.College
-	if err := config.GetDB().Preload("University").First(&college, collegeID).Error; err != nil {
+	if err := config.GetDB().Preload("University").First(&college, uint(parsedID)).Error; err != nil {
 		utils.ErrorResponse(c, 404, "College not found")
 		return
 	}
@@ -236,6 +275,7 @@ func CreateCollege(c *gin.Context) {
 	// Convert arrays to JSON for storage
 	var featuredPrograms []byte
 	var amenities []byte
+	var profileTags []byte
 	var err error
 
 	if len(req.FeaturedPrograms) > 0 {
@@ -250,6 +290,14 @@ func CreateCollege(c *gin.Context) {
 		amenities, err = json.Marshal(req.Amenities)
 		if err != nil {
 			utils.ErrorResponse(c, 400, "Invalid amenities format")
+			return
+		}
+	}
+
+	if len(req.ProfileTags) > 0 {
+		profileTags, err = json.Marshal(req.ProfileTags)
+		if err != nil {
+			utils.ErrorResponse(c, 400, "Invalid profile tags format")
 			return
 		}
 	}
@@ -275,6 +323,11 @@ func CreateCollege(c *gin.Context) {
 		ImageURL:         req.ImageURL,
 		FeaturedPrograms: featuredPrograms,
 		Amenities:        amenities,
+		AcademicFitScore: req.AcademicFitScore,
+		CampusLifeScore:  req.CampusLifeScore,
+		CareerFitScore:   req.CareerFitScore,
+		BalancedFitScore: req.BalancedFitScore,
+		ProfileTags:      profileTags,
 	}
 
 	if err := config.GetDB().Create(&college).Error; err != nil {
@@ -383,6 +436,24 @@ func UpdateCollege(c *gin.Context) {
 	if len(req.Amenities) > 0 {
 		if data, err := json.Marshal(req.Amenities); err == nil {
 			college.Amenities = data
+		}
+	}
+
+	if req.AcademicFitScore != nil {
+		college.AcademicFitScore = *req.AcademicFitScore
+	}
+	if req.CampusLifeScore != nil {
+		college.CampusLifeScore = *req.CampusLifeScore
+	}
+	if req.CareerFitScore != nil {
+		college.CareerFitScore = *req.CareerFitScore
+	}
+	if req.BalancedFitScore != nil {
+		college.BalancedFitScore = *req.BalancedFitScore
+	}
+	if len(req.ProfileTags) > 0 {
+		if data, err := json.Marshal(req.ProfileTags); err == nil {
+			college.ProfileTags = data
 		}
 	}
 

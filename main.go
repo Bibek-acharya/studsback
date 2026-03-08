@@ -3,11 +3,12 @@ package main
 import (
 	"log"
 
-	"github.com/gin-gonic/gin"
 	"studsphere/backend/config"
 	"studsphere/backend/models"
 	"studsphere/backend/routes"
 	"studsphere/backend/seeds"
+
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
@@ -21,7 +22,23 @@ func main() {
 	config.ConnectDatabase()
 
 	// Auto migrate models
-	if err := config.GetDB().AutoMigrate(&models.User{}, &models.University{}, &models.College{}); err != nil {
+	if err := config.GetDB().AutoMigrate(
+		&models.User{},
+		&models.University{},
+		&models.College{},
+		&models.CounsellingBooking{},
+		&models.Scholarship{},
+		&models.ScholarshipApplication{},
+		&models.Exam{},
+		&models.Course{},
+		&models.CollegeUniversityCourse{},
+		&models.News{},
+		&models.Event{},
+		&models.ForumPost{},
+		&models.ForumComment{},
+		&models.ForumVote{},
+		&models.ForumSave{},
+	); err != nil {
 		log.Fatal("Failed to migrate database:", err)
 	}
 	log.Println("Database migration completed")

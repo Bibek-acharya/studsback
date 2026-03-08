@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Global Future Leaders Scholarship 2026 - Details</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#eff6ff',   /* Blue 50 */
+                            100: '#dbeafe',  /* Blue 100 */
+                            200: '#bfdbfe',  /* Blue 200 */
+                            500: '#3b82f6',  /* Blue 500 */
+                            600: '#2563eb',  /* Blue 600 - Primary */
+                            700: '#1d4ed8',  /* Blue 700 */
+                            900: '#1e3a8a',  /* Blue 900 */
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        /* Smooth Scroll */
+        html {
+            scroll-behavior: smooth;
+        }
+
+        /* Ad Banner Pattern */
+        .ad-pattern {
+            background-color: #f8fafc;
+            background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Modern Input Styles */
+        .input-dnb {
+            @apply w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 transition-all duration-200 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 placeholder:text-slate-400 shadow-sm hover:border-brand-300;
+        }
+        /* Uppercase Labels */
+        .label-dnb {
+            @apply mb-2 block text-[11px] font-bold uppercase tracking-wider text-slate-500;
+        }
+        
+        /* Section Cards */
+        .form-card {
+            @apply bg-white p-6 rounded-xl border border-slate-100 shadow-sm mb-6 hover:shadow-md transition-shadow duration-300;
+        }
+
+        /* Stepper Line Logic */
+        .step-line {
+            @apply absolute left-[15px] top-10 bottom-[-10px] w-[2px] bg-slate-200 z-0;
+        }
+        .step-item:last-child .step-line {
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased font-sans pb-12">
+
+    <!-- Breadcrumb -->
+    <div class="bg-white border-b border-slate-100">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+            <div class="flex items-center text-sm text-slate-500">
+                <a href="#" class="hover:text-brand-600">Home</a>
+                <i data-lucide="chevron-right" class="w-4 h-4 mx-2"></i>
+                <a href="#" class="hover:text-brand-600">International</a>
+                <i data-lucide="chevron-right" class="w-4 h-4 mx-2"></i>
+                <span class="text-slate-900 font-medium">Global Future Leaders Scholarship</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <!-- Header Section -->
+        <div class="mb-8">
+            <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                <div>
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="bg-green-100 text-green-700 text-xs px-2.5 py-0.5 rounded-full font-semibold border border-green-200">Fully Funded</span>
+                        <span class="bg-blue-100 text-blue-700 text-xs px-2.5 py-0.5 rounded-full font-semibold border border-blue-200">Masters</span>
+                        <span class="bg-purple-100 text-purple-700 text-xs px-2.5 py-0.5 rounded-full font-semibold border border-purple-200">Merit Based</span>
+                    </div>
+                    <h1 class="text-3xl md:text-4xl font-bold text-slate-900 mb-2">Global Future Leaders Scholarship 2026</h1>
+                    <p class="text-slate-500 flex items-center gap-2">
+                        <i data-lucide="map-pin" class="w-4 h-4"></i> Offered by Cambridge University, UK
+                    </p>
+                </div>
+                <div class="flex gap-3 mt-4 md:mt-0">
+                    <button class="flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors bg-white shadow-sm">
+                        <i data-lucide="share-2" class="w-4 h-4"></i> Share
+                    </button>
+                    <button onclick="toggleSave(this)" class="flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors bg-white shadow-sm group">
+                        <i data-lucide="bookmark" class="w-4 h-4 group-hover:fill-current"></i> <span class="save-text">Save</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <!-- Left Column: Details -->
+            <div class="lg:col-span-2 space-y-8">
+                
+                <!-- Quick Stats Mobile (Hidden on Desktop, shown on Mobile) -->
+                <div class="lg:hidden bg-white p-4 rounded-xl shadow-sm border border-slate-200 grid grid-cols-2 gap-4">
+                    <div>
+                        <p class="text-xs text-slate-500 uppercase font-semibold">Deadline</p>
+                        <p class="text-red-600 font-medium flex items-center gap-1"><i data-lucide="clock" class="w-3 h-3"></i> May 15, 2026</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-slate-500 uppercase font-semibold">Value</p>
+                        <p class="text-slate-900 font-medium">$30,000 / Year</p>
+                    </div>
+                </div>
+
+                <!-- Hero Image -->
+                <div class="relative w-full h-64 md:h-80 rounded-2xl overflow-hidden shadow-sm group">
+                    <img src="https://images.unsplash.com/photo-1523050854058-8df90110c9f1?ixlib=rb-1.2.1&auto=format&fit=crop&w=1200&q=80" alt="University Campus" class="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+                    <div class="absolute bottom-4 left-4 text-white">
+                        <div class="flex items-center gap-2 mb-1">
+                             <span class="bg-white/20 backdrop-blur-md px-2 py-1 rounded text-xs font-medium">Cambridge, UK</span>
+                             <span class="bg-brand-600/90 backdrop-blur-md px-2 py-1 rounded text-xs font-medium">#1 Ranked</span>
+                        </div>
+                        <p class="font-medium text-lg">Applications are open now</p>
+                    </div>
+                </div>
+
+                <!-- Tabs Navigation -->
+                <div class="border-b border-slate-200 overflow-x-auto">
+                    <nav class="-mb-px flex space-x-6 min-w-max" aria-label="Tabs">
+                        <button onclick="switchTab('overview')" id="tab-overview" class="border-brand-600 text-brand-600 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors">Overview</button>
+                        <button onclick="switchTab('eligibility')" id="tab-eligibility" class="border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors">Eligibility</button>
+                        <button onclick="switchTab('documents')" id="tab-documents" class="border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors">Documents</button>
+                         <button onclick="switchTab('timeline')" id="tab-timeline" class="border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors">Timeline</button>
+                        <button onclick="switchTab('benefits')" id="tab-benefits" class="border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors">Benefits</button>
+                        <button onclick="switchTab('apply')" id="tab-apply" class="border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors">Apply</button>
+                    </nav>
+                </div>
+
+                <!-- Tab Content -->
+                <div id="content-area" class="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200 fade-in min-h-[400px]">
+                    
+                    <!-- Overview Section -->
+                    <div id="overview" class="tab-content block">
+                        <h2 class="text-2xl font-bold text-slate-900 mb-4">About the Scholarship</h2>
+                        <p class="text-slate-600 leading-relaxed mb-6">
+                            The Global Future Leaders Scholarship is designed to support outstanding international students who have demonstrated academic excellence and leadership potential. This prestigious award aims to foster cross-cultural understanding and prepare the next generation of global leaders to tackle the world's most pressing challenges.
+                        </p>
+                        <p class="text-slate-600 leading-relaxed mb-6">
+                            Recipients will join a vibrant community of scholars and gain access to exclusive networking events, mentorship programs, and leadership workshops throughout their academic journey at Cambridge University.
+                        </p>
+                        
+                        <h3 class="text-xl font-bold text-slate-900 mb-3">Field of Study</h3>
+                        <p class="text-slate-600 mb-4">
+                            All Master's degree programs offered at the University, specifically focusing on:
+                        </p>
+                        <ul class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-8">
+                            <li class="flex items-center gap-2 text-slate-600"><i data-lucide="check-circle" class="w-4 h-4 text-green-500"></i> Computer Science & AI</li>
+                            <li class="flex items-center gap-2 text-slate-600"><i data-lucide="check-circle" class="w-4 h-4 text-green-500"></i> Environmental Science</li>
+                            <li class="flex items-center gap-2 text-slate-600"><i data-lucide="check-circle" class="w-4 h-4 text-green-500"></i> Public Health</li>
+                            <li class="flex items-center gap-2 text-slate-600"><i data-lucide="check-circle" class="w-4 h-4 text-green-500"></i> Business Administration</li>
+                        </ul>
+
+                        <h3 class="text-xl font-bold text-slate-900 mb-4">Selection Process</h3>
+                        <div class="relative border-l-2 border-slate-200 ml-3 space-y-8">
+                            <div class="ml-6 relative">
+                                <span class="absolute -left-[33px] top-1 h-4 w-4 rounded-full bg-white border-4 border-brand-600"></span>
+                                <h4 class="font-semibold text-slate-900">Stage 1: Initial Screening</h4>
+                                <p class="text-sm text-slate-600 mt-1">Applications are reviewed for eligibility and completeness. Incomplete applications are rejected immediately.</p>
+                            </div>
+                            <div class="ml-6 relative">
+                                <span class="absolute -left-[33px] top-1 h-4 w-4 rounded-full bg-white border-4 border-slate-300"></span>
+                                <h4 class="font-semibold text-slate-900">Stage 2: Academic Review</h4>
+                                <p class="text-sm text-slate-600 mt-1">A panel of professors reviews academic transcripts, research proposals, and recommendation letters.</p>
+                            </div>
+                            <div class="ml-6 relative">
+                                <span class="absolute -left-[33px] top-1 h-4 w-4 rounded-full bg-white border-4 border-slate-300"></span>
+                                <h4 class="font-semibold text-slate-900">Stage 3: Interview</h4>
+                                <p class="text-sm text-slate-600 mt-1">Shortlisted candidates are invited for a virtual interview with the scholarship committee in June.</p>
+                            </div>
+                        </div>
+
+                        <!-- In-Article Ad Placement -->
+                        <div class="mt-8 p-4 bg-slate-50 border border-slate-200 rounded-lg flex flex-col items-center justify-center text-center">
+                            <span class="text-[10px] text-slate-400 uppercase tracking-wider mb-2">Advertisement</span>
+                            <div class="w-full h-24 bg-gradient-to-r from-indigo-500 to-purple-500 rounded flex items-center justify-center text-white font-bold text-lg shadow-sm">
+                                🚀 Master English with PrepMaster - 50% Off!
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Eligibility Section (Hidden by default) -->
+                    <div id="eligibility" class="tab-content hidden">
+                        <h2 class="text-2xl font-bold text-slate-900 mb-4">Eligibility Criteria</h2>
+                        <div class="space-y-4 mb-6">
+                            <div class="flex gap-4 p-4 bg-slate-50 rounded-lg border border-slate-100">
+                                <div class="flex-shrink-0 mt-1">
+                                    <div class="w-6 h-6 rounded-full bg-brand-100 flex items-center justify-center text-brand-600 font-bold text-xs">1</div>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-slate-900">Nationality</h4>
+                                    <p class="text-slate-600 text-sm">Must be an international student from a non-EU country.</p>
+                                </div>
+                            </div>
+                            <div class="flex gap-4 p-4 bg-slate-50 rounded-lg border border-slate-100">
+                                <div class="flex-shrink-0 mt-1">
+                                    <div class="w-6 h-6 rounded-full bg-brand-100 flex items-center justify-center text-brand-600 font-bold text-xs">2</div>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-slate-900">Academic Merit</h4>
+                                    <p class="text-slate-600 text-sm">Must hold a First Class Honours degree or equivalent GPA (3.7/4.0).</p>
+                                </div>
+                            </div>
+                            <div class="flex gap-4 p-4 bg-slate-50 rounded-lg border border-slate-100">
+                                <div class="flex-shrink-0 mt-1">
+                                    <div class="w-6 h-6 rounded-full bg-brand-100 flex items-center justify-center text-brand-600 font-bold text-xs">3</div>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-slate-900">Language Proficiency</h4>
+                                    <p class="text-slate-600 text-sm">IELTS score of 7.5 overall or TOEFL iBT score of 110.</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <h3 class="text-lg font-bold text-slate-900 mb-3">Excluded Regions</h3>
+                        <p class="text-sm text-slate-600 mb-2">Citizens of the following countries are not eligible for this specific grant (please see our other grants):</p>
+                        <ul class="list-disc list-inside text-sm text-slate-600 bg-red-50 p-4 rounded-lg border border-red-100">
+                            <li>United Kingdom</li>
+                            <li>Australia</li>
+                            <li>New Zealand</li>
+                            <li>USA (Specific state grants available instead)</li>
+                        </ul>
+                    </div>
+
+                    <!-- Documents Section (New) -->
+                    <div id="documents" class="tab-content hidden">
+                         <h2 class="text-2xl font-bold text-slate-900 mb-4">Required Documents</h2>
+                         <p class="text-slate-600 mb-6">Ensure all documents are in PDF format and do not exceed 5MB each.</p>
+                         
+                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <label class="checkbox-wrapper cursor-pointer">
+                                <input type="checkbox" class="peer sr-only">
+                                <div class="p-4 border border-slate-200 rounded-xl hover:border-brand-400 transition-all flex items-start gap-3 h-full">
+                                    <div class="w-5 h-5 rounded border border-slate-300 flex items-center justify-center bg-white peer-checked:bg-brand-500 peer-checked:border-brand-500 mt-0.5">
+                                        <i data-lucide="check" class="w-3.5 h-3.5 text-white opacity-0 transition-opacity check-icon"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-medium text-slate-900">Academic Transcripts</h4>
+                                        <p class="text-xs text-slate-500 mt-1">Official copies from all universities attended.</p>
+                                    </div>
+                                </div>
+                            </label>
+                            
+                            <label class="checkbox-wrapper cursor-pointer">
+                                <input type="checkbox" class="peer sr-only">
+                                <div class="p-4 border border-slate-200 rounded-xl hover:border-brand-400 transition-all flex items-start gap-3 h-full">
+                                    <div class="w-5 h-5 rounded border border-slate-300 flex items-center justify-center bg-white peer-checked:bg-brand-500 peer-checked:border-brand-500 mt-0.5">
+                                        <i data-lucide="check" class="w-3.5 h-3.5 text-white opacity-0 transition-opacity check-icon"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-medium text-slate-900">CV / Resume</h4>
+                                        <p class="text-xs text-slate-500 mt-1">Updated CV highlighting academic and leadership achievements.</p>
+                                    </div>
+                                </div>
+                            </label>
+
+                             <label class="checkbox-wrapper cursor-pointer">
+                                <input type="checkbox" class="peer sr-only">
+                                <div class="p-4 border border-slate-200 rounded-xl hover:border-brand-400 transition-all flex items-start gap-3 h-full">
+                                    <div class="w-5 h-5 rounded border border-slate-300 flex items-center justify-center bg-white peer-checked:bg-brand-500 peer-checked:border-brand-500 mt-0.5">
+                                        <i data-lucide="check" class="w-3.5 h-3.5 text-white opacity-0 transition-opacity check-icon"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-medium text-slate-900">Recommendation Letters</h4>
+                                        <p class="text-xs text-slate-500 mt-1">Two academic references on official letterhead.</p>
+                                    </div>
+                                </div>
+                            </label>
+
+                            <label class="checkbox-wrapper cursor-pointer">
+                                <input type="checkbox" class="peer sr-only">
+                                <div class="p-4 border border-slate-200 rounded-xl hover:border-brand-400 transition-all flex items-start gap-3 h-full">
+                                    <div class="w-5 h-5 rounded border border-slate-300 flex items-center justify-center bg-white peer-checked:bg-brand-500 peer-checked:border-brand-500 mt-0.5">
+                                        <i data-lucide="check" class="w-3.5 h-3.5 text-white opacity-0 transition-opacity check-icon"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-medium text-slate-900">Personal Statement</h4>
+                                        <p class="text-xs text-slate-500 mt-1">Max 1000 words outlining your goals and motivation.</p>
+                                    </div>
+                                </div>
+                            </label>
+                         </div>
+                    </div>
+
+                    <!-- Timeline Section (New) -->
+                    <div id="timeline" class="tab-content hidden">
+                        <h2 class="text-2xl font-bold text-slate-900 mb-6">Scholarship Timeline 2026</h2>
+                        <div class="space-y-0">
+                            <!-- Item 1 -->
+                            <div class="flex gap-4">
+                                <div class="flex flex-col items-center">
+                                    <div class="w-3 h-3 bg-brand-600 rounded-full"></div>
+                                    <div class="w-0.5 flex-1 bg-brand-200 h-16"></div>
+                                </div>
+                                <div class="pb-8">
+                                    <span class="text-xs font-bold text-brand-600 uppercase tracking-wide">Jan 15, 2026</span>
+                                    <h4 class="text-lg font-semibold text-slate-900">Applications Open</h4>
+                                    <p class="text-sm text-slate-500">Online portal opens for submissions.</p>
+                                </div>
+                            </div>
+                             <!-- Item 2 -->
+                            <div class="flex gap-4">
+                                <div class="flex flex-col items-center">
+                                    <div class="w-3 h-3 bg-slate-300 rounded-full"></div>
+                                    <div class="w-0.5 flex-1 bg-slate-200 h-16"></div>
+                                </div>
+                                <div class="pb-8">
+                                    <span class="text-xs font-bold text-slate-500 uppercase tracking-wide">May 15, 2026</span>
+                                    <h4 class="text-lg font-semibold text-slate-900">Submission Deadline</h4>
+                                    <p class="text-sm text-slate-500">Portal closes at 11:59 PM GMT.</p>
+                                </div>
+                            </div>
+                             <!-- Item 3 -->
+                            <div class="flex gap-4">
+                                <div class="flex flex-col items-center">
+                                    <div class="w-3 h-3 bg-slate-300 rounded-full"></div>
+                                    <div class="w-0.5 flex-1 bg-slate-200 h-16"></div>
+                                </div>
+                                <div class="pb-8">
+                                    <span class="text-xs font-bold text-slate-500 uppercase tracking-wide">June 2026</span>
+                                    <h4 class="text-lg font-semibold text-slate-900">Interview Stage</h4>
+                                    <p class="text-sm text-slate-500">Shortlisted candidates contacted for video interviews.</p>
+                                </div>
+                            </div>
+                             <!-- Item 4 -->
+                            <div class="flex gap-4">
+                                <div class="flex flex-col items-center">
+                                    <div class="w-3 h-3 bg-slate-300 rounded-full"></div>
+                                </div>
+                                <div>
+                                    <span class="text-xs font-bold text-slate-500 uppercase tracking-wide">July 30, 2026</span>
+                                    <h4 class="text-lg font-semibold text-slate-900">Results Announced</h4>
+                                    <p class="text-sm text-slate-500">Final recipients notified via email.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Benefits Section (Hidden by default) -->
+                    <div id="benefits" class="tab-content hidden">
+                        <h2 class="text-2xl font-bold text-slate-900 mb-6">Scholarship Value</h2>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="p-6 border border-slate-200 rounded-xl hover:border-brand-500 transition-colors group">
+                                <div class="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600 mb-4 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                                    <i data-lucide="coins" class="w-5 h-5"></i>
+                                </div>
+                                <h3 class="font-semibold text-lg text-slate-900 mb-2">Tuition Coverage</h3>
+                                <p class="text-slate-600 text-sm">100% of tuition fees covered for the duration of the 1-year Master's program.</p>
+                            </div>
+                            <div class="p-6 border border-slate-200 rounded-xl hover:border-brand-500 transition-colors group">
+                                <div class="w-10 h-10 bg-green-50 rounded-lg flex items-center justify-center text-green-600 mb-4 group-hover:bg-green-600 group-hover:text-white transition-colors">
+                                    <i data-lucide="home" class="w-5 h-5"></i>
+                                </div>
+                                <h3 class="font-semibold text-lg text-slate-900 mb-2">Living Stipend</h3>
+                                <p class="text-slate-600 text-sm">Monthly living allowance of £1,400 to cover accommodation and expenses.</p>
+                            </div>
+                            <div class="p-6 border border-slate-200 rounded-xl hover:border-brand-500 transition-colors group">
+                                <div class="w-10 h-10 bg-purple-50 rounded-lg flex items-center justify-center text-purple-600 mb-4 group-hover:bg-purple-600 group-hover:text-white transition-colors">
+                                    <i data-lucide="plane" class="w-5 h-5"></i>
+                                </div>
+                                <h3 class="font-semibold text-lg text-slate-900 mb-2">Travel Grant</h3>
+                                <p class="text-slate-600 text-sm">Round-trip economy airfare from home country to the UK.</p>
+                            </div>
+                            <div class="p-6 border border-slate-200 rounded-xl hover:border-brand-500 transition-colors group">
+                                <div class="w-10 h-10 bg-orange-50 rounded-lg flex items-center justify-center text-orange-600 mb-4 group-hover:bg-orange-600 group-hover:text-white transition-colors">
+                                    <i data-lucide="shield-plus" class="w-5 h-5"></i>
+                                </div>
+                                <h3 class="font-semibold text-lg text-slate-900 mb-2">Health Insurance</h3>
+                                <p class="text-slate-600 text-sm">Coverage for the NHS Immigration Health Surcharge.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Apply Section (Hidden by default) -->
+                    <div id="apply" class="tab-content hidden">
+                        <h2 class="text-2xl font-bold text-slate-900 mb-6">How to Apply</h2>
+
+                        <!-- New Video Section -->
+                        <div class="mb-8 p-4 bg-brand-50 rounded-xl border border-brand-100">
+                            <h3 class="flex items-center gap-2 font-semibold text-brand-900 mb-3">
+                                <i data-lucide="play-circle" class="w-5 h-5"></i> Video Guide: Application Walkthrough
+                            </h3>
+                            <div class="aspect-w-16 aspect-h-9 rounded-lg overflow-hidden bg-slate-900 relative group cursor-pointer h-64">
+                                <img src="https://images.unsplash.com/photo-1434030216411-0b793f4b4173?ixlib=rb-1.2.1&auto=format&fit=crop&w=1200&q=80" alt="Video Thumbnail" class="w-full h-full object-cover opacity-80 group-hover:opacity-60 transition-opacity">
+                                <div class="absolute inset-0 flex items-center justify-center">
+                                    <div class="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                                        <div class="w-12 h-12 bg-white text-brand-600 rounded-full flex items-center justify-center pl-1 shadow-lg">
+                                             <i data-lucide="play" class="w-6 h-6 fill-current"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <p class="text-sm text-brand-700 mt-3">Watch our 5-minute step-by-step guide on how to fill out the scholarship application form correctly.</p>
+                        </div>
+                        
+                        <ol class="relative border-l border-slate-200 ml-3 space-y-8">                  
+                            <li class="mb-10 ml-6">            
+                                <span class="absolute flex items-center justify-center w-6 h-6 bg-brand-100 rounded-full -left-3 ring-8 ring-white">
+                                    <i data-lucide="file-text" class="w-3 h-3 text-brand-600"></i>
+                                </span>
+                                <h3 class="flex items-center mb-1 text-lg font-semibold text-slate-900">Prepare Documents</h3>
+                                <p class="mb-4 text-base font-normal text-slate-500">Gather your transcripts, CV, two letters of recommendation, and personal statement (max 1000 words).</p>
+                            </li>
+                            <li class="mb-10 ml-6">
+                                <span class="absolute flex items-center justify-center w-6 h-6 bg-brand-100 rounded-full -left-3 ring-8 ring-white">
+                                    <i data-lucide="school" class="w-3 h-3 text-brand-600"></i>
+                                </span>
+                                <h3 class="mb-1 text-lg font-semibold text-slate-900">Apply to the University</h3>
+                                <p class="text-base font-normal text-slate-500">Submit your admission application to a Master's program at Cambridge University before April 30th.</p>
+                            </li>
+                            <li class="ml-6">
+                                <span class="absolute flex items-center justify-center w-6 h-6 bg-brand-100 rounded-full -left-3 ring-8 ring-white">
+                                    <i data-lucide="send" class="w-3 h-3 text-brand-600"></i>
+                                </span>
+                                <h3 class="mb-1 text-lg font-semibold text-slate-900">Submit Scholarship Form</h3>
+                                <p class="text-base font-normal text-slate-500">Once you have your student ID, complete the separate scholarship application form via the portal.</p>
+                            </li>
+                        </ol>
+                        <div class="mt-8">
+                            <button onclick="openModal()" class="inline-flex items-center justify-center w-full px-5 py-3 text-base font-medium text-white transition-colors duration-150 bg-brand-600 border border-transparent rounded-lg hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 shadow-md">
+                                Open Application Form
+                                <i data-lucide="arrow-right" class="w-5 h-5 ml-2"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- FAQ Section -->
+                <div class="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
+                    <h2 class="text-xl font-bold text-slate-900 mb-6">Frequently Asked Questions</h2>
+                    <div class="space-y-3">
+                        <!-- FAQ Item 1 -->
+                        <div class="border border-slate-200 rounded-lg">
+                            <button onclick="toggleFaq(this)" class="w-full px-5 py-4 text-left flex justify-between items-center focus:outline-none">
+                                <span class="font-medium text-slate-700">Is there an application fee?</span>
+                                <i data-lucide="chevron-down" class="w-5 h-5 text-slate-400 transform transition-transform duration-200"></i>
+                            </button>
+                            <div class="hidden px-5 pb-4 text-slate-600 text-sm">
+                                No, applying for the scholarship itself is free. However, there may be an application fee for the university admission process depending on the department.
+                            </div>
+                        </div>
+                        <!-- FAQ Item 2 -->
+                        <div class="border border-slate-200 rounded-lg">
+                            <button onclick="toggleFaq(this)" class="w-full px-5 py-4 text-left flex justify-between items-center focus:outline-none">
+                                <span class="font-medium text-slate-700">Can I apply if I am in my final year of Bachelor's?</span>
+                                <i data-lucide="chevron-down" class="w-5 h-5 text-slate-400 transform transition-transform duration-200"></i>
+                            </button>
+                            <div class="hidden px-5 pb-4 text-slate-600 text-sm">
+                                Yes, you can apply with your provisional transcripts. If selected, the offer will be conditional upon achieving the required final grades.
+                            </div>
+                        </div>
+                         <!-- FAQ Item 3 -->
+                        <div class="border border-slate-200 rounded-lg">
+                            <button onclick="toggleFaq(this)" class="w-full px-5 py-4 text-left flex justify-between items-center focus:outline-none">
+                                <span class="font-medium text-slate-700">Are part-time courses eligible?</span>
+                                <i data-lucide="chevron-down" class="w-5 h-5 text-slate-400 transform transition-transform duration-200"></i>
+                            </button>
+                            <div class="hidden px-5 pb-4 text-slate-600 text-sm">
+                                No, this specific scholarship is only available for full-time, on-campus Master's programs.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Right Column: Sidebar -->
+            <div class="space-y-6">
+                
+                <!-- At a Glance Card (Non-sticky) -->
+                <div class="bg-white p-6 rounded-2xl shadow-lg border border-slate-100">
+                    <h3 class="text-lg font-bold text-slate-900 mb-4 border-b border-slate-100 pb-2">At a Glance</h3>
+                    
+                    <div class="space-y-4 mb-6">
+                        <div class="flex items-start gap-3">
+                            <div class="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center text-red-500 shrink-0">
+                                <i data-lucide="calendar" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <p class="text-xs text-slate-500 uppercase font-semibold">Deadline</p>
+                                <p class="text-slate-900 font-medium">May 15, 2026</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-start gap-3">
+                            <div class="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center text-green-500 shrink-0">
+                                <i data-lucide="dollar-sign" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <p class="text-xs text-slate-500 uppercase font-semibold">Funding</p>
+                                <p class="text-slate-900 font-medium">Full Tuition + Stipend</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-start gap-3">
+                            <div class="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-500 shrink-0">
+                                <i data-lucide="graduation-cap" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <p class="text-xs text-slate-500 uppercase font-semibold">Level</p>
+                                <p class="text-slate-900 font-medium">Master's Degree</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button onclick="openModal()" class="block w-full bg-brand-600 hover:bg-brand-700 text-white text-center font-semibold py-3 rounded-lg shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5 mb-3">
+                        Apply Now
+                    </button>
+                    <p class="text-xs text-center text-slate-400">Complete application in 5 minutes</p>
+                </div>
+
+                <!-- Advertisement Section -->
+                <div class="ad-pattern rounded-2xl p-6 border border-slate-200 text-center relative overflow-hidden group cursor-pointer">
+                    <div class="absolute top-2 right-2 bg-white/80 backdrop-blur text-[10px] px-2 py-0.5 rounded text-slate-400 border border-slate-200">Ad</div>
+                    <div class="relative z-10">
+                        <div class="w-12 h-12 bg-indigo-600 text-white rounded-lg flex items-center justify-center mx-auto mb-3 shadow-lg group-hover:scale-110 transition-transform">
+                            <i data-lucide="globe" class="w-6 h-6"></i>
+                        </div>
+                        <h4 class="font-bold text-slate-900 mb-1">Study Abroad Consultant</h4>
+                        <p class="text-sm text-slate-600 mb-4">Get expert guidance on your visa and application process.</p>
+                        <button class="text-xs font-semibold text-indigo-600 hover:text-indigo-700 bg-white border border-indigo-200 px-4 py-2 rounded-full hover:bg-indigo-50 transition-colors">Book Free Session</button>
+                    </div>
+                </div>
+
+                <!-- Related Scholarships -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-bold text-slate-900">Similar Scholarships</h3>
+                        <a href="#" class="text-xs text-brand-600 font-medium hover:underline">View All</a>
+                    </div>
+                    <ul class="space-y-4">
+                        <li class="pb-4 border-b border-slate-100 last:border-0 last:pb-0">
+                            <a href="#" class="group block">
+                                <span class="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded mb-1 inline-block">Ending Soon</span>
+                                <h4 class="text-sm font-semibold text-slate-800 group-hover:text-brand-600 transition-colors line-clamp-2">Chevening Scholarship UK 2026</h4>
+                                <p class="text-xs text-slate-500 mt-1">Deadline: Nov 2025</p>
+                            </a>
+                        </li>
+                        <li class="pb-4 border-b border-slate-100 last:border-0 last:pb-0">
+                            <a href="#" class="group block">
+                                <h4 class="text-sm font-semibold text-slate-800 group-hover:text-brand-600 transition-colors line-clamp-2">Fulbright Foreign Student Program USA</h4>
+                                <p class="text-xs text-slate-500 mt-1">Deadline: Oct 2025</p>
+                            </a>
+                        </li>
+                         <li class="pb-4 border-b border-slate-100 last:border-0 last:pb-0">
+                            <a href="#" class="group block">
+                                <h4 class="text-sm font-semibold text-slate-800 group-hover:text-brand-600 transition-colors line-clamp-2">Erasmus Mundus Joint Masters</h4>
+                                <p class="text-xs text-slate-500 mt-1">Deadline: Feb 2026</p>
+                            </a>
+                        </li>
+                         <li class="pb-4 border-b border-slate-100 last:border-0 last:pb-0">
+                            <a href="#" class="group block">
+                                <h4 class="text-sm font-semibold text-slate-800 group-hover:text-brand-600 transition-colors line-clamp-2">DAAD Scholarship Germany</h4>
+                                <p class="text-xs text-slate-500 mt-1">Deadline: Dec 2025</p>
+                            </a>
+                        </li>
+                        <li class="pb-4 border-b border-slate-100 last:border-0 last:pb-0">
+                            <a href="#" class="group block">
+                                <h4 class="text-sm font-semibold text-slate-800 group-hover:text-brand-600 transition-colors line-clamp-2">Australia Awards Scholarships</h4>
+                                <p class="text-xs text-slate-500 mt-1">Deadline: Apr 2026</p>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
+                 <!-- Advertisement Section 2 (Banner Style) -->
+                <div class="rounded-2xl overflow-hidden border border-slate-200 shadow-sm relative group cursor-pointer h-64">
+                    <img src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&q=80" alt="Ad" class="w-full h-full object-cover">
+                    <div class="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-center p-4">
+                        <span class="text-[10px] text-white/70 border border-white/30 px-2 rounded mb-2 uppercase">Sponsored</span>
+                        <h4 class="text-white font-bold text-xl mb-2">Learn Python in 30 Days</h4>
+                        <button class="bg-brand-500 hover:bg-brand-600 text-white text-sm px-4 py-2 rounded-lg mt-2">Start Learning</button>
+                    </div>
+                </div>
+
+                <!-- New Campus Life Images Widget -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <h3 class="font-bold text-slate-900 mb-4">Campus Life</h3>
+                    <div class="grid grid-cols-2 gap-2">
+                        <img src="https://images.unsplash.com/photo-1525921429612-e86051f445a7?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80" alt="Library" class="rounded-lg object-cover h-24 w-full">
+                        <img src="https://images.unsplash.com/photo-1498243691581-b145c3f54a5a?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80" alt="Students" class="rounded-lg object-cover h-24 w-full">
+                        <img src="https://images.unsplash.com/photo-1541339907198-e08756dedf3f?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80" alt="Campus" class="rounded-lg object-cover h-24 w-full">
+                        <img src="https://images.unsplash.com/photo-1523240795612-9a054b0db644?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80" alt="Seminar" class="rounded-lg object-cover h-24 w-full">
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <!-- Application Modal (Refined UI) -->
+    <div id="applicationModal" class="fixed inset-0 z-[100] hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <!-- Backdrop -->
+        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onclick="closeModal()"></div>
+
+        <!-- Modal Panel -->
+        <div class="fixed inset-0 z-10 overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
+                <div class="relative w-full max-w-6xl bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col md:flex-row h-[90vh] transition-all transform border border-slate-100">
+                    
+                    <!-- Sidebar (Progress) -->
+                    <div class="w-full md:w-1/3 bg-slate-50 border-r border-slate-200 p-8 hidden md:flex flex-col flex-shrink-0 relative overflow-hidden">
+                       <!-- Decorative bg -->
+                       <div class="absolute top-0 right-0 w-64 h-64 bg-brand-50 rounded-full blur-3xl -z-10 translate-x-1/2 -translate-y-1/2"></div>
+
+                       <div class="mb-10">
+                           <div class="flex items-center gap-2 text-brand-600 mb-2">
+                               <div class="w-8 h-8 bg-white rounded-lg flex items-center justify-center shadow-sm border border-brand-100">
+                                   <i data-lucide="graduation-cap" class="w-5 h-5"></i>
+                               </div>
+                               <span class="font-bold text-xl tracking-tight text-slate-900">ScholarHub</span>
+                           </div>
+                           <h2 class="text-2xl font-bold text-slate-900 mt-6 leading-tight">Complete your<br>application</h2>
+                           <p class="text-sm text-slate-500 mt-2">Follow the steps to submit your request.</p>
+                       </div>
+                       
+                       <!-- Stepper -->
+                       <div class="space-y-0 relative pl-2 mt-4">
+                           <!-- Step 1 -->
+                           <div class="step-item relative pb-12 flex gap-5 group cursor-pointer" onclick="goToStep(1)">
+                               <div class="step-line"></div>
+                               <div id="nav-step-1-circle" class="w-8 h-8 rounded-full bg-brand-600 text-white flex items-center justify-center shadow-md shadow-brand-500/30 z-10 transition-colors">
+                                   <i data-lucide="user" class="w-4 h-4"></i>
+                               </div>
+                               <div class="pt-1">
+                                   <p id="nav-step-1-text" class="text-sm font-bold text-slate-900">Personal Details</p>
+                                   <p class="text-xs text-slate-500 mt-0.5">Identity & Contact Info</p>
+                               </div>
+                           </div>
+                           <!-- Step 2 -->
+                           <div class="step-item relative pb-12 flex gap-5 group cursor-pointer" onclick="goToStep(2)">
+                               <div class="step-line"></div>
+                               <div id="nav-step-2-circle" class="w-8 h-8 rounded-full bg-white border border-slate-300 text-slate-400 flex items-center justify-center z-10 transition-colors shadow-sm">
+                                   <span class="font-medium text-sm">2</span>
+                               </div>
+                               <div class="pt-1">
+                                   <p id="nav-step-2-text" class="text-sm font-medium text-slate-500">Background</p>
+                                   <p class="text-xs text-slate-400 mt-0.5">Education & Finance</p>
+                               </div>
+                           </div>
+                           <!-- Step 3 -->
+                           <div class="step-item relative pb-12 flex gap-5 group cursor-pointer" onclick="goToStep(3)">
+                               <div class="step-line"></div>
+                               <div id="nav-step-3-circle" class="w-8 h-8 rounded-full bg-white border border-slate-300 text-slate-400 flex items-center justify-center z-10 transition-colors shadow-sm">
+                                   <span class="font-medium text-sm">3</span>
+                               </div>
+                               <div class="pt-1">
+                                   <p id="nav-step-3-text" class="text-sm font-medium text-slate-500">Statement</p>
+                                   <p class="text-xs text-slate-400 mt-0.5">Essay & Documents</p>
+                               </div>
+                           </div>
+                           <!-- Step 4 -->
+                           <div class="step-item relative flex gap-5 group cursor-pointer" onclick="goToStep(4)">
+                               <div class="step-line"></div>
+                               <div id="nav-step-4-circle" class="w-8 h-8 rounded-full bg-white border border-slate-300 text-slate-400 flex items-center justify-center z-10 transition-colors shadow-sm">
+                                   <span class="font-medium text-sm">4</span>
+                               </div>
+                               <div class="pt-1">
+                                   <p id="nav-step-4-text" class="text-sm font-medium text-slate-500">Review</p>
+                                   <p class="text-xs text-slate-400 mt-0.5">Final Check</p>
+                               </div>
+                           </div>
+                       </div>
+                       
+                       <div class="mt-auto">
+                           <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex items-center gap-3">
+                               <div class="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
+                                   <i data-lucide="help-circle" class="w-5 h-5"></i>
+                               </div>
+                               <div>
+                                   <p class="text-xs font-bold text-slate-900">Need Help?</p>
+                                   <p class="text-[10px] text-slate-500">Contact our support team</p>
+                               </div>
+                           </div>
+                       </div>
+                    </div>
+
+                    <!-- Main Content Form Area -->
+                    <div class="flex-1 flex flex-col h-full relative bg-slate-50/50">
+                        
+                        <!-- Mobile Header -->
+                        <div class="md:hidden flex items-center justify-between p-4 border-b border-slate-200 bg-white">
+                            <span class="font-bold text-slate-900">Application</span>
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-full font-medium">Step <span id="mobile-step-num">1</span>/4</span>
+                                <button onclick="closeModal()" class="p-1"><i data-lucide="x" class="w-5 h-5 text-slate-400"></i></button>
+                            </div>
+                        </div>
+
+                        <!-- Desktop Close Button -->
+                        <div class="hidden md:block absolute top-6 right-6 z-20">
+                            <button onclick="closeModal()" class="p-2 bg-white hover:bg-slate-50 rounded-full text-slate-400 hover:text-slate-600 transition-colors shadow-sm border border-slate-100">
+                                <i data-lucide="x" class="w-5 h-5"></i>
+                            </button>
+                        </div>
+
+                        <!-- Scrollable Form Container -->
+                        <div class="flex-1 overflow-y-auto p-6 md:p-12" id="form-container">
+                            <form onsubmit="event.preventDefault();" id="wizard-form" class="max-w-3xl mx-auto space-y-6 mt-2">
+                                
+                                <!-- Step 1: Personal Details -->
+                                <div id="step-1" class="form-step fade-in">
+                                    <div class="form-card">
+                                        <div class="flex items-center gap-3 mb-6 border-b border-slate-50 pb-4">
+                                            <div class="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
+                                                <i data-lucide="fingerprint" class="w-4 h-4"></i>
+                                            </div>
+                                            <h3 class="font-bold text-slate-900">Identity Verification</h3>
+                                        </div>
+                                        <div class="mb-4">
+                                            <label class="label-dnb">National ID / Passport Number</label>
+                                            <div class="relative">
+                                                <i data-lucide="credit-card" class="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400"></i>
+                                                <input type="text" class="input-dnb pl-10" value="01010102302" placeholder="ID Number">
+                                            </div>
+                                            <p class="text-[10px] text-slate-400 mt-1.5 ml-1 flex items-center gap-1"><i data-lucide="info" class="w-3 h-3"></i> Verification required for eligibility</p>
+                                        </div>
+                                    </div>
+
+                                    <div class="form-card">
+                                        <div class="flex items-center gap-3 mb-6 border-b border-slate-50 pb-4">
+                                            <div class="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center text-purple-600">
+                                                <i data-lucide="user" class="w-4 h-4"></i>
+                                            </div>
+                                            <h3 class="font-bold text-slate-900">Personal Information</h3>
+                                        </div>
+                                        
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
+                                            <div>
+                                                <label class="label-dnb">First Name</label>
+                                                <input type="text" class="input-dnb" placeholder="e.g. John">
+                                            </div>
+                                            <div>
+                                                <label class="label-dnb">Last Name</label>
+                                                <input type="text" class="input-dnb" placeholder="e.g. Doe">
+                                            </div>
+                                        </div>
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-2">
+                                            <div>
+                                                <label class="label-dnb">Date of Birth</label>
+                                                <input type="date" class="input-dnb">
+                                            </div>
+                                            <div>
+                                                <label class="label-dnb">Gender</label>
+                                                <select class="input-dnb text-slate-600">
+                                                    <option>Select...</option>
+                                                    <option>Male</option>
+                                                    <option>Female</option>
+                                                    <option>Other</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="form-card">
+                                        <div class="flex items-center gap-3 mb-6 border-b border-slate-50 pb-4">
+                                            <div class="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center text-orange-600">
+                                                <i data-lucide="map-pin" class="w-4 h-4"></i>
+                                            </div>
+                                            <h3 class="font-bold text-slate-900">Address & Contact</h3>
+                                        </div>
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+                                            <div>
+                                                <label class="label-dnb">Street Address</label>
+                                                <input type="text" class="input-dnb" placeholder="House No, Street">
+                                            </div>
+                                            <div>
+                                                <label class="label-dnb">City / District</label>
+                                                <input type="text" class="input-dnb" placeholder="City">
+                                            </div>
+                                        </div>
+                                        <div class="grid grid-cols-3 gap-5 mb-6">
+                                            <div class="col-span-1">
+                                                <label class="label-dnb">Post Code</label>
+                                                <input type="text" class="input-dnb" placeholder="Zip">
+                                            </div>
+                                            <div class="col-span-2">
+                                                <label class="label-dnb">Country</label>
+                                                <select class="input-dnb text-slate-600">
+                                                    <option>Select Country</option>
+                                                    <option>Nepal</option>
+                                                    <option>United Kingdom</option>
+                                                    <option>USA</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div class="flex gap-5 mb-5">
+                                            <div class="w-28">
+                                                <label class="label-dnb">Code</label>
+                                                <div class="input-dnb flex items-center justify-center bg-slate-50 text-slate-500 font-medium">
+                                                    +977
+                                                </div>
+                                            </div>
+                                            <div class="flex-1 relative">
+                                                <label class="label-dnb">Phone Number</label>
+                                                <input type="tel" class="input-dnb pl-10" placeholder="9800000000">
+                                                <i data-lucide="phone" class="absolute left-3.5 top-[34px] w-4 h-4 text-slate-400"></i>
+                                            </div>
+                                        </div>
+                                        <div class="relative">
+                                            <label class="label-dnb">Email Address</label>
+                                            <input type="email" class="input-dnb pl-10" placeholder="john@example.com">
+                                            <i data-lucide="mail" class="absolute left-3.5 top-[34px] w-4 h-4 text-slate-400"></i>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Step 2: Background -->
+                                <div id="step-2" class="form-step hidden fade-in">
+                                    <div class="form-card">
+                                        <div class="flex items-center gap-3 mb-6 border-b border-slate-50 pb-4">
+                                            <div class="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
+                                                <i data-lucide="book-open" class="w-4 h-4"></i>
+                                            </div>
+                                            <h3 class="font-bold text-slate-900">Academic Background</h3>
+                                        </div>
+                                        
+                                        <div class="mb-5">
+                                            <label class="label-dnb">Latest Institution</label>
+                                            <input type="text" class="input-dnb" placeholder="University / College Name">
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-5">
+                                            <div>
+                                                <label class="label-dnb">Level Completed</label>
+                                                <input type="text" class="input-dnb" placeholder="e.g. Bachelor's">
+                                            </div>
+                                            <div>
+                                                <label class="label-dnb">GPA / Percentage</label>
+                                                <input type="text" class="input-dnb" placeholder="e.g. 3.8 or 85%">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="form-card">
+                                        <div class="flex items-center gap-3 mb-6 border-b border-slate-50 pb-4">
+                                            <div class="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center text-green-600">
+                                                <i data-lucide="banknote" class="w-4 h-4"></i>
+                                            </div>
+                                            <h3 class="font-bold text-slate-900">Financial Information</h3>
+                                        </div>
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                            <div>
+                                                <label class="label-dnb">Annual Family Income</label>
+                                                <input type="text" class="input-dnb" placeholder="Amount in local currency">
+                                            </div>
+                                            <div>
+                                                <label class="label-dnb">Primary Income Source</label>
+                                                <input type="text" class="input-dnb" placeholder="e.g. Agriculture">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="form-card">
+                                        <div class="flex items-center gap-3 mb-6 border-b border-slate-50 pb-4">
+                                            <div class="w-8 h-8 rounded-lg bg-rose-50 flex items-center justify-center text-rose-600">
+                                                <i data-lucide="heart-handshake" class="w-4 h-4"></i>
+                                            </div>
+                                            <h3 class="font-bold text-slate-900">Special Circumstances</h3>
+                                        </div>
+                                        <div class="space-y-3">
+                                            <label class="flex items-center gap-3 p-3 border border-slate-200 rounded-lg cursor-pointer hover:border-brand-300 hover:bg-slate-50 transition-colors">
+                                                <input type="checkbox" class="w-4 h-4 text-brand-600 rounded border-slate-300 focus:ring-brand-500">
+                                                <span class="text-sm text-slate-700 font-medium">Single Parent / Orphan</span>
+                                            </label>
+                                            <label class="flex items-center gap-3 p-3 border border-slate-200 rounded-lg cursor-pointer hover:border-brand-300 hover:bg-slate-50 transition-colors">
+                                                <input type="checkbox" class="w-4 h-4 text-brand-600 rounded border-slate-300 focus:ring-brand-500">
+                                                <span class="text-sm text-slate-700 font-medium">Financially Disadvantaged</span>
+                                            </label>
+                                            <label class="flex items-center gap-3 p-3 border border-slate-200 rounded-lg cursor-pointer hover:border-brand-300 hover:bg-slate-50 transition-colors">
+                                                <input type="checkbox" class="w-4 h-4 text-brand-600 rounded border-slate-300 focus:ring-brand-500">
+                                                <span class="text-sm text-slate-700 font-medium">Person with Disability</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Step 3: Statement & Docs -->
+                                <div id="step-3" class="form-step hidden fade-in">
+                                    <div class="form-card">
+                                        <div class="flex items-center gap-3 mb-6 border-b border-slate-50 pb-4">
+                                            <div class="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center text-amber-600">
+                                                <i data-lucide="pen-tool" class="w-4 h-4"></i>
+                                            </div>
+                                            <h3 class="font-bold text-slate-900">Personal Statement</h3>
+                                        </div>
+                                        <div class="mb-2">
+                                            <label class="label-dnb">Why this scholarship?</label>
+                                            <textarea rows="6" class="input-dnb resize-none leading-relaxed" placeholder="Explain your motivation, academic goals, and how this scholarship will help you achieve them. (Max 300 words)"></textarea>
+                                        </div>
+                                    </div>
+
+                                    <div class="form-card">
+                                        <div class="flex items-center gap-3 mb-6 border-b border-slate-50 pb-4">
+                                            <div class="w-8 h-8 rounded-lg bg-cyan-50 flex items-center justify-center text-cyan-600">
+                                                <i data-lucide="upload-cloud" class="w-4 h-4"></i>
+                                            </div>
+                                            <h3 class="font-bold text-slate-900">Upload Documents</h3>
+                                        </div>
+                                        <div class="space-y-4">
+                                            <div class="flex items-center justify-between p-4 border border-slate-200 rounded-xl bg-slate-50 hover:bg-white hover:border-brand-200 transition-colors group cursor-pointer">
+                                                <div class="flex items-center gap-3">
+                                                    <div class="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-400 group-hover:text-brand-500 group-hover:border-brand-200">
+                                                        <i data-lucide="file-text" class="w-5 h-5"></i>
+                                                    </div>
+                                                    <div>
+                                                        <span class="block text-sm font-bold text-slate-700 group-hover:text-brand-700">Academic Transcripts</span>
+                                                        <span class="text-[10px] text-slate-400 uppercase tracking-wide">PDF Max 5MB</span>
+                                                    </div>
+                                                </div>
+                                                <button type="button" class="text-xs font-bold text-brand-600 uppercase bg-white border border-brand-200 px-3 py-1.5 rounded-lg shadow-sm group-hover:bg-brand-50">Select</button>
+                                            </div>
+
+                                            <div class="flex items-center justify-between p-4 border border-slate-200 rounded-xl bg-slate-50 hover:bg-white hover:border-brand-200 transition-colors group cursor-pointer">
+                                                <div class="flex items-center gap-3">
+                                                    <div class="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-400 group-hover:text-brand-500 group-hover:border-brand-200">
+                                                        <i data-lucide="user-check" class="w-5 h-5"></i>
+                                                    </div>
+                                                    <div>
+                                                        <span class="block text-sm font-bold text-slate-700 group-hover:text-brand-700">CV / Resume</span>
+                                                        <span class="text-[10px] text-slate-400 uppercase tracking-wide">PDF Max 5MB</span>
+                                                    </div>
+                                                </div>
+                                                <button type="button" class="text-xs font-bold text-brand-600 uppercase bg-white border border-brand-200 px-3 py-1.5 rounded-lg shadow-sm group-hover:bg-brand-50">Select</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Step 4: Review & Submit -->
+                                <div id="step-4" class="form-step hidden fade-in">
+                                    <div class="bg-white p-8 rounded-xl border border-slate-200 text-center mb-8 shadow-sm">
+                                        <div class="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-4 text-green-600">
+                                            <i data-lucide="check-circle" class="w-8 h-8"></i>
+                                        </div>
+                                        <h3 class="text-xl font-bold text-slate-900 mb-2">Ready to Submit?</h3>
+                                        <p class="text-slate-500 text-sm max-w-sm mx-auto">Please review your details below. Once submitted, you cannot make changes to your application.</p>
+                                    </div>
+                                    
+                                    <div class="form-card">
+                                        <h4 class="label-dnb border-b border-slate-100 pb-2 mb-4">Summary</h4>
+                                        <dl class="space-y-4 text-sm">
+                                            <div class="flex justify-between items-center">
+                                                <dt class="text-slate-500 font-medium">Applicant Name</dt>
+                                                <dd class="font-bold text-slate-900">John Doe</dd>
+                                            </div>
+                                            <div class="flex justify-between items-center">
+                                                <dt class="text-slate-500 font-medium">Email Address</dt>
+                                                <dd class="font-bold text-slate-900">john@example.com</dd>
+                                            </div>
+                                            <div class="flex justify-between items-center">
+                                                <dt class="text-slate-500 font-medium">Program</dt>
+                                                <dd class="font-bold text-slate-900">Masters in CS</dd>
+                                            </div>
+                                            <div class="flex justify-between items-center">
+                                                <dt class="text-slate-500 font-medium">Documents</dt>
+                                                <dd class="font-bold text-green-600 flex items-center gap-1"><i data-lucide="check" class="w-3 h-3"></i> 2 Uploaded</dd>
+                                            </div>
+                                        </dl>
+                                    </div>
+
+                                    <div class="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                                        <label class="flex items-start gap-3 cursor-pointer">
+                                            <input type="checkbox" required class="mt-1 w-5 h-5 text-brand-600 rounded border-slate-300 focus:ring-brand-500">
+                                            <span class="text-sm text-slate-600 leading-relaxed font-medium">
+                                                I confirm that the information provided in this application is true and accurate. I understand that any false information may lead to disqualification.
+                                            </span>
+                                        </label>
+                                    </div>
+                                </div>
+
+                            </form>
+                        </div>
+
+                        <!-- Footer (Next Button) -->
+                        <div class="bg-white p-5 md:px-12 md:py-6 flex justify-end items-center border-t border-slate-100 z-20 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.05)]">
+                            <button id="prevBtn" onclick="nextPrev(-1)" class="mr-4 px-6 py-2.5 text-sm font-bold text-slate-500 hover:text-slate-800 transition-colors hidden uppercase tracking-wide">
+                                Back
+                            </button>
+                            <button id="nextBtn" onclick="nextPrev(1)" class="bg-brand-600 hover:bg-brand-700 text-white font-bold text-sm px-10 py-3 rounded-xl shadow-lg shadow-brand-500/30 transition-all transform hover:-translate-y-0.5 uppercase tracking-wide flex items-center gap-2">
+                                Next Step
+                            </button>
+                        </div>
+
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Icons
+        lucide.createIcons();
+
+        // --- Main Page Logic ---
+        function switchTab(tabName) {
+            const contents = document.getElementsByClassName('tab-content');
+            for(let content of contents) {
+                content.classList.add('hidden');
+                content.classList.remove('block', 'fade-in');
+            }
+            const selectedContent = document.getElementById(tabName);
+            selectedContent.classList.remove('hidden');
+            selectedContent.classList.add('block', 'fade-in');
+
+            const tabs = document.querySelectorAll('nav[aria-label="Tabs"] button');
+            tabs.forEach(tab => {
+                tab.classList.remove('border-brand-600', 'text-brand-600');
+                tab.classList.add('border-transparent', 'text-slate-500');
+            });
+            const activeTab = document.getElementById(`tab-${tabName}`);
+            activeTab.classList.remove('border-transparent', 'text-slate-500');
+            activeTab.classList.add('border-brand-600', 'text-brand-600');
+        }
+
+        function toggleFaq(button) {
+            const content = button.nextElementSibling;
+            const icon = button.querySelector('i');
+            if (content.classList.contains('hidden')) {
+                content.classList.remove('hidden');
+                icon.style.transform = 'rotate(180deg)';
+                button.classList.add('bg-slate-50');
+            } else {
+                content.classList.add('hidden');
+                icon.style.transform = 'rotate(0deg)';
+                button.classList.remove('bg-slate-50');
+            }
+        }
+
+        function toggleSave(btn) {
+            const icon = btn.querySelector('i');
+            const text = btn.querySelector('.save-text');
+            if (text.innerText === 'Save') {
+                icon.setAttribute('fill', 'currentColor');
+                icon.classList.add('text-brand-600');
+                btn.classList.add('border-brand-200', 'bg-brand-50');
+                text.innerText = 'Saved';
+            } else {
+                icon.setAttribute('fill', 'none');
+                icon.classList.remove('text-brand-600');
+                btn.classList.remove('border-brand-200', 'bg-brand-50');
+                text.innerText = 'Save';
+            }
+        }
+
+        // --- Application Modal Wizard Logic ---
+        let currentStep = 1;
+        const totalSteps = 4;
+
+        function openModal() {
+            document.getElementById('applicationModal').classList.remove('hidden');
+            showStep(currentStep);
+        }
+
+        function closeModal() {
+            document.getElementById('applicationModal').classList.add('hidden');
+        }
+
+        function showStep(n) {
+            // Hide all steps
+            const steps = document.getElementsByClassName("form-step");
+            for (let i = 0; i < steps.length; i++) {
+                steps[i].classList.add("hidden");
+            }
+            // Show current
+            document.getElementById(`step-${n}`).classList.remove("hidden");
+            
+            // Update Sidebar Navigation
+            updateNav(n);
+            
+            // Update Buttons
+            const prevBtn = document.getElementById("prevBtn");
+            const nextBtn = document.getElementById("nextBtn");
+            
+            if (n == 1) {
+                prevBtn.classList.add("hidden");
+            } else {
+                prevBtn.classList.remove("hidden");
+            }
+            
+            if (n == totalSteps) {
+                nextBtn.innerHTML = 'Submit Application';
+            } else {
+                nextBtn.innerHTML = 'Next Step';
+            }
+
+            // Update Mobile Step Counter
+            document.getElementById("mobile-step-num").innerText = n;
+            
+            // Re-initialize icons
+            lucide.createIcons();
+            
+            // Scroll to top of form
+            document.getElementById("form-container").scrollTop = 0;
+        }
+
+        function nextPrev(n) {
+            if (currentStep == totalSteps && n == 1) {
+                submitFinal();
+                return;
+            }
+            currentStep = currentStep + n;
+            if (currentStep > totalSteps) currentStep = totalSteps;
+            if (currentStep < 1) currentStep = 1;
+            showStep(currentStep);
+        }
+        
+        function goToStep(n) {
+            currentStep = n;
+            showStep(n);
+        }
+
+        function updateNav(n) {
+            for (let i = 1; i <= totalSteps; i++) {
+                const circle = document.getElementById(`nav-step-${i}-circle`);
+                
+                // Reset basic styles
+                circle.className = "w-8 h-8 rounded-full flex items-center justify-center z-10 transition-all duration-300 shadow-sm";
+                
+                if (i < n) {
+                    // Completed (Checkmark)
+                    circle.classList.add("bg-green-500", "text-white");
+                    circle.innerHTML = '<i data-lucide="check" class="w-4 h-4"></i>';
+                } else if (i == n) {
+                    // Active (Filled Icon)
+                    circle.classList.add("bg-brand-600", "text-white", "ring-4", "ring-brand-100");
+                    // Keep original icon logic based on step index
+                    if(i===1) circle.innerHTML = '<i data-lucide="user" class="w-4 h-4"></i>';
+                    if(i===2) circle.innerHTML = '<i data-lucide="book-open" class="w-4 h-4"></i>';
+                    if(i===3) circle.innerHTML = '<i data-lucide="file-text" class="w-4 h-4"></i>';
+                    if(i===4) circle.innerHTML = '<i data-lucide="send" class="w-4 h-4"></i>';
+                } else {
+                    // Inactive (Grey)
+                    circle.classList.add("bg-white", "border", "border-slate-300", "text-slate-400");
+                    circle.innerHTML = i;
+                }
+            }
+        }
+
+        function submitFinal() {
+            const nextBtn = document.getElementById("nextBtn");
+            const originalText = nextBtn.innerHTML;
+            
+            nextBtn.innerHTML = 'Sending...';
+            nextBtn.disabled = true;
+            nextBtn.classList.add('opacity-75');
+            
+            setTimeout(() => {
+                nextBtn.innerHTML = 'Done!';
+                setTimeout(() => {
+                    closeModal();
+                    currentStep = 1;
+                    showStep(1);
+                    nextBtn.disabled = false;
+                    nextBtn.classList.remove('opacity-75');
+                    nextBtn.innerHTML = originalText;
+                    document.getElementById('wizard-form').reset();
+                }, 1000);
+            }, 1500);
+        }
+    </script>
+</body>
+</html>

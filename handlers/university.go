@@ -117,8 +117,25 @@ func GetUniversities(c *gin.Context) {
 
 	responses := make([]UniversityResponse, 0, len(universities))
 	for _, uni := range universities {
+		var mappingCollegeIDs []uint
+		if err := config.GetDB().
+			Model(&models.CollegeUniversityCourse{}).
+			Where("university_id = ?", uni.ID).
+			Distinct("college_id").
+			Pluck("college_id", &mappingCollegeIDs).Error; err != nil {
+			utils.ErrorResponse(c, 500, "Failed to fetch university college mappings")
+			return
+		}
+
 		var colleges []models.College
-		if err := config.GetDB().Where("university_id = ?", uni.ID).Find(&colleges).Error; err != nil {
+		query := config.GetDB().Model(&models.College{})
+		if len(mappingCollegeIDs) > 0 {
+			query = query.Where("id IN ?", mappingCollegeIDs)
+		} else {
+			query = query.Where("university_id = ?", uni.ID)
+		}
+
+		if err := query.Find(&colleges).Error; err != nil {
 			utils.ErrorResponse(c, 500, "Failed to fetch university colleges")
 			return
 		}
@@ -143,8 +160,25 @@ func GetUniversityByID(c *gin.Context) {
 		return
 	}
 
+	var mappingCollegeIDs []uint
+	if err := config.GetDB().
+		Model(&models.CollegeUniversityCourse{}).
+		Where("university_id = ?", uni.ID).
+		Distinct("college_id").
+		Pluck("college_id", &mappingCollegeIDs).Error; err != nil {
+		utils.ErrorResponse(c, 500, "Failed to fetch affiliated college mappings")
+		return
+	}
+
 	var colleges []models.College
-	if err := config.GetDB().Where("university_id = ?", uni.ID).Find(&colleges).Error; err != nil {
+	query := config.GetDB().Model(&models.College{})
+	if len(mappingCollegeIDs) > 0 {
+		query = query.Where("id IN ?", mappingCollegeIDs)
+	} else {
+		query = query.Where("university_id = ?", uni.ID)
+	}
+
+	if err := query.Find(&colleges).Error; err != nil {
 		utils.ErrorResponse(c, 500, "Failed to fetch affiliated colleges")
 		return
 	}

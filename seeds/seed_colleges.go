@@ -3,6 +3,7 @@ package seeds
 import (
 	"encoding/json"
 	"log"
+	"strings"
 
 	"studsphere/backend/config"
 	"studsphere/backend/models"
@@ -138,6 +139,37 @@ func marshalJSON(data interface{}) []byte {
 	return jsonData
 }
 
+func applyProfileFitDefaults(college *models.College) {
+	name := strings.ToLower(college.Name)
+
+	college.AcademicFitScore = 7
+	college.CampusLifeScore = 7
+	college.CareerFitScore = 7
+	college.BalancedFitScore = 7
+	college.ProfileTags = marshalJSON([]string{"balanced"})
+
+	switch {
+	case strings.Contains(name, "kusoe"):
+		college.AcademicFitScore = 10
+		college.CampusLifeScore = 7
+		college.CareerFitScore = 9
+		college.BalancedFitScore = 8
+		college.ProfileTags = marshalJSON([]string{"academic", "career", "balanced"})
+	case strings.Contains(name, "pulchowk"):
+		college.AcademicFitScore = 9
+		college.CampusLifeScore = 6
+		college.CareerFitScore = 8
+		college.BalancedFitScore = 7
+		college.ProfileTags = marshalJSON([]string{"academic", "career"})
+	case strings.Contains(name, "pokhara university school"):
+		college.AcademicFitScore = 8
+		college.CampusLifeScore = 9
+		college.CareerFitScore = 8
+		college.BalancedFitScore = 9
+		college.ProfileTags = marshalJSON([]string{"campus", "balanced", "career"})
+	}
+}
+
 func SeedColleges(db *gorm.DB) error {
 	// Check if colleges already exist
 	var count int64
@@ -147,6 +179,9 @@ func SeedColleges(db *gorm.DB) error {
 
 	if count > 0 {
 		log.Printf("Recreating colleges seed data. Existing records: %d", count)
+		if err := db.Unscoped().Where("1 = 1").Delete(&models.CollegeUniversityCourse{}).Error; err != nil {
+			return err
+		}
 		if err := db.Unscoped().Where("1 = 1").Delete(&models.College{}).Error; err != nil {
 			return err
 		}
@@ -154,8 +189,8 @@ func SeedColleges(db *gorm.DB) error {
 
 	colleges := []models.College{
 		{
-			Name:             "Kathmandu University",
-			FullName:         "Kathmandu University School of Engineering",
+			Name:             "KUSOE, Dhulikhel Campus",
+			FullName:         "Kathmandu University School of Engineering (KUSOE), Dhulikhel Campus",
 			Location:         "Kavre, Kathmandu Valley",
 			Affiliation:      "Kathmandu University",
 			CollegeType:      "Private",
@@ -166,11 +201,11 @@ func SeedColleges(db *gorm.DB) error {
 			Programs:         45,
 			Established:      "2000",
 			Students:         "15k+",
-			Description:      "Kathmandu University is a research university and leading educational institution in Nepal established in 2000 with a vision to provide world-class education.",
-			Website:          "ku.edu.np",
-			Email:            "info@ku.edu.np",
+			Description:      "KUSOE Dhulikhel Campus is a leading engineering school under Kathmandu University known for rigorous academics, labs, and research-driven learning.",
+			Website:          "soe.ku.edu.np",
+			Email:            "info@soe.ku.edu.np",
 			Phone:            "+977-1-6680000",
-			ImageURL:         "https://via.placeholder.com/300x200?text=Kathmandu+University",
+			ImageURL:         "https://via.placeholder.com/300x200?text=KUSOE+Dhulikhel",
 			FeaturedPrograms: marshalJSON([]string{"BCA", "BBA", "BSc in Computer Science"}),
 			Amenities:        marshalJSON([]string{"Labs", "Library", "Hostel", "Sports", "Cafeteria", "Wi-Fi"}),
 			Courses: marshalJSON([]Course{
@@ -258,8 +293,8 @@ func SeedColleges(db *gorm.DB) error {
 			}),
 		},
 		{
-			Name:             "Tribhuvan University",
-			FullName:         "Tribhuvan University Central Campus",
+			Name:             "Pulchowk Campus",
+			FullName:         "Institute of Engineering, Pulchowk Campus",
 			Location:         "Kathmandu",
 			Affiliation:      "Tribhuvan University",
 			CollegeType:      "Public",
@@ -270,11 +305,11 @@ func SeedColleges(db *gorm.DB) error {
 			Programs:         120,
 			Established:      "1959",
 			Students:         "120k+",
-			Description:      "Tribhuvan University is the oldest and largest university in Nepal, founded in 1959. It offers diverse programs across science, management, and humanities.",
-			Website:          "tu.edu.np",
-			Email:            "info@tu.edu.np",
+			Description:      "Pulchowk Campus is the flagship engineering campus under Tribhuvan University, recognized for technical education and competitive programs.",
+			Website:          "pcampus.edu.np",
+			Email:            "info@pcampus.edu.np",
 			Phone:            "+977-1-4411980",
-			ImageURL:         "https://via.placeholder.com/300x200?text=Tribhuvan+University",
+			ImageURL:         "https://via.placeholder.com/300x200?text=Pulchowk+Campus",
 			FeaturedPrograms: marshalJSON([]string{"Bachelor in Engineering", "Bachelor in Science", "Bachelor in Management"}),
 			Amenities:        marshalJSON([]string{"Labs", "Library", "Canteen", "Parking", "Sports"}),
 			Courses: marshalJSON([]Course{
@@ -351,8 +386,8 @@ func SeedColleges(db *gorm.DB) error {
 			}),
 		},
 		{
-			Name:             "Pokhara University",
-			FullName:         "Pokhara University Main Campus",
+			Name:             "Pokhara University School of Engineering",
+			FullName:         "Pokhara University School of Engineering, Lekhnath Campus",
 			Location:         "Pokhara",
 			Affiliation:      "Pokhara University",
 			CollegeType:      "Private",
@@ -363,11 +398,11 @@ func SeedColleges(db *gorm.DB) error {
 			Programs:         35,
 			Established:      "1997",
 			Students:         "25k+",
-			Description:      "Pokhara University is a leading private university in western Nepal offering quality education in engineering, management, and liberal arts.",
+			Description:      "Pokhara University School of Engineering, Lekhnath Campus offers applied engineering and technology programs with industry-focused training.",
 			Website:          "pu.edu.np",
-			Email:            "admissions@pu.edu.np",
+			Email:            "admissions.soe@pu.edu.np",
 			Phone:            "+977-61-555555",
-			ImageURL:         "https://via.placeholder.com/300x200?text=Pokhara+University",
+			ImageURL:         "https://via.placeholder.com/300x200?text=PU+School+of+Engineering",
 			FeaturedPrograms: marshalJSON([]string{"BE Engineering", "BBA", "BSc"}),
 			Amenities:        marshalJSON([]string{"Labs", "WiFi", "Cafeteria", "Sports", "Library"}),
 			Courses: marshalJSON([]Course{
@@ -455,6 +490,7 @@ func SeedColleges(db *gorm.DB) error {
 
 		college.UniversityID = university.ID
 		college.Affiliation = university.Name
+		applyProfileFitDefaults(&college)
 
 		if err := db.Create(&college).Error; err != nil {
 			log.Printf("Error creating college %s: %v", college.Name, err)
@@ -463,6 +499,100 @@ func SeedColleges(db *gorm.DB) error {
 	}
 
 	log.Println("Successfully seeded colleges with complete data")
+	return nil
+}
+
+func SeedCollegeUniversityCourseMappings(db *gorm.DB) error {
+	if err := db.Unscoped().Where("1 = 1").Delete(&models.CollegeUniversityCourse{}).Error; err != nil {
+		return err
+	}
+
+	var colleges []models.College
+	if err := db.Find(&colleges).Error; err != nil {
+		return err
+	}
+
+	var universities []models.University
+	if err := db.Find(&universities).Error; err != nil {
+		return err
+	}
+
+	var courses []models.Course
+	if err := db.Find(&courses).Error; err != nil {
+		return err
+	}
+
+	collegeByName := map[string]uint{}
+	for _, college := range colleges {
+		collegeByName[college.Name] = college.ID
+	}
+
+	universityByName := map[string]uint{}
+	for _, university := range universities {
+		universityByName[university.Name] = university.ID
+	}
+
+	courseByTitle := map[string]uint{}
+	for _, course := range courses {
+		courseByTitle[course.Title] = course.ID
+	}
+
+	type mappingSeed struct {
+		College    string
+		University string
+		Course     string
+		Status     string
+	}
+
+	mappings := []mappingSeed{
+		{College: "KUSOE, Dhulikhel Campus", University: "Kathmandu University", Course: "BIT (Bachelor in IT)", Status: "ongoing"},
+		{College: "KUSOE, Dhulikhel Campus", University: "Kathmandu University", Course: "B.Sc in Data Science & Artificial Intelligence", Status: "ongoing"},
+		{College: "KUSOE, Dhulikhel Campus", University: "Tribhuvan University", Course: "B.Sc CSIT (Computer Science & IT)", Status: "ongoing"},
+		{College: "Pulchowk Campus", University: "Tribhuvan University", Course: "B.Sc CSIT (Computer Science & IT)", Status: "ongoing"},
+		{College: "Pulchowk Campus", University: "Pokhara University", Course: "BIT (Bachelor in IT)", Status: "ongoing"},
+		{College: "Pulchowk Campus", University: "Kathmandu University", Course: "B.Sc in Data Science & Artificial Intelligence", Status: "ongoing"},
+		{College: "Pokhara University School of Engineering", University: "Pokhara University", Course: "BIT (Bachelor in IT)", Status: "ongoing"},
+		{College: "Pokhara University School of Engineering", University: "Tribhuvan University", Course: "B.Sc CSIT (Computer Science & IT)", Status: "ongoing"},
+		{College: "Pokhara University School of Engineering", University: "Kathmandu University", Course: "B.Sc in Data Science & Artificial Intelligence", Status: "ongoing"},
+	}
+
+	for _, item := range mappings {
+		collegeID, collegeOk := collegeByName[item.College]
+		universityID, universityOk := universityByName[item.University]
+		courseID, courseOk := courseByTitle[item.Course]
+		if !collegeOk || !universityOk || !courseOk {
+			continue
+		}
+
+		relation := models.CollegeUniversityCourse{
+			CollegeID:    collegeID,
+			UniversityID: universityID,
+			CourseID:     courseID,
+			Status:       item.Status,
+		}
+
+		if err := db.Create(&relation).Error; err != nil {
+			return err
+		}
+	}
+
+	for _, course := range courses {
+		var offeringCount int64
+		if err := db.Model(&models.CollegeUniversityCourse{}).
+			Distinct("college_id").
+			Where("course_id = ?", course.ID).
+			Count(&offeringCount).Error; err != nil {
+			return err
+		}
+
+		if err := db.Model(&models.Course{}).
+			Where("id = ?", course.ID).
+			Update("colleges_count", int(offeringCount)).Error; err != nil {
+			return err
+		}
+	}
+
+	log.Println("Successfully seeded college-university-course mappings")
 	return nil
 }
 
@@ -475,5 +605,26 @@ func Seed() error {
 	if err := SeedUniversities(db); err != nil {
 		return err
 	}
-	return SeedColleges(db)
+	if err := SeedCourses(db); err != nil {
+		return err
+	}
+	if err := SeedColleges(db); err != nil {
+		return err
+	}
+	if err := SeedCollegeUniversityCourseMappings(db); err != nil {
+		return err
+	}
+	if err := SeedExams(db); err != nil {
+		return err
+	}
+	if err := SeedNews(db); err != nil {
+		return err
+	}
+	if err := SeedEvents(db); err != nil {
+		return err
+	}
+	if err := SeedForum(); err != nil {
+		return err
+	}
+	return SeedScholarships(db)
 }
