@@ -53,6 +53,7 @@ type ForumComment struct {
 	User      User           `json:"user"`
 	Content   string         `gorm:"type:text;not null" json:"content"`
 	ParentID  *uint          `json:"parent_id"`
+	Replies   []ForumComment `gorm:"-" json:"replies"`
 }
 
 type ForumVote struct {

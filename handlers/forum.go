@@ -399,26 +399,37 @@ func GetForumPostComments(c *gin.Context) {
 	limit := c.DefaultQuery("limit", "10")
 	offset := c.DefaultQuery("offset", "0")
 
-	// Get total count of comments for the post
+	// Get total count of TOP-LEVEL comments for the post
 	var totalCount int64
-	config.GetDB().Model(&models.ForumComment{}).Where("post_id = ?", postID).Count(&totalCount)
+	config.GetDB().Model(&models.ForumComment{}).Where("post_id = ? AND parent_id IS NULL", postID).Count(&totalCount)
 
 	limitInt, _ := strconv.Atoi(limit)
 	offsetInt, _ := strconv.Atoi(offset)
 
-	var comments []models.ForumComment
+	// Get top-level comments paginated, oldest first
+	var topComments []models.ForumComment
 	if err := config.GetDB().Preload("User").
-		Where("post_id = ?", postID).
+		Where("post_id = ? AND parent_id IS NULL", postID).
 		Limit(limitInt).
 		Offset(offsetInt).
-		Order("created_at desc").
-		Find(&comments).Error; err != nil {
+		Order("created_at asc").
+		Find(&topComments).Error; err != nil {
 		utils.ErrorResponse(c, 500, "Failed to fetch comments")
 		return
 	}
 
+	// For each top-level comment, load its replies
+	for i := range topComments {
+		var replies []models.ForumComment
+		config.GetDB().Preload("User").
+			Where("parent_id = ?", topComments[i].ID).
+			Order("created_at asc").
+			Find(&replies)
+		topComments[i].Replies = replies
+	}
+
 	response := gin.H{
-		"comments":    comments,
+		"comments":    topComments,
 		"total_count": totalCount,
 	}
 
