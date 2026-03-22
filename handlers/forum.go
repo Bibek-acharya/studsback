@@ -1,21 +1,29 @@
 package handlers
 
 import (
+	"encoding/json"
+	"strconv"
 	"studsphere/backend/config"
 	"studsphere/backend/models"
 	"studsphere/backend/utils"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // GetForumPosts returns a list of all forum posts
 func GetForumPosts(c *gin.Context) {
 	var posts []models.ForumPost
-	query := config.GetDB().Preload("User")
+	query := config.GetDB().Preload("User").Preload("Community")
 
-	// Filter by category if provided
+	// Filter by category or community if provided
 	category := c.Query("category")
+	communityID := c.Query("community_id")
+
+	if communityID != "" {
+		query = query.Where("community_id = ?", communityID)
+	}
 
 	// Handle authentication for "Saved" category and virtual fields
 	authHeader := c.GetHeader("Authorization")
@@ -84,6 +92,52 @@ func GetForumPosts(c *gin.Context) {
 		}
 	}
 
+	// Populate poll results
+	pollPostIDs := []uint{}
+	for _, p := range posts {
+		if p.IsPoll {
+			pollPostIDs = append(pollPostIDs, p.ID)
+		}
+	}
+
+	if len(pollPostIDs) > 0 {
+		var allPollVotes []models.ForumPollVote
+		config.GetDB().Where("post_id IN ?", pollPostIDs).Find(&allPollVotes)
+		
+		pollMap := make(map[uint]map[int]int)
+		pollTotalMap := make(map[uint]int)
+		for _, v := range allPollVotes {
+			if _, ok := pollMap[v.PostID]; !ok {
+				pollMap[v.PostID] = make(map[int]int)
+			}
+			pollMap[v.PostID][v.OptionIdx]++
+			pollTotalMap[v.PostID]++
+		}
+		
+		myPollVoteMap := make(map[uint]int)
+		hasVotedMap := make(map[uint]bool)
+		if currentUserID != 0 {
+			var myPollVotes []models.ForumPollVote
+			config.GetDB().Where("post_id IN ? AND user_id = ?", pollPostIDs, currentUserID).Find(&myPollVotes)
+			for _, v := range myPollVotes {
+				myPollVoteMap[v.PostID] = v.OptionIdx
+				hasVotedMap[v.PostID] = true
+			}
+		}
+		
+		for i := range posts {
+			id := posts[i].ID
+			if posts[i].IsPoll {
+				posts[i].PollResults = pollMap[id]
+				posts[i].TotalVotes = pollTotalMap[id]
+				if hasVotedMap[id] {
+					opt := myPollVoteMap[id]
+					posts[i].VotedOption = &opt
+				}
+			}
+		}
+	}
+
 	utils.SuccessResponse(c, 200, "Posts retrieved successfully", posts)
 }
 
@@ -97,11 +151,18 @@ func CreateForumPost(c *gin.Context) {
 		return
 	}
 
+	pollOptionsJSON, _ := json.Marshal(req.PollOptions)
+
 	post := models.ForumPost{
-		UserID:   userID.(uint),
-		Category: req.Category,
-		Title:    req.Title,
-		Content:  req.Content,
+		UserID:      userID.(uint),
+		CommunityID: req.CommunityID,
+		Category:    req.Category,
+		Title:       req.Title,
+		Content:     req.Content,
+		ImageURL:    req.ImageURL,
+		VideoURL:    req.VideoURL,
+		PollOptions: string(pollOptionsJSON),
+		IsPoll:      req.IsPoll,
 	}
 
 	if err := config.GetDB().Create(&post).Error; err != nil {
@@ -109,10 +170,20 @@ func CreateForumPost(c *gin.Context) {
 		return
 	}
 
-	// Preload user for the response
-	config.GetDB().Preload("User").First(&post, post.ID)
+	// Preload user and community for the response
+	config.GetDB().Preload("User").Preload("Community").First(&post, post.ID)
 
 	utils.SuccessResponse(c, 201, "Post created successfully", post)
+}
+
+// GetForumCommunities returns a list of available forum communities
+func GetForumCommunities(c *gin.Context) {
+	var communities []models.ForumCommunity
+	if err := config.GetDB().Find(&communities).Error; err != nil {
+		utils.ErrorResponse(c, 500, "Failed to fetch communities")
+		return
+	}
+	utils.SuccessResponse(c, 200, "Communities retrieved successfully", communities)
 }
 
 // UpdateForumPost updates an existing post
@@ -223,7 +294,14 @@ func LikeForumPost(c *gin.Context) {
 		post.IsLiked = true
 	}
 
-	config.GetDB().Save(&post)
+	if err := config.GetDB().Model(&post).Updates(map[string]interface{}{
+		"upvotes":   post.Upvotes,
+		"downvotes": post.Downvotes,
+	}).Error; err != nil {
+		utils.ErrorResponse(c, 500, "Failed to update post votes")
+		return
+	}
+
 	utils.SuccessResponse(c, 200, "Post liked successfully", post)
 }
 
@@ -273,7 +351,14 @@ func DislikeForumPost(c *gin.Context) {
 		post.IsDisliked = true
 	}
 
-	config.GetDB().Save(&post)
+	if err := config.GetDB().Model(&post).Updates(map[string]interface{}{
+		"upvotes":   post.Upvotes,
+		"downvotes": post.Downvotes,
+	}).Error; err != nil {
+		utils.ErrorResponse(c, 500, "Failed to update post votes")
+		return
+	}
+
 	utils.SuccessResponse(c, 200, "Post disliked successfully", post)
 }
 
@@ -308,20 +393,39 @@ func SaveForumPost(c *gin.Context) {
 	utils.SuccessResponse(c, 200, "Post save status updated", post)
 }
 
-// GetForumPostComments returns comments for a specific post
+// GetForumPostComments returns a list of comments for a given post
 func GetForumPostComments(c *gin.Context) {
-	id := c.Param("id")
-	var comments []models.ForumComment
+	postID := c.Param("id")
+	limit := c.DefaultQuery("limit", "10")
+	offset := c.DefaultQuery("offset", "0")
 
-	if err := config.GetDB().Where("post_id = ?", id).Preload("User").Order("created_at asc").Find(&comments).Error; err != nil {
+	// Get total count of comments for the post
+	var totalCount int64
+	config.GetDB().Model(&models.ForumComment{}).Where("post_id = ?", postID).Count(&totalCount)
+
+	limitInt, _ := strconv.Atoi(limit)
+	offsetInt, _ := strconv.Atoi(offset)
+
+	var comments []models.ForumComment
+	if err := config.GetDB().Preload("User").
+		Where("post_id = ?", postID).
+		Limit(limitInt).
+		Offset(offsetInt).
+		Order("created_at desc").
+		Find(&comments).Error; err != nil {
 		utils.ErrorResponse(c, 500, "Failed to fetch comments")
 		return
 	}
 
-	utils.SuccessResponse(c, 200, "Comments retrieved successfully", comments)
+	response := gin.H{
+		"comments":    comments,
+		"total_count": totalCount,
+	}
+
+	utils.SuccessResponse(c, 200, "Comments retrieved successfully", response)
 }
 
-// CreateForumComment adds a comment to a post
+// CreateForumComment handles the creation of a new comment
 func CreateForumComment(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 	postID := c.Param("id")
@@ -332,30 +436,82 @@ func CreateForumComment(c *gin.Context) {
 		return
 	}
 
-	// Double-check if post exists
+	postIDInt, _ := strconv.Atoi(postID)
+	comment := models.ForumComment{
+		PostID:   uint(postIDInt),
+		UserID:   userID.(uint),
+		Content:  req.Content,
+		ParentID: req.ParentID,
+	}
+
+	if err := config.GetDB().Create(&comment).Error; err != nil {
+		utils.ErrorResponse(c, 500, "Failed to create comment")
+		return
+	}
+
+	// Update post comment count
+	config.GetDB().Model(&models.ForumPost{}).Where("id = ?", postID).Update("comment_count", gorm.Expr("comment_count + 1"))
+
+	// Preload user for the response
+	config.GetDB().Preload("User").First(&comment, comment.ID)
+
+	utils.SuccessResponse(c, 201, "Comment added successfully", comment)
+}
+
+// VoteForumPoll handles voting on a poll
+func VoteForumPoll(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+	postID := c.Param("id")
+
+	var req struct {
+		OptionIdx int `json:"option_idx"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.ErrorResponse(c, 400, "Invalid option index")
+		return
+	}
+
 	var post models.ForumPost
 	if err := config.GetDB().First(&post, postID).Error; err != nil {
 		utils.ErrorResponse(c, 404, "Post not found")
 		return
 	}
 
-	comment := models.ForumComment{
-		PostID:  post.ID,
-		UserID:  userID.(uint),
-		Content: req.Content,
-	}
-
-	if err := config.GetDB().Create(&comment).Error; err != nil {
-		utils.ErrorResponse(c, 500, "Failed to add comment")
+	if !post.IsPoll {
+		utils.ErrorResponse(c, 400, "Post is not a poll")
 		return
 	}
 
-	// Update comment count on post
-	post.CommentCount++
-	config.GetDB().Save(&post)
+	// Check if user already voted and update if so, or create new
+	var existingVote models.ForumPollVote
+	err := config.GetDB().Where("post_id = ? AND user_id = ?", post.ID, userID).First(&existingVote).Error
+	if err == nil {
+		existingVote.OptionIdx = req.OptionIdx
+		config.GetDB().Save(&existingVote)
+	} else {
+		vote := models.ForumPollVote{
+			PostID:    post.ID,
+			UserID:    userID.(uint),
+			OptionIdx: req.OptionIdx,
+		}
+		config.GetDB().Create(&vote)
+	}
 
-	// Preload user for the response
-	config.GetDB().Preload("User").First(&comment, comment.ID)
+	// Return updated post results
+	var allPollVotes []models.ForumPollVote
+	config.GetDB().Where("post_id = ?", post.ID).Find(&allPollVotes)
 
-	utils.SuccessResponse(c, 201, "Comment added successfully", comment)
+	results := make(map[int]int)
+	total := 0
+	for _, v := range allPollVotes {
+		results[v.OptionIdx]++
+		total++
+	}
+
+	opt := req.OptionIdx
+	post.PollResults = results
+	post.TotalVotes = total
+	post.VotedOption = &opt
+
+	utils.SuccessResponse(c, 200, "Vote cast successfully", post)
 }

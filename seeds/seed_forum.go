@@ -9,44 +9,79 @@ import (
 func SeedForum() error {
 	db := config.GetDB()
 
-	// Check if we have any posts already
-	var count int64
-	db.Model(&models.ForumPost{}).Count(&count)
-	if count > 0 {
+	// 1. Seed Communities
+	var commCount int64
+	db.Model(&models.ForumCommunity{}).Count(&commCount)
+	if commCount == 0 {
+		communities := []models.ForumCommunity{
+			{Name: "IOE Engineering Prep", Emoji: "📐", BgColor: "bg-orange-100"},
+			{Name: "IT (CSIT/BCA/BIT)", Emoji: "💻", BgColor: "bg-blue-100"},
+			{Name: "CEE Medical Prep", Emoji: "🩺", BgColor: "bg-green-100"},
+			{Name: "Kathmandu University", Emoji: "🏛️", BgColor: "bg-purple-100"},
+			{Name: "Tribhuvan University", Emoji: "🎒", BgColor: "bg-yellow-100"},
+			{Name: "Academics", Emoji: "📚", BgColor: "bg-indigo-100"},
+			{Name: "General Discussion", Emoji: "💬", BgColor: "bg-gray-100"},
+		}
+
+		for _, comm := range communities {
+			if err := db.Create(&comm).Error; err != nil {
+				log.Printf("Error seeding community %s: %v", comm.Name, err)
+			}
+		}
+		log.Println("Forum communities seeded successfully")
+	}
+
+	// 2. Seed Posts
+	var postCount int64
+	db.Model(&models.ForumPost{}).Count(&postCount)
+	if postCount > 0 {
 		return nil
 	}
 
-	// Find a user to assign posts to (usually the first admin or student)
+	// Find a user to assign posts to
 	var user models.User
 	if err := db.First(&user).Error; err != nil {
 		log.Println("No users found to seed forum posts")
 		return nil
 	}
 
+	// Find communities to link
+	var ioe models.ForumCommunity
+	db.Where("name = ?", "IOE Engineering Prep").First(&ioe)
+
+	var it models.ForumCommunity
+	db.Where("name = ?", "IT (CSIT/BCA/BIT)").First(&it)
+
+	var cee models.ForumCommunity
+	db.Where("name = ?", "CEE Medical Prep").First(&cee)
+
 	posts := []models.ForumPost{
 		{
 			UserID:       user.ID,
-			Category:     "Scholarship",
-			Title:        "Best resources for studying Data Structure in C for TU?",
-			Content:      "I'm struggling with linked lists and trees in Data Structure (BIM 4th Sem, TU). Can anyone recommend the best Nepali authors or online courses that explain these topics clearly based on the TU syllabus?",
-			Upvotes:      45,
-			CommentCount: 12,
+			CommunityID:  it.ID,
+			Category:     "Discussion",
+			Title:        "BSc. CSIT vs BCA: Which one is better for Software Engineering?",
+			Content:      "I'm confused between CSIT and BCA. I want to become a full-stack developer. Which course offers better depth in programming and math?",
+			Upvotes:      124,
+			CommentCount: 45,
 		},
 		{
 			UserID:       user.ID,
-			Category:     "Academics",
-			Title:        "How to prepare for IOM Entrance Exam?",
-			Content:      "I'm planning to take the IOM entrance exam next year. What are the best coaching centers and books to follow?",
-			Upvotes:      32,
-			CommentCount: 8,
+			CommunityID:  ioe.ID,
+			Category:     "Exam Update",
+			Title:        "IOE Entrance Exam 2081 expected dates?",
+			Content:      "Has anyone heard anything about the IOE entrance exam dates for this year? Usually it happens in Bhadra but there are rumors it might be earlier.",
+			Upvotes:      89,
+			CommentCount: 22,
 		},
 		{
 			UserID:       user.ID,
-			Category:     "General",
-			Title:        "Looking for study partners at Pulchowk Campus",
-			Content:      "Hi everyone! I'm a first-year Civil Engineering student at Pulchowk. Looking for some study partners to go through Engineering Drawing and Math I. Anyone interested?",
-			Upvotes:      15,
-			CommentCount: 5,
+			CommunityID:  cee.ID,
+			Category:     "Medical Prep",
+			Title:        "Best Biology book for CEE?",
+			Content:      "Is NCERT enough for CEE Biology or should I follow local books like Trueman or others?",
+			Upvotes:      56,
+			CommentCount: 15,
 		},
 	}
 

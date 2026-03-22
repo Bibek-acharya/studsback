@@ -24,6 +24,7 @@ func main() {
 	// Auto migrate models
 	if err := config.GetDB().AutoMigrate(
 		&models.User{},
+		&models.InstitutionUser{},
 		&models.University{},
 		&models.College{},
 		&models.CounsellingBooking{},
@@ -35,9 +36,12 @@ func main() {
 		&models.News{},
 		&models.Event{},
 		&models.ForumPost{},
+		&models.ForumCommunity{},
 		&models.ForumComment{},
 		&models.ForumVote{},
 		&models.ForumSave{},
+		&models.ForumPollVote{},
+		&models.ScholarshipProviderUser{},
 	); err != nil {
 		log.Fatal("Failed to migrate database:", err)
 	}

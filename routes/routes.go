@@ -31,6 +31,18 @@ func SetupRoutes(router *gin.Engine) {
 			auth.GET("/google/callback", handlers.GoogleCallback)
 		}
 
+		institutionAuth := v1.Group("/institutions/auth")
+		{
+			institutionAuth.POST("/register", handlers.InstitutionRegister)
+			institutionAuth.POST("/login", handlers.InstitutionLogin)
+		}
+
+		scholarshipProviderAuth := v1.Group("/scholarship-providers/auth")
+		{
+			scholarshipProviderAuth.POST("/register", handlers.ScholarshipProviderRegister)
+			scholarshipProviderAuth.POST("/login", handlers.ScholarshipProviderLogin)
+		}
+
 		// Public college routes (no authentication required)
 		colleges := v1.Group("/colleges")
 		{
@@ -72,6 +84,7 @@ func SetupRoutes(router *gin.Engine) {
 		{
 			forum.GET("/posts", handlers.GetForumPosts)
 			forum.GET("/posts/:id/comments", handlers.GetForumPostComments)
+			forum.GET("/communities", handlers.GetForumCommunities)
 
 			// Protected forum interactions
 			protectedForum := forum.Group("")
@@ -84,6 +97,7 @@ func SetupRoutes(router *gin.Engine) {
 				protectedForum.PUT("/posts/:id", handlers.UpdateForumPost)
 				protectedForum.DELETE("/posts/:id", handlers.DeleteForumPost)
 				protectedForum.POST("/posts/:id/comments", handlers.CreateForumComment)
+				protectedForum.POST("/posts/:id/poll/vote", handlers.VoteForumPoll)
 			}
 		}
 
