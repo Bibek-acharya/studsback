@@ -98,6 +98,10 @@ func SetupRoutes(router *gin.Engine) {
 				protectedForum.DELETE("/posts/:id", handlers.DeleteForumPost)
 				protectedForum.POST("/posts/:id/comments", handlers.CreateForumComment)
 				protectedForum.POST("/posts/:id/poll/vote", handlers.VoteForumPoll)
+				// File upload
+				protectedForum.POST("/upload", handlers.UploadForumMedia)
+				// Community membership (toggle join/leave)
+				protectedForum.POST("/communities/:id/join", handlers.JoinForumCommunity)
 			}
 		}
 

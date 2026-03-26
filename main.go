@@ -37,6 +37,7 @@ func main() {
 		&models.Event{},
 		&models.ForumPost{},
 		&models.ForumCommunity{},
+		&models.ForumCommunityMember{},
 		&models.ForumComment{},
 		&models.ForumVote{},
 		&models.ForumSave{},
@@ -69,6 +70,9 @@ func main() {
 
 		c.Next()
 	})
+
+	// Serve uploaded media files
+	router.Static("/uploads", "./uploads")
 
 	// Setup routes
 	routes.SetupRoutes(router)

@@ -2,7 +2,12 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
+	"math/rand"
+	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"studsphere/backend/config"
 	"studsphere/backend/models"
 	"studsphere/backend/utils"
@@ -11,6 +16,174 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+func getCurrentUserIDFromHeader(c *gin.Context) uint {
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		return 0
+	}
+	tokenString := ""
+	if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+		tokenString = authHeader[7:]
+	}
+	if tokenString == "" {
+		return 0
+	}
+	claims, err := utils.ValidateToken(tokenString)
+	if err != nil {
+		return 0
+	}
+	return claims.UserID
+}
+
+// ─── Upload ───────────────────────────────────────────────────────────────────
+
+// UploadForumMedia handles image/video file uploads for forum posts.
+// Returns a list of accessible URLs.
+func UploadForumMedia(c *gin.Context) {
+	form, err := c.MultipartForm()
+	if err != nil {
+		utils.ErrorResponse(c, 400, "Failed to parse multipart form")
+		return
+	}
+
+	files := form.File["files"]
+	if len(files) == 0 {
+		utils.ErrorResponse(c, 400, "No files provided")
+		return
+	}
+
+	// Ensure upload directory exists
+	uploadDir := filepath.Join("uploads", "forum")
+	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+		utils.ErrorResponse(c, 500, "Failed to create upload directory")
+		return
+	}
+
+	var urls []string
+	for _, file := range files {
+		ct := file.Header.Get("Content-Type")
+		if !strings.HasPrefix(ct, "image/") && !strings.HasPrefix(ct, "video/") {
+			continue
+		}
+
+		ext := filepath.Ext(file.Filename)
+		if ext == "" {
+			if strings.HasPrefix(ct, "image/") {
+				ext = ".jpg"
+			} else {
+				ext = ".mp4"
+			}
+		}
+
+		randSuffix := rand.Intn(999999)
+		filename := fmt.Sprintf("%d_%d%s", time.Now().UnixNano(), randSuffix, ext)
+		savePath := filepath.Join(uploadDir, filename)
+
+		if err := c.SaveUploadedFile(file, savePath); err != nil {
+			utils.ErrorResponse(c, 500, "Failed to save file: "+file.Filename)
+			return
+		}
+
+		urls = append(urls, "/uploads/forum/"+filename)
+	}
+
+	if len(urls) == 0 {
+		utils.ErrorResponse(c, 400, "No valid image/video files were uploaded")
+		return
+	}
+
+	utils.SuccessResponse(c, 200, "Files uploaded successfully", gin.H{"urls": urls})
+}
+
+// ─── Communities ──────────────────────────────────────────────────────────────
+
+// GetForumCommunities returns community list with member counts and (if authed) membership status.
+func GetForumCommunities(c *gin.Context) {
+	var communities []models.ForumCommunity
+	if err := config.GetDB().Find(&communities).Error; err != nil {
+		utils.ErrorResponse(c, 500, "Failed to fetch communities")
+		return
+	}
+
+	// Populate member and post counts
+	for i := range communities {
+		var count int64
+		config.GetDB().Model(&models.ForumCommunityMember{}).
+			Where("community_id = ?", communities[i].ID).
+			Count(&count)
+		communities[i].MemberCount = int(count)
+
+		var postCount int64
+		config.GetDB().Model(&models.ForumPost{}).
+			Where("community_id = ?", communities[i].ID).
+			Count(&postCount)
+		communities[i].PostCount = int(postCount)
+	}
+
+	// Populate IsMember if user is authenticated
+	currentUserID := getCurrentUserIDFromHeader(c)
+	if currentUserID != 0 {
+		var memberships []models.ForumCommunityMember
+		config.GetDB().Where("user_id = ?", currentUserID).Find(&memberships)
+		memberMap := make(map[uint]bool)
+		for _, m := range memberships {
+			memberMap[m.CommunityID] = true
+		}
+		for i := range communities {
+			communities[i].IsMember = memberMap[communities[i].ID]
+		}
+	}
+
+	utils.SuccessResponse(c, 200, "Communities retrieved successfully", communities)
+}
+
+// JoinForumCommunity joins a community (or leaves if already a member — toggle).
+func JoinForumCommunity(c *gin.Context) {
+	communityID := c.Param("id")
+	userID, _ := c.Get("user_id")
+
+	comIDInt, err := strconv.Atoi(communityID)
+	if err != nil || comIDInt <= 0 {
+		utils.ErrorResponse(c, 400, "Invalid community ID")
+		return
+	}
+
+	var community models.ForumCommunity
+	if err := config.GetDB().First(&community, comIDInt).Error; err != nil {
+		utils.ErrorResponse(c, 404, "Community not found")
+		return
+	}
+
+	var existing models.ForumCommunityMember
+	err = config.GetDB().Where("community_id = ? AND user_id = ?", comIDInt, userID).First(&existing).Error
+
+	isMember := false
+	if err == nil {
+		// Already joined → leave
+		config.GetDB().Delete(&existing)
+		isMember = false
+	} else {
+		// Not joined → join
+		member := models.ForumCommunityMember{
+			CommunityID: uint(comIDInt),
+			UserID:      userID.(uint),
+		}
+		config.GetDB().Create(&member)
+		isMember = true
+	}
+
+	var count int64
+	config.GetDB().Model(&models.ForumCommunityMember{}).Where("community_id = ?", comIDInt).Count(&count)
+	community.MemberCount = int(count)
+	community.IsMember = isMember
+
+	utils.SuccessResponse(c, 200, "Community membership updated", community)
+}
+
+// ─── Posts ────────────────────────────────────────────────────────────────────
 
 // GetForumPosts returns a list of all forum posts
 func GetForumPosts(c *gin.Context) {
@@ -26,21 +199,7 @@ func GetForumPosts(c *gin.Context) {
 	}
 
 	// Handle authentication for "Saved" category and virtual fields
-	authHeader := c.GetHeader("Authorization")
-	var currentUserID uint
-	if authHeader != "" {
-		tokenString := ""
-		if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
-			tokenString = authHeader[7:]
-		}
-
-		if tokenString != "" {
-			claims, err := utils.ValidateToken(tokenString)
-			if err == nil {
-				currentUserID = claims.UserID
-			}
-		}
-	}
+	currentUserID := getCurrentUserIDFromHeader(c)
 
 	if category == "Saved" {
 		if currentUserID == 0 {
@@ -53,7 +212,6 @@ func GetForumPosts(c *gin.Context) {
 	}
 
 	if category == "Trending" {
-		// Trending: Most upvotes (vote=1) in last 24 hours
 		last24h := time.Now().Add(-24 * time.Hour)
 		query = query.Model(&models.ForumPost{}).
 			Select("forum_posts.*, (SELECT COUNT(id) FROM forum_votes WHERE forum_votes.post_id = forum_posts.id AND forum_votes.vote = 1 AND forum_votes.created_at > ?) as trending_votes", last24h).
@@ -103,7 +261,7 @@ func GetForumPosts(c *gin.Context) {
 	if len(pollPostIDs) > 0 {
 		var allPollVotes []models.ForumPollVote
 		config.GetDB().Where("post_id IN ?", pollPostIDs).Find(&allPollVotes)
-		
+
 		pollMap := make(map[uint]map[int]int)
 		pollTotalMap := make(map[uint]int)
 		for _, v := range allPollVotes {
@@ -113,7 +271,7 @@ func GetForumPosts(c *gin.Context) {
 			pollMap[v.PostID][v.OptionIdx]++
 			pollTotalMap[v.PostID]++
 		}
-		
+
 		myPollVoteMap := make(map[uint]int)
 		hasVotedMap := make(map[uint]bool)
 		if currentUserID != 0 {
@@ -124,7 +282,7 @@ func GetForumPosts(c *gin.Context) {
 				hasVotedMap[v.PostID] = true
 			}
 		}
-		
+
 		for i := range posts {
 			id := posts[i].ID
 			if posts[i].IsPoll {
@@ -174,16 +332,6 @@ func CreateForumPost(c *gin.Context) {
 	config.GetDB().Preload("User").Preload("Community").First(&post, post.ID)
 
 	utils.SuccessResponse(c, 201, "Post created successfully", post)
-}
-
-// GetForumCommunities returns a list of available forum communities
-func GetForumCommunities(c *gin.Context) {
-	var communities []models.ForumCommunity
-	if err := config.GetDB().Find(&communities).Error; err != nil {
-		utils.ErrorResponse(c, 500, "Failed to fetch communities")
-		return
-	}
-	utils.SuccessResponse(c, 200, "Communities retrieved successfully", communities)
 }
 
 // UpdateForumPost updates an existing post
@@ -263,16 +411,13 @@ func LikeForumPost(c *gin.Context) {
 	err := config.GetDB().Where("post_id = ? AND user_id = ?", post.ID, userID).First(&existingVote).Error
 
 	if err == nil {
-		// Already voted
 		if existingVote.Vote == 1 {
-			// Was liked, so toggle off
 			config.GetDB().Delete(&existingVote)
 			if post.Upvotes > 0 {
 				post.Upvotes--
 			}
 			post.IsLiked = false
 		} else {
-			// Was disliked, change to liked
 			existingVote.Vote = 1
 			config.GetDB().Save(&existingVote)
 			post.Upvotes++
@@ -283,7 +428,6 @@ func LikeForumPost(c *gin.Context) {
 			post.IsDisliked = false
 		}
 	} else {
-		// New vote
 		vote := models.ForumVote{
 			PostID: post.ID,
 			UserID: userID.(uint),
@@ -320,16 +464,13 @@ func DislikeForumPost(c *gin.Context) {
 	err := config.GetDB().Where("post_id = ? AND user_id = ?", post.ID, userID).First(&existingVote).Error
 
 	if err == nil {
-		// Already voted
 		if existingVote.Vote == -1 {
-			// Was disliked, so toggle off
 			config.GetDB().Delete(&existingVote)
 			if post.Downvotes > 0 {
 				post.Downvotes--
 			}
 			post.IsDisliked = false
 		} else {
-			// Was liked, change to disliked
 			existingVote.Vote = -1
 			config.GetDB().Save(&existingVote)
 			post.Downvotes++
@@ -340,7 +481,6 @@ func DislikeForumPost(c *gin.Context) {
 			post.IsDisliked = true
 		}
 	} else {
-		// New vote
 		vote := models.ForumVote{
 			PostID: post.ID,
 			UserID: userID.(uint),
@@ -377,11 +517,9 @@ func SaveForumPost(c *gin.Context) {
 	err := config.GetDB().Where("post_id = ? AND user_id = ?", post.ID, userID).First(&existingSave).Error
 
 	if err == nil {
-		// Already saved, so unsave it (toggle)
 		config.GetDB().Delete(&existingSave)
 		post.IsSaved = false
 	} else {
-		// Not saved yet, create save
 		save := models.ForumSave{
 			PostID: post.ID,
 			UserID: userID.(uint),
@@ -393,20 +531,20 @@ func SaveForumPost(c *gin.Context) {
 	utils.SuccessResponse(c, 200, "Post save status updated", post)
 }
 
+// ─── Comments ────────────────────────────────────────────────────────────────
+
 // GetForumPostComments returns a list of comments for a given post
 func GetForumPostComments(c *gin.Context) {
 	postID := c.Param("id")
 	limit := c.DefaultQuery("limit", "10")
 	offset := c.DefaultQuery("offset", "0")
 
-	// Get total count of TOP-LEVEL comments for the post
 	var totalCount int64
 	config.GetDB().Model(&models.ForumComment{}).Where("post_id = ? AND parent_id IS NULL", postID).Count(&totalCount)
 
 	limitInt, _ := strconv.Atoi(limit)
 	offsetInt, _ := strconv.Atoi(offset)
 
-	// Get top-level comments paginated, oldest first
 	var topComments []models.ForumComment
 	if err := config.GetDB().Preload("User").
 		Where("post_id = ? AND parent_id IS NULL", postID).
@@ -418,7 +556,6 @@ func GetForumPostComments(c *gin.Context) {
 		return
 	}
 
-	// For each top-level comment, load its replies
 	for i := range topComments {
 		var replies []models.ForumComment
 		config.GetDB().Preload("User").
@@ -460,14 +597,13 @@ func CreateForumComment(c *gin.Context) {
 		return
 	}
 
-	// Update post comment count
 	config.GetDB().Model(&models.ForumPost{}).Where("id = ?", postID).Update("comment_count", gorm.Expr("comment_count + 1"))
-
-	// Preload user for the response
 	config.GetDB().Preload("User").First(&comment, comment.ID)
 
 	utils.SuccessResponse(c, 201, "Comment added successfully", comment)
 }
+
+// ─── Polls ────────────────────────────────────────────────────────────────────
 
 // VoteForumPoll handles voting on a poll
 func VoteForumPoll(c *gin.Context) {
@@ -493,7 +629,6 @@ func VoteForumPoll(c *gin.Context) {
 		return
 	}
 
-	// Check if user already voted and update if so, or create new
 	var existingVote models.ForumPollVote
 	err := config.GetDB().Where("post_id = ? AND user_id = ?", post.ID, userID).First(&existingVote).Error
 	if err == nil {
@@ -508,7 +643,6 @@ func VoteForumPoll(c *gin.Context) {
 		config.GetDB().Create(&vote)
 	}
 
-	// Return updated post results
 	var allPollVotes []models.ForumPollVote
 	config.GetDB().Where("post_id = ?", post.ID).Find(&allPollVotes)
 

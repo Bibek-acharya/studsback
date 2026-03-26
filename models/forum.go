@@ -7,13 +7,23 @@ import (
 )
 
 type ForumCommunity struct {
-	ID        uint           `gorm:"primarykey" json:"id"`
-	CreatedAt time.Time      `json:"created_at"`
-	UpdatedAt time.Time      `json:"updated_at"`
-	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
-	Name      string         `gorm:"unique;not null" json:"name"`
-	Emoji     string         `json:"emoji"`
-	BgColor   string         `json:"bg_color"`
+	ID          uint           `gorm:"primarykey" json:"id"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
+	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
+	Name        string         `gorm:"unique;not null" json:"name"`
+	Emoji       string         `json:"emoji"`
+	BgColor     string         `json:"bg_color"`
+	MemberCount int            `gorm:"-" json:"member_count"`
+	IsMember    bool           `gorm:"-" json:"is_member"`
+	PostCount   int            `gorm:"-" json:"post_count"`
+}
+
+type ForumCommunityMember struct {
+	ID          uint      `gorm:"primarykey" json:"id"`
+	CreatedAt   time.Time `json:"created_at"`
+	CommunityID uint      `gorm:"uniqueIndex:idx_community_user_member;not null" json:"community_id"`
+	UserID      uint      `gorm:"uniqueIndex:idx_community_user_member;not null" json:"user_id"`
 }
 
 type ForumPost struct {
