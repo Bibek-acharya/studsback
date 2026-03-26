@@ -116,12 +116,15 @@ func SetupRoutes(router *gin.Engine) {
 
 			// Admin only routes
 			admin := protected.Group("/admin")
-			admin.Use(middleware.RoleMiddleware("admin"))
+			admin.Use(middleware.RoleMiddleware("admin", "super_admin"))
 			{
 				// Admin college management
 				admin.POST("/colleges", handlers.CreateCollege)
 				admin.PUT("/colleges/:id", handlers.UpdateCollege)
 				admin.DELETE("/colleges/:id", handlers.DeleteCollege)
+				admin.POST("/universities", handlers.CreateUniversity)
+				admin.PUT("/universities/:id", handlers.UpdateUniversity)
+				admin.DELETE("/universities/:id", handlers.DeleteUniversity)
 
 				// Other admin routes
 				admin.GET("/users", func(c *gin.Context) {

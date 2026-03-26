@@ -682,6 +682,9 @@ func Seed() error {
 	if db == nil {
 		return nil
 	}
+	if err := SeedSuperAdmin(db); err != nil {
+		return err
+	}
 	if err := SeedUniversities(db); err != nil {
 		return err
 	}

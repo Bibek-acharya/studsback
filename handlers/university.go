@@ -40,6 +40,30 @@ type UniversityCollegeResponse struct {
 	Type         string  `json:"type"`
 }
 
+type CreateUniversityRequest struct {
+	Name        string `json:"name" binding:"required"`
+	Logo        string `json:"logo"`
+	Location    string `json:"location"`
+	Type        string `json:"type"`
+	Rank        int    `json:"rank"`
+	Popular     bool   `json:"popular"`
+	Description string `json:"description"`
+	Established string `json:"established"`
+	Website     string `json:"website"`
+}
+
+type UpdateUniversityRequest struct {
+	Name        *string `json:"name"`
+	Logo        *string `json:"logo"`
+	Location    *string `json:"location"`
+	Type        *string `json:"type"`
+	Rank        *int    `json:"rank"`
+	Popular     *bool   `json:"popular"`
+	Description *string `json:"description"`
+	Established *string `json:"established"`
+	Website     *string `json:"website"`
+}
+
 func toUniversityResponse(uni models.University, colleges []models.College) UniversityResponse {
 	programsCount := 0
 	collegesCount := len(colleges)
@@ -201,4 +225,122 @@ func GetUniversityByID(c *gin.Context) {
 		"university": toUniversityResponse(uni, colleges),
 		"colleges":   collegeResponses,
 	})
+}
+
+func CreateUniversity(c *gin.Context) {
+	var req CreateUniversityRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.ErrorResponse(c, 400, err.Error())
+		return
+	}
+
+	req.Name = strings.TrimSpace(req.Name)
+	if req.Name == "" {
+		utils.ErrorResponse(c, 400, "name is required")
+		return
+	}
+
+	uni := models.University{
+		Name:        req.Name,
+		Logo:        strings.TrimSpace(req.Logo),
+		Location:    strings.TrimSpace(req.Location),
+		Type:        strings.TrimSpace(req.Type),
+		Rank:        req.Rank,
+		Popular:     req.Popular,
+		Description: strings.TrimSpace(req.Description),
+		Established: strings.TrimSpace(req.Established),
+		Website:     strings.TrimSpace(req.Website),
+	}
+
+	if err := config.GetDB().Create(&uni).Error; err != nil {
+		utils.ErrorResponse(c, 400, "Failed to create university: "+err.Error())
+		return
+	}
+
+	utils.SuccessResponse(c, 201, "University created successfully", gin.H{
+		"university": toUniversityResponse(uni, []models.College{}),
+	})
+}
+
+func UpdateUniversity(c *gin.Context) {
+	universityID, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		utils.ErrorResponse(c, 400, "Invalid university ID")
+		return
+	}
+
+	var req UpdateUniversityRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.ErrorResponse(c, 400, err.Error())
+		return
+	}
+
+	var uni models.University
+	if err := config.GetDB().First(&uni, universityID).Error; err != nil {
+		utils.ErrorResponse(c, 404, "University not found")
+		return
+	}
+
+	if req.Name != nil {
+		uni.Name = strings.TrimSpace(*req.Name)
+	}
+	if req.Logo != nil {
+		uni.Logo = strings.TrimSpace(*req.Logo)
+	}
+	if req.Location != nil {
+		uni.Location = strings.TrimSpace(*req.Location)
+	}
+	if req.Type != nil {
+		uni.Type = strings.TrimSpace(*req.Type)
+	}
+	if req.Rank != nil {
+		uni.Rank = *req.Rank
+	}
+	if req.Popular != nil {
+		uni.Popular = *req.Popular
+	}
+	if req.Description != nil {
+		uni.Description = strings.TrimSpace(*req.Description)
+	}
+	if req.Established != nil {
+		uni.Established = strings.TrimSpace(*req.Established)
+	}
+	if req.Website != nil {
+		uni.Website = strings.TrimSpace(*req.Website)
+	}
+
+	if strings.TrimSpace(uni.Name) == "" {
+		utils.ErrorResponse(c, 400, "name is required")
+		return
+	}
+
+	if err := config.GetDB().Save(&uni).Error; err != nil {
+		utils.ErrorResponse(c, 400, "Failed to update university: "+err.Error())
+		return
+	}
+
+	utils.SuccessResponse(c, 200, "University updated successfully", gin.H{
+		"university": toUniversityResponse(uni, []models.College{}),
+	})
+}
+
+func DeleteUniversity(c *gin.Context) {
+	universityID, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		utils.ErrorResponse(c, 400, "Invalid university ID")
+		return
+	}
+
+	var uni models.University
+	if err := config.GetDB().First(&uni, universityID).Error; err != nil {
+		utils.ErrorResponse(c, 404, "University not found")
+		return
+	}
+
+	if err := config.GetDB().Delete(&uni).Error; err != nil {
+		utils.ErrorResponse(c, 500, "Failed to delete university")
+		return
+	}
+
+	utils.SuccessResponse(c, 200, "University deleted successfully", nil)
 }

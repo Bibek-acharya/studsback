@@ -17,6 +17,11 @@ type Config struct {
 	JWTSecret          string
 	JWTExpiry          string
 	GinMode            string
+	SuperAdminEmail    string
+	SuperAdminPassword string
+	SuperAdminRole     string
+	SuperAdminFirst    string
+	SuperAdminLast     string
 	GoogleClientID     string
 	GoogleClientSecret string
 	GoogleRedirectURL  string
@@ -40,6 +45,11 @@ func LoadConfig() {
 		JWTSecret:          getEnv("JWT_SECRET", "your-secret-key"),
 		JWTExpiry:          getEnv("JWT_EXPIRY", "24h"),
 		GinMode:            getEnv("GIN_MODE", "debug"),
+		SuperAdminEmail:    getEnv("SUPER_ADMIN_EMAIL", ""),
+		SuperAdminPassword: getEnv("SUPER_ADMIN_PASSWORD", ""),
+		SuperAdminRole:     getEnv("SUPER_ADMIN_ROLE", "super_admin"),
+		SuperAdminFirst:    getEnv("SUPER_ADMIN_FIRST_NAME", "Super"),
+		SuperAdminLast:     getEnv("SUPER_ADMIN_LAST_NAME", "Admin"),
 		GoogleClientID:     getEnv("GOOGLE_CLIENT_ID", ""),
 		GoogleClientSecret: getEnv("GOOGLE_CLIENT_SECRET", ""),
 		GoogleRedirectURL:  getEnv("GOOGLE_REDIRECT_URL", "http://localhost:8080/api/v1/auth/google/callback"),
