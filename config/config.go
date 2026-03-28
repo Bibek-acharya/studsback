@@ -26,6 +26,7 @@ type Config struct {
 	GoogleClientSecret string
 	GoogleRedirectURL  string
 	FrontendURL        string
+	DBSSLMode          string
 }
 
 var AppConfig *Config
@@ -54,6 +55,7 @@ func LoadConfig() {
 		GoogleClientSecret: getEnv("GOOGLE_CLIENT_SECRET", ""),
 		GoogleRedirectURL:  getEnv("GOOGLE_REDIRECT_URL", "http://localhost:8080/api/v1/auth/google/callback"),
 		FrontendURL:        getEnv("FRONTEND_URL", "http://localhost:5173"),
+		DBSSLMode:          getEnv("DB_SSLMODE", "disable"),
 	}
 }
 

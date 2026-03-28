@@ -13,12 +13,13 @@ var DB *gorm.DB
 
 func ConnectDatabase() {
 	dsn := fmt.Sprintf(
-		"host=%s user=%s password=%s dbname=%s port=%s sslmode=disable",
+		"host=%s user=%s password=%s dbname=%s port=%s sslmode=%s",
 		AppConfig.DBHost,
 		AppConfig.DBUser,
 		AppConfig.DBPassword,
 		AppConfig.DBName,
 		AppConfig.DBPort,
+		AppConfig.DBSSLMode,
 	)
 
 	var err error
