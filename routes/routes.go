@@ -106,6 +106,7 @@ func SetupRoutes(router *gin.Engine) {
 		}
 
 		// Protected routes (authentication required)
+		// Grouping manually to avoid nested group complexity that might affect routing performance or consistency
 		protected := v1.Group("")
 		protected.Use(middleware.AuthMiddleware())
 		{
@@ -113,28 +114,29 @@ func SetupRoutes(router *gin.Engine) {
 			protected.POST("/preferences", handlers.SavePreferences)
 			protected.POST("/counselling/bookings", handlers.CreateCounsellingBooking)
 			protected.GET("/counselling/bookings/my", handlers.GetMyCounsellingBookings)
+		}
 
-			// Admin only routes
-			admin := protected.Group("/admin")
-			admin.Use(middleware.RoleMiddleware("admin", "super_admin"))
-			{
-				// Admin university management
-				admin.GET("/universities", handlers.GetUniversities)
-				admin.GET("/universities/:id", handlers.GetUniversityByID)
-				admin.POST("/universities", handlers.CreateUniversity)
-				admin.PUT("/universities/:id", handlers.UpdateUniversity)
-				admin.DELETE("/universities/:id", handlers.DeleteUniversity)
+		// Admin only routes - explicit group under /api/v1/admin
+		admin := v1.Group("/admin")
+		admin.Use(middleware.AuthMiddleware())
+		admin.Use(middleware.RoleMiddleware("admin", "super_admin"))
+		{
+			// Admin university management
+			admin.GET("/universities", handlers.GetUniversities)
+			admin.GET("/universities/:id", handlers.GetUniversityByID)
+			admin.POST("/universities", handlers.CreateUniversity)
+			admin.PUT("/universities/:id", handlers.UpdateUniversity)
+			admin.DELETE("/universities/:id", handlers.DeleteUniversity)
 
-				// Admin college management
-				admin.POST("/colleges", handlers.CreateCollege)
-				admin.PUT("/colleges/:id", handlers.UpdateCollege)
-				admin.DELETE("/colleges/:id", handlers.DeleteCollege)
+			// Admin college management
+			admin.POST("/colleges", handlers.CreateCollege)
+			admin.PUT("/colleges/:id", handlers.UpdateCollege)
+			admin.DELETE("/colleges/:id", handlers.DeleteCollege)
 
-				// Other admin routes
-				admin.GET("/users", func(c *gin.Context) {
-					c.JSON(200, gin.H{"message": "Admin users endpoint"})
-				})
-			}
+			// Other admin routes
+			admin.GET("/users", func(c *gin.Context) {
+				c.JSON(200, gin.H{"message": "Admin users endpoint"})
+			})
 		}
 	}
 }
