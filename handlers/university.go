@@ -27,6 +27,22 @@ type UniversityResponse struct {
 	Description     string   `json:"description,omitempty"`
 	Established     string   `json:"established,omitempty"`
 	Website         string   `json:"website,omitempty"`
+	Cover           string          `json:"cover"`
+	About           json.RawMessage `json:"about"`
+	Contact         json.RawMessage `json:"contact"`
+	Quick           json.RawMessage `json:"quick"`
+	Overview        json.RawMessage `json:"overview"`
+	Leadership      json.RawMessage `json:"leadership"`
+	Courses         json.RawMessage `json:"courses"`
+	Programs        json.RawMessage `json:"programs"`
+	Scholarships    json.RawMessage `json:"scholarships"`
+	Events          json.RawMessage `json:"events"`
+	News            json.RawMessage `json:"news"`
+	Downloads       json.RawMessage `json:"downloads"`
+	Gallery         json.RawMessage `json:"gallery"`
+	Faculties       json.RawMessage `json:"faculties"`
+	Admissions      json.RawMessage `json:"admissions"`
+	Reviews         json.RawMessage `json:"reviews"`
 }
 
 type UniversityCollegeResponse struct {
@@ -50,6 +66,22 @@ type CreateUniversityRequest struct {
 	Description string `json:"description"`
 	Established string `json:"established"`
 	Website     string `json:"website"`
+	Cover       string `json:"cover"`
+	About       interface{} `json:"about"`
+	Contact     interface{} `json:"contact"`
+	Quick       interface{} `json:"quick"`
+	Overview    interface{} `json:"overview"`
+	Leadership  interface{} `json:"leadership"`
+	Courses     interface{} `json:"courses"`
+	Programs    interface{} `json:"programs"`
+	Scholarships interface{} `json:"scholarships"`
+	Events      interface{} `json:"events"`
+	News        interface{} `json:"news"`
+	Downloads   interface{} `json:"downloads"`
+	Gallery     interface{} `json:"gallery"`
+	Faculties   interface{} `json:"faculties"`
+	Admissions  interface{} `json:"admissions"`
+	Reviews     interface{} `json:"reviews"`
 }
 
 type UpdateUniversityRequest struct {
@@ -62,6 +94,22 @@ type UpdateUniversityRequest struct {
 	Description *string `json:"description"`
 	Established *string `json:"established"`
 	Website     *string `json:"website"`
+	Cover       *string `json:"cover"`
+	About       interface{} `json:"about"`
+	Contact     interface{} `json:"contact"`
+	Quick       interface{} `json:"quick"`
+	Overview    interface{} `json:"overview"`
+	Leadership  interface{} `json:"leadership"`
+	Courses     interface{} `json:"courses"`
+	Programs    interface{} `json:"programs"`
+	Scholarships interface{} `json:"scholarships"`
+	Events      interface{} `json:"events"`
+	News        interface{} `json:"news"`
+	Downloads   interface{} `json:"downloads"`
+	Gallery     interface{} `json:"gallery"`
+	Faculties   interface{} `json:"faculties"`
+	Admissions  interface{} `json:"admissions"`
+	Reviews     interface{} `json:"reviews"`
 }
 
 func toUniversityResponse(uni models.University, colleges []models.College) UniversityResponse {
@@ -115,6 +163,22 @@ func toUniversityResponse(uni models.University, colleges []models.College) Univ
 		Description:     uni.Description,
 		Established:     uni.Established,
 		Website:         uni.Website,
+		Cover:           uni.Cover,
+		About:           uni.About,
+		Contact:         uni.Contact,
+		Quick:           uni.Quick,
+		Overview:        uni.Overview,
+		Leadership:      uni.Leadership,
+		Courses:         uni.Courses,
+		Programs:        uni.Programs,
+		Scholarships:    uni.Scholarships,
+		Events:          uni.Events,
+		News:            uni.News,
+		Downloads:       uni.Downloads,
+		Gallery:         uni.Gallery,
+		Faculties:       uni.Faculties,
+		Admissions:      uni.Admissions,
+		Reviews:         uni.Reviews,
 	}
 }
 
@@ -241,15 +305,92 @@ func CreateUniversity(c *gin.Context) {
 	}
 
 	uni := models.University{
-		Name:        req.Name,
-		Logo:        strings.TrimSpace(req.Logo),
-		Location:    strings.TrimSpace(req.Location),
-		Type:        strings.TrimSpace(req.Type),
-		Rank:        req.Rank,
-		Popular:     req.Popular,
-		Description: strings.TrimSpace(req.Description),
-		Established: strings.TrimSpace(req.Established),
-		Website:     strings.TrimSpace(req.Website),
+		Name:         req.Name,
+		Logo:         strings.TrimSpace(req.Logo),
+		Location:     strings.TrimSpace(req.Location),
+		Type:         strings.TrimSpace(req.Type),
+		Rank:         req.Rank,
+		Popular:      req.Popular,
+		Description:  strings.TrimSpace(req.Description),
+		Established:  strings.TrimSpace(req.Established),
+		Website:      strings.TrimSpace(req.Website),
+		Cover:        strings.TrimSpace(req.Cover),
+	}
+	
+	if req.About != nil {
+		if b, err := json.Marshal(req.About); err == nil {
+			uni.About = b
+		}
+	}
+	if req.Contact != nil {
+		if b, err := json.Marshal(req.Contact); err == nil {
+			uni.Contact = b
+		}
+	}
+	if req.Quick != nil {
+		if b, err := json.Marshal(req.Quick); err == nil {
+			uni.Quick = b
+		}
+	}
+	if req.Overview != nil {
+		if b, err := json.Marshal(req.Overview); err == nil {
+			uni.Overview = b
+		}
+	}
+	if req.Leadership != nil {
+		if b, err := json.Marshal(req.Leadership); err == nil {
+			uni.Leadership = b
+		}
+	}
+	if req.Courses != nil {
+		if b, err := json.Marshal(req.Courses); err == nil {
+			uni.Courses = b
+		}
+	}
+	if req.Programs != nil {
+		if b, err := json.Marshal(req.Programs); err == nil {
+			uni.Programs = b
+		}
+	}
+	if req.Scholarships != nil {
+		if b, err := json.Marshal(req.Scholarships); err == nil {
+			uni.Scholarships = b
+		}
+	}
+	if req.Events != nil {
+		if b, err := json.Marshal(req.Events); err == nil {
+			uni.Events = b
+		}
+	}
+	if req.News != nil {
+		if b, err := json.Marshal(req.News); err == nil {
+			uni.News = b
+		}
+	}
+	if req.Downloads != nil {
+		if b, err := json.Marshal(req.Downloads); err == nil {
+			uni.Downloads = b
+		}
+	}
+	if req.Gallery != nil {
+		if b, err := json.Marshal(req.Gallery); err == nil {
+			uni.Gallery = b
+		}
+	}
+	if req.Faculties != nil {
+		if b, err := json.Marshal(req.Faculties); err == nil {
+			uni.Faculties = b
+		}
+	}
+	if req.Admissions != nil {
+		if b, err := json.Marshal(req.Admissions); err == nil {
+			uni.Admissions = b
+		}
+	}
+	if req.Reviews != nil {
+		if b, err := json.Marshal(req.Reviews); err == nil {
+			uni.Reviews = b
+		}
 	}
 
 	if err := config.GetDB().Create(&uni).Error; err != nil {
@@ -307,6 +448,85 @@ func UpdateUniversity(c *gin.Context) {
 	}
 	if req.Website != nil {
 		uni.Website = strings.TrimSpace(*req.Website)
+	}
+	if req.Cover != nil {
+		uni.Cover = strings.TrimSpace(*req.Cover)
+	}
+
+	if req.About != nil {
+		if b, err := json.Marshal(req.About); err == nil {
+			uni.About = b
+		}
+	}
+	if req.Contact != nil {
+		if b, err := json.Marshal(req.Contact); err == nil {
+			uni.Contact = b
+		}
+	}
+	if req.Quick != nil {
+		if b, err := json.Marshal(req.Quick); err == nil {
+			uni.Quick = b
+		}
+	}
+	if req.Overview != nil {
+		if b, err := json.Marshal(req.Overview); err == nil {
+			uni.Overview = b
+		}
+	}
+	if req.Leadership != nil {
+		if b, err := json.Marshal(req.Leadership); err == nil {
+			uni.Leadership = b
+		}
+	}
+	if req.Courses != nil {
+		if b, err := json.Marshal(req.Courses); err == nil {
+			uni.Courses = b
+		}
+	}
+	if req.Programs != nil {
+		if b, err := json.Marshal(req.Programs); err == nil {
+			uni.Programs = b
+		}
+	}
+	if req.Scholarships != nil {
+		if b, err := json.Marshal(req.Scholarships); err == nil {
+			uni.Scholarships = b
+		}
+	}
+	if req.Events != nil {
+		if b, err := json.Marshal(req.Events); err == nil {
+			uni.Events = b
+		}
+	}
+	if req.News != nil {
+		if b, err := json.Marshal(req.News); err == nil {
+			uni.News = b
+		}
+	}
+	if req.Downloads != nil {
+		if b, err := json.Marshal(req.Downloads); err == nil {
+			uni.Downloads = b
+		}
+	}
+	if req.Gallery != nil {
+		if b, err := json.Marshal(req.Gallery); err == nil {
+			uni.Gallery = b
+		}
+	}
+	if req.Faculties != nil {
+		if b, err := json.Marshal(req.Faculties); err == nil {
+			uni.Faculties = b
+		}
+	}
+	if req.Admissions != nil {
+		if b, err := json.Marshal(req.Admissions); err == nil {
+			uni.Admissions = b
+		}
+	}
+	if req.Reviews != nil {
+		if b, err := json.Marshal(req.Reviews); err == nil {
+			uni.Reviews = b
+		}
 	}
 
 	if strings.TrimSpace(uni.Name) == "" {
