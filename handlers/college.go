@@ -486,7 +486,7 @@ func DeleteCollege(c *gin.Context) {
 		return
 	}
 
-	if err := config.GetDB().Delete(&college).Error; err != nil {
+	if err := config.GetDB().Unscoped().Delete(&college).Error; err != nil {
 		utils.ErrorResponse(c, 500, "Failed to delete college")
 		return
 	}
