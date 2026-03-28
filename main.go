@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"log"
+	"time"
 
 	"studsphere/backend/config"
 	"studsphere/backend/models"
@@ -53,8 +55,48 @@ func main() {
 		log.Printf("Warning: Failed to seed database: %v", err)
 	}
 
-	// Create Gin router
-	router := gin.Default()
+	// Create Gin router with custom logger
+	router := gin.New()
+	router.Use(gin.Recovery())
+
+	// Highly readable custom logger middleware
+	router.Use(gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
+		var statusColor = param.StatusCodeColor()
+		var methodColor = param.MethodColor()
+		var reset = param.ResetColor()
+
+		// Icon mapping for methods to make them easier to scan
+		icon := "❔"
+		switch param.Method {
+		case "GET":
+			icon = "🔍"
+		case "POST":
+			icon = "➕"
+		case "PUT":
+			icon = "📝"
+		case "DELETE":
+			icon = "🗑️"
+		case "PATCH":
+			icon = "🔧"
+		case "OPTIONS":
+			icon = "⚙️"
+		}
+
+		if param.Latency > time.Minute {
+			param.Latency = param.Latency.Truncate(time.Second)
+		}
+
+		return fmt.Sprintf("[API] %v |%s %3d %s| %13v | %15s | %s %s%-7s %s %s\n%s",
+			param.TimeStamp.Format("2006/01/02 - 15:04:05"),
+			statusColor, param.StatusCode, reset,
+			param.Latency,
+			param.ClientIP,
+			icon,
+			methodColor, param.Method, reset,
+			param.Path,
+			param.ErrorMessage,
+		)
+	}))
 
 	// Setup CORS middleware
 	router.Use(func(c *gin.Context) {
