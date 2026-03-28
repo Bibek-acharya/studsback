@@ -187,6 +187,12 @@ func GetColleges(c *gin.Context) {
 		)
 	}
 
+	// Filter by course - join with college_university_course table
+	if courseID := c.Query("courseId"); courseID != "" {
+		baseQuery = baseQuery.Joins("JOIN college_university_courses ON college_university_courses.college_id = colleges.id").
+			Where("college_university_courses.course_id = ?", courseID)
+	}
+
 	// Sorting
 	sort := c.DefaultQuery("sort", "rating")
 	if sort != "rating" && sort != "name" && sort != "reviews" {
