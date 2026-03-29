@@ -45,11 +45,13 @@ backend/
 1. Clone the repository and navigate to the backend directory
 
 2. Install dependencies:
+
 ```bash
 go mod download
 ```
 
 3. Create a `.env` file from the example:
+
 ```bash
 cp .env.example .env
 ```
@@ -57,6 +59,7 @@ cp .env.example .env
 4. Update the `.env` file with your database credentials and JWT secret
 
 5. Make sure PostgreSQL is running and create the database:
+
 ```sql
 CREATE DATABASE studsphere;
 ```
@@ -74,11 +77,13 @@ The server will start on `http://localhost:8080` (or the port specified in your 
 ### Public Endpoints
 
 #### Health Check
+
 ```
 GET /health
 ```
 
 #### Register
+
 ```
 POST /api/v1/auth/register
 Content-Type: application/json
@@ -93,6 +98,7 @@ Content-Type: application/json
 ```
 
 #### Login
+
 ```
 POST /api/v1/auth/login
 Content-Type: application/json
@@ -106,38 +112,42 @@ Content-Type: application/json
 ### Protected Endpoints (Requires Authentication)
 
 Add the JWT token to the Authorization header:
+
 ```
 Authorization: Bearer <your-jwt-token>
 ```
 
 #### Get Profile
+
 ```
 GET /api/v1/profile
 ```
 
 #### Admin Routes (Requires Admin Role)
+
 ```
 GET /api/v1/admin/users
 ```
 
 ## Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| PORT | Server port | 8080 |
-| GIN_MODE | Gin mode (debug/release) | debug |
-| DB_HOST | Database host | localhost |
-| DB_PORT | Database port | 5432 |
-| DB_USER | Database user | postgres |
-| DB_PASSWORD | Database password | - |
-| DB_NAME | Database name | studsphere |
-| DB_SSLMODE | PostgreSQL SSL mode | disable (auto-require for neon.tech) |
-| JWT_SECRET | JWT signing secret | your-secret-key |
-| JWT_EXPIRY | JWT token expiry duration | 24h |
+| Variable    | Description               | Default                              |
+| ----------- | ------------------------- | ------------------------------------ |
+| PORT        | Server port               | 8080                                 |
+| GIN_MODE    | Gin mode (debug/release)  | debug                                |
+| DB_HOST     | Database host             | localhost                            |
+| DB_PORT     | Database port             | 5432                                 |
+| DB_USER     | Database user             | postgres                             |
+| DB_PASSWORD | Database password         | -                                    |
+| DB_NAME     | Database name             | studsphere                           |
+| DB_SSLMODE  | PostgreSQL SSL mode       | disable (auto-require for neon.tech) |
+| JWT_SECRET  | JWT signing secret        | your-secret-key                      |
+| JWT_EXPIRY  | JWT token expiry duration | 24h                                  |
 
 ## Database Schema
 
 ### Users Table
+
 - `id` (Primary Key)
 - `email` (Unique)
 - `password` (Hashed)
@@ -151,13 +161,16 @@ GET /api/v1/admin/users
 ## Development
 
 ### Running with hot reload
+
 Install Air for hot reloading:
+
 ```bash
 go install github.com/cosmtrek/air@latest
 air
 ```
 
 ### Building for production
+
 ```bash
 go build -o bin/server main.go
 ./bin/server
