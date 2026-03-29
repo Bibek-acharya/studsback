@@ -13,20 +13,26 @@ import (
 )
 
 type UniversityResponse struct {
-	ID              uint     `json:"id"`
-	Name            string   `json:"name"`
-	Logo            string   `json:"logo"`
-	Location        string   `json:"location"`
-	Rating          float64  `json:"rating"`
-	Type            string   `json:"type"`
-	Rank            int      `json:"rank"`
-	IsPopular       bool     `json:"isPopular"`
-	ProgramsCount   int      `json:"programsCount"`
-	CollegesCount   int      `json:"collegesCount"`
-	PopularPrograms []string `json:"popularPrograms"`
-	Description     string   `json:"description,omitempty"`
-	Established     string   `json:"established,omitempty"`
-	Website         string   `json:"website,omitempty"`
+	ID              uint            `json:"id"`
+	Name            string          `json:"name"`
+	Logo            string          `json:"logo"`
+	Location        string          `json:"location"`
+	Rating          float64         `json:"rating"`
+	ReviewCount     int             `json:"review_count"`
+	Type            string          `json:"type"`
+	Rank            int             `json:"rank"`
+	Verified        bool            `json:"verified"`
+	IsPopular       bool            `json:"isPopular"`
+	ProgramsCount   int             `json:"programsCount"`
+	CollegesCount   int             `json:"collegesCount"`
+	PopularPrograms []string        `json:"popularPrograms"`
+	Description     string          `json:"description,omitempty"`
+	Established     string          `json:"established,omitempty"`
+	Students        string          `json:"students,omitempty"`
+	Chancellor      string          `json:"chancellor"`
+	ViceChancellor  string          `json:"vice_chancellor"`
+	Founder         string          `json:"founder"`
+	Website         string          `json:"website,omitempty"`
 	Cover           string          `json:"cover"`
 	About           json.RawMessage `json:"about"`
 	Contact         json.RawMessage `json:"contact"`
@@ -57,59 +63,73 @@ type UniversityCollegeResponse struct {
 }
 
 type CreateUniversityRequest struct {
-	Name        string `json:"name" binding:"required"`
-	Logo        string `json:"logo"`
-	Location    string `json:"location"`
-	Type        string `json:"type"`
-	Rank        int    `json:"rank"`
-	Popular     bool   `json:"popular"`
-	Description string `json:"description"`
-	Established string `json:"established"`
-	Website     string `json:"website"`
-	Cover       string `json:"cover"`
-	About       interface{} `json:"about"`
-	Contact     interface{} `json:"contact"`
-	Quick       interface{} `json:"quick"`
-	Overview    interface{} `json:"overview"`
-	Leadership  interface{} `json:"leadership"`
-	Courses     interface{} `json:"courses"`
-	Programs    interface{} `json:"programs"`
+	Name         string      `json:"name" binding:"required"`
+	Logo         string      `json:"logo"`
+	Location     string      `json:"location"`
+	Type         string      `json:"type"`
+	Rank         int         `json:"rank"`
+	Rating       float64     `json:"rating"`
+	ReviewCount  int         `json:"review_count"`
+	Verified     bool        `json:"verified"`
+	Popular      bool        `json:"popular"`
+	Description  string      `json:"description"`
+	Established    string      `json:"established"`
+	Students       string      `json:"students"`
+	Chancellor     string      `json:"chancellor"`
+	ViceChancellor string      `json:"vice_chancellor"`
+	Founder        string      `json:"founder"`
+	Website        string      `json:"website"`
+	Cover          string      `json:"cover"`
+	About          interface{} `json:"about"`
+	Contact      interface{} `json:"contact"`
+	Quick        interface{} `json:"quick"`
+	Overview     interface{} `json:"overview"`
+	Leadership   interface{} `json:"leadership"`
+	Courses      interface{} `json:"courses"`
+	Programs     interface{} `json:"programs"`
 	Scholarships interface{} `json:"scholarships"`
-	Events      interface{} `json:"events"`
-	News        interface{} `json:"news"`
-	Downloads   interface{} `json:"downloads"`
-	Gallery     interface{} `json:"gallery"`
-	Faculties   interface{} `json:"faculties"`
-	Admissions  interface{} `json:"admissions"`
-	Reviews     interface{} `json:"reviews"`
+	Events       interface{} `json:"events"`
+	News         interface{} `json:"news"`
+	Downloads    interface{} `json:"downloads"`
+	Gallery      interface{} `json:"gallery"`
+	Faculties    interface{} `json:"faculties"`
+	Admissions   interface{} `json:"admissions"`
+	Reviews      interface{} `json:"reviews"`
 }
 
 type UpdateUniversityRequest struct {
-	Name        *string `json:"name"`
-	Logo        *string `json:"logo"`
-	Location    *string `json:"location"`
-	Type        *string `json:"type"`
-	Rank        *int    `json:"rank"`
-	Popular     *bool   `json:"popular"`
-	Description *string `json:"description"`
-	Established *string `json:"established"`
-	Website     *string `json:"website"`
-	Cover       *string `json:"cover"`
-	About       interface{} `json:"about"`
-	Contact     interface{} `json:"contact"`
-	Quick       interface{} `json:"quick"`
-	Overview    interface{} `json:"overview"`
-	Leadership  interface{} `json:"leadership"`
-	Courses     interface{} `json:"courses"`
-	Programs    interface{} `json:"programs"`
+	Name         *string     `json:"name"`
+	Logo         *string     `json:"logo"`
+	Location     *string     `json:"location"`
+	Type         *string     `json:"type"`
+	Rank         *int        `json:"rank"`
+	Rating       *float64    `json:"rating"`
+	ReviewCount  *int        `json:"review_count"`
+	Verified     *bool       `json:"verified"`
+	Popular      *bool       `json:"popular"`
+	Description  *string     `json:"description"`
+	Established    *string     `json:"established"`
+	Students       *string     `json:"students"`
+	Chancellor     *string     `json:"chancellor"`
+	ViceChancellor *string     `json:"vice_chancellor"`
+	Founder        *string     `json:"founder"`
+	Website        *string     `json:"website"`
+	Cover          *string     `json:"cover"`
+	About          interface{} `json:"about"`
+	Contact      interface{} `json:"contact"`
+	Quick        interface{} `json:"quick"`
+	Overview     interface{} `json:"overview"`
+	Leadership   interface{} `json:"leadership"`
+	Courses      interface{} `json:"courses"`
+	Programs     interface{} `json:"programs"`
 	Scholarships interface{} `json:"scholarships"`
-	Events      interface{} `json:"events"`
-	News        interface{} `json:"news"`
-	Downloads   interface{} `json:"downloads"`
-	Gallery     interface{} `json:"gallery"`
-	Faculties   interface{} `json:"faculties"`
-	Admissions  interface{} `json:"admissions"`
-	Reviews     interface{} `json:"reviews"`
+	Events       interface{} `json:"events"`
+	News         interface{} `json:"news"`
+	Downloads    interface{} `json:"downloads"`
+	Gallery      interface{} `json:"gallery"`
+	Faculties    interface{} `json:"faculties"`
+	Admissions   interface{} `json:"admissions"`
+	Reviews      interface{} `json:"reviews"`
 }
 
 func toUniversityResponse(uni models.University, colleges []models.College) UniversityResponse {
@@ -143,8 +163,8 @@ func toUniversityResponse(uni models.University, colleges []models.College) Univ
 		}
 	}
 
-	rating := 0.0
-	if ratedCount > 0 {
+	rating := uni.Rating
+	if rating == 0 && ratedCount > 0 {
 		rating = ratingTotal / float64(ratedCount)
 	}
 
@@ -154,14 +174,20 @@ func toUniversityResponse(uni models.University, colleges []models.College) Univ
 		Logo:            uni.Logo,
 		Location:        uni.Location,
 		Rating:          rating,
+		ReviewCount:     uni.ReviewCount,
 		Type:            uni.Type,
 		Rank:            uni.Rank,
+		Verified:        uni.Verified,
 		IsPopular:       uni.Popular,
 		ProgramsCount:   programsCount,
 		CollegesCount:   collegesCount,
 		PopularPrograms: popularPrograms,
 		Description:     uni.Description,
 		Established:     uni.Established,
+		Students:        uni.Students,
+		Chancellor:      uni.Chancellor,
+		ViceChancellor:  uni.ViceChancellor,
+		Founder:         uni.Founder,
 		Website:         uni.Website,
 		Cover:           uni.Cover,
 		About:           uni.About,
@@ -305,16 +331,23 @@ func CreateUniversity(c *gin.Context) {
 	}
 
 	uni := models.University{
-		Name:         req.Name,
-		Logo:         strings.TrimSpace(req.Logo),
-		Location:     strings.TrimSpace(req.Location),
-		Type:         strings.TrimSpace(req.Type),
-		Rank:         req.Rank,
-		Popular:      req.Popular,
-		Description:  strings.TrimSpace(req.Description),
-		Established:  strings.TrimSpace(req.Established),
-		Website:      strings.TrimSpace(req.Website),
-		Cover:        strings.TrimSpace(req.Cover),
+		Name:        req.Name,
+		Logo:        strings.TrimSpace(req.Logo),
+		Location:    strings.TrimSpace(req.Location),
+		Type:        strings.TrimSpace(req.Type),
+		Rank:        req.Rank,
+		Rating:      req.Rating,
+		ReviewCount: req.ReviewCount,
+		Verified:    req.Verified,
+		Popular:     req.Popular,
+		Description:    strings.TrimSpace(req.Description),
+		Established:    strings.TrimSpace(req.Established),
+		Students:       strings.TrimSpace(req.Students),
+		Chancellor:     strings.TrimSpace(req.Chancellor),
+		ViceChancellor: strings.TrimSpace(req.ViceChancellor),
+		Founder:        strings.TrimSpace(req.Founder),
+		Website:        strings.TrimSpace(req.Website),
+		Cover:          strings.TrimSpace(req.Cover),
 	}
 	
 	if req.About != nil {
@@ -437,6 +470,15 @@ func UpdateUniversity(c *gin.Context) {
 	if req.Rank != nil {
 		uni.Rank = *req.Rank
 	}
+	if req.Rating != nil {
+		uni.Rating = *req.Rating
+	}
+	if req.ReviewCount != nil {
+		uni.ReviewCount = *req.ReviewCount
+	}
+	if req.Verified != nil {
+		uni.Verified = *req.Verified
+	}
 	if req.Popular != nil {
 		uni.Popular = *req.Popular
 	}
@@ -445,6 +487,18 @@ func UpdateUniversity(c *gin.Context) {
 	}
 	if req.Established != nil {
 		uni.Established = strings.TrimSpace(*req.Established)
+	}
+	if req.Students != nil {
+		uni.Students = strings.TrimSpace(*req.Students)
+	}
+	if req.Chancellor != nil {
+		uni.Chancellor = strings.TrimSpace(*req.Chancellor)
+	}
+	if req.ViceChancellor != nil {
+		uni.ViceChancellor = strings.TrimSpace(*req.ViceChancellor)
+	}
+	if req.Founder != nil {
+		uni.Founder = strings.TrimSpace(*req.Founder)
 	}
 	if req.Website != nil {
 		uni.Website = strings.TrimSpace(*req.Website)
