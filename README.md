@@ -131,6 +131,7 @@ GET /api/v1/admin/users
 | DB_USER | Database user | postgres |
 | DB_PASSWORD | Database password | - |
 | DB_NAME | Database name | studsphere |
+| DB_SSLMODE | PostgreSQL SSL mode | disable (auto-require for neon.tech) |
 | JWT_SECRET | JWT signing secret | your-secret-key |
 | JWT_EXPIRY | JWT token expiry duration | 24h |
 

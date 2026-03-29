@@ -3,6 +3,7 @@ package config
 import (
 	"log"
 	"os"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
@@ -36,9 +37,21 @@ func LoadConfig() {
 		log.Println("No .env file found, using environment variables")
 	}
 
+	dbHost := getEnv("DB_HOST", "localhost")
+	dbSSLMode := os.Getenv("DB_SSLMODE")
+	if dbSSLMode == "" {
+		dbSSLMode = "disable"
+	}
+
+	// Neon requires TLS. Force sslmode=require for neon hostnames to prevent boot-time failures.
+	if strings.Contains(strings.ToLower(dbHost), "neon.tech") && strings.ToLower(dbSSLMode) != "require" {
+		log.Println("DB_HOST points to Neon; forcing DB_SSLMODE=require")
+		dbSSLMode = "require"
+	}
+
 	AppConfig = &Config{
 		Port:               getEnv("PORT", "8080"),
-		DBHost:             getEnv("DB_HOST", "localhost"),
+		DBHost:             dbHost,
 		DBPort:             getEnv("DB_PORT", "5432"),
 		DBUser:             getEnv("DB_USER", "studsphere_user"),
 		DBPassword:         getEnv("DB_PASSWORD", "studsphere_pass"),
@@ -55,7 +68,7 @@ func LoadConfig() {
 		GoogleClientSecret: getEnv("GOOGLE_CLIENT_SECRET", ""),
 		GoogleRedirectURL:  getEnv("GOOGLE_REDIRECT_URL", "http://localhost:8080/api/v1/auth/google/callback"),
 		FrontendURL:        getEnv("FRONTEND_URL", "http://localhost:5173"),
-		DBSSLMode:          getEnv("DB_SSLMODE", "disable"),
+		DBSSLMode:          dbSSLMode,
 	}
 }
 
