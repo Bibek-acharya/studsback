@@ -1696,15 +1696,15 @@ func Seed() error {
 	if err := SeedSuperAdmin(db); err != nil {
 		return err
 	}
-	if err := SeedUniversities(db); err != nil {
-		return err
-	}
-	if err := SeedCourses(db); err != nil {
-		return err
-	}
-	if err := SeedColleges(db); err != nil {
-		return err
-	}
+	// if err := SeedUniversities(db); err != nil {
+	// 	return err
+	// }
+	// if err := SeedCourses(db); err != nil {
+	// 	return err
+	// }
+	// if err := SeedColleges(db); err != nil {
+	// 	return err
+	// }
 	if err := SeedCollegeUniversityCourseMappings(db); err != nil {
 		return err
 	}
