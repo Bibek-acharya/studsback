@@ -1,6 +1,12 @@
 package handlers
 
 import (
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+
 	"studsphere/backend/config"
 	"studsphere/backend/models"
 	"studsphere/backend/utils"
@@ -91,4 +97,92 @@ func InstitutionLogin(c *gin.Context) {
 		"user":  institutionUser,
 		"token": token,
 	})
+}
+
+func InstitutionGoogleLogin(c *gin.Context) {
+	initGoogleConfig()
+	state := "institution-oauth-state"
+	url := googleOauthConfig.AuthCodeURL(state)
+	c.Redirect(302, url)
+}
+
+func InstitutionGoogleCallback(c *gin.Context) {
+	initGoogleConfig()
+	code := c.Query("code")
+	if code == "" {
+		utils.ErrorResponse(c, 400, "Code not found")
+		return
+	}
+
+	token, err := googleOauthConfig.Exchange(c.Request.Context(), code)
+	if err != nil {
+		utils.ErrorResponse(c, 500, "Failed to exchange token: "+err.Error())
+		return
+	}
+
+	resp, err := http.Get("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + token.AccessToken)
+	if err != nil {
+		utils.ErrorResponse(c, 500, "Failed to get user info: "+err.Error())
+		return
+	}
+	defer resp.Body.Close()
+
+	contents, err := io.ReadAll(resp.Body)
+	if err != nil {
+		utils.ErrorResponse(c, 500, "Failed to read user info: "+err.Error())
+		return
+	}
+
+	var googleUser struct {
+		ID    string `json:"id"`
+		Email string `json:"email"`
+		Name  string `json:"name"`
+	}
+	if err := json.Unmarshal(contents, &googleUser); err != nil {
+		utils.ErrorResponse(c, 500, "Failed to parse user info: "+err.Error())
+		return
+	}
+
+	var instUser models.InstitutionUser
+	db := config.GetDB()
+	result := db.Where("email = ? OR google_id = ?", googleUser.Email, googleUser.ID).First(&instUser)
+
+	if result.Error != nil {
+		instUser = models.InstitutionUser{
+			InstitutionName:    googleUser.Name,
+			RegistrationNumber: "GOOGLE-" + googleUser.ID,
+			Email:              googleUser.Email,
+			GoogleID:           &googleUser.ID,
+			Role:               "institution",
+		}
+		if err := db.Create(&instUser).Error; err != nil {
+			utils.ErrorResponse(c, 500, "Failed to create institution account: "+err.Error())
+			return
+		}
+	} else {
+		if instUser.GoogleID == nil || *instUser.GoogleID == "" {
+			instUser.GoogleID = &googleUser.ID
+			db.Save(&instUser)
+		}
+	}
+
+	jwtToken, err := utils.GenerateToken(instUser.ID, instUser.Email, instUser.Role)
+	if err != nil {
+		utils.ErrorResponse(c, 500, "Failed to generate token")
+		return
+	}
+
+	userData, _ := json.Marshal(gin.H{
+		"id":               instUser.ID,
+		"institution_name": instUser.InstitutionName,
+		"email":            instUser.Email,
+		"role":             instUser.Role,
+	})
+	redirectURL := fmt.Sprintf("%s/institutions/auth/google-callback?token=%s&user=%s",
+		config.AppConfig.FrontendURL,
+		jwtToken,
+		url.QueryEscape(string(userData)),
+	)
+
+	c.Redirect(302, redirectURL)
 }

@@ -1,0 +1,4234 @@
+openapi: 3.0.3
+info:
+  title: StudSphere API
+  description: API for the StudSphere education platform - connecting students with universities, colleges, scholarships, and community forums.
+  version: 1.0.0
+  contact:
+    name: StudSphere Team
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+  - url: https://api.studsphere.com
+    description: Production server
+
+tags:
+  - name: Health
+    description: Health check endpoints
+  - name: Authentication
+    description: User authentication and registration
+  - name: Institution Authentication
+    description: Institution authentication and registration
+  - name: Scholarship Provider Authentication
+    description: Scholarship provider authentication and registration
+  - name: Colleges
+    description: College management and browsing
+  - name: Universities
+    description: University management and browsing
+  - name: Education
+    description: Education resources (exams, courses, scholarships, news, events)
+  - name: Scholarships
+    description: Scholarship browsing and applications
+  - name: Tools
+    description: AI-powered recommendation tools
+  - name: Forum
+    description: Community forum posts and interactions
+  - name: Forum Communities
+    description: Forum community management
+  - name: Profile
+    description: User profile management
+  - name: Counselling
+    description: Counselling booking management
+  - name: Admissions
+    description: Admission application management for students
+  - name: Admin Admissions
+    description: Admin admission management and review
+  - name: Institution
+    description: Institution (college/university) management endpoints
+  - name: Scholarship Provider
+    description: Scholarship provider management endpoints
+  - name: Admin Scholarships
+    description: Admin scholarship and application management
+  - name: Admin
+    description: Administrative operations
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Check if the server is running
+      responses:
+        '200':
+          description: Server is running
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  message:
+                    type: string
+                    example: Server is running
+
+  /api/v1/auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '200':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Login user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/auth/send-otp:
+    post:
+      tags:
+        - Authentication
+      summary: Send OTP
+      description: Send a one-time password to the user's email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: OTP sent successfully
+        '400':
+          description: Invalid email
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/auth/verify-otp:
+    post:
+      tags:
+        - Authentication
+      summary: Verify OTP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - otp
+              properties:
+                email:
+                  type: string
+                  format: email
+                otp:
+                  type: string
+      responses:
+        '200':
+          description: OTP verified successfully
+        '400':
+          description: Invalid OTP
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/auth/google:
+    get:
+      tags:
+        - Authentication
+      summary: Initiate Google OAuth login
+      description: Redirects to Google OAuth consent screen
+      responses:
+        '302':
+          description: Redirect to Google OAuth
+
+  /api/v1/auth/google/callback:
+    get:
+      tags:
+        - Authentication
+      summary: Google OAuth callback
+      description: Handles the callback from Google OAuth
+      parameters:
+        - name: code
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Authentication failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/institutions/auth/register:
+    post:
+      tags:
+        - Institution Authentication
+      summary: Register a new institution
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InstitutionRegisterRequest'
+      responses:
+        '200':
+          description: Institution registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/institutions/auth/login:
+    post:
+      tags:
+        - Institution Authentication
+      summary: Login institution
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InstitutionLoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/scholarship-providers/auth/register:
+    post:
+      tags:
+        - Scholarship Provider Authentication
+      summary: Register a new scholarship provider
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScholarshipProviderRegisterRequest'
+      responses:
+        '200':
+          description: Scholarship provider registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/scholarship-providers/auth/login:
+    post:
+      tags:
+        - Scholarship Provider Authentication
+      summary: Login scholarship provider
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScholarshipProviderLoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/colleges:
+    get:
+      tags:
+        - Colleges
+      summary: Get all colleges
+      description: Retrieve a list of all colleges with optional filtering
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: location
+          in: query
+          schema:
+            type: string
+        - name: type
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of colleges
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollegeListResponse'
+    post:
+      tags:
+        - Admin
+      summary: Create a new college
+      description: Admin only - Create a new college
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCollegeRequest'
+      responses:
+        '201':
+          description: College created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollegeResponse'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/colleges/{id}:
+    get:
+      tags:
+        - Colleges
+      summary: Get college by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: College details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollegeResponse'
+        '404':
+          description: College not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags:
+        - Admin
+      summary: Update a college
+      description: Admin only - Update college details
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCollegeRequest'
+      responses:
+        '200':
+          description: College updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollegeResponse'
+        '404':
+          description: College not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - Admin
+      summary: Delete a college
+      description: Admin only - Delete a college
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: College deleted successfully
+        '404':
+          description: College not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/universities:
+    get:
+      tags:
+        - Universities
+      summary: Get all universities
+      description: Retrieve a list of all universities
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of universities
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UniversityListResponse'
+    post:
+      tags:
+        - Admin
+      summary: Create a new university
+      description: Admin only - Create a new university
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUniversityRequest'
+      responses:
+        '201':
+          description: University created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UniversityResponse'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/universities/{id}:
+    get:
+      tags:
+        - Universities
+      summary: Get university by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: University details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UniversityResponse'
+        '404':
+          description: University not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags:
+        - Admin
+      summary: Update a university
+      description: Admin only - Update university details
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUniversityRequest'
+      responses:
+        '200':
+          description: University updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UniversityResponse'
+        '404':
+          description: University not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - Admin
+      summary: Delete a university
+      description: Admin only - Delete a university
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: University deleted successfully
+        '404':
+          description: University not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/universities/{id}/{tab}:
+    get:
+      tags:
+        - Universities
+      summary: Get university tab data
+      description: Get specific tab data for a university (e.g., about, courses, admissions)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: tab
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [about, courses, admissions, scholarships, events, news, downloads, gallery, faculties, reviews, programs, leadership, contact, overview]
+      responses:
+        '200':
+          description: Tab data retrieved successfully
+        '404':
+          description: University or tab not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/education/rankings:
+    get:
+      tags:
+        - Education
+      summary: Get education rankings
+      responses:
+        '200':
+          description: Education rankings
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/v1/education/exams:
+    get:
+      tags:
+        - Education
+      summary: Get all exams
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: List of exams
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/v1/education/exams/{id}:
+    get:
+      tags:
+        - Education
+      summary: Get exam by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Exam details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Exam'
+        '404':
+          description: Exam not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/education/scholarships:
+    get:
+      tags:
+        - Scholarships
+      summary: Get all scholarships
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: degree_level
+          in: query
+          schema:
+            type: string
+        - name: funding_type
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of scholarships
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScholarshipListResponse'
+
+  /api/v1/education/scholarships/{id}:
+    get:
+      tags:
+        - Scholarships
+      summary: Get scholarship by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Scholarship details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScholarshipResponse'
+        '404':
+          description: Scholarship not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/education/scholarships/{id}/similar:
+    get:
+      tags:
+        - Scholarships
+      summary: Get similar scholarships
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: List of similar scholarships
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Scholarship'
+
+  /api/v1/education/scholarships/{id}/apply:
+    post:
+      tags:
+        - Scholarships
+      summary: Apply for a scholarship
+      description: Submit a scholarship application (requires authentication)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScholarshipApplicationRequest'
+      responses:
+        '201':
+          description: Application submitted successfully
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/education/courses:
+    get:
+      tags:
+        - Education
+      summary: Get all courses
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: List of courses
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/v1/education/courses/{id}:
+    get:
+      tags:
+        - Education
+      summary: Get course by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Course details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Course'
+        '404':
+          description: Course not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/education/courses/{id}/details:
+    get:
+      tags:
+        - Education
+      summary: Get course details by ID
+      description: Get detailed information about a course
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Detailed course information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Course'
+        '404':
+          description: Course not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/education/admissions:
+    get:
+      tags:
+        - Education
+      summary: Get admissions information
+      responses:
+        '200':
+          description: Admissions information
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/v1/education/news:
+    get:
+      tags:
+        - Education
+      summary: Get education news
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: category
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of news articles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/News'
+
+  /api/v1/education/events:
+    get:
+      tags:
+        - Education
+      summary: Get education events
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: List of events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Event'
+
+  /api/v1/tools/scholarship-finder/recommendations:
+    post:
+      tags:
+        - Tools
+      summary: Get scholarship recommendations
+      description: AI-powered scholarship recommendations based on user profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScholarshipFinderRequest'
+      responses:
+        '200':
+          description: Scholarship recommendations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  recommendations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Scholarship'
+                  confidence_scores:
+                    type: array
+                    items:
+                      type: number
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/tools/college-recommender/recommendations:
+    post:
+      tags:
+        - Tools
+      summary: Get college recommendations
+      description: AI-powered college recommendations based on user preferences
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CollegeRecommenderRequest'
+      responses:
+        '200':
+          description: College recommendations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  recommendations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/College'
+                  match_scores:
+                    type: array
+                    items:
+                      type: number
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/forum/posts:
+    get:
+      tags:
+        - Forum
+      summary: Get forum posts
+      description: Retrieve a list of forum posts with optional filtering
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: community_id
+          in: query
+          schema:
+            type: integer
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [recent, popular, trending]
+            default: recent
+      responses:
+        '200':
+          description: List of forum posts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ForumPost'
+    post:
+      tags:
+        - Forum
+      summary: Create a new forum post
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePostRequest'
+      responses:
+        '201':
+          description: Post created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForumPost'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/forum/posts/{id}:
+    get:
+      tags:
+        - Forum
+      summary: Get forum post details
+      description: Get details of a specific forum post (not in routes, but implied)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Forum post details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForumPost'
+        '404':
+          description: Post not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags:
+        - Forum
+      summary: Update a forum post
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePostRequest'
+      responses:
+        '200':
+          description: Post updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForumPost'
+        '404':
+          description: Post not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - Not the post owner
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - Forum
+      summary: Delete a forum post
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Post deleted successfully
+        '404':
+          description: Post not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - Not the post owner
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/forum/posts/{id}/like:
+    post:
+      tags:
+        - Forum
+      summary: Like a forum post
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Post liked successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  upvotes:
+                    type: integer
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/forum/posts/{id}/dislike:
+    post:
+      tags:
+        - Forum
+      summary: Dislike a forum post
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Post disliked successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  downvotes:
+                    type: integer
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/forum/posts/{id}/save:
+    post:
+      tags:
+        - Forum
+      summary: Save a forum post
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Post saved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/forum/posts/{id}/comments:
+    get:
+      tags:
+        - Forum
+      summary: Get comments for a forum post
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: List of comments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ForumComment'
+        '404':
+          description: Post not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      tags:
+        - Forum
+      summary: Create a comment on a forum post
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCommentRequest'
+      responses:
+        '201':
+          description: Comment created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForumComment'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/forum/posts/{id}/poll/vote:
+    post:
+      tags:
+        - Forum
+      summary: Vote on a forum poll
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - option_idx
+              properties:
+                option_idx:
+                  type: integer
+                  description: Index of the poll option to vote for
+      responses:
+        '200':
+          description: Vote recorded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  poll_results:
+                    type: object
+        '400':
+          description: Invalid input or already voted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/forum/upload:
+    post:
+      tags:
+        - Forum
+      summary: Upload forum media
+      description: Upload image or video for forum posts (multipart/form-data)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: File uploaded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+        '400':
+          description: Invalid file
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/forum/communities:
+    get:
+      tags:
+        - Forum Communities
+      summary: Get forum communities
+      responses:
+        '200':
+          description: List of forum communities
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ForumCommunity'
+
+  /api/v1/forum/communities/{id}/join:
+    post:
+      tags:
+        - Forum Communities
+      summary: Join or leave a forum community
+      description: Toggle membership - joins if not a member, leaves if already a member
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Membership toggled successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  is_member:
+                    type: boolean
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Community not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/profile:
+    get:
+      tags:
+        - Profile
+      summary: Get user profile
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/preferences:
+    post:
+      tags:
+        - Profile
+      summary: Save user preferences
+      description: Save user onboarding preferences
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SavePreferencesRequest'
+      responses:
+        '200':
+          description: Preferences saved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/counselling/bookings:
+    post:
+      tags:
+        - Counselling
+      summary: Create a counselling booking
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCounsellingBookingRequest'
+      responses:
+        '201':
+          description: Booking created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CounsellingBooking'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/counselling/bookings/my:
+    get:
+      tags:
+        - Counselling
+      summary: Get user's counselling bookings
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of user's bookings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CounsellingBooking'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/admin/colleges:
+    get:
+      tags:
+        - Admin
+      summary: Get all colleges (Admin)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: location
+          in: query
+          schema:
+            type: string
+        - name: type
+          in: query
+          schema:
+            type: string
+        - name: verified
+          in: query
+          schema:
+            type: string
+        - name: popular
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of colleges
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollegeListResponse'
+        '403':
+          description: Forbidden - Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      tags:
+        - Admin
+      summary: Create a new college
+      description: Admin only - Create a new college
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCollegeRequest'
+      responses:
+        '201':
+          description: College created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollegeResponse'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/admin/colleges/{id}:
+    get:
+      tags:
+        - Admin
+      summary: Get college by ID (Admin)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: College details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollegeResponse'
+        '404':
+          description: College not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags:
+        - Admin
+      summary: Update a college
+      description: Admin only - Update college details
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCollegeRequest'
+      responses:
+        '200':
+          description: College updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollegeResponse'
+        '404':
+          description: College not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - Admin
+      summary: Delete a college
+      description: Admin only - Delete a college
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: College deleted successfully
+        '404':
+          description: College not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/admin/colleges/{id}/approve:
+    put:
+      tags:
+        - Admin
+      summary: Approve a college
+      description: Admin only - Approve a college (set verified to true)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: College approved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollegeResponse'
+        '400':
+          description: College already approved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: College not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/admin/universities:
+    get:
+      tags:
+        - Admin
+      summary: Get all universities (Admin)
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of universities
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UniversityListResponse'
+        '403':
+          description: Forbidden - Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/admin/universities/{id}:
+    get:
+      tags:
+        - Admin
+      summary: Get university by ID (Admin)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: University details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UniversityResponse'
+        '404':
+          description: University not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/admissions:
+    post:
+      tags:
+        - Admissions
+      summary: Create an admission application
+      description: Submit a new admission application for a college program
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAdmissionRequest'
+      responses:
+        '201':
+          description: Admission application created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdmissionResponse'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: College not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/admissions/my:
+    get:
+      tags:
+        - Admissions
+      summary: Get my admission applications
+      description: Retrieve all admission applications for the authenticated user
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of user's admission applications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Admission'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/admissions/{id}:
+    get:
+      tags:
+        - Admissions
+      summary: Get admission by ID
+      description: Retrieve a specific admission application
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Admission details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdmissionResponse'
+        '404':
+          description: Admission not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - You can only view your own admissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags:
+        - Admissions
+      summary: Update admission application
+      description: Update your own admission application
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAdmissionRequest'
+      responses:
+        '200':
+          description: Admission application updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdmissionResponse'
+        '404':
+          description: Admission not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - You can only update your own admissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - Admissions
+      summary: Delete admission application
+      description: Delete your own admission application
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Admission application deleted successfully
+        '404':
+          description: Admission not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - You can only delete your own admissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/admin/admissions:
+    get:
+      tags:
+        - Admin Admissions
+      summary: Get all admissions (Admin)
+      description: Retrieve all admission applications with optional filtering
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, under_review, approved, rejected, waitlisted]
+        - name: college_id
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: List of all admissions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Admission'
+        '403':
+          description: Forbidden - Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/admin/admissions/{id}:
+    get:
+      tags:
+        - Admin Admissions
+      summary: Get admission by ID (Admin)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Admission details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdmissionResponse'
+        '404':
+          description: Admission not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/admin/admissions/{id}/status:
+    put:
+      tags:
+        - Admin Admissions
+      summary: Update admission status (Admin)
+      description: Update the status of an admission application (approve, reject, etc.)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAdmissionStatusRequest'
+      responses:
+        '200':
+          description: Admission status updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdmissionResponse'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Admission not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/admin/colleges/{collegeId}/admissions:
+    get:
+      tags:
+        - Admin Admissions
+      summary: Get admissions for a college (Admin)
+      description: Retrieve all admission applications for a specific college
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: collegeId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, under_review, approved, rejected, waitlisted]
+      responses:
+        '200':
+          description: List of college admissions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Admission'
+        '403':
+          description: Forbidden - Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/institution/scholarships:
+    get:
+      tags:
+        - Institution
+      summary: Get institution's scholarships
+      description: Retrieve all scholarships managed by the authenticated institution
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of institution's scholarships
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Scholarship'
+        '403':
+          description: Forbidden - Institution access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      tags:
+        - Institution
+      summary: Create a scholarship
+      description: Create a new scholarship for the institution
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateScholarshipRequest'
+      responses:
+        '201':
+          description: Scholarship created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScholarshipResponse'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - Institution access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/institution/scholarships/{id}:
+    put:
+      tags:
+        - Institution
+      summary: Update a scholarship
+      description: Update an existing scholarship managed by the institution
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateScholarshipRequest'
+      responses:
+        '200':
+          description: Scholarship updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScholarshipResponse'
+        '404':
+          description: Scholarship not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - Not your scholarship
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - Institution
+      summary: Delete a scholarship
+      description: Delete a scholarship managed by the institution
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Scholarship deleted successfully
+        '404':
+          description: Scholarship not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - Not your scholarship
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/institution/admissions:
+    get:
+      tags:
+        - Institution
+      summary: Get institution's admissions
+      description: Retrieve all admission applications for the institution's college
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, under_review, approved, rejected, waitlisted]
+      responses:
+        '200':
+          description: List of admission applications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Admission'
+        '403':
+          description: Forbidden - Institution access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/institution/admissions/{id}/status:
+    put:
+      tags:
+        - Institution
+      summary: Update admission status
+      description: Update the status of an admission application for the institution's college
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAdmissionStatusRequest'
+      responses:
+        '200':
+          description: Admission status updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdmissionResponse'
+        '404':
+          description: Admission not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - Not your college's admission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/institution/scholarship-applications:
+    get:
+      tags:
+        - Institution
+      summary: Get scholarship applications
+      description: Retrieve all scholarship applications for the institution's scholarships
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, under_review, approved, rejected, shortlisted]
+      responses:
+        '200':
+          description: List of scholarship applications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ScholarshipApplication'
+        '403':
+          description: Forbidden - Institution access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/institution/scholarship-applications/{id}/status:
+    put:
+      tags:
+        - Institution
+      summary: Update scholarship application status
+      description: Update the status of a scholarship application for the institution's scholarships
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  enum: [pending, under_review, approved, rejected, shortlisted]
+                notes:
+                  type: string
+      responses:
+        '200':
+          description: Application status updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScholarshipApplicationResponse'
+        '404':
+          description: Application not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - Not your scholarship's application
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/scholarships/my-applications:
+    get:
+      tags:
+        - Scholarships
+      summary: Get my scholarship applications
+      description: Retrieve all scholarship applications for the authenticated user
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of user's scholarship applications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ScholarshipApplication'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/scholarships/applications/{id}:
+    get:
+      tags:
+        - Scholarships
+      summary: Get scholarship application by ID
+      description: Retrieve a specific scholarship application
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Application details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScholarshipApplicationResponse'
+        '404':
+          description: Application not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - You can only view your own applications
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags:
+        - Scholarships
+      summary: Update scholarship application
+      description: Update your own scholarship application
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateScholarshipApplicationRequest'
+      responses:
+        '200':
+          description: Application updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScholarshipApplicationResponse'
+        '404':
+          description: Application not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - You can only update your own applications
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - Scholarships
+      summary: Delete scholarship application
+      description: Delete your own scholarship application
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Application deleted successfully
+        '404':
+          description: Application not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - You can only delete your own applications
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/admin/scholarships:
+    get:
+      tags:
+        - Admin Scholarships
+      summary: Get all scholarships (Admin)
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of all scholarships
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Scholarship'
+        '403':
+          description: Forbidden - Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      tags:
+        - Admin Scholarships
+      summary: Create a scholarship (Admin)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateScholarshipRequest'
+      responses:
+        '201':
+          description: Scholarship created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScholarshipResponse'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/admin/scholarships/{id}:
+    get:
+      tags:
+        - Admin Scholarships
+      summary: Get scholarship by ID (Admin)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Scholarship details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScholarshipResponse'
+        '404':
+          description: Scholarship not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags:
+        - Admin Scholarships
+      summary: Update a scholarship (Admin)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateScholarshipRequest'
+      responses:
+        '200':
+          description: Scholarship updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScholarshipResponse'
+        '404':
+          description: Scholarship not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - Admin Scholarships
+      summary: Delete a scholarship (Admin)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Scholarship deleted successfully
+        '404':
+          description: Scholarship not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/admin/scholarship-applications:
+    get:
+      tags:
+        - Admin Scholarships
+      summary: Get all scholarship applications (Admin)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, under_review, approved, rejected, shortlisted]
+      responses:
+        '200':
+          description: List of all scholarship applications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ScholarshipApplication'
+        '403':
+          description: Forbidden - Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/admin/scholarship-applications/{id}:
+    get:
+      tags:
+        - Admin Scholarships
+      summary: Get scholarship application by ID (Admin)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Application details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScholarshipApplicationResponse'
+        '404':
+          description: Application not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/admin/scholarship-applications/{id}/status:
+    put:
+      tags:
+        - Admin Scholarships
+      summary: Update scholarship application status (Admin)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  enum: [pending, under_review, approved, rejected, shortlisted]
+                notes:
+                  type: string
+      responses:
+        '200':
+          description: Application status updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScholarshipApplicationResponse'
+        '404':
+          description: Application not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/admin/scholarships/{scholarshipId}/applications:
+    get:
+      tags:
+        - Admin Scholarships
+      summary: Get applications for a scholarship (Admin)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: scholarshipId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, under_review, approved, rejected, shortlisted]
+      responses:
+        '200':
+          description: List of scholarship applications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ScholarshipApplication'
+        '403':
+          description: Forbidden - Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/admin/users:
+    get:
+      tags:
+        - Admin
+      summary: Get all users (Admin)
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Admin users endpoint
+        '403':
+          description: Forbidden - Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from login or registration endpoint
+
+  schemas:
+    RegisterRequest:
+      type: object
+      required:
+        - email
+        - password
+        - first_name
+        - last_name
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 6
+        first_name:
+          type: string
+        last_name:
+          type: string
+        role:
+          type: string
+          enum: [student, job_seeker, teacher, admin]
+          default: student
+        education_level:
+          type: string
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    InstitutionRegisterRequest:
+      type: object
+      required:
+        - institution_name
+        - registration_number
+        - email
+        - password
+      properties:
+        institution_name:
+          type: string
+        registration_number:
+          type: string
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 6
+
+    InstitutionLoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    ScholarshipProviderRegisterRequest:
+      type: object
+      required:
+        - provider_name
+        - registration_number
+        - email
+        - password
+      properties:
+        provider_name:
+          type: string
+        registration_number:
+          type: string
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 6
+
+    ScholarshipProviderLoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    SavePreferencesRequest:
+      type: object
+      required:
+        - preference_role
+        - preference_flow
+        - preferences
+      properties:
+        preference_role:
+          type: string
+        preference_flow:
+          type: string
+          enum: [flowA, flowB, flowFresher, flowExperienced]
+        preferences:
+          type: object
+          description: Key-value pairs of preferences
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        user:
+          $ref: '#/components/schemas/User'
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+          format: email
+        first_name:
+          type: string
+        last_name:
+          type: string
+        role:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        first_name:
+          type: string
+        last_name:
+          type: string
+        role:
+          type: string
+        preferences:
+          $ref: '#/components/schemas/Preferences'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Preferences:
+      type: object
+      properties:
+        role:
+          type: string
+        preference_flow:
+          type: string
+        preferences:
+          type: object
+        completed_at:
+          type: string
+          format: date-time
+
+    College:
+      type: object
+      properties:
+        id:
+          type: integer
+        university_id:
+          type: integer
+        name:
+          type: string
+        full_name:
+          type: string
+        location:
+          type: string
+        affiliation:
+          type: string
+        type:
+          type: string
+        verified:
+          type: boolean
+        popular:
+          type: boolean
+        rating:
+          type: number
+        reviews:
+          type: integer
+        programs:
+          type: integer
+        established:
+          type: string
+        students:
+          type: string
+        description:
+          type: string
+        website:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        image_url:
+          type: string
+        academic_fit_score:
+          type: integer
+        campus_life_score:
+          type: integer
+        career_fit_score:
+          type: integer
+        balanced_fit_score:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CollegeListResponse:
+      type: object
+      properties:
+        colleges:
+          type: array
+          items:
+            $ref: '#/components/schemas/College'
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    CollegeResponse:
+      type: object
+      properties:
+        college:
+          $ref: '#/components/schemas/College'
+
+    CreateCollegeRequest:
+      type: object
+      required:
+        - university_id
+        - name
+        - location
+      properties:
+        university_id:
+          type: integer
+        name:
+          type: string
+        full_name:
+          type: string
+        location:
+          type: string
+        affiliation:
+          type: string
+        type:
+          type: string
+        verified:
+          type: boolean
+        popular:
+          type: boolean
+        rating:
+          type: number
+        reviews:
+          type: integer
+        programs:
+          type: integer
+        established:
+          type: string
+        students:
+          type: string
+        description:
+          type: string
+        website:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        image_url:
+          type: string
+        featured_programs:
+          type: array
+          items:
+            type: string
+        amenities:
+          type: array
+          items:
+            type: string
+        academic_fit_score:
+          type: integer
+        campus_life_score:
+          type: integer
+        career_fit_score:
+          type: integer
+        balanced_fit_score:
+          type: integer
+        profile_tags:
+          type: array
+          items:
+            type: string
+
+    UpdateCollegeRequest:
+      type: object
+      properties:
+        university_id:
+          type: integer
+        name:
+          type: string
+        full_name:
+          type: string
+        location:
+          type: string
+        affiliation:
+          type: string
+        type:
+          type: string
+        verified:
+          type: boolean
+        popular:
+          type: boolean
+        rating:
+          type: number
+        reviews:
+          type: integer
+        programs:
+          type: integer
+        established:
+          type: string
+        students:
+          type: string
+        description:
+          type: string
+        website:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        image_url:
+          type: string
+        featured_programs:
+          type: array
+          items:
+            type: string
+        amenities:
+          type: array
+          items:
+            type: string
+        academic_fit_score:
+          type: integer
+        campus_life_score:
+          type: integer
+        career_fit_score:
+          type: integer
+        balanced_fit_score:
+          type: integer
+        profile_tags:
+          type: array
+          items:
+            type: string
+
+    University:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        logo:
+          type: string
+        location:
+          type: string
+        type:
+          type: string
+        rank:
+          type: integer
+        rating:
+          type: number
+        review_count:
+          type: integer
+        verified:
+          type: boolean
+        popular:
+          type: boolean
+        description:
+          type: string
+        established:
+          type: string
+        students:
+          type: string
+        chancellor:
+          type: string
+        vice_chancellor:
+          type: string
+        founder:
+          type: string
+        website:
+          type: string
+        cover:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    UniversityListResponse:
+      type: object
+      properties:
+        universities:
+          type: array
+          items:
+            $ref: '#/components/schemas/University'
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    UniversityResponse:
+      type: object
+      properties:
+        university:
+          $ref: '#/components/schemas/University'
+
+    CreateUniversityRequest:
+      type: object
+      required:
+        - name
+        - location
+      properties:
+        name:
+          type: string
+        logo:
+          type: string
+        location:
+          type: string
+        type:
+          type: string
+        rank:
+          type: integer
+        rating:
+          type: number
+        review_count:
+          type: integer
+        verified:
+          type: boolean
+        popular:
+          type: boolean
+        description:
+          type: string
+        established:
+          type: string
+        students:
+          type: string
+        chancellor:
+          type: string
+        vice_chancellor:
+          type: string
+        founder:
+          type: string
+        website:
+          type: string
+        cover:
+          type: string
+
+    UpdateUniversityRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        logo:
+          type: string
+        location:
+          type: string
+        type:
+          type: string
+        rank:
+          type: integer
+        rating:
+          type: number
+        review_count:
+          type: integer
+        verified:
+          type: boolean
+        popular:
+          type: boolean
+        description:
+          type: string
+        established:
+          type: string
+        students:
+          type: string
+        chancellor:
+          type: string
+        vice_chancellor:
+          type: string
+        founder:
+          type: string
+        website:
+          type: string
+        cover:
+          type: string
+
+    Scholarship:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        provider:
+          type: string
+        location:
+          type: string
+        value:
+          type: string
+        deadline:
+          type: string
+          format: date-time
+        degree_level:
+          type: string
+        funding_type:
+          type: string
+        scholarship_type:
+          type: string
+        description:
+          type: string
+        image_url:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ScholarshipListResponse:
+      type: object
+      properties:
+        scholarships:
+          type: array
+          items:
+            $ref: '#/components/schemas/Scholarship'
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    ScholarshipResponse:
+      type: object
+      properties:
+        scholarship:
+          $ref: '#/components/schemas/Scholarship'
+
+    ScholarshipApplicationRequest:
+      type: object
+      required:
+        - national_id
+        - first_name
+        - last_name
+        - date_of_birth
+        - gender
+        - street_address
+        - city
+        - post_code
+        - country
+        - phone_code
+        - phone_number
+        - email
+        - latest_institution
+        - level_completed
+        - gpa_percentage
+        - annual_family_income
+        - primary_income_source
+        - personal_statement
+      properties:
+        national_id:
+          type: string
+        first_name:
+          type: string
+        last_name:
+          type: string
+        date_of_birth:
+          type: string
+          format: date
+        gender:
+          type: string
+        street_address:
+          type: string
+        city:
+          type: string
+        post_code:
+          type: string
+        country:
+          type: string
+        phone_code:
+          type: string
+        phone_number:
+          type: string
+        email:
+          type: string
+          format: email
+        latest_institution:
+          type: string
+        level_completed:
+          type: string
+        gpa_percentage:
+          type: string
+        annual_family_income:
+          type: string
+        primary_income_source:
+          type: string
+        special_circumstances:
+          type: array
+          items:
+            type: string
+        personal_statement:
+          type: string
+
+    Exam:
+      type: object
+      properties:
+        id:
+          type: integer
+        slug:
+          type: string
+        title:
+          type: string
+        board:
+          type: string
+        level:
+          type: string
+        type:
+          type: string
+        examDate:
+          type: string
+        formDeadline:
+          type: string
+        fee:
+          type: string
+        status:
+          type: string
+        imageUrl:
+          type: string
+        university:
+          type: string
+        faculty:
+          type: string
+        description:
+          type: string
+        overview:
+          type: string
+
+    Course:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        shortTitle:
+          type: string
+        collegesCount:
+          type: integer
+        affiliation:
+          type: string
+        level:
+          type: string
+        field:
+          type: string
+        duration:
+          type: string
+        estFee:
+          type: string
+        careerPath:
+          type: string
+        description:
+          type: string
+        location:
+          type: string
+        mode:
+          type: string
+        degreeLabel:
+          type: string
+
+    News:
+      type: object
+      properties:
+        id:
+          type: integer
+        category:
+          type: string
+        title:
+          type: string
+        excerpt:
+          type: string
+        content:
+          type: string
+        image:
+          type: string
+        author:
+          type: string
+        date:
+          type: string
+        readTime:
+          type: string
+        source:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+
+    Event:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        date:
+          type: string
+        location:
+          type: string
+        image:
+          type: string
+        interested:
+          type: integer
+        trending:
+          type: boolean
+
+    ForumPost:
+      type: object
+      properties:
+        id:
+          type: integer
+        user_id:
+          type: integer
+        user:
+          $ref: '#/components/schemas/User'
+        community_id:
+          type: integer
+        community:
+          $ref: '#/components/schemas/ForumCommunity'
+        category:
+          type: string
+        title:
+          type: string
+        content:
+          type: string
+        image_url:
+          type: string
+        video_url:
+          type: string
+        upvotes:
+          type: integer
+        downvotes:
+          type: integer
+        comment_count:
+          type: integer
+        is_poll:
+          type: boolean
+        is_liked:
+          type: boolean
+        is_disliked:
+          type: boolean
+        is_saved:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ForumComment:
+      type: object
+      properties:
+        id:
+          type: integer
+        post_id:
+          type: integer
+        user_id:
+          type: integer
+        user:
+          $ref: '#/components/schemas/User'
+        content:
+          type: string
+        parent_id:
+          type: integer
+        replies:
+          type: array
+          items:
+            $ref: '#/components/schemas/ForumComment'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ForumCommunity:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        emoji:
+          type: string
+        bg_color:
+          type: string
+        member_count:
+          type: integer
+        is_member:
+          type: boolean
+        post_count:
+          type: integer
+
+    CreatePostRequest:
+      type: object
+      required:
+        - category
+        - title
+        - content
+      properties:
+        community_id:
+          type: integer
+        category:
+          type: string
+        title:
+          type: string
+        content:
+          type: string
+        image_url:
+          type: string
+        video_url:
+          type: string
+        poll_options:
+          type: array
+          items:
+            type: string
+        is_poll:
+          type: boolean
+
+    UpdatePostRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+
+    CreateCommentRequest:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+        parent_id:
+          type: integer
+
+    CounsellingBooking:
+      type: object
+      properties:
+        id:
+          type: integer
+        user_id:
+          type: integer
+        college:
+          type: string
+        program_level:
+          type: string
+        interested_course:
+          type: string
+        session_mode:
+          type: string
+          enum: [in_person, online]
+        session_date:
+          type: string
+        session_time:
+          type: string
+        student_name:
+          type: string
+        student_phone:
+          type: string
+        student_email:
+          type: string
+        student_notes:
+          type: string
+        status:
+          type: string
+          enum: [pending, confirmed, cancelled, completed]
+          default: pending
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateCounsellingBookingRequest:
+      type: object
+      required:
+        - college
+        - program_level
+        - interested_course
+        - session_mode
+        - session_date
+        - session_time
+        - student_name
+        - student_phone
+        - student_email
+      properties:
+        college:
+          type: string
+        program_level:
+          type: string
+        interested_course:
+          type: string
+        session_mode:
+          type: string
+          enum: [in_person, online]
+        session_date:
+          type: string
+        session_time:
+          type: string
+        student_name:
+          type: string
+        student_phone:
+          type: string
+        student_email:
+          type: string
+          format: email
+        student_notes:
+          type: string
+
+    ScholarshipFinderRequest:
+      type: object
+      required:
+        - education_level
+      properties:
+        education_level:
+          type: string
+        study_mode:
+          type: string
+        academic_score:
+          type: string
+        target_country:
+          type: string
+        need_type:
+          type: string
+        skills:
+          type: array
+          items:
+            type: string
+        achievements:
+          type: array
+          items:
+            type: string
+        involvements:
+          type: array
+          items:
+            type: string
+
+    CollegeRecommenderRequest:
+      type: object
+      required:
+        - student_type
+      properties:
+        student_type:
+          type: string
+          enum: [academic, campus, career, balanced]
+        program_interest:
+          type: string
+        preferred_location:
+          type: string
+        budget_preference:
+          type: string
+        campus_life_priority:
+          type: string
+        career_goal:
+          type: string
+        need_scholarship:
+          type: boolean
+        preferred_mode:
+          type: string
+        college_type:
+          type: string
+        final_priority:
+          type: string
+
+    Admission:
+      type: object
+      properties:
+        id:
+          type: integer
+        user_id:
+          type: integer
+        college_id:
+          type: integer
+        college:
+          $ref: '#/components/schemas/College'
+        program_name:
+          type: string
+        program_level:
+          type: string
+        student_name:
+          type: string
+        student_email:
+          type: string
+        student_phone:
+          type: string
+        date_of_birth:
+          type: string
+          format: date
+        gender:
+          type: string
+        address:
+          type: string
+        city:
+          type: string
+        last_qualification:
+          type: string
+        institution:
+          type: string
+        gpa:
+          type: string
+        entrance_score:
+          type: string
+        statement:
+          type: string
+        status:
+          type: string
+          enum: [pending, under_review, approved, rejected, waitlisted]
+          default: pending
+        notes:
+          type: string
+        reviewed_by:
+          type: integer
+        reviewed_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    AdmissionResponse:
+      type: object
+      properties:
+        admission:
+          $ref: '#/components/schemas/Admission'
+
+    CreateAdmissionRequest:
+      type: object
+      required:
+        - college_id
+        - program_name
+        - program_level
+        - student_name
+        - student_email
+        - student_phone
+      properties:
+        college_id:
+          type: integer
+        program_name:
+          type: string
+        program_level:
+          type: string
+        student_name:
+          type: string
+        student_email:
+          type: string
+          format: email
+        student_phone:
+          type: string
+        date_of_birth:
+          type: string
+          format: date
+        gender:
+          type: string
+        address:
+          type: string
+        city:
+          type: string
+        last_qualification:
+          type: string
+        institution:
+          type: string
+        gpa:
+          type: string
+        entrance_score:
+          type: string
+        statement:
+          type: string
+
+    UpdateAdmissionRequest:
+      type: object
+      properties:
+        program_name:
+          type: string
+        program_level:
+          type: string
+        student_name:
+          type: string
+        student_email:
+          type: string
+        student_phone:
+          type: string
+        date_of_birth:
+          type: string
+          format: date
+        gender:
+          type: string
+        address:
+          type: string
+        city:
+          type: string
+        last_qualification:
+          type: string
+        institution:
+          type: string
+        gpa:
+          type: string
+        entrance_score:
+          type: string
+        statement:
+          type: string
+
+    UpdateAdmissionStatusRequest:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [pending, under_review, approved, rejected, waitlisted]
+        notes:
+          type: string
+
+    ScholarshipApplication:
+      type: object
+      properties:
+        id:
+          type: integer
+        scholarship_id:
+          type: integer
+        scholarship:
+          $ref: '#/components/schemas/Scholarship'
+        user_id:
+          type: integer
+        user:
+          $ref: '#/components/schemas/User'
+        national_id:
+          type: string
+        first_name:
+          type: string
+        last_name:
+          type: string
+        date_of_birth:
+          type: string
+          format: date
+        gender:
+          type: string
+        street_address:
+          type: string
+        city:
+          type: string
+        post_code:
+          type: string
+        country:
+          type: string
+        phone_code:
+          type: string
+        phone_number:
+          type: string
+        email:
+          type: string
+        latest_institution:
+          type: string
+        level_completed:
+          type: string
+        gpa_percentage:
+          type: string
+        annual_family_income:
+          type: string
+        primary_income_source:
+          type: string
+        special_circumstances:
+          type: array
+          items:
+            type: string
+        personal_statement:
+          type: string
+        documents:
+          type: array
+          items:
+            type: object
+        status:
+          type: string
+          enum: [pending, under_review, approved, rejected, shortlisted]
+          default: pending
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ScholarshipApplicationResponse:
+      type: object
+      properties:
+        application:
+          $ref: '#/components/schemas/ScholarshipApplication'
+
+    UpdateScholarshipApplicationRequest:
+      type: object
+      properties:
+        national_id:
+          type: string
+        first_name:
+          type: string
+        last_name:
+          type: string
+        date_of_birth:
+          type: string
+          format: date
+        gender:
+          type: string
+        street_address:
+          type: string
+        city:
+          type: string
+        post_code:
+          type: string
+        country:
+          type: string
+        phone_code:
+          type: string
+        phone_number:
+          type: string
+        email:
+          type: string
+        latest_institution:
+          type: string
+        level_completed:
+          type: string
+        gpa_percentage:
+          type: string
+        annual_family_income:
+          type: string
+        primary_income_source:
+          type: string
+        special_circumstances:
+          type: array
+          items:
+            type: string
+        personal_statement:
+          type: string
+
+    CreateScholarshipRequest:
+      type: object
+      required:
+        - title
+        - provider
+      properties:
+        title:
+          type: string
+        provider:
+          type: string
+        location:
+          type: string
+        value:
+          type: string
+        deadline:
+          type: string
+          format: date
+        degree_level:
+          type: string
+        funding_type:
+          type: string
+        scholarship_type:
+          type: string
+        description:
+          type: string
+        image_url:
+          type: string
+        field_of_study:
+          type: array
+          items:
+            type: string

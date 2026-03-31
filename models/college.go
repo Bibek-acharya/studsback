@@ -20,6 +20,7 @@ type College struct {
 	CollegeType      string         `json:"type"`        // Public or Private
 	Verified         bool           `gorm:"default:false" json:"verified"`
 	Popular          bool           `gorm:"default:false" json:"popular"`
+	Featured         bool           `gorm:"default:false;index" json:"featured"`
 	Rating           float64        `json:"rating"` // e.g., 4.2
 	Reviews          int            `json:"reviews"`
 	Programs         int            `json:"programs"` // number of programs offered

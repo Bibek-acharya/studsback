@@ -1,0 +1,16 @@
+{
+    "schemes": [
+        "http",
+        "https"
+    ],
+    "swagger": "2.0",
+    "info": {
+        "description": "API for the StudSphere education platform - connecting students with universities, colleges, scholarships, and community forums.",
+        "title": "StudSphere API",
+        "contact": {},
+        "version": "1.0"
+    },
+    "host": "localhost:8080",
+    "basePath": "/",
+    "paths": {}
+}

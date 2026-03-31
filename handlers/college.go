@@ -25,6 +25,7 @@ type CollegeResponse struct {
 	CollegeType      string      `json:"type"`
 	Verified         bool        `json:"verified"`
 	Popular          bool        `json:"popular"`
+	Featured         bool        `json:"featured"`
 	Rating           float64     `json:"rating"`
 	Reviews          int         `json:"reviews"`
 	Programs         int         `json:"programs"`
@@ -492,4 +493,61 @@ func DeleteCollege(c *gin.Context) {
 	}
 
 	utils.SuccessResponse(c, 200, "College deleted successfully", nil)
+}
+
+// ApproveCollege approves a college (admin only)
+func ApproveCollege(c *gin.Context) {
+	collegeID := c.Param("id")
+
+	var college models.College
+	if err := config.GetDB().First(&college, collegeID).Error; err != nil {
+		utils.ErrorResponse(c, 404, "College not found")
+		return
+	}
+
+	if college.Verified {
+		utils.ErrorResponse(c, 400, "College is already approved")
+		return
+	}
+
+	if err := config.GetDB().Model(&college).Update("verified", true).Error; err != nil {
+		utils.ErrorResponse(c, 500, "Failed to approve college")
+		return
+	}
+
+	if err := config.GetDB().Preload("University").First(&college, college.ID).Error; err != nil {
+		utils.ErrorResponse(c, 500, "Failed to fetch approved college")
+		return
+	}
+
+	utils.SuccessResponse(c, 200, "College approved successfully", buildCollegeResponse(college))
+}
+
+func ToggleCollegeFeatured(c *gin.Context) {
+	collegeID := c.Param("id")
+
+	var college models.College
+	if err := config.GetDB().First(&college, collegeID).Error; err != nil {
+		utils.ErrorResponse(c, 404, "College not found")
+		return
+	}
+
+	config.GetDB().Model(&college).Update("featured", !college.Featured)
+	config.GetDB().First(&college, college.ID)
+
+	utils.SuccessResponse(c, 200, "College featured status updated", buildCollegeResponse(college))
+}
+
+func GetFeaturedColleges(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+
+	var colleges []models.College
+	config.GetDB().Where("featured = ?", true).Order("rating desc").Limit(limit).Find(&colleges)
+
+	responses := make([]CollegeResponse, 0, len(colleges))
+	for _, college := range colleges {
+		responses = append(responses, buildCollegeResponse(college))
+	}
+
+	utils.SuccessResponse(c, 200, "Featured colleges retrieved successfully", gin.H{"colleges": responses})
 }

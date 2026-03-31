@@ -1,3 +1,9 @@
+// @title StudSphere API
+// @version 1.0
+// @description API for the StudSphere education platform - connecting students with universities, colleges, scholarships, and community forums.
+// @host localhost:8080
+// @BasePath /
+// @schemes http https
 package main
 
 import (
@@ -45,6 +51,32 @@ func main() {
 		&models.ForumSave{},
 		&models.ForumPollVote{},
 		&models.ScholarshipProviderUser{},
+		&models.Admission{},
+		&models.Blog{},
+		&models.ProviderScholarship{},
+		&models.ProviderApplication{},
+		&models.ProviderInterview{},
+		&models.ProviderMessage{},
+		&models.ProviderSettings{},
+		&models.Message{},
+		&models.CalendarEvent{},
+		&models.SphereInvite{},
+		&models.Bookmark{},
+		&models.Notification{},
+		&models.InstitutionProgram{},
+		&models.InstitutionMedia{},
+		&models.InstitutionCounsellingSession{},
+		&models.InstitutionCounsellingBooking{},
+		&models.InstitutionEntrance{},
+		&models.InstitutionEntranceApplicant{},
+		&models.InstitutionEvent{},
+		&models.InstitutionNews{},
+		&models.InstitutionQMS{},
+		&models.InstitutionMessage{},
+		&models.InstitutionSettings{},
+		&models.ContactInquiry{},
+		&models.Ad{},
+		&models.CarouselSlide{},
 	); err != nil {
 		log.Fatal("Failed to migrate database:", err)
 	}
@@ -115,6 +147,12 @@ func main() {
 
 	// Serve uploaded media files
 	router.Static("/uploads", "./uploads")
+
+	// Swagger documentation - serve OpenAPI spec and Swagger UI
+	router.Static("/docs", "./docs")
+	router.GET("/docs", func(c *gin.Context) {
+		c.Redirect(302, "/docs/index.html")
+	})
 
 	// Setup routes
 	routes.SetupRoutes(router)

@@ -98,3 +98,30 @@ type ScholarshipApplicationRequest struct {
 	SpecialCircumstances []string `json:"special_circumstances"`
 	PersonalStatement    string   `json:"personal_statement" binding:"required"`
 }
+
+type UpdateScholarshipApplicationRequest struct {
+	NationalID           *string  `json:"national_id"`
+	FirstName            *string  `json:"first_name"`
+	LastName             *string  `json:"last_name"`
+	DateOfBirth          *string  `json:"date_of_birth"`
+	Gender               *string  `json:"gender"`
+	StreetAddress        *string  `json:"street_address"`
+	City                 *string  `json:"city"`
+	PostCode             *string  `json:"post_code"`
+	Country              *string  `json:"country"`
+	PhoneCode            *string  `json:"phone_code"`
+	PhoneNumber          *string  `json:"phone_number"`
+	Email                *string  `json:"email"`
+	LatestInstitution    *string  `json:"latest_institution"`
+	LevelCompleted       *string  `json:"level_completed"`
+	GPAPercentage        *string  `json:"gpa_percentage"`
+	AnnualFamilyIncome   *string  `json:"annual_family_income"`
+	PrimaryIncomeSource  *string  `json:"primary_income_source"`
+	SpecialCircumstances []string `json:"special_circumstances"`
+	PersonalStatement    *string  `json:"personal_statement"`
+}
+
+type UpdateScholarshipApplicationStatusRequest struct {
+	Status string `json:"status" binding:"required,oneof=pending under_review approved rejected shortlisted"`
+	Notes  string `json:"notes"`
+}

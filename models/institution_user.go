@@ -15,6 +15,7 @@ type InstitutionUser struct {
 	InstitutionName    string         `gorm:"not null" json:"institution_name" binding:"required"`
 	RegistrationNumber string         `gorm:"uniqueIndex;not null" json:"registration_number" binding:"required"`
 	Email              string         `gorm:"uniqueIndex;not null" json:"email" binding:"required,email"`
+	GoogleID           *string        `gorm:"uniqueIndex;default:null" json:"google_id"`
 	Password           *string        `json:"-"`
 	Role               string         `gorm:"default:'institution'" json:"role"`
 }

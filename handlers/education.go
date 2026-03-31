@@ -402,3 +402,88 @@ func GetEducationEvents(c *gin.Context) {
 	}
 	utils.SuccessResponse(c, http.StatusOK, "Events retrieved successfully", gin.H{"events": events})
 }
+
+func GetEducationNewsByID(c *gin.Context) {
+	id := c.Param("id")
+	var news models.News
+	if err := config.GetDB().First(&news, id).Error; err != nil {
+		utils.ErrorResponse(c, http.StatusNotFound, "News article not found")
+		return
+	}
+	utils.SuccessResponse(c, http.StatusOK, "News article retrieved successfully", news)
+}
+
+func GetEducationEventByID(c *gin.Context) {
+	id := c.Param("id")
+	var event models.Event
+	if err := config.GetDB().First(&event, id).Error; err != nil {
+		utils.ErrorResponse(c, http.StatusNotFound, "Event not found")
+		return
+	}
+	utils.SuccessResponse(c, http.StatusOK, "Event retrieved successfully", event)
+}
+
+func GetEducationBlogs(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	category := c.Query("category")
+	search := c.Query("search")
+
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50 {
+		limit = 10
+	}
+	offset := (page - 1) * limit
+
+	query := config.GetDB().Model(&models.Blog{}).Where("published = ?", true)
+
+	if category != "" {
+		query = query.Where("category = ?", category)
+	}
+	if search != "" {
+		query = query.Where("title ILIKE ? OR excerpt ILIKE ?", "%"+search+"%", "%"+search+"%")
+	}
+
+	var total int64
+	query.Count(&total)
+
+	var blogs []models.Blog
+	if err := query.Order("featured desc, created_at desc").Offset(offset).Limit(limit).Find(&blogs).Error; err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to fetch blogs")
+		return
+	}
+
+	utils.SuccessResponse(c, http.StatusOK, "Blogs retrieved successfully", gin.H{
+		"blogs": blogs,
+		"meta": gin.H{
+			"total": total,
+			"page":  page,
+			"limit": limit,
+			"pages": (total + int64(limit) - 1) / int64(limit),
+		},
+	})
+}
+
+func GetEducationBlogByID(c *gin.Context) {
+	id := c.Param("id")
+	var blog models.Blog
+
+	query := config.GetDB().Where("published = ?", true)
+	if err := query.First(&blog, id).Error; err != nil {
+		utils.ErrorResponse(c, http.StatusNotFound, "Blog post not found")
+		return
+	}
+
+	config.GetDB().Model(&blog).Update("views", blog.Views+1)
+
+	var relatedBlogs []models.Blog
+	config.GetDB().Where("published = ? AND id <> ? AND category = ?", true, blog.ID, blog.Category).
+		Order("created_at desc").Limit(3).Find(&relatedBlogs)
+
+	utils.SuccessResponse(c, http.StatusOK, "Blog post retrieved successfully", gin.H{
+		"blog":    blog,
+		"related": relatedBlogs,
+	})
+}

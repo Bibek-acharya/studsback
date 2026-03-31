@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -477,4 +478,380 @@ func ApplyScholarship(c *gin.Context) {
 	}
 
 	utils.SuccessResponse(c, 201, "Application submitted successfully", application)
+}
+
+// GetMyScholarshipApplications retrieves all scholarship applications for the authenticated user
+func GetMyScholarshipApplications(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+
+	var applications []models.ScholarshipApplication
+	if err := config.GetDB().Where("user_id = ?", userID).Preload("Scholarship").Order("created_at DESC").Find(&applications).Error; err != nil {
+		utils.ErrorResponse(c, 500, "Failed to fetch applications")
+		return
+	}
+
+	utils.SuccessResponse(c, 200, "Applications retrieved successfully", applications)
+}
+
+// GetScholarshipApplication retrieves a single scholarship application by ID
+func GetScholarshipApplication(c *gin.Context) {
+	applicationID := c.Param("id")
+	parsedID, err := strconv.ParseUint(applicationID, 10, 64)
+	if err != nil || parsedID == 0 {
+		utils.ErrorResponse(c, 400, "Invalid application ID")
+		return
+	}
+
+	var application models.ScholarshipApplication
+	if err := config.GetDB().Preload("Scholarship").First(&application, uint(parsedID)).Error; err != nil {
+		utils.ErrorResponse(c, 404, "Application not found")
+		return
+	}
+
+	userID, _ := c.Get("user_id")
+	if application.UserID != userID.(uint) {
+		utils.ErrorResponse(c, 403, "You can only view your own applications")
+		return
+	}
+
+	utils.SuccessResponse(c, 200, "Application retrieved successfully", application)
+}
+
+// UpdateScholarshipApplication updates an existing scholarship application
+func UpdateScholarshipApplication(c *gin.Context) {
+	applicationID := c.Param("id")
+	parsedID, err := strconv.ParseUint(applicationID, 10, 64)
+	if err != nil || parsedID == 0 {
+		utils.ErrorResponse(c, 400, "Invalid application ID")
+		return
+	}
+
+	var application models.ScholarshipApplication
+	if err := config.GetDB().First(&application, uint(parsedID)).Error; err != nil {
+		utils.ErrorResponse(c, 404, "Application not found")
+		return
+	}
+
+	userID, _ := c.Get("user_id")
+	if application.UserID != userID.(uint) {
+		utils.ErrorResponse(c, 403, "You can only update your own applications")
+		return
+	}
+
+	var req models.UpdateScholarshipApplicationRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.ErrorResponse(c, 400, err.Error())
+		return
+	}
+
+	if req.NationalID != nil {
+		application.NationalID = *req.NationalID
+	}
+	if req.FirstName != nil {
+		application.FirstName = *req.FirstName
+	}
+	if req.LastName != nil {
+		application.LastName = *req.LastName
+	}
+	if req.DateOfBirth != nil {
+		if dob, err := time.Parse("2006-01-02", *req.DateOfBirth); err == nil {
+			application.DateOfBirth = dob
+		}
+	}
+	if req.Gender != nil {
+		application.Gender = *req.Gender
+	}
+	if req.StreetAddress != nil {
+		application.StreetAddress = *req.StreetAddress
+	}
+	if req.City != nil {
+		application.City = *req.City
+	}
+	if req.PostCode != nil {
+		application.PostCode = *req.PostCode
+	}
+	if req.Country != nil {
+		application.Country = *req.Country
+	}
+	if req.PhoneCode != nil {
+		application.PhoneCode = *req.PhoneCode
+	}
+	if req.PhoneNumber != nil {
+		application.PhoneNumber = *req.PhoneNumber
+	}
+	if req.Email != nil {
+		application.Email = *req.Email
+	}
+	if req.LatestInstitution != nil {
+		application.LatestInstitution = *req.LatestInstitution
+	}
+	if req.LevelCompleted != nil {
+		application.LevelCompleted = *req.LevelCompleted
+	}
+	if req.GPAPercentage != nil {
+		application.GPAPercentage = *req.GPAPercentage
+	}
+	if req.AnnualFamilyIncome != nil {
+		application.AnnualFamilyIncome = *req.AnnualFamilyIncome
+	}
+	if req.PrimaryIncomeSource != nil {
+		application.PrimaryIncomeSource = *req.PrimaryIncomeSource
+	}
+	if req.PersonalStatement != nil {
+		application.PersonalStatement = *req.PersonalStatement
+	}
+	if len(req.SpecialCircumstances) > 0 {
+		if data, err := json.Marshal(req.SpecialCircumstances); err == nil {
+			application.SpecialCircumstances = data
+		}
+	}
+
+	if err := config.GetDB().Save(&application).Error; err != nil {
+		utils.ErrorResponse(c, 500, "Failed to update application")
+		return
+	}
+
+	utils.SuccessResponse(c, 200, "Application updated successfully", application)
+}
+
+// DeleteScholarshipApplication deletes a scholarship application
+func DeleteScholarshipApplication(c *gin.Context) {
+	applicationID := c.Param("id")
+	parsedID, err := strconv.ParseUint(applicationID, 10, 64)
+	if err != nil || parsedID == 0 {
+		utils.ErrorResponse(c, 400, "Invalid application ID")
+		return
+	}
+
+	var application models.ScholarshipApplication
+	if err := config.GetDB().First(&application, uint(parsedID)).Error; err != nil {
+		utils.ErrorResponse(c, 404, "Application not found")
+		return
+	}
+
+	userID, _ := c.Get("user_id")
+	if application.UserID != userID.(uint) {
+		utils.ErrorResponse(c, 403, "You can only delete your own applications")
+		return
+	}
+
+	if err := config.GetDB().Unscoped().Delete(&application).Error; err != nil {
+		utils.ErrorResponse(c, 500, "Failed to delete application")
+		return
+	}
+
+	utils.SuccessResponse(c, 200, "Application deleted successfully", nil)
+}
+
+// GetAllScholarships retrieves all scholarships (admin only)
+func GetAllScholarships(c *gin.Context) {
+	var scholarships []models.Scholarship
+	if err := config.GetDB().Order("created_at DESC").Find(&scholarships).Error; err != nil {
+		utils.ErrorResponse(c, 500, "Failed to fetch scholarships")
+		return
+	}
+
+	utils.SuccessResponse(c, 200, "Scholarships retrieved successfully", scholarships)
+}
+
+// AdminCreateScholarship creates a new scholarship (admin only)
+func AdminCreateScholarship(c *gin.Context) {
+	var req models.CreateScholarshipRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.ErrorResponse(c, 400, err.Error())
+		return
+	}
+
+	var deadline time.Time
+	if req.Deadline != "" {
+		var err error
+		deadline, err = time.Parse("2006-01-02", req.Deadline)
+		if err != nil {
+			utils.ErrorResponse(c, 400, "Invalid deadline format (expected YYYY-MM-DD)")
+			return
+		}
+	}
+
+	fieldOfStudy, _ := json.Marshal(req.FieldOfStudy)
+
+	scholarship := models.Scholarship{
+		Title:           req.Title,
+		Provider:        req.Provider,
+		Location:        req.Location,
+		Value:           req.Value,
+		Deadline:        deadline,
+		DegreeLevel:     req.DegreeLevel,
+		FundingType:     req.FundingType,
+		ScholarshipType: req.ScholarshipType,
+		Description:     req.Description,
+		ImageURL:        req.ImageURL,
+		FieldOfStudy:    fieldOfStudy,
+	}
+
+	if err := config.GetDB().Create(&scholarship).Error; err != nil {
+		utils.ErrorResponse(c, 500, "Failed to create scholarship")
+		return
+	}
+
+	utils.SuccessResponse(c, 201, "Scholarship created successfully", scholarship)
+}
+
+// AdminUpdateScholarship updates an existing scholarship (admin only)
+func AdminUpdateScholarship(c *gin.Context) {
+	scholarshipID := c.Param("id")
+	parsedID, err := strconv.ParseUint(scholarshipID, 10, 64)
+	if err != nil || parsedID == 0 {
+		utils.ErrorResponse(c, 400, "Invalid scholarship ID")
+		return
+	}
+
+	var scholarship models.Scholarship
+	if err := config.GetDB().First(&scholarship, uint(parsedID)).Error; err != nil {
+		utils.ErrorResponse(c, 404, "Scholarship not found")
+		return
+	}
+
+	var req models.CreateScholarshipRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.ErrorResponse(c, 400, err.Error())
+		return
+	}
+
+	if req.Title != "" {
+		scholarship.Title = req.Title
+	}
+	if req.Provider != "" {
+		scholarship.Provider = req.Provider
+	}
+	if req.Location != "" {
+		scholarship.Location = req.Location
+	}
+	if req.Value != "" {
+		scholarship.Value = req.Value
+	}
+	if req.Deadline != "" {
+		if deadline, err := time.Parse("2006-01-02", req.Deadline); err == nil {
+			scholarship.Deadline = deadline
+		}
+	}
+	if req.DegreeLevel != "" {
+		scholarship.DegreeLevel = req.DegreeLevel
+	}
+	if req.FundingType != "" {
+		scholarship.FundingType = req.FundingType
+	}
+	if req.ScholarshipType != "" {
+		scholarship.ScholarshipType = req.ScholarshipType
+	}
+	if req.Description != "" {
+		scholarship.Description = req.Description
+	}
+	if req.ImageURL != "" {
+		scholarship.ImageURL = req.ImageURL
+	}
+	if len(req.FieldOfStudy) > 0 {
+		if data, err := json.Marshal(req.FieldOfStudy); err == nil {
+			scholarship.FieldOfStudy = data
+		}
+	}
+
+	if err := config.GetDB().Save(&scholarship).Error; err != nil {
+		utils.ErrorResponse(c, 500, "Failed to update scholarship")
+		return
+	}
+
+	utils.SuccessResponse(c, 200, "Scholarship updated successfully", scholarship)
+}
+
+// AdminDeleteScholarship deletes a scholarship (admin only)
+func AdminDeleteScholarship(c *gin.Context) {
+	scholarshipID := c.Param("id")
+	parsedID, err := strconv.ParseUint(scholarshipID, 10, 64)
+	if err != nil || parsedID == 0 {
+		utils.ErrorResponse(c, 400, "Invalid scholarship ID")
+		return
+	}
+
+	var scholarship models.Scholarship
+	if err := config.GetDB().First(&scholarship, uint(parsedID)).Error; err != nil {
+		utils.ErrorResponse(c, 404, "Scholarship not found")
+		return
+	}
+
+	if err := config.GetDB().Unscoped().Delete(&scholarship).Error; err != nil {
+		utils.ErrorResponse(c, 500, "Failed to delete scholarship")
+		return
+	}
+
+	utils.SuccessResponse(c, 200, "Scholarship deleted successfully", nil)
+}
+
+// GetAllScholarshipApplications retrieves all scholarship applications (admin only)
+func GetAllScholarshipApplications(c *gin.Context) {
+	var applications []models.ScholarshipApplication
+	query := config.GetDB().Preload("Scholarship").Preload("User")
+
+	if status := c.Query("status"); status != "" {
+		query = query.Where("status = ?", status)
+	}
+
+	if err := query.Order("created_at DESC").Find(&applications).Error; err != nil {
+		utils.ErrorResponse(c, 500, "Failed to fetch applications")
+		return
+	}
+
+	utils.SuccessResponse(c, 200, "Applications retrieved successfully", applications)
+}
+
+// AdminUpdateScholarshipApplicationStatus updates the status of a scholarship application (admin only)
+func AdminUpdateScholarshipApplicationStatus(c *gin.Context) {
+	applicationID := c.Param("id")
+	parsedID, err := strconv.ParseUint(applicationID, 10, 64)
+	if err != nil || parsedID == 0 {
+		utils.ErrorResponse(c, 400, "Invalid application ID")
+		return
+	}
+
+	var application models.ScholarshipApplication
+	if err := config.GetDB().First(&application, uint(parsedID)).Error; err != nil {
+		utils.ErrorResponse(c, 404, "Application not found")
+		return
+	}
+
+	var req struct {
+		Status string `json:"status" binding:"required,oneof=pending under_review approved rejected shortlisted"`
+		Notes  string `json:"notes"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.ErrorResponse(c, 400, err.Error())
+		return
+	}
+
+	application.Status = req.Status
+
+	if err := config.GetDB().Save(&application).Error; err != nil {
+		utils.ErrorResponse(c, 500, "Failed to update application status")
+		return
+	}
+
+	utils.SuccessResponse(c, 200, "Application status updated successfully", application)
+}
+
+// GetScholarshipApplicationsByScholarship retrieves all applications for a specific scholarship
+func GetScholarshipApplicationsByScholarship(c *gin.Context) {
+	scholarshipID := c.Param("scholarshipId")
+
+	var applications []models.ScholarshipApplication
+	query := config.GetDB().Where("scholarship_id = ?", scholarshipID).Preload("User")
+
+	if status := c.Query("status"); status != "" {
+		query = query.Where("status = ?", status)
+	}
+
+	if err := query.Order("created_at DESC").Find(&applications).Error; err != nil {
+		utils.ErrorResponse(c, 500, "Failed to fetch applications")
+		return
+	}
+
+	utils.SuccessResponse(c, 200, "Applications retrieved successfully", applications)
 }
