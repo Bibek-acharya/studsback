@@ -54,6 +54,7 @@ func SetupRoutes(router *gin.Engine) {
 		{
 			universities.GET("", handlers.GetUniversities)
 			universities.GET("/:id", handlers.GetUniversityByID)
+			universities.GET("/:id/:tab", handlers.GetUniversityTab)
 		}
 
 		education := v1.Group("/education")

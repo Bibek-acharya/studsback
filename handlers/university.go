@@ -269,7 +269,7 @@ func GetUniversityByID(c *gin.Context) {
 	}
 
 	var uni models.University
-	if err := config.GetDB().First(&uni, universityID).Error; err != nil {
+	if err := config.GetDB().Select("id, name, logo, location, type, rank, rating, review_count, verified, popular, description, established, students, chancellor, vice_chancellor, founder, website, cover").First(&uni, universityID).Error; err != nil {
 		utils.ErrorResponse(c, 404, "University not found")
 		return
 	}
@@ -617,4 +617,54 @@ func DeleteUniversity(c *gin.Context) {
 	}
 
 	utils.SuccessResponse(c, 200, "University deleted successfully", nil)
+}
+
+func GetUniversityTab(c *gin.Context) {
+	universityID, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		utils.ErrorResponse(c, 400, "Invalid university ID")
+		return
+	}
+
+	tab := c.Param("tab")
+	allowedTabs := map[string]bool{
+		"about":        true,
+		"contact":      true,
+		"quick":        true,
+		"overview":     true,
+		"leadership":   true,
+		"courses":      true,
+		"programs":     true,
+		"scholarships": true,
+		"events":       true,
+		"news":         true,
+		"downloads":    true,
+		"gallery":      true,
+		"faculties":    true,
+		"admissions":   true,
+		"reviews":      true,
+	}
+
+	if !allowedTabs[tab] {
+		utils.ErrorResponse(c, 400, "Invalid tab name")
+		return
+	}
+
+	var result struct {
+		Data json.RawMessage `gorm:"column:data"`
+	}
+
+	// Dynamic column selection to avoid fetching everything
+	if err := config.GetDB().Model(&models.University{}).
+		Select(tab + " as data").
+		Where("id = ?", universityID).
+		Scan(&result).Error; err != nil {
+		utils.ErrorResponse(c, 500, "Failed to fetch tab data")
+		return
+	}
+
+	utils.SuccessResponse(c, 200, "Data retrieved successfully", gin.H{
+		"tab":  tab,
+		"data": result.Data,
+	})
 }
