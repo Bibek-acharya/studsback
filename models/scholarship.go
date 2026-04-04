@@ -75,6 +75,7 @@ type CreateScholarshipRequest struct {
 	Description     string   `json:"description"`
 	ImageURL        string   `json:"image_url"`
 	FieldOfStudy    []string `json:"field_of_study"`
+	Status          string   `json:"status"`
 }
 
 type ScholarshipApplicationRequest struct {

@@ -14,6 +14,7 @@ type ProviderScholarship struct {
 	ProviderID          uint           `gorm:"index;not null" json:"provider_id"`
 	Title               string         `gorm:"not null" json:"title" binding:"required"`
 	Description         string         `gorm:"type:text" json:"description"`
+	ImageURL            *string        `json:"image_url"`
 	Location            string         `json:"location"`
 	Value               string         `json:"value"`
 	Deadline            time.Time      `json:"deadline"`
@@ -84,4 +85,17 @@ type ProviderSettings struct {
 	AutoReject  bool      `gorm:"default:false" json:"auto_reject_expired"`
 	Timezone    string    `gorm:"default:'UTC'" json:"timezone"`
 	Language    string    `gorm:"default:'en'" json:"language"`
+}
+
+type ProviderNotification struct {
+	ID         uint           `gorm:"primarykey" json:"id"`
+	CreatedAt  time.Time      `json:"created_at"`
+	UpdatedAt  time.Time      `json:"updated_at"`
+	DeletedAt  gorm.DeletedAt `gorm:"index" json:"-"`
+	ProviderID uint           `gorm:"index;not null" json:"provider_id"`
+	Title      string         `json:"title"`
+	Message    string         `gorm:"type:text" json:"message"`
+	Type       string         `json:"type"`
+	Read       bool           `gorm:"default:false" json:"read"`
+	Link       string         `json:"link"`
 }

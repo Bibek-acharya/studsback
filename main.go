@@ -58,6 +58,7 @@ func main() {
 		&models.ProviderInterview{},
 		&models.ProviderMessage{},
 		&models.ProviderSettings{},
+		&models.ProviderNotification{},
 		&models.Message{},
 		&models.CalendarEvent{},
 		&models.SphereInvite{},

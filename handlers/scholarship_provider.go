@@ -31,9 +31,7 @@ func toJSON(v interface{}) []byte {
 
 func getProviderID(c *gin.Context) uint {
 	userID, _ := c.Get("user_id")
-	idStr := strconv.FormatUint(uint64(userID.(float64)), 10)
-	id, _ := strconv.Atoi(idStr)
-	return uint(id)
+	return userID.(uint)
 }
 
 func GetScholarshipProviderDashboard(c *gin.Context) {
@@ -113,17 +111,28 @@ func CreateProviderScholarship(c *gin.Context) {
 		return
 	}
 
+	status := "draft"
+	if req.Status != "" {
+		status = req.Status
+	}
+
+	var imageURL *string
+	if req.ImageURL != "" {
+		imageURL = &req.ImageURL
+	}
+
 	scholarship := models.ProviderScholarship{
 		ProviderID:      providerID,
 		Title:           req.Title,
 		Description:     req.Description,
+		ImageURL:        imageURL,
 		Location:        req.Location,
 		Value:           req.Value,
 		DegreeLevel:     req.DegreeLevel,
 		FundingType:     req.FundingType,
 		ScholarshipType: req.ScholarshipType,
 		FieldOfStudy:    toJSON(req.FieldOfStudy),
-		Status:          "draft",
+		Status:          status,
 	}
 
 	if req.Deadline != "" {
@@ -212,6 +221,13 @@ func UpdateProviderScholarship(c *gin.Context) {
 		"funding_type":     req.FundingType,
 		"scholarship_type": req.ScholarshipType,
 		"field_of_study":   toJSON(req.FieldOfStudy),
+	}
+
+	if req.ImageURL != "" {
+		updates["image_url"] = req.ImageURL
+	}
+	if req.Status != "" {
+		updates["status"] = req.Status
 	}
 
 	if req.Deadline != "" {
@@ -647,4 +663,73 @@ func UpdateProviderSettings(c *gin.Context) {
 	})
 
 	utils.SuccessResponse(c, http.StatusOK, "Settings updated successfully", settings)
+}
+
+func GetProviderNotifications(c *gin.Context) {
+	providerID := getProviderID(c)
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50 {
+		limit = 20
+	}
+	offset := (page - 1) * limit
+
+	var total int64
+	config.GetDB().Model(&models.ProviderNotification{}).Where("provider_id = ?", providerID).Count(&total)
+
+	var notifications []models.ProviderNotification
+	config.GetDB().Where("provider_id = ?", providerID).
+		Order("read asc, created_at desc").Offset(offset).Limit(limit).Find(&notifications)
+
+	var unreadCount int64
+	config.GetDB().Model(&models.ProviderNotification{}).Where("provider_id = ? AND read = ?", providerID, false).Count(&unreadCount)
+
+	utils.SuccessResponse(c, http.StatusOK, "Notifications retrieved successfully", gin.H{
+		"notifications": notifications,
+		"unread_count":  unreadCount,
+		"meta": gin.H{
+			"total": total,
+			"page":  page,
+			"limit": limit,
+		},
+	})
+}
+
+func MarkProviderNotificationRead(c *gin.Context) {
+	providerID := getProviderID(c)
+	notifID := c.Param("id")
+
+	var notification models.ProviderNotification
+	if err := config.GetDB().Where("id = ? AND provider_id = ?", notifID, providerID).First(&notification).Error; err != nil {
+		utils.ErrorResponse(c, http.StatusNotFound, "Notification not found")
+		return
+	}
+
+	config.GetDB().Model(&notification).Update("read", true)
+
+	utils.SuccessResponse(c, http.StatusOK, "Notification marked as read", nil)
+}
+
+func MarkAllProviderNotificationsRead(c *gin.Context) {
+	providerID := getProviderID(c)
+
+	config.GetDB().Model(&models.ProviderNotification{}).Where("provider_id = ? AND read = ?", providerID, false).
+		Update("read", true)
+
+	utils.SuccessResponse(c, http.StatusOK, "All notifications marked as read", nil)
+}
+
+func CreateProviderNotification(providerID uint, title, message, notifType, link string) {
+	notification := models.ProviderNotification{
+		ProviderID: providerID,
+		Title:      title,
+		Message:    message,
+		Type:       notifType,
+		Link:       link,
+	}
+	config.GetDB().Create(&notification)
 }

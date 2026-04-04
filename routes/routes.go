@@ -154,6 +154,10 @@ func SetupRoutes(router *gin.Engine) {
 			scholarshipProvider.PUT("/profile", handlers.UpdateProviderProfile)
 			scholarshipProvider.GET("/settings", handlers.GetProviderSettings)
 			scholarshipProvider.PUT("/settings", handlers.UpdateProviderSettings)
+
+			scholarshipProvider.GET("/notifications", handlers.GetProviderNotifications)
+			scholarshipProvider.PUT("/notifications/:id/read", handlers.MarkProviderNotificationRead)
+			scholarshipProvider.PUT("/notifications/read-all", handlers.MarkAllProviderNotificationsRead)
 		}
 
 		// Protected routes (authentication required)
