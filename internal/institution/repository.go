@@ -1,0 +1,507 @@
+package institution
+
+import (
+	"gorm.io/gorm"
+)
+
+type Repository struct {
+	db *gorm.DB
+}
+
+func NewRepository(db *gorm.DB) *Repository {
+	return &Repository{db: db}
+}
+
+func (r *Repository) CountProgramsByInstitution(instID uint) (int64, error) {
+	var count int64
+	err := r.db.Model(&InstitutionProgram{}).Where("institution_id = ?", instID).Count(&count).Error
+	return count, err
+}
+
+func (r *Repository) CountDistinctStudentsByInstitution(instID uint) (int64, error) {
+	var count int64
+	err := r.db.Model(&InstitutionEntranceApplicant{}).
+		Joins("JOIN institution_entrances ON institution_entrances.id = institution_entrance_applicants.entrance_id").
+		Where("institution_entrances.institution_id = ?", instID).
+		Distinct("institution_entrance_applicants.user_id").Count(&count).Error
+	return count, err
+}
+
+func (r *Repository) CountActiveEntrances(instID uint) (int64, error) {
+	var count int64
+	err := r.db.Model(&InstitutionEntrance{}).
+		Where("institution_id = ? AND status = ?", instID, "upcoming").Count(&count).Error
+	return count, err
+}
+
+func (r *Repository) CountPendingBookings(instID uint) (int64, error) {
+	var count int64
+	err := r.db.Model(&InstitutionCounsellingBooking{}).
+		Joins("JOIN institution_counselling_sessions ON institution_counselling_sessions.id = institution_counselling_bookings.session_id").
+		Where("institution_counselling_sessions.institution_id = ? AND institution_counselling_bookings.status = ?", instID, "pending").
+		Count(&count).Error
+	return count, err
+}
+
+func (r *Repository) CountUnreadMessages(instID uint) (int64, error) {
+	var count int64
+	err := r.db.Model(&InstitutionMessage{}).
+		Where("institution_id = ? AND read = ?", instID, false).Count(&count).Error
+	return count, err
+}
+
+func (r *Repository) FindProgramsByInstitution(instID uint, page, limit int) ([]InstitutionProgram, int64, error) {
+	var programs []InstitutionProgram
+	var total int64
+
+	if err := r.db.Model(&InstitutionProgram{}).Where("institution_id = ?", instID).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * limit
+	err := r.db.Where("institution_id = ?", instID).
+		Order("created_at desc").Offset(offset).Limit(limit).Find(&programs).Error
+	return programs, total, err
+}
+
+func (r *Repository) FindProgramByIDAndInstitution(id uint, instID uint) (*InstitutionProgram, error) {
+	var program InstitutionProgram
+	err := r.db.Where("id = ? AND institution_id = ?", id, instID).First(&program).Error
+	if err != nil {
+		return nil, err
+	}
+	return &program, nil
+}
+
+func (r *Repository) CreateProgram(program *InstitutionProgram) error {
+	return r.db.Create(program).Error
+}
+
+func (r *Repository) SaveProgram(program *InstitutionProgram) error {
+	return r.db.Save(program).Error
+}
+
+func (r *Repository) DeleteProgram(id uint, instID uint) error {
+	result := r.db.Where("id = ? AND institution_id = ?", id, instID).Delete(&InstitutionProgram{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *Repository) FindAllProgramsByInstitution(instID uint) ([]InstitutionProgram, error) {
+	var programs []InstitutionProgram
+	err := r.db.Where("institution_id = ?", instID).Find(&programs).Error
+	return programs, err
+}
+
+func (r *Repository) CountEntrancesByInstitution(instID uint) (int64, error) {
+	var count int64
+	err := r.db.Model(&InstitutionEntrance{}).Where("institution_id = ?", instID).Count(&count).Error
+	return count, err
+}
+
+func (r *Repository) CountTotalApplicants(instID uint) (int64, error) {
+	var count int64
+	err := r.db.Model(&InstitutionEntranceApplicant{}).
+		Joins("JOIN institution_entrances ON institution_entrances.id = institution_entrance_applicants.entrance_id").
+		Where("institution_entrances.institution_id = ?", instID).Count(&count).Error
+	return count, err
+}
+
+func (r *Repository) FindInstitutionUserByID(id uint) (*InstitutionUser, error) {
+	var user InstitutionUser
+	err := r.db.First(&user, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (r *Repository) SaveInstitutionUser(user *InstitutionUser) error {
+	return r.db.Save(user).Error
+}
+
+func (r *Repository) FindMediaByInstitution(instID uint) ([]InstitutionMedia, error) {
+	var media []InstitutionMedia
+	err := r.db.Where("institution_id = ?", instID).Order("created_at desc").Find(&media).Error
+	return media, err
+}
+
+func (r *Repository) CreateMedia(media *InstitutionMedia) error {
+	return r.db.Create(media).Error
+}
+
+func (r *Repository) DeleteMedia(id uint, instID uint) error {
+	result := r.db.Where("id = ? AND institution_id = ?", id, instID).Delete(&InstitutionMedia{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *Repository) FindCounsellingSessionsByInstitution(instID uint) ([]InstitutionCounsellingSession, error) {
+	var sessions []InstitutionCounsellingSession
+	err := r.db.Where("institution_id = ?", instID).Order("scheduled_at asc").Find(&sessions).Error
+	return sessions, err
+}
+
+func (r *Repository) FindCounsellingBookingsByInstitution(instID uint) ([]InstitutionCounsellingBooking, error) {
+	var bookings []InstitutionCounsellingBooking
+	err := r.db.
+		Joins("JOIN institution_counselling_sessions ON institution_counselling_sessions.id = institution_counselling_bookings.session_id").
+		Where("institution_counselling_sessions.institution_id = ?", instID).
+		Preload("Session").
+		Order("institution_counselling_bookings.created_at desc").
+		Find(&bookings).Error
+	return bookings, err
+}
+
+func (r *Repository) FindBookingByIDWithSession(id uint, instID uint) (*InstitutionCounsellingBooking, error) {
+	var booking InstitutionCounsellingBooking
+	err := r.db.
+		Joins("JOIN institution_counselling_sessions ON institution_counselling_sessions.id = institution_counselling_bookings.session_id").
+		Where("institution_counselling_bookings.id = ? AND institution_counselling_sessions.institution_id = ?", id, instID).
+		First(&booking).Error
+	if err != nil {
+		return nil, err
+	}
+	return &booking, nil
+}
+
+func (r *Repository) SaveBooking(booking *InstitutionCounsellingBooking) error {
+	return r.db.Save(booking).Error
+}
+
+func (r *Repository) FindEntrancesByInstitution(instID uint, page, limit int) ([]InstitutionEntrance, int64, error) {
+	var entrances []InstitutionEntrance
+	var total int64
+
+	if err := r.db.Model(&InstitutionEntrance{}).Where("institution_id = ?", instID).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * limit
+	err := r.db.Where("institution_id = ?", instID).
+		Order("date desc").Offset(offset).Limit(limit).Find(&entrances).Error
+	return entrances, total, err
+}
+
+func (r *Repository) FindEntranceByIDAndInstitution(id uint, instID uint) (*InstitutionEntrance, error) {
+	var entrance InstitutionEntrance
+	err := r.db.Where("id = ? AND institution_id = ?", id, instID).First(&entrance).Error
+	if err != nil {
+		return nil, err
+	}
+	return &entrance, nil
+}
+
+func (r *Repository) CreateEntrance(entrance *InstitutionEntrance) error {
+	return r.db.Create(entrance).Error
+}
+
+func (r *Repository) SaveEntrance(entrance *InstitutionEntrance) error {
+	return r.db.Save(entrance).Error
+}
+
+func (r *Repository) DeleteEntrance(id uint, instID uint) error {
+	result := r.db.Where("id = ? AND institution_id = ?", id, instID).Delete(&InstitutionEntrance{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *Repository) FindEntranceApplicants(entranceID uint) ([]InstitutionEntranceApplicant, error) {
+	var applicants []InstitutionEntranceApplicant
+	err := r.db.Where("entrance_id = ?", entranceID).Order("rank asc").Find(&applicants).Error
+	return applicants, err
+}
+
+func (r *Repository) FindEventsByInstitution(instID uint, page, limit int) ([]InstitutionEvent, int64, error) {
+	var events []InstitutionEvent
+	var total int64
+
+	if err := r.db.Model(&InstitutionEvent{}).Where("institution_id = ?", instID).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * limit
+	err := r.db.Where("institution_id = ?", instID).
+		Order("date desc").Offset(offset).Limit(limit).Find(&events).Error
+	return events, total, err
+}
+
+func (r *Repository) FindEventByIDAndInstitution(id uint, instID uint) (*InstitutionEvent, error) {
+	var event InstitutionEvent
+	err := r.db.Where("id = ? AND institution_id = ?", id, instID).First(&event).Error
+	if err != nil {
+		return nil, err
+	}
+	return &event, nil
+}
+
+func (r *Repository) CreateEvent(event *InstitutionEvent) error {
+	return r.db.Create(event).Error
+}
+
+func (r *Repository) SaveEvent(event *InstitutionEvent) error {
+	return r.db.Save(event).Error
+}
+
+func (r *Repository) DeleteEvent(id uint, instID uint) error {
+	result := r.db.Where("id = ? AND institution_id = ?", id, instID).Delete(&InstitutionEvent{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *Repository) FindNewsByInstitution(instID uint, page, limit int) ([]InstitutionNews, int64, error) {
+	var news []InstitutionNews
+	var total int64
+
+	if err := r.db.Model(&InstitutionNews{}).Where("institution_id = ?", instID).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * limit
+	err := r.db.Where("institution_id = ?", instID).
+		Order("created_at desc").Offset(offset).Limit(limit).Find(&news).Error
+	return news, total, err
+}
+
+func (r *Repository) FindNewsByIDAndInstitution(id uint, instID uint) (*InstitutionNews, error) {
+	var news InstitutionNews
+	err := r.db.Where("id = ? AND institution_id = ?", id, instID).First(&news).Error
+	if err != nil {
+		return nil, err
+	}
+	return &news, nil
+}
+
+func (r *Repository) CreateNews(news *InstitutionNews) error {
+	return r.db.Create(news).Error
+}
+
+func (r *Repository) SaveNews(news *InstitutionNews) error {
+	return r.db.Save(news).Error
+}
+
+func (r *Repository) DeleteNews(id uint, instID uint) error {
+	result := r.db.Where("id = ? AND institution_id = ?", id, instID).Delete(&InstitutionNews{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *Repository) FindQMSByInstitution(instID uint, page, limit int) ([]InstitutionQMS, int64, error) {
+	var qms []InstitutionQMS
+	var total int64
+
+	if err := r.db.Model(&InstitutionQMS{}).Where("institution_id = ?", instID).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * limit
+	err := r.db.Where("institution_id = ?", instID).
+		Order("created_at desc").Offset(offset).Limit(limit).Find(&qms).Error
+	return qms, total, err
+}
+
+func (r *Repository) FindQMSByIDAndInstitution(id uint, instID uint) (*InstitutionQMS, error) {
+	var qms InstitutionQMS
+	err := r.db.Where("id = ? AND institution_id = ?", id, instID).First(&qms).Error
+	if err != nil {
+		return nil, err
+	}
+	return &qms, nil
+}
+
+func (r *Repository) CreateQMS(qms *InstitutionQMS) error {
+	return r.db.Create(qms).Error
+}
+
+func (r *Repository) SaveQMS(qms *InstitutionQMS) error {
+	return r.db.Save(qms).Error
+}
+
+func (r *Repository) DeleteQMS(id uint, instID uint) error {
+	result := r.db.Where("id = ? AND institution_id = ?", id, instID).Delete(&InstitutionQMS{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *Repository) FindMessagesByInstitution(instID uint, page, limit int) ([]InstitutionMessage, int64, error) {
+	var messages []InstitutionMessage
+	var total int64
+
+	if err := r.db.Model(&InstitutionMessage{}).Where("institution_id = ?", instID).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * limit
+	err := r.db.Where("institution_id = ?", instID).
+		Order("created_at desc").Offset(offset).Limit(limit).Find(&messages).Error
+	return messages, total, err
+}
+
+func (r *Repository) FindMessageByIDAndInstitution(id uint, instID uint) (*InstitutionMessage, error) {
+	var message InstitutionMessage
+	err := r.db.Where("id = ? AND institution_id = ?", id, instID).First(&message).Error
+	if err != nil {
+		return nil, err
+	}
+	return &message, nil
+}
+
+func (r *Repository) CreateMessage(message *InstitutionMessage) error {
+	return r.db.Create(message).Error
+}
+
+func (r *Repository) FindAllMessagesByInstitution(instID uint) ([]InstitutionMessage, error) {
+	var messages []InstitutionMessage
+	err := r.db.Where("institution_id = ?", instID).Order("created_at desc").Find(&messages).Error
+	return messages, err
+}
+
+func (r *Repository) FindUserByID(id uint) (*User, error) {
+	var user User
+	err := r.db.First(&user, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (r *Repository) SaveMessage(message *InstitutionMessage) error {
+	return r.db.Save(message).Error
+}
+
+func (r *Repository) FindOrCreateSettings(instID uint) (*InstitutionSettings, error) {
+	var settings InstitutionSettings
+	err := r.db.Where("institution_id = ?", instID).FirstOrCreate(&settings, InstitutionSettings{
+		InstitutionID: instID,
+	}).Error
+	if err != nil {
+		return nil, err
+	}
+	return &settings, nil
+}
+
+func (r *Repository) SaveSettings(settings *InstitutionSettings) error {
+	return r.db.Save(settings).Error
+}
+
+func (r *Repository) FindCollegeByUniversityID(universityID uint) (*College, error) {
+	var college College
+	err := r.db.Where("university_id = ?", universityID).First(&college).Error
+	if err != nil {
+		return nil, err
+	}
+	return &college, nil
+}
+
+func (r *Repository) FindScholarshipsByLocation(like string) ([]Scholarship, error) {
+	var scholarships []Scholarship
+	err := r.db.Where("location ILIKE ?", like).Find(&scholarships).Error
+	return scholarships, err
+}
+
+func (r *Repository) CreateScholarship(scholarship *Scholarship) error {
+	return r.db.Create(scholarship).Error
+}
+
+func (r *Repository) FindScholarshipByID(id uint) (*Scholarship, error) {
+	var scholarship Scholarship
+	err := r.db.First(&scholarship, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &scholarship, nil
+}
+
+func (r *Repository) SaveScholarship(scholarship *Scholarship) error {
+	return r.db.Save(scholarship).Error
+}
+
+func (r *Repository) DeleteScholarship(id uint) error {
+	return r.db.Unscoped().Delete(&Scholarship{}, id).Error
+}
+
+func (r *Repository) FindAdmissionsByCollegeID(collegeID uint, status string) ([]Admission, error) {
+	var admissions []Admission
+	query := r.db.Where("college_id = ?", collegeID).Preload("User")
+
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
+
+	err := query.Order("created_at DESC").Find(&admissions).Error
+	return admissions, err
+}
+
+func (r *Repository) FindAdmissionByID(id uint) (*Admission, error) {
+	var admission Admission
+	err := r.db.First(&admission, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &admission, nil
+}
+
+func (r *Repository) SaveAdmission(admission *Admission) error {
+	return r.db.Save(admission).Error
+}
+
+func (r *Repository) FindScholarshipsByProvider(provider string) ([]Scholarship, error) {
+	var scholarships []Scholarship
+	err := r.db.Where("provider = ?", provider).Find(&scholarships).Error
+	return scholarships, err
+}
+
+func (r *Repository) FindScholarshipApplicationsByIDs(scholarshipIDs []uint, status string) ([]ScholarshipApplication, error) {
+	var applications []ScholarshipApplication
+	query := r.db.Where("scholarship_id IN ?", scholarshipIDs).Preload("Scholarship").Preload("User")
+
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
+
+	err := query.Order("created_at DESC").Find(&applications).Error
+	return applications, err
+}
+
+func (r *Repository) FindScholarshipApplicationByID(id uint) (*ScholarshipApplication, error) {
+	var application ScholarshipApplication
+	err := r.db.Preload("Scholarship").First(&application, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &application, nil
+}
+
+func (r *Repository) SaveScholarshipApplication(application *ScholarshipApplication) error {
+	return r.db.Save(application).Error
+}

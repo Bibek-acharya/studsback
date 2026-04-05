@@ -1,0 +1,242 @@
+package main
+
+import (
+	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"studsphere/backend/internal/admission"
+	"studsphere/backend/internal/auth"
+	"studsphere/backend/internal/college"
+	"studsphere/backend/internal/counselling"
+	"studsphere/backend/internal/education"
+	"studsphere/backend/internal/forum"
+	"studsphere/backend/internal/institution"
+	"studsphere/backend/internal/scholarship"
+	"studsphere/backend/internal/scholarshipprovider"
+	"studsphere/backend/internal/shared/config"
+	"studsphere/backend/internal/shared/logger"
+	"studsphere/backend/internal/shared/middleware"
+	"studsphere/backend/internal/shared/seeder"
+	"studsphere/backend/internal/studentdashboard"
+	"studsphere/backend/internal/system"
+	"studsphere/backend/internal/tools"
+	"studsphere/backend/internal/university"
+
+	"github.com/gin-gonic/gin"
+)
+
+func main() {
+	config.Load()
+
+	if err := logger.Init(); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to initialize logger: %v\n", err)
+		os.Exit(1)
+	}
+	defer logger.Sync()
+
+	gin.SetMode(config.AppConfig.GinMode)
+
+	logger.Info("Initializing database connection...")
+	config.ConnectDatabase()
+
+	db := config.GetDB()
+
+	logger.Info("Running database migrations...")
+	if err := db.AutoMigrate(
+		&auth.User{},
+		&auth.InstitutionUser{},
+		&auth.ScholarshipProviderUser{},
+		&university.University{},
+		&college.College{},
+		&counselling.CounsellingBooking{},
+		&scholarship.Scholarship{},
+		&scholarship.ScholarshipApplication{},
+		&education.Exam{},
+		&education.Course{},
+		&education.CollegeUniversityCourse{},
+		&education.News{},
+		&education.Event{},
+		&education.Blog{},
+		&forum.ForumPost{},
+		&forum.ForumCommunity{},
+		&forum.ForumCommunityMember{},
+		&forum.ForumComment{},
+		&forum.ForumVote{},
+		&forum.ForumSave{},
+		&forum.ForumPollVote{},
+		&admission.Admission{},
+		&scholarshipprovider.ProviderScholarship{},
+		&scholarshipprovider.ProviderApplication{},
+		&scholarshipprovider.ProviderInterview{},
+		&scholarshipprovider.ProviderMessage{},
+		&scholarshipprovider.ProviderSettings{},
+		&scholarshipprovider.ProviderNotification{},
+		&studentdashboard.Message{},
+		&studentdashboard.CalendarEvent{},
+		&studentdashboard.SphereInvite{},
+		&studentdashboard.Bookmark{},
+		&studentdashboard.Notification{},
+		&institution.InstitutionProgram{},
+		&institution.InstitutionMedia{},
+		&institution.InstitutionCounsellingSession{},
+		&institution.InstitutionCounsellingBooking{},
+		&institution.InstitutionEntrance{},
+		&institution.InstitutionEntranceApplicant{},
+		&institution.InstitutionEvent{},
+		&institution.InstitutionNews{},
+		&institution.InstitutionQMS{},
+		&institution.InstitutionMessage{},
+		&institution.InstitutionSettings{},
+		&system.ContactInquiry{},
+		&system.Ad{},
+		&system.CarouselSlide{},
+	); err != nil {
+		logger.Fatal("Failed to migrate database", "error", err)
+	}
+	logger.Info("Database migrations completed successfully")
+
+	logger.Info("Seeding database...")
+	if err := seeder.Seed(db); err != nil {
+		logger.Warn("Failed to seed database", "error", err)
+	} else {
+		logger.Info("Database seeding completed")
+	}
+
+	logger.Info("Initializing module handlers...")
+	admissionHandler := initModule(admission.NewRepository(db), admission.NewService, admission.NewHandler)
+	authHandler := initModule(auth.NewRepository(db), auth.NewService, auth.NewHandler)
+	collegeHandler := initModule(college.NewRepository(db), college.NewService, college.NewHandler)
+	counsellingHandler := initModule(counselling.NewRepository(db), counselling.NewService, counselling.NewHandler)
+	educationHandler := initModule(education.NewRepository(db), education.NewService, education.NewHandler)
+	forumHandler := initModule(forum.NewRepository(db), forum.NewService, forum.NewHandler)
+	institutionHandler := initModule(institution.NewRepository(db), institution.NewService, institution.NewHandler)
+	scholarshipHandler := initModule(scholarship.NewRepository(db), scholarship.NewService, scholarship.NewHandler)
+	scholarshipPHandler := initModule(scholarshipprovider.NewRepository(db), scholarshipprovider.NewService, scholarshipprovider.NewHandler)
+	studentDashHandler := initModule(studentdashboard.NewRepository(db), studentdashboard.NewService, studentdashboard.NewHandler)
+	systemHandler := initModule(system.NewRepository(db), system.NewService, system.NewHandler)
+	toolsHandler := initModule(tools.NewRepository(db), tools.NewService, tools.NewHandler)
+	universityHandler := initModule(university.NewRepository(db), university.NewService, university.NewHandler)
+	logger.Info("All module handlers initialized")
+
+	logger.Info("Setting up router...")
+	router := gin.New()
+	router.Use(gin.Recovery())
+	router.Use(ginLogger())
+	router.Use(corsMiddleware())
+
+	router.Static("/uploads", "./uploads")
+	router.Static("/docs", "./docs")
+	router.GET("/docs", func(c *gin.Context) {
+		c.Redirect(302, "/docs/index.html")
+	})
+
+	router.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{"status": "ok", "message": "Server is running"})
+	})
+
+	authMW := middleware.Auth()
+	roleMW := middleware.RequireRole("admin", "super_admin")
+
+	admission.RegisterRoutes(router, authMW, roleMW, admissionHandler)
+	auth.RegisterRoutes(router, authMW, roleMW, authHandler)
+	college.RegisterRoutes(router, authMW, roleMW, collegeHandler)
+	counselling.RegisterRoutes(router, authMW, roleMW, counsellingHandler)
+	education.RegisterRoutes(router, authMW, roleMW, educationHandler)
+	forum.RegisterRoutes(router, authMW, roleMW, forumHandler)
+	institution.RegisterRoutes(router, authMW, roleMW, institutionHandler)
+	scholarship.RegisterRoutes(router, authMW, roleMW, scholarshipHandler)
+	scholarshipprovider.RegisterRoutes(router, authMW, roleMW, scholarshipPHandler)
+	studentdashboard.RegisterRoutes(router, authMW, roleMW, studentDashHandler)
+	system.RegisterRoutes(router, authMW, roleMW, systemHandler)
+	tools.RegisterRoutes(router, authMW, roleMW, toolsHandler)
+	university.RegisterRoutes(router, authMW, roleMW, universityHandler)
+
+	logger.Info("All routes registered", "port", config.AppConfig.Port)
+
+	go func() {
+		if err := router.Run(":" + config.AppConfig.Port); err != nil {
+			logger.Fatal("Failed to start server", "error", err)
+		}
+	}()
+
+	logger.Info("Server started successfully", "port", config.AppConfig.Port)
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	logger.Info("Shutting down server...")
+	time.Sleep(1 * time.Second)
+	logger.Info("Server exited")
+}
+
+func initModule[R any, S any, H any](repo R, newService func(R) S, newHandler func(S) H) H {
+	return newHandler(newService(repo))
+}
+
+func ginLogger() gin.HandlerFunc {
+	return gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
+		var statusColor = param.StatusCodeColor()
+		var methodColor = param.MethodColor()
+		var reset = param.ResetColor()
+
+		icon := "?"
+		switch param.Method {
+		case "GET":
+			icon = "[GET]"
+		case "POST":
+			icon = "[POST]"
+		case "PUT":
+			icon = "[PUT]"
+		case "DELETE":
+			icon = "[DEL]"
+		case "PATCH":
+			icon = "[PATCH]"
+		case "OPTIONS":
+			icon = "[OPT]"
+		}
+
+		latency := param.Latency
+		if latency > time.Minute {
+			latency = latency.Truncate(time.Second)
+		}
+
+		logger.Info("request",
+			"method", param.Method,
+			"path", param.Path,
+			"status", param.StatusCode,
+			"latency", latency.String(),
+			"ip", param.ClientIP,
+		)
+
+		return fmt.Sprintf("[API] %v |%s %3d %s| %13v | %15s | %s %s%-7s %s %s\n%s",
+			param.TimeStamp.Format("2006/01/02 - 15:04:05"),
+			statusColor, param.StatusCode, reset,
+			latency,
+			param.ClientIP,
+			icon,
+			methodColor, param.Method, reset,
+			param.Path,
+			param.ErrorMessage,
+		)
+	})
+}
+
+func corsMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE, PATCH")
+
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+
+		c.Next()
+	}
+}

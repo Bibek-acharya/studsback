@@ -1,0 +1,110 @@
+version: '3'
+
+output: prefixed
+
+vars:
+  BIN_DIR: bin
+  BUILD_DIR: tmp
+  PORT: 8080
+
+tasks:
+  install:
+    desc: Install dependencies
+    cmds:
+      - go mod download
+      - go mod tidy
+
+  build:
+    desc: Build the application
+    cmds:
+      - go build -o {{.BUILD_DIR}}/main ./cmd/server
+
+  run:
+    desc: Run the application
+    cmds:
+      - go run ./cmd/server
+
+  dev:
+    desc: Run with Air for hot reload
+    deps: [install]
+    cmds:
+      - air
+
+  lint:
+    desc: Run golangci-lint
+    cmds:
+      - golangci-lint run ./...
+
+  lint-fix:
+    desc: Run golangci-lint with auto-fix
+    cmds:
+      - golangci-lint run ./... --fix
+
+  test:
+    desc: Run tests
+    cmds:
+      - go test -v ./...
+
+  test-coverage:
+    desc: Run tests with coverage
+    cmds:
+      - go test -coverprofile=coverage.out ./...
+      - go tool cover -html=coverage.out -o coverage.html
+
+  tidy:
+    desc: Tidy go modules
+    cmds:
+      - go mod tidy
+      - go mod verify
+
+  vet:
+    desc: Run go vet
+    cmds:
+      - go vet ./...
+
+  fmt:
+    desc: Format code
+    cmds:
+      - gofmt -w .
+      - goimports -w .
+
+  clean:
+    desc: Clean build artifacts
+    cmds:
+      - rm -rf {{.BUILD_DIR}}
+      - rm -rf coverage.out coverage.html
+
+  db-migrate:
+    desc: Run database migrations
+    cmds:
+      - go run ./cmd/server
+
+  db-seed:
+    desc: Seed database
+    cmds:
+      - go run ./cmd/server
+
+  docker-build:
+    desc: Build Docker image
+    cmds:
+      - docker build -t studsphere/backend:latest .
+
+  docker-run:
+    desc: Run Docker container
+    cmds:
+      - docker run -p {{.PORT}}:{{.PORT}} studsphere/backend:latest
+
+  docker-compose-up:
+    desc: Start Docker Compose services
+    cmds:
+      - docker-compose up -d
+
+  docker-compose-down:
+    desc: Stop Docker Compose services
+    cmds:
+      - docker-compose down
+
+  help:
+    desc: Show help
+    cmds:
+      - task --list
