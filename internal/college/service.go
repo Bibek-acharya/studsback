@@ -307,6 +307,15 @@ func (s *Service) GetFeaturedColleges(limit int) (*FeaturedCollegesResponse, err
 	return &FeaturedCollegesResponse{Colleges: responses}, nil
 }
 
+func (s *Service) GetCollegeFilterCounts() (*CollegeFilterCountsResponse, error) {
+	counts, err := s.repo.GetFilterCounts()
+	if err != nil {
+		return nil, errors.New("failed to fetch college filter counts")
+	}
+
+	return counts, nil
+}
+
 func buildCollegeResponse(college College) CollegeResponse {
 	affiliation := college.Affiliation
 	if college.University.ID != 0 && college.University.Name != "" {

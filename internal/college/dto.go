@@ -116,6 +116,7 @@ type CollegeFilters struct {
 	Location     string
 	Affiliation  string
 	Type         string
+	FeeMax       int
 	Verified     string
 	Popular      string
 	MinRating    string
@@ -129,4 +130,14 @@ type CollegeFilters struct {
 
 type FeaturedCollegesResponse struct {
 	Colleges []CollegeResponse `json:"colleges"`
+}
+
+type CollegeFilterCountsResponse struct {
+	Total           int64            `json:"total"`
+	TypeCounts      map[string]int64 `json:"type_counts"`
+	TypeCountsByID  map[string]int64 `json:"type_counts_by_id"`
+	FacetCountsByID map[string]int64 `json:"facet_counts_by_id"`
+	Featured        int64            `json:"featured"`
+	Verified        int64            `json:"verified"`
+	Popular         int64            `json:"popular"`
 }

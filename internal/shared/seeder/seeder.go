@@ -7,6 +7,9 @@ func Seed(db *gorm.DB) error {
 	if db == nil {
 		return nil
 	}
+	if err := ClearAcademicData(db); err != nil {
+		return err
+	}
 	if err := SeedSuperAdmin(db); err != nil {
 		return err
 	}
@@ -16,7 +19,7 @@ func Seed(db *gorm.DB) error {
 	if err := SeedCourses(db); err != nil {
 		return err
 	}
-	if err := SeedColleges(db); err != nil {
+	if err := SeedAcademicColleges(db); err != nil {
 		return err
 	}
 	if err := SeedCollegeUniversityCourseMappings(db); err != nil {

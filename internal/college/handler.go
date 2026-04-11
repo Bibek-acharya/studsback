@@ -22,6 +22,7 @@ func (h *Handler) GetColleges(c *gin.Context) {
 		Location:     c.Query("location"),
 		Affiliation:  c.Query("affiliation"),
 		Type:         c.Query("type"),
+		FeeMax:       0,
 		Verified:     c.Query("verified"),
 		Popular:      c.Query("popular"),
 		MinRating:    c.Query("minRating"),
@@ -29,6 +30,10 @@ func (h *Handler) GetColleges(c *gin.Context) {
 		CourseID:     c.Query("courseId"),
 		Sort:         c.DefaultQuery("sort", "rating"),
 		Order:        c.DefaultQuery("order", "DESC"),
+	}
+
+	if feeMax, err := strconv.Atoi(c.Query("feeMax")); err == nil && feeMax > 0 {
+		filters.FeeMax = feeMax
 	}
 
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
@@ -167,4 +172,14 @@ func (h *Handler) GetFeaturedColleges(c *gin.Context) {
 	}
 
 	response.Success(c, 200, "Featured colleges retrieved successfully", result)
+}
+
+func (h *Handler) GetCollegeFilterCounts(c *gin.Context) {
+	result, err := h.service.GetCollegeFilterCounts()
+	if err != nil {
+		response.Error(c, 500, err.Error())
+		return
+	}
+
+	response.Success(c, 200, "College filter counts retrieved successfully", result)
 }
