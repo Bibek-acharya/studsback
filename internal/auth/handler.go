@@ -455,3 +455,35 @@ func (h *Handler) ScholarshipProviderGoogleCallback(c *gin.Context) {
 
 	c.Redirect(302, redirectURL)
 }
+
+func (h *Handler) SuperadminRegister(c *gin.Context) {
+	var req SuperadminRegisterRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+
+	result, err := h.service.SuperadminRegister(req)
+	if err != nil {
+		response.Error(c, 403, err.Error())
+		return
+	}
+
+	response.Success(c, 201, "Superadmin account created successfully", result)
+}
+
+func (h *Handler) SuperadminLogin(c *gin.Context) {
+	var req SuperadminLoginRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+
+	result, err := h.service.SuperadminLogin(req)
+	if err != nil {
+		response.Error(c, 401, err.Error())
+		return
+	}
+
+	response.Success(c, 200, "Superadmin login successful", result)
+}

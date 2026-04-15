@@ -144,3 +144,27 @@ type PaginatedBlogsResponse struct {
 	Blogs []BlogResponse `json:"blogs"`
 	Meta  PaginationMeta `json:"meta"`
 }
+
+type CreateBlogRequest struct {
+	Title     string   `json:"title" binding:"required"`
+	Excerpt   string   `json:"excerpt"`
+	Content   string   `json:"content"`
+	Image     string   `json:"image"`
+	Author    string   `json:"author"`
+	Category  string   `json:"category"`
+	Tags      []string `json:"tags"`
+	Featured  bool     `json:"featured"`
+	Published bool     `json:"published"`
+}
+
+type UpdateBlogRequest struct {
+	Title     string   `json:"title"`
+	Excerpt   string   `json:"excerpt"`
+	Content   string   `json:"content"`
+	Image     string   `json:"image"`
+	Author    string   `json:"author"`
+	Category  string   `json:"category"`
+	Tags      []string `json:"tags"`
+	Featured  *bool    `json:"featured"`
+	Published *bool    `json:"published"`
+}

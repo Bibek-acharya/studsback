@@ -188,3 +188,54 @@ func (r *Repository) FindRelatedBlogs(excludeID uint, category string, limit int
 		Find(&blogs).Error
 	return blogs, err
 }
+
+// ─── Admin CRUD ──────────────────────────────────────────────────────────────
+
+func (r *Repository) FindAllBlogsAdmin(page, limit int, category, search string) ([]Blog, int64, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50 {
+		limit = 10
+	}
+	offset := (page - 1) * limit
+
+	query := r.db.Model(&Blog{})
+
+	if category != "" {
+		query = query.Where("category = ?", category)
+	}
+	if search != "" {
+		query = query.Where("title ILIKE ? OR excerpt ILIKE ?", "%"+search+"%", "%"+search+"%")
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var blogs []Blog
+	err := query.Order("created_at desc").Offset(offset).Limit(limit).Find(&blogs).Error
+	return blogs, total, err
+}
+
+func (r *Repository) FindBlogByIDAdmin(id string) (*Blog, error) {
+	var blog Blog
+	err := r.db.First(&blog, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &blog, nil
+}
+
+func (r *Repository) CreateBlog(blog *Blog) error {
+	return r.db.Create(blog).Error
+}
+
+func (r *Repository) UpdateBlog(blog *Blog) error {
+	return r.db.Save(blog).Error
+}
+
+func (r *Repository) DeleteBlog(id uint) error {
+	return r.db.Delete(&Blog{}, id).Error
+}

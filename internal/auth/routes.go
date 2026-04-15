@@ -35,6 +35,12 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			scholarshipProviderAuth.GET("/google/callback", h.ScholarshipProviderGoogleCallback)
 		}
 
+		superadminAuth := v1.Group("/superadmin/auth")
+		{
+			superadminAuth.POST("/register", h.SuperadminRegister)
+			superadminAuth.POST("/login", h.SuperadminLogin)
+		}
+
 		protected := v1.Group("")
 		protected.Use(authMW)
 		{

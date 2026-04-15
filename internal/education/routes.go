@@ -24,5 +24,15 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			education.GET("/blogs", h.GetEducationBlogs)
 			education.GET("/blogs/:id", h.GetEducationBlogByID)
 		}
+
+		// Superadmin blog management routes
+		adminBlogs := v1.Group("/superadmin/blogs")
+		adminBlogs.Use(authMW)
+		{
+			adminBlogs.GET("", h.AdminGetBlogs)
+			adminBlogs.POST("", h.CreateBlog)
+			adminBlogs.PUT("/:id", h.UpdateBlog)
+			adminBlogs.DELETE("/:id", h.DeleteBlog)
+		}
 	}
 }

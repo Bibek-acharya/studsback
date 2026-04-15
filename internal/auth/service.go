@@ -406,3 +406,65 @@ func (s *Service) ScholarshipProviderGoogleLoginOrRegister(googleID, email, name
 
 	return providerUser, token, nil
 }
+
+func (s *Service) SuperadminRegister(req SuperadminRegisterRequest) (*LoginResponse, error) {
+	// Secret Access Code Validation
+	if req.AccessCode != "SUPER2026" {
+		return nil, errors.New("Invalid administrative access code")
+	}
+
+	_, err := s.repo.FindUserByEmail(req.Email)
+	if err == nil {
+		return nil, errors.New("Administrator with this email already exists")
+	}
+
+	user := User{
+		Email:     req.Email,
+		FirstName: req.FirstName,
+		LastName:  req.LastName,
+		Role:      "superadmin",
+	}
+
+	if err := user.HashPassword(req.Password); err != nil {
+		return nil, errors.New("Failed to hash credentials")
+	}
+
+	if err := s.repo.CreateUser(&user); err != nil {
+		return nil, errors.New("Failed to create superadmin account")
+	}
+
+	token, err := utils.GenerateToken(user.ID, user.Email, user.Role)
+	if err != nil {
+		return nil, errors.New("Failed to generate secure token")
+	}
+
+	return &LoginResponse{
+		User:  user,
+		Token: token,
+	}, nil
+}
+
+func (s *Service) SuperadminLogin(req SuperadminLoginRequest) (*LoginResponse, error) {
+	user, err := s.repo.FindUserByEmail(req.Email)
+	if err != nil {
+		return nil, errors.New("Invalid administrative credentials")
+	}
+
+	if user.Role != "superadmin" && user.Role != "super_admin" {
+		return nil, errors.New("Access denied: Not a superadmin")
+	}
+
+	if err := user.CheckPassword(req.Password); err != nil {
+		return nil, errors.New("Invalid administrative credentials")
+	}
+
+	token, err := utils.GenerateToken(user.ID, user.Email, user.Role)
+	if err != nil {
+		return nil, errors.New("Failed to generate secure token")
+	}
+
+	return &LoginResponse{
+		User:  user,
+		Token: token,
+	}, nil
+}

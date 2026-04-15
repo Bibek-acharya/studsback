@@ -443,3 +443,125 @@ func (s *Service) GetEducationBlogByID(id string) (*BlogWithRelatedResponse, err
 		Related: relatedResponses,
 	}, nil
 }
+
+// ─── Admin CRUD ──────────────────────────────────────────────────────────────
+
+func (s *Service) GetAllBlogsAdmin(page, limit int, category, search string) ([]BlogResponse, PaginationMeta, error) {
+	blogs, total, err := s.repo.FindAllBlogsAdmin(page, limit, category, search)
+	if err != nil {
+		return nil, PaginationMeta{}, err
+	}
+
+	pages := (total + int64(limit) - 1) / int64(limit)
+	if total == 0 {
+		pages = 0
+	}
+
+	meta := PaginationMeta{
+		Total: total,
+		Page:  page,
+		Limit: limit,
+		Pages: pages,
+	}
+
+	responses := make([]BlogResponse, 0, len(blogs))
+	for _, blog := range blogs {
+		responses = append(responses, buildBlogResponse(blog))
+	}
+	return responses, meta, nil
+}
+
+func generateSlug(title string) string {
+	slug := ""
+	for _, c := range title {
+		if (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') {
+			slug += string(c)
+		} else if c >= 'A' && c <= 'Z' {
+			slug += string(c + 32)
+		} else if c == ' ' || c == '-' {
+			if len(slug) > 0 && slug[len(slug)-1] != '-' {
+				slug += "-"
+			}
+		}
+	}
+	if len(slug) > 80 {
+		slug = slug[:80]
+	}
+	return slug
+}
+
+func (s *Service) CreateBlog(req CreateBlogRequest) (*BlogResponse, error) {
+	tagsJSON, _ := json.Marshal(req.Tags)
+
+	blog := Blog{
+		Title:     req.Title,
+		Slug:      generateSlug(req.Title),
+		Excerpt:   req.Excerpt,
+		Content:   req.Content,
+		Image:     req.Image,
+		Author:    req.Author,
+		Category:  req.Category,
+		Tags:      tagsJSON,
+		Featured:  req.Featured,
+		Published: req.Published,
+	}
+
+	if err := s.repo.CreateBlog(&blog); err != nil {
+		return nil, err
+	}
+
+	resp := buildBlogResponse(blog)
+	return &resp, nil
+}
+
+func (s *Service) UpdateBlog(id string, req UpdateBlogRequest) (*BlogResponse, error) {
+	blog, err := s.repo.FindBlogByIDAdmin(id)
+	if err != nil {
+		return nil, err
+	}
+
+	if req.Title != "" {
+		blog.Title = req.Title
+		blog.Slug = generateSlug(req.Title)
+	}
+	if req.Excerpt != "" {
+		blog.Excerpt = req.Excerpt
+	}
+	if req.Content != "" {
+		blog.Content = req.Content
+	}
+	if req.Image != "" {
+		blog.Image = req.Image
+	}
+	if req.Author != "" {
+		blog.Author = req.Author
+	}
+	if req.Category != "" {
+		blog.Category = req.Category
+	}
+	if req.Tags != nil {
+		tagsJSON, _ := json.Marshal(req.Tags)
+		blog.Tags = tagsJSON
+	}
+	if req.Featured != nil {
+		blog.Featured = *req.Featured
+	}
+	if req.Published != nil {
+		blog.Published = *req.Published
+	}
+
+	if err := s.repo.UpdateBlog(blog); err != nil {
+		return nil, err
+	}
+
+	resp := buildBlogResponse(*blog)
+	return &resp, nil
+}
+
+func (s *Service) DeleteBlog(id string) error {
+	blog, err := s.repo.FindBlogByIDAdmin(id)
+	if err != nil {
+		return err
+	}
+	return s.repo.DeleteBlog(blog.ID)
+}

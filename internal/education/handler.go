@@ -150,3 +150,66 @@ func (h *Handler) GetEducationBlogByID(c *gin.Context) {
 
 	response.Success(c, http.StatusOK, "Blog post retrieved successfully", blogWithRelated)
 }
+
+// ─── Admin CRUD Handlers ─────────────────────────────────────────────────────
+
+func (h *Handler) AdminGetBlogs(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	category := c.Query("category")
+	search := c.Query("search")
+
+	blogs, meta, err := h.service.GetAllBlogsAdmin(page, limit, category, search)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch blogs")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Blogs retrieved successfully", gin.H{
+		"blogs": blogs,
+		"meta":  meta,
+	})
+}
+
+func (h *Handler) CreateBlog(c *gin.Context) {
+	var req CreateBlogRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	blog, err := h.service.CreateBlog(req)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to create blog")
+		return
+	}
+
+	response.Success(c, http.StatusCreated, "Blog created successfully", blog)
+}
+
+func (h *Handler) UpdateBlog(c *gin.Context) {
+	id := c.Param("id")
+	var req UpdateBlogRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	blog, err := h.service.UpdateBlog(id, req)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to update blog")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Blog updated successfully", blog)
+}
+
+func (h *Handler) DeleteBlog(c *gin.Context) {
+	id := c.Param("id")
+	if err := h.service.DeleteBlog(id); err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to delete blog")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Blog deleted successfully", nil)
+}
