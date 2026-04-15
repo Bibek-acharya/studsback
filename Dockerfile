@@ -1,8 +1,8 @@
-FROM golang:1.26-alpine AS builder
+FROM golang:1.22-alpine AS builder
 
 WORKDIR /app
 
-RUN apk add --no-cache gcc musl-dev
+RUN apk add --no-cache gcc musl-dev git
 
 COPY go.mod go.sum ./
 RUN go mod download
@@ -15,8 +15,12 @@ FROM alpine:3.20
 
 RUN apk add --no-cache ca-certificates
 
-COPY --from=builder /bin/server /bin/server
+WORKDIR /app
+
+COPY --from=builder /bin/server /app/server
+
+ENV PORT=8080
 
 EXPOSE 8080
 
-CMD ["/bin/server"]
+CMD ["/app/server"]

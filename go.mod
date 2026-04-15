@@ -1,6 +1,6 @@
 module studsphere/backend
 
-go 1.26
+go 1.22
 
 require (
 	github.com/gin-gonic/gin v1.11.0
