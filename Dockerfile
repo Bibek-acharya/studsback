@@ -9,7 +9,7 @@ RUN go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=1 go build -o /bin/server ./cmd/main.go
+RUN CGO_ENABLED=1 go build -o /bin/server ./cmd/server/main.go
 
 FROM alpine:3.20
 
