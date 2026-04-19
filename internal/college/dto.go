@@ -112,20 +112,28 @@ type CollegeListResponse struct {
 }
 
 type CollegeFilters struct {
-	UniversityID string
-	Location     string
-	Affiliation  string
-	Type         string
-	FeeMax       int
-	Verified     string
-	Popular      string
-	MinRating    string
-	Search       string
-	CourseID     string
-	Sort         string
-	Order        string
-	Page         int
-	PageSize     int
+	UniversityID    string
+	Location        string
+	Affiliation     string
+	Type            string
+	Academic        []string
+	Program         []string
+	Province        []string
+	District        []string
+	Local           []string
+	Scholarship     []string
+	Facilities      []string
+	FeeMax          int
+	Verified        string
+	Popular         string
+	DirectAdmission bool
+	MinRating       string
+	Search          string
+	CourseID        string
+	Sort            string
+	Order           string
+	Page            int
+	PageSize        int
 }
 
 type FeaturedCollegesResponse struct {

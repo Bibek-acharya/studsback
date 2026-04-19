@@ -104,13 +104,19 @@ func buildNewsResponse(news News) NewsResponse {
 
 func buildEventResponse(event Event) EventResponse {
 	return EventResponse{
-		ID:         event.ID,
-		Title:      event.Title,
-		Date:       event.Date,
-		Location:   event.Location,
-		Image:      event.Image,
-		Interested: event.Interested,
-		Trending:   event.Trending,
+		ID:              event.ID,
+		Title:           event.Title,
+		Excerpt:         event.Excerpt,
+		Description:     event.Description,
+		Category:        event.Category,
+		Organizer:       event.Organizer,
+		Location:        event.Location,
+		Date:            event.Date,
+		Time:            event.Time,
+		RegistrationFee: event.RegistrationFee,
+		Image:           event.Image,
+		Interested:      event.Interested,
+		Trending:        event.Trending,
 	}
 }
 
@@ -175,6 +181,40 @@ func (s *Service) GetEducationCourses() ([]CourseResponse, error) {
 		responses = append(responses, buildCourseResponse(course, colleges))
 	}
 	return responses, nil
+}
+
+func (s *Service) GetEducationCoursesPaginated(page, limit int, search, level, field, affiliation string) ([]CourseResponse, PaginationMeta, error) {
+	courses, total, err := s.repo.FindCoursesFiltered(page, limit, search, level, field, affiliation)
+	if err != nil {
+		return nil, PaginationMeta{}, err
+	}
+
+	pages := (total + int64(limit) - 1) / int64(limit)
+	if total == 0 {
+		pages = 0
+	}
+
+	meta := PaginationMeta{
+		Total: total,
+		Page:  page,
+		Limit: limit,
+		Pages: pages,
+	}
+
+	responses := make([]CourseResponse, 0, len(courses))
+	for _, course := range courses {
+		colleges := course.CollegesCount
+		count, err := s.repo.CountCourseOfferingColleges(course.ID)
+		if err == nil && count > 0 {
+			colleges = int(count)
+		}
+		responses = append(responses, buildCourseResponse(course, colleges))
+	}
+	return responses, meta, nil
+}
+
+func (s *Service) GetCourseFilterCounts() (*CourseFilterCounts, error) {
+	return s.repo.GetCourseFilterCounts()
 }
 
 func (s *Service) GetEducationCourseByID(id string) (*CourseResponse, error) {
@@ -373,6 +413,35 @@ func (s *Service) GetEducationNewsByID(id string) (*NewsResponse, error) {
 	return &resp, nil
 }
 
+func (s *Service) GetEducationNewsFiltered(page, limit int, category, search, sort string) ([]NewsResponse, PaginationMeta, error) {
+	news, total, err := s.repo.FindNewsFiltered(page, limit, category, search, sort)
+	if err != nil {
+		return nil, PaginationMeta{}, err
+	}
+
+	pages := (total + int64(limit) - 1) / int64(limit)
+	if total == 0 {
+		pages = 0
+	}
+
+	meta := PaginationMeta{
+		Total: total,
+		Page:  page,
+		Limit: limit,
+		Pages: pages,
+	}
+
+	responses := make([]NewsResponse, 0, len(news))
+	for _, n := range news {
+		responses = append(responses, buildNewsResponse(n))
+	}
+	return responses, meta, nil
+}
+
+func (s *Service) GetNewsFilterCounts() (*NewsFilterCounts, error) {
+	return s.repo.GetNewsFilterCounts()
+}
+
 func (s *Service) GetEducationEvents() ([]EventResponse, error) {
 	events, err := s.repo.FindEvents()
 	if err != nil {
@@ -395,8 +464,37 @@ func (s *Service) GetEducationEventByID(id string) (*EventResponse, error) {
 	return &resp, nil
 }
 
-func (s *Service) GetEducationBlogs(page, limit int, category, search string) ([]BlogResponse, PaginationMeta, error) {
-	blogs, total, err := s.repo.FindBlogs(page, limit, category, search)
+func (s *Service) GetEducationEventsFiltered(page, limit int, category, search, sort string) ([]EventResponse, PaginationMeta, error) {
+	events, total, err := s.repo.FindEventsFiltered(page, limit, category, search, sort)
+	if err != nil {
+		return nil, PaginationMeta{}, err
+	}
+
+	pages := (total + int64(limit) - 1) / int64(limit)
+	if total == 0 {
+		pages = 0
+	}
+
+	meta := PaginationMeta{
+		Total: total,
+		Page:  page,
+		Limit: limit,
+		Pages: pages,
+	}
+
+	responses := make([]EventResponse, 0, len(events))
+	for _, event := range events {
+		responses = append(responses, buildEventResponse(event))
+	}
+	return responses, meta, nil
+}
+
+func (s *Service) GetEventFilterCounts() (*EventFilterCounts, error) {
+	return s.repo.GetEventFilterCounts()
+}
+
+func (s *Service) GetEducationBlogs(page, limit int, category, search, sort, tags string) ([]BlogResponse, PaginationMeta, error) {
+	blogs, total, err := s.repo.FindBlogs(page, limit, category, search, sort, tags)
 	if err != nil {
 		return nil, PaginationMeta{}, err
 	}
@@ -444,10 +542,22 @@ func (s *Service) GetEducationBlogByID(id string) (*BlogWithRelatedResponse, err
 	}, nil
 }
 
+func (s *Service) GetBlogFilterCounts() (*BlogFilterCounts, error) {
+	return s.repo.GetBlogFilterCounts()
+}
+
+func (s *Service) IncrementBlogView(id string) error {
+	blog, err := s.repo.FindBlogByID(id)
+	if err != nil {
+		return err
+	}
+	return s.repo.IncrementBlogViews(blog)
+}
+
 // ─── Admin CRUD ──────────────────────────────────────────────────────────────
 
-func (s *Service) GetAllBlogsAdmin(page, limit int, category, search string) ([]BlogResponse, PaginationMeta, error) {
-	blogs, total, err := s.repo.FindAllBlogsAdmin(page, limit, category, search)
+func (s *Service) GetAllBlogsAdmin(page, limit int, category, search, sort string) ([]BlogResponse, PaginationMeta, error) {
+	blogs, total, err := s.repo.FindAllBlogsAdmin(page, limit, category, search, sort)
 	if err != nil {
 		return nil, PaginationMeta{}, err
 	}
@@ -564,4 +674,18 @@ func (s *Service) DeleteBlog(id string) error {
 		return err
 	}
 	return s.repo.DeleteBlog(blog.ID)
+}
+
+// ─── Public Entrance Service ────────────────────────────────────────────
+
+func (s *Service) GetPublicEntrances(page, limit int, search, level, stream, status string) ([]PublicEntranceResponse, int64, error) {
+	return s.repo.FindPublicEntrances(page, limit, search, level, stream, status)
+}
+
+func (s *Service) GetPublicEntranceByID(id string) (*PublicEntranceResponse, error) {
+	return s.repo.FindPublicEntranceByID(id)
+}
+
+func (s *Service) GetEntranceFilterCounts() (*EntranceFilterCountsResponse, error) {
+	return s.repo.GetEntranceFilterCounts()
 }

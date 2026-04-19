@@ -56,8 +56,10 @@ func (s *Service) Register(req RegisterRequest) (*RegisterResponse, error) {
 	utils.StoreOTP(req.Email, otp, user)
 
 	if emailErr := utils.SendOTPEmail(req.Email, otp); emailErr != nil {
-		log.Printf("Warning: failed to send OTP email to %s: %v", req.Email, emailErr)
-		log.Printf("DEV OTP for %s: %s", req.Email, otp)
+		log.Printf("WARNING: failed to send OTP email to %s: %v", req.Email, emailErr)
+		log.Printf("DEV_OTP for %s: %s", req.Email, otp)
+	} else {
+		log.Printf("SUCCESS: OTP email sent to %s", req.Email)
 	}
 
 	return &RegisterResponse{

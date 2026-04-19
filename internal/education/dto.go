@@ -102,13 +102,19 @@ type NewsResponse struct {
 }
 
 type EventResponse struct {
-	ID         uint   `json:"id"`
-	Title      string `json:"title"`
-	Date       string `json:"date"`
-	Location   string `json:"location"`
-	Image      string `json:"image"`
-	Interested int    `json:"interested"`
-	Trending   bool   `json:"trending"`
+	ID              uint   `json:"id"`
+	Title           string `json:"title"`
+	Excerpt         string `json:"excerpt"`
+	Description     string `json:"description"`
+	Category        string `json:"category"`
+	Organizer       string `json:"organizer"`
+	Location        string `json:"location"`
+	Date            string `json:"date"`
+	Time            string `json:"time"`
+	RegistrationFee string `json:"registrationFee"`
+	Image           string `json:"image"`
+	Interested      int    `json:"interested"`
+	Trending        bool   `json:"trending"`
 }
 
 type BlogResponse struct {
@@ -145,16 +151,62 @@ type PaginatedBlogsResponse struct {
 	Meta  PaginationMeta `json:"meta"`
 }
 
+type PaginatedCoursesResponse struct {
+	Courses []CourseResponse `json:"courses"`
+	Meta    PaginationMeta   `json:"meta"`
+}
+
+type CourseFilterCountsResponse struct {
+	LevelCounts       map[string]int64 `json:"level_counts"`
+	FieldCounts       map[string]int64 `json:"field_counts"`
+	AffiliationCounts map[string]int64 `json:"affiliation_counts"`
+	Total             int64            `json:"total"`
+}
+
 type CreateBlogRequest struct {
 	Title     string   `json:"title" binding:"required"`
 	Excerpt   string   `json:"excerpt"`
-	Content   string   `json:"content"`
+	Content   string   `json:"content" binding:"required"`
 	Image     string   `json:"image"`
-	Author    string   `json:"author"`
-	Category  string   `json:"category"`
+	Author    string   `json:"author" binding:"required"`
+	Category  string   `json:"category" binding:"required"`
 	Tags      []string `json:"tags"`
 	Featured  bool     `json:"featured"`
 	Published bool     `json:"published"`
+}
+
+// ─── Entrance DTOs ─────────────────────────────────────────────────────────
+
+type EntranceFilterRequest struct {
+	Search        string   `json:"search"`
+	AcademicLevel []string `json:"academicLevel"`
+	Stream        []string `json:"stream"`
+	Status        []string `json:"status"`
+	SortBy        string   `json:"sortBy"`
+	Page          int      `json:"page"`
+	PageSize      int      `json:"pageSize"`
+}
+
+type PublicEntranceResponse struct {
+	ID          string `json:"id"`
+	Title       string `json:"title"`
+	Institution string `json:"institution"`
+	Location    string `json:"location"`
+	Affiliation string `json:"affiliation"`
+	ExamDate    string `json:"examDate"`
+	Deadline    string `json:"deadline"`
+	Status      string `json:"status"`
+	Level       string `json:"level"`
+	Stream      string `json:"stream"`
+	Verified    bool   `json:"verified"`
+	Image       string `json:"image"`
+}
+
+type EntranceFilterCountsResponse struct {
+	Total               int64            `json:"total"`
+	AcademicLevelCounts map[string]int64 `json:"academic_level_counts"`
+	StreamCounts        map[string]int64 `json:"stream_counts"`
+	StatusCounts        map[string]int64 `json:"status_counts"`
 }
 
 type UpdateBlogRequest struct {

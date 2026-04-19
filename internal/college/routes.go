@@ -17,6 +17,18 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			colleges.GET("/:id", h.GetCollegeByID)
 		}
 
+		admissions := v1.Group("/admissions")
+		{
+			admissionColleges := admissions.Group("/colleges")
+			{
+				admissionColleges.GET("", h.GetColleges)
+				admissionColleges.GET("/filter-counts", h.GetCollegeFilterCounts)
+				admissionColleges.GET("/featured", h.GetFeaturedColleges)
+				admissionColleges.GET("/:id", h.GetCollegeByID)
+			}
+			admissions.GET("/direct", h.GetColleges)
+		}
+
 		admin := v1.Group("/admin/colleges")
 		admin.Use(authMW)
 		admin.Use(roleMW)

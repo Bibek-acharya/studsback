@@ -49,13 +49,49 @@ func (h *Handler) GetEducationExamByID(c *gin.Context) {
 }
 
 func (h *Handler) GetEducationCourses(c *gin.Context) {
-	courses, err := h.service.GetEducationCourses()
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	search := c.Query("search")
+	level := c.Query("level")
+	field := c.Query("field")
+	affiliation := c.Query("affiliation")
+
+	// If no filtering params, use old endpoint
+	if search == "" && level == "" && field == "" && affiliation == "" {
+		courses, err := h.service.GetEducationCourses()
+		if err != nil {
+			response.Error(c, http.StatusInternalServerError, "Failed to fetch courses")
+			return
+		}
+		response.Success(c, http.StatusOK, "Education courses retrieved successfully", gin.H{"courses": courses})
+		return
+	}
+
+	courses, meta, err := h.service.GetEducationCoursesPaginated(page, limit, search, level, field, affiliation)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "Failed to fetch courses")
 		return
 	}
 
-	response.Success(c, http.StatusOK, "Education courses retrieved successfully", gin.H{"courses": courses})
+	response.Success(c, http.StatusOK, "Education courses retrieved successfully", gin.H{
+		"courses": courses,
+		"meta":    meta,
+	})
+}
+
+func (h *Handler) GetCourseFilterCounts(c *gin.Context) {
+	counts, err := h.service.GetCourseFilterCounts()
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch filter counts")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Filter counts retrieved successfully", gin.H{
+		"level_counts":       counts.LevelCount,
+		"field_counts":       counts.FieldCount,
+		"affiliation_counts": counts.AffiliationCount,
+		"total":              counts.Total,
+	})
 }
 
 func (h *Handler) GetEducationCourseByID(c *gin.Context) {
@@ -81,13 +117,46 @@ func (h *Handler) GetEducationCourseDetailsByID(c *gin.Context) {
 }
 
 func (h *Handler) GetEducationNews(c *gin.Context) {
-	news, err := h.service.GetEducationNews()
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	category := c.Query("category")
+	search := c.Query("search")
+	sort := c.DefaultQuery("sort", "newest")
+
+	// If no filtering params, use old endpoint
+	if category == "" && search == "" {
+		news, err := h.service.GetEducationNews()
+		if err != nil {
+			response.Error(c, http.StatusInternalServerError, "Failed to fetch news")
+			return
+		}
+		response.Success(c, http.StatusOK, "News retrieved successfully", gin.H{"news": news})
+		return
+	}
+
+	news, meta, err := h.service.GetEducationNewsFiltered(page, limit, category, search, sort)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "Failed to fetch news")
 		return
 	}
 
-	response.Success(c, http.StatusOK, "News retrieved successfully", gin.H{"news": news})
+	response.Success(c, http.StatusOK, "News retrieved successfully", gin.H{
+		"news": news,
+		"meta": meta,
+	})
+}
+
+func (h *Handler) GetNewsFilterCounts(c *gin.Context) {
+	counts, err := h.service.GetNewsFilterCounts()
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch filter counts")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Filter counts retrieved successfully", gin.H{
+		"category_counts": counts.CategoryCounts,
+		"total":           counts.Total,
+	})
 }
 
 func (h *Handler) GetEducationNewsByID(c *gin.Context) {
@@ -102,13 +171,46 @@ func (h *Handler) GetEducationNewsByID(c *gin.Context) {
 }
 
 func (h *Handler) GetEducationEvents(c *gin.Context) {
-	events, err := h.service.GetEducationEvents()
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	category := c.Query("category")
+	search := c.Query("search")
+	sort := c.DefaultQuery("sort", "newest")
+
+	// If no filtering params, use old endpoint
+	if category == "" && search == "" {
+		events, err := h.service.GetEducationEvents()
+		if err != nil {
+			response.Error(c, http.StatusInternalServerError, "Failed to fetch events")
+			return
+		}
+		response.Success(c, http.StatusOK, "Events retrieved successfully", gin.H{"events": events})
+		return
+	}
+
+	events, meta, err := h.service.GetEducationEventsFiltered(page, limit, category, search, sort)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "Failed to fetch events")
 		return
 	}
 
-	response.Success(c, http.StatusOK, "Events retrieved successfully", gin.H{"events": events})
+	response.Success(c, http.StatusOK, "Events retrieved successfully", gin.H{
+		"events": events,
+		"meta":   meta,
+	})
+}
+
+func (h *Handler) GetEventFilterCounts(c *gin.Context) {
+	counts, err := h.service.GetEventFilterCounts()
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch filter counts")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Filter counts retrieved successfully", gin.H{
+		"category_counts": counts.CategoryCounts,
+		"total":           counts.Total,
+	})
 }
 
 func (h *Handler) GetEducationEventByID(c *gin.Context) {
@@ -127,8 +229,10 @@ func (h *Handler) GetEducationBlogs(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 	category := c.Query("category")
 	search := c.Query("search")
+	sort := c.DefaultQuery("sort", "newest")
+	tags := c.Query("tags")
 
-	blogs, meta, err := h.service.GetEducationBlogs(page, limit, category, search)
+	blogs, meta, err := h.service.GetEducationBlogs(page, limit, category, search, sort, tags)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "Failed to fetch blogs")
 		return
@@ -151,6 +255,93 @@ func (h *Handler) GetEducationBlogByID(c *gin.Context) {
 	response.Success(c, http.StatusOK, "Blog post retrieved successfully", blogWithRelated)
 }
 
+func (h *Handler) GetBlogFilterCounts(c *gin.Context) {
+	counts, err := h.service.GetBlogFilterCounts()
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch filter counts")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Filter counts retrieved successfully", counts)
+}
+
+func (h *Handler) IncrementBlogView(c *gin.Context) {
+	id := c.Param("id")
+	err := h.service.IncrementBlogView(id)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Blog not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "View incremented successfully", nil)
+}
+
+// ─── Public Entrance Handlers ─────────────────────────────────────────────
+
+func (h *Handler) GetPublicEntrances(c *gin.Context) {
+	var req EntranceFilterRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		req = EntranceFilterRequest{}
+	}
+
+	page := req.Page
+	if page < 1 {
+		page = 1
+	}
+	limit := req.PageSize
+	if limit < 1 || limit > 50 {
+		limit = 10
+	}
+
+	// Handle arrays - use first element or join
+	level := ""
+	if len(req.AcademicLevel) > 0 {
+		level = req.AcademicLevel[0]
+	}
+	stream := ""
+	if len(req.Stream) > 0 {
+		stream = req.Stream[0]
+	}
+	status := ""
+	if len(req.Status) > 0 {
+		status = req.Status[0]
+	}
+
+	entrances, total, err := h.service.GetPublicEntrances(page, limit, req.Search, level, stream, status)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch entrances")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Entrances retrieved successfully", gin.H{
+		"entrances": entrances,
+		"total":     total,
+		"page":      page,
+		"pageSize":  limit,
+	})
+}
+
+func (h *Handler) GetEntranceFilterCounts(c *gin.Context) {
+	counts, err := h.service.GetEntranceFilterCounts()
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch filter counts")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Filter counts retrieved successfully", counts)
+}
+
+func (h *Handler) GetPublicEntranceByID(c *gin.Context) {
+	id := c.Param("id")
+	entrance, err := h.service.GetPublicEntranceByID(id)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Entrance not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Entrance retrieved successfully", entrance)
+}
+
 // ─── Admin CRUD Handlers ─────────────────────────────────────────────────────
 
 func (h *Handler) AdminGetBlogs(c *gin.Context) {
@@ -158,8 +349,9 @@ func (h *Handler) AdminGetBlogs(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 	category := c.Query("category")
 	search := c.Query("search")
+	sort := c.DefaultQuery("sort", "newest")
 
-	blogs, meta, err := h.service.GetAllBlogsAdmin(page, limit, category, search)
+	blogs, meta, err := h.service.GetAllBlogsAdmin(page, limit, category, search, sort)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "Failed to fetch blogs")
 		return

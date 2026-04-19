@@ -14,6 +14,89 @@ type Repository struct {
 
 var feeNumberRegex = regexp.MustCompile(`\d[\d,]{3,}`)
 
+var facetKeywordsByID = map[string][]string{
+	"plus2":          {"+2", "higher secondary", "10+2", "neb"},
+	"alevel":         {"a level", "alevel"},
+	"bachelor":       {"bachelor", "bsc", "be ", "bba", "bbs", "bim", "mbbs", "bds"},
+	"master":         {"master", "msc", "mba", "mbs", "mca", "mit"},
+	"diploma":        {"diploma", "ctevt", "pcl", "health assistant", "ha "},
+	"p2_sci":         {"science"},
+	"p2_mgmt":        {"management"},
+	"p2_hum":         {"humanities"},
+	"p2_edu":         {"education"},
+	"p2_law":         {"law"},
+	"al_sci":         {"a level - science", "a level science"},
+	"al_nonsci":      {"a level - non-science", "a level - non-science/mgmt", "a level management"},
+	"b_it":           {"information technology", "computer science", "it", "cs"},
+	"b_eng":          {"engineering"},
+	"b_biz":          {"business", "management"},
+	"b_med":          {"medical", "healthcare", "nursing", "pharmacy"},
+	"b_hum":          {"humanities", "social sciences"},
+	"b_agr":          {"agriculture", "forestry"},
+	"m_biz":          {"master business", "mba", "mbs"},
+	"m_it":           {"mca", "mit", "msc csit", "master it"},
+	"m_eng":          {"master engineering", "m.e", "meng"},
+	"m_hum":          {"master humanities", "master social sciences"},
+	"d_eng":          {"diploma engineering", "ctevt engineering"},
+	"d_med":          {"pcl nursing", "ha", "diploma medical", "ctevt nursing"},
+	"d_hm":           {"hotel management", "tourism"},
+	"d_agr":          {"diploma agriculture", "diploma forestry", "ctevt agriculture"},
+	"c_bsc_csit":     {"bsc csit"},
+	"c_bca":          {"bca"},
+	"c_bit":          {"bit"},
+	"c_bim":          {"bim"},
+	"c_civil":        {"civil engineering"},
+	"c_comp":         {"computer engineering"},
+	"c_arch":         {"architecture"},
+	"c_elec":         {"electrical", "electronics"},
+	"c_bba":          {"bba"},
+	"c_bbs":          {"bbs"},
+	"c_bbm":          {"bbm"},
+	"c_bhm":          {"bhm", "hotel management"},
+	"c_mbbs":         {"mbbs"},
+	"c_bds":          {"bds"},
+	"c_nursing":      {"bsc nursing", "nursing"},
+	"c_pharma":       {"pharmacy", "pharma"},
+	"c_bsc_ag":       {"bsc agriculture"},
+	"c_bsc_forestry": {"bsc forestry"},
+	"c_mba":          {"mba"},
+	"c_mbs":          {"mbs"},
+	"c_msc_csit":     {"msc csit"},
+	"c_mca":          {"mca"},
+	"c_mit":          {"mit"},
+	"c_dip_civil":    {"diploma in civil", "diploma civil"},
+	"c_dip_comp":     {"diploma in computer", "diploma computer"},
+	"c_pcl_nurs":     {"pcl nursing"},
+	"c_ha":           {"health assistant", "ha (general medicine)", " ha "},
+	"prov_koshi":     {"koshi"},
+	"prov_madhesh":   {"madhesh"},
+	"prov_bagmati":   {"bagmati"},
+	"prov_gandaki":   {"gandaki"},
+	"prov_lumbini":   {"lumbini"},
+	"prov_karnali":   {"karnali"},
+	"prov_sudur":     {"sudurpashchim"},
+	"d_jhapa":        {"jhapa"},
+	"d_morang":       {"morang"},
+	"d_sunsari":      {"sunsari"},
+	"d_dhanusha":     {"dhanusha"},
+	"d_parsa":        {"parsa"},
+	"d_bhaktapur":    {"bhaktapur"},
+	"d_chitwan":      {"chitwan"},
+	"d_kathmandu":    {"kathmandu"},
+	"d_lalitpur":     {"lalitpur"},
+	"d_kavre":        {"kavrepalanchok", "kavre"},
+	"d_kaski":        {"kaski"},
+	"d_nawalpur":     {"nawalpur"},
+	"d_tanahun":      {"tanahun"},
+	"d_banke":        {"banke"},
+	"d_rupandehi":    {"rupandehi"},
+	"d_dang":         {"dang"},
+	"d_surkhet":      {"surkhet"},
+	"d_jumla":        {"jumla"},
+	"d_kailali":      {"kailali"},
+	"d_kanchanpur":   {"kanchanpur"},
+}
+
 func NewRepository(db *gorm.DB) *Repository {
 	return &Repository{db: db}
 }
@@ -34,6 +117,38 @@ func (r *Repository) FindAll(filters CollegeFilters) ([]College, int64, error) {
 
 	if filters.Affiliation != "" {
 		query = applyMultiILIKEFilter(query, "affiliation", parseCSV(filters.Affiliation))
+	}
+
+	if len(filters.Academic) > 0 {
+		query = applyFacetSearchFilter(query, filters.Academic)
+	}
+
+	if len(filters.Program) > 0 {
+		query = applyFacetSearchFilter(query, filters.Program)
+	}
+
+	if len(filters.Province) > 0 {
+		query = applyMultiILIKEFilter(query, "location", filters.Province)
+	}
+
+	if len(filters.District) > 0 {
+		query = applyMultiILIKEFilter(query, "location", filters.District)
+	}
+
+	if len(filters.Local) > 0 {
+		query = applyMultiILIKEFilter(query, "location", filters.Local)
+	}
+
+	if len(filters.Scholarship) > 0 {
+		query = applyMultiILIKEFilter(query, "CAST(scholarships AS TEXT)", filters.Scholarship)
+	}
+
+	if len(filters.Facilities) > 0 {
+		query = applyMultiILIKEFilter(query, "CAST(amenities AS TEXT)", filters.Facilities)
+	}
+
+	if filters.DirectAdmission {
+		query = applyMultiILIKEFilter(query, "CAST(admissions AS TEXT) || ' ' || CAST(admission_cards AS TEXT)", []string{"direct admission", "direct apply", "direct"})
 	}
 
 	if filters.Type != "" {
@@ -243,6 +358,24 @@ func applyMultiILIKEFilter(query *gorm.DB, field string, values []string) *gorm.
 	}
 
 	return query.Where("("+strings.Join(clauses, " OR ")+")", args...)
+}
+
+func applyFacetSearchFilter(query *gorm.DB, ids []string) *gorm.DB {
+	keywords := make([]string, 0, len(ids))
+	for _, id := range ids {
+		if mapped, ok := facetKeywordsByID[id]; ok {
+			keywords = append(keywords, mapped...)
+		} else {
+			keywords = append(keywords, id)
+		}
+	}
+
+	if len(keywords) == 0 {
+		return query
+	}
+
+	searchField := "CAST(featured_programs AS TEXT) || ' ' || CAST(courses AS TEXT) || ' ' || CAST(programs_list AS TEXT) || ' ' || CAST(admissions AS TEXT) || ' ' || description"
+	return applyMultiILIKEFilter(query, searchField, keywords)
 }
 
 func matchesFeeMax(college College, feeMax int) bool {

@@ -12,6 +12,7 @@ import (
 	"studsphere/backend/internal/college"
 	"studsphere/backend/internal/counselling"
 	"studsphere/backend/internal/education"
+	"studsphere/backend/internal/emailqueue"
 	"studsphere/backend/internal/forum"
 	"studsphere/backend/internal/institution"
 	"studsphere/backend/internal/scholarship"
@@ -20,6 +21,7 @@ import (
 	"studsphere/backend/internal/shared/logger"
 	"studsphere/backend/internal/shared/middleware"
 	"studsphere/backend/internal/shared/seeder"
+	"studsphere/backend/internal/shared/utils"
 	"studsphere/backend/internal/studentdashboard"
 	"studsphere/backend/internal/system"
 	"studsphere/backend/internal/tools"
@@ -98,6 +100,27 @@ func main() {
 	}
 	logger.Info("Database migrations completed successfully")
 
+	logger.Info("Initializing MinIO...")
+	if err := utils.InitMinIO(); err != nil {
+		logger.Warn("Failed to initialize MinIO (MinIO may not be running)", "error", err)
+	} else {
+		logger.Info("MinIO initialized successfully")
+	}
+
+	logger.Info("Initializing email queue...")
+	if err := emailqueue.InitAsynq(); err != nil {
+		logger.Warn("Failed to initialize email queue (Redis may not be running)", "error", err)
+	} else {
+		logger.Info("Email queue initialized successfully")
+
+		go func() {
+			if err := emailqueue.StartWorker(); err != nil {
+				logger.Error("Failed to start email worker", "error", err)
+			}
+		}()
+		logger.Info("Email queue worker started in background")
+	}
+
 	logger.Info("Seeding database...")
 	if err := seeder.Seed(db); err != nil {
 		logger.Warn("Failed to seed database", "error", err)
@@ -169,6 +192,8 @@ func main() {
 	<-quit
 
 	logger.Info("Shutting down server...")
+	emailqueue.StopWorker()
+	emailqueue.CloseAsynq()
 	time.Sleep(1 * time.Second)
 	logger.Info("Server exited")
 }
