@@ -24,6 +24,12 @@ type VerifyOTPRequest struct {
 	OTP   string `json:"otp" binding:"required"`
 }
 
+type ResetPasswordRequest struct {
+	Email    string `json:"email" binding:"required,email"`
+	OTP     string `json:"otp" binding:"required"`
+	Password string `json:"password" binding:"required,min=6"`
+}
+
 type SavePreferencesRequest struct {
 	PreferenceRole string                 `json:"preference_role" binding:"required"`
 	PreferenceFlow string                 `json:"preference_flow" binding:"required"`

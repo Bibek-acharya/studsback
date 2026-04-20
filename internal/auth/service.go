@@ -111,8 +111,8 @@ func (s *Service) SendOTP(email string, otpType string) error {
 		return errors.New("Failed to generate OTP")
 	}
 
-	data := utils.GetOTPData(email)
-	utils.StoreOTP(email, otp, data)
+	_, data := utils.GetOTPData(email)
+	utils.StoreOTPWithType(email, otp, otpType, data)
 
 	if emailErr := utils.SendOTPEmail(email, otp); emailErr != nil {
 		log.Printf("Warning: failed to send OTP email to %s: %v", email, emailErr)
@@ -123,9 +123,13 @@ func (s *Service) SendOTP(email string, otpType string) error {
 }
 
 func (s *Service) VerifyOTP(email, otp string) (*LoginResponse, error) {
-	valid, data := utils.VerifyOTP(email, otp)
+	valid, otpType, data := utils.VerifyOTP(email, otp)
 	if !valid {
 		return nil, errors.New("Invalid or expired OTP")
+	}
+
+	if otpType == "password_reset" {
+		return nil, errors.New("Use /reset-password endpoint to complete password reset")
 	}
 
 	if data == nil {
@@ -485,4 +489,26 @@ func (s *Service) SuperadminLogin(req SuperadminLoginRequest) (*LoginResponse, e
 		User:  user,
 		Token: token,
 	}, nil
+}
+
+func (s *Service) ResetPassword(email, otp, newPassword string) error {
+	valid, otpType, _ := utils.VerifyOTP(email, otp)
+	if !valid {
+		return errors.New("Invalid or expired OTP")
+	}
+
+	if otpType != "password_reset" {
+		return errors.New("Invalid OTP type")
+	}
+
+	user, err := s.repo.FindUserByEmail(email)
+	if err != nil {
+		return errors.New("User not found")
+	}
+
+	if err := user.HashPassword(newPassword); err != nil {
+		return errors.New("Failed to hash password")
+	}
+
+	return s.repo.SaveUser(user)
 }

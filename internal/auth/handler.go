@@ -94,6 +94,22 @@ func (h *Handler) VerifyOTP(c *gin.Context) {
 	response.Success(c, 200, "Email verified successfully", result)
 }
 
+func (h *Handler) ResetPassword(c *gin.Context) {
+	var req ResetPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+
+	err := h.service.ResetPassword(req.Email, req.OTP, req.Password)
+	if err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+
+	response.Success(c, 200, "Password reset successfully", nil)
+}
+
 func (h *Handler) GoogleLogin(c *gin.Context) {
 	googleConfig := &oauth2.Config{
 		RedirectURL:  config.AppConfig.GoogleRedirectURL,
