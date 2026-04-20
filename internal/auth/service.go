@@ -55,12 +55,7 @@ func (s *Service) Register(req RegisterRequest) (*RegisterResponse, error) {
 
 	utils.StoreOTP(req.Email, otp, user)
 
-	if emailErr := utils.SendOTPEmail(req.Email, otp); emailErr != nil {
-		log.Printf("WARNING: failed to send OTP email to %s: %v", req.Email, emailErr)
-		log.Printf("DEV_OTP for %s: %s", req.Email, otp)
-	} else {
-		log.Printf("SUCCESS: OTP email sent to %s", req.Email)
-	}
+	// Don't send email here - frontend will call /send-otp after user clicks "Verify Account"
 
 	return &RegisterResponse{
 		Email:       user.Email,
@@ -89,7 +84,28 @@ func (s *Service) Login(req LoginRequest) (*LoginResponse, error) {
 	}, nil
 }
 
-func (s *Service) SendOTP(email string) error {
+func (s *Service) SendOTP(email string, otpType string) error {
+	// Default to verification type
+	if otpType == "" {
+		otpType = "verification"
+	}
+
+	// For password_reset, we must verify the email exists
+	if otpType == "password_reset" {
+		userExists := true
+		_, err := s.repo.FindUserByEmail(email)
+		if err != nil {
+			userExists = false
+		}
+
+		if !userExists {
+			return errors.New("No account found with this email address")
+		}
+	}
+
+	// For verification (registration): don't check if user exists
+	// Send OTP anyway - user will be created after OTP verification
+
 	otp, err := utils.GenerateOTP()
 	if err != nil {
 		return errors.New("Failed to generate OTP")

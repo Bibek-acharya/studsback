@@ -16,6 +16,7 @@ type LoginRequest struct {
 
 type SendOTPRequest struct {
 	Email string `json:"email" binding:"required,email"`
+	Type  string `json:"type"` // "verification" (registration) or "password_reset" (forgot password)
 }
 
 type VerifyOTPRequest struct {

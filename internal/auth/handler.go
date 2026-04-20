@@ -63,7 +63,14 @@ func (h *Handler) SendOTP(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.SendOTP(req.Email); err != nil {
+	otpType := req.Type
+	if otpType == "" {
+		otpType = "verification" // default
+	}
+
+	// For password_reset, check if email exists
+	// For verification (registration), allow without checking
+	if err := h.service.SendOTP(req.Email, otpType); err != nil {
 		response.Error(c, 500, err.Error())
 		return
 	}
