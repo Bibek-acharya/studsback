@@ -11,10 +11,10 @@ install: ## Install Go dependencies
 	go mod tidy
 
 run: ## Run the application
-	go run /cmd/main.go
+	go run cmd/server/main.go
 
 build: ## Build the application
-	go build -o bin/server /cmd/main.go
+	go build -o bin/server cmd/server/main.go
 
 clean: ## Clean build artifacts
 	rm -rf bin/

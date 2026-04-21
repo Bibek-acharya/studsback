@@ -28,6 +28,16 @@ type Config struct {
 	GoogleRedirectURL  string
 	FrontendURL        string
 	DBSSLMode          string
+	SMTPHost           string
+	SMTPPort           string
+	SMTPUser           string
+	SMTPPass           string
+	MinIOEndpoint      string
+	MinIOAPIEndpoint   string
+	MinIOAccessKey     string
+	MinIOSecretKey     string
+	MinIOBucket        string
+	MinIOUseSSL        bool
 }
 
 var AppConfig *Config
@@ -68,6 +78,16 @@ func Load() {
 		GoogleRedirectURL:  getEnv("GOOGLE_REDIRECT_URL", "http://localhost:8080/api/v1/auth/google/callback"),
 		FrontendURL:        getEnv("FRONTEND_URL", "http://localhost:5173"),
 		DBSSLMode:          dbSSLMode,
+		SMTPHost:           getEnv("SMTP_HOST", "smtp.hostinger.com"),
+		SMTPPort:           getEnv("SMTP_PORT", "587"),
+		SMTPUser:           getEnv("SMTP_USER", "system@studsphere.com"),
+		SMTPPass:           getEnv("SMTP_PASS", "Systemtask@200"),
+		MinIOEndpoint:      getEnv("MINIO_ENDPOINT", "storage.studsphere.com"),
+		MinIOAPIEndpoint:   getEnv("MINIO_API_ENDPOINT", ""),
+		MinIOAccessKey:     getEnv("MINIO_ACCESS_KEY", "studsphere"),
+		MinIOSecretKey:     getEnv("MINIO_SECRET_KEY", "studsphere123"),
+		MinIOBucket:        getEnv("MINIO_BUCKET", "studsphere"),
+		MinIOUseSSL:        getEnv("MINIO_USE_SSL", "true") == "true",
 	}
 }
 

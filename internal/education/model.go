@@ -108,16 +108,22 @@ func (News) TableName() string {
 }
 
 type Event struct {
-	ID         uint           `gorm:"primarykey" json:"id"`
-	CreatedAt  time.Time      `json:"created_at"`
-	UpdatedAt  time.Time      `json:"updated_at"`
-	DeletedAt  gorm.DeletedAt `gorm:"index" json:"-"`
-	Title      string         `gorm:"not null" json:"title" binding:"required"`
-	Date       string         `json:"date"`
-	Location   string         `json:"location"`
-	Image      string         `json:"image"`
-	Interested int            `json:"interested"`
-	Trending   bool           `json:"trending"`
+	ID              uint           `gorm:"primarykey" json:"id"`
+	CreatedAt       time.Time      `json:"created_at"`
+	UpdatedAt       time.Time      `json:"updated_at"`
+	DeletedAt       gorm.DeletedAt `gorm:"index" json:"-"`
+	Title           string         `gorm:"not null" json:"title" binding:"required"`
+	Excerpt         string         `gorm:"type:text" json:"excerpt"`
+	Description     string         `gorm:"type:text" json:"description"`
+	Category        string         `json:"category"`
+	Organizer       string         `json:"organizer"`
+	Location        string         `json:"location"`
+	Date            string         `json:"date"`
+	Time            string         `json:"time"`
+	RegistrationFee string         `json:"registration_fee"`
+	Image           string         `json:"image"`
+	Interested      int            `json:"interested"`
+	Trending        bool           `json:"trending"`
 }
 
 func (Event) TableName() string {

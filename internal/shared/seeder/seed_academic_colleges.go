@@ -242,7 +242,7 @@ func SeedAcademicColleges(db *gorm.DB) error {
 			Rating:           4.6,
 			Reviews:          312,
 			Programs:         3,
-			Description:      "High-performing +2 and A-Level preparation in Pokhara valley.",
+			Description:      "High-performing +2 and A-Level preparation in Pokhara valley in Nepal wany where wshola .",
 			Website:          "ppti.edu.np",
 			Email:            "hello@ppti.edu.np",
 			Phone:            "+977-61-450222",

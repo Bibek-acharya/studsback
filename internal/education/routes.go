@@ -15,14 +15,27 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			education.GET("/exams", h.GetEducationExams)
 			education.GET("/exams/:id", h.GetEducationExamByID)
 			education.GET("/courses", h.GetEducationCourses)
+			education.GET("/courses/filter-counts", h.GetCourseFilterCounts)
 			education.GET("/courses/:id", h.GetEducationCourseByID)
 			education.GET("/courses/:id/details", h.GetEducationCourseDetailsByID)
 			education.GET("/news", h.GetEducationNews)
+			education.GET("/news/filter-counts", h.GetNewsFilterCounts)
 			education.GET("/news/:id", h.GetEducationNewsByID)
 			education.GET("/events", h.GetEducationEvents)
+			education.GET("/events/filter-counts", h.GetEventFilterCounts)
 			education.GET("/events/:id", h.GetEducationEventByID)
 			education.GET("/blogs", h.GetEducationBlogs)
+			education.GET("/blogs/filter-counts", h.GetBlogFilterCounts)
 			education.GET("/blogs/:id", h.GetEducationBlogByID)
+			education.POST("/blogs/:id/view", h.IncrementBlogView)
+		}
+
+		// Public entrance endpoints
+		entrances := v1.Group("/entrances")
+		{
+			entrances.POST("", h.GetPublicEntrances)
+			entrances.GET("/filter-counts", h.GetEntranceFilterCounts)
+			entrances.GET("/:id", h.GetPublicEntranceByID)
 		}
 
 		// Admin blog management routes

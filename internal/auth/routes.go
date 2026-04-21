@@ -15,6 +15,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			auth.POST("/login", h.Login)
 			auth.POST("/send-otp", h.SendOTP)
 			auth.POST("/verify-otp", h.VerifyOTP)
+			auth.POST("/reset-password", h.ResetPassword)
 			auth.GET("/google", h.GoogleLogin)
 			auth.GET("/google/callback", h.GoogleCallback)
 		}

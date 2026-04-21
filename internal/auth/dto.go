@@ -16,11 +16,18 @@ type LoginRequest struct {
 
 type SendOTPRequest struct {
 	Email string `json:"email" binding:"required,email"`
+	Type  string `json:"type"` // "verification" (registration) or "password_reset" (forgot password)
 }
 
 type VerifyOTPRequest struct {
 	Email string `json:"email" binding:"required,email"`
 	OTP   string `json:"otp" binding:"required"`
+}
+
+type ResetPasswordRequest struct {
+	Email    string `json:"email" binding:"required,email"`
+	OTP     string `json:"otp" binding:"required"`
+	Password string `json:"password" binding:"required,min=6"`
 }
 
 type SavePreferencesRequest struct {

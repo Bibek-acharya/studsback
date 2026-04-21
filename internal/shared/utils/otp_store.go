@@ -8,6 +8,7 @@ import (
 type otpEntry struct {
 	OTP       string
 	ExpiresAt time.Time
+	Type      string
 	Data      interface{}
 }
 
@@ -17,39 +18,45 @@ var (
 )
 
 func StoreOTP(email, otp string, data interface{}) {
+	StoreOTPWithType(email, otp, "", data)
+}
+
+func StoreOTPWithType(email, otp, otpType string, data interface{}) {
 	otpStoreMu.Lock()
 	defer otpStoreMu.Unlock()
 	otpStore[email] = otpEntry{
 		OTP:       otp,
 		ExpiresAt: time.Now().Add(10 * time.Minute),
+		Type:      otpType,
 		Data:      data,
 	}
 }
 
-func VerifyOTP(email, otp string) (bool, interface{}) {
+func VerifyOTP(email, otp string) (bool, string, interface{}) {
 	otpStoreMu.Lock()
 	defer otpStoreMu.Unlock()
 	entry, exists := otpStore[email]
 	if !exists {
-		return false, nil
+		return false, "", nil
 	}
 	if time.Now().After(entry.ExpiresAt) {
 		delete(otpStore, email)
-		return false, nil
+		return false, "", nil
 	}
 	if entry.OTP != otp {
-		return false, nil
+		return false, "", nil
 	}
+	otpType := entry.Type
 	delete(otpStore, email)
-	return true, entry.Data
+	return true, otpType, entry.Data
 }
 
-func GetOTPData(email string) interface{} {
+func GetOTPData(email string) (string, interface{}) {
 	otpStoreMu.Lock()
 	defer otpStoreMu.Unlock()
 	entry, exists := otpStore[email]
 	if !exists {
-		return nil
+		return "", nil
 	}
-	return entry.Data
+	return entry.Type, entry.Data
 }

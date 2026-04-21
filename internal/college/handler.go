@@ -18,18 +18,26 @@ func NewHandler(service *Service) *Handler {
 
 func (h *Handler) GetColleges(c *gin.Context) {
 	filters := CollegeFilters{
-		UniversityID: c.Query("universityId"),
-		Location:     c.Query("location"),
-		Affiliation:  c.Query("affiliation"),
-		Type:         c.Query("type"),
-		FeeMax:       0,
-		Verified:     c.Query("verified"),
-		Popular:      c.Query("popular"),
-		MinRating:    c.Query("minRating"),
-		Search:       c.Query("search"),
-		CourseID:     c.Query("courseId"),
-		Sort:         c.DefaultQuery("sort", "rating"),
-		Order:        c.DefaultQuery("order", "DESC"),
+		UniversityID:    c.Query("universityId"),
+		Location:        c.Query("location"),
+		Affiliation:     c.Query("affiliation"),
+		Type:            c.Query("type"),
+		Academic:        c.QueryArray("academic"),
+		Program:         c.QueryArray("program"),
+		Province:        c.QueryArray("province"),
+		District:        c.QueryArray("district"),
+		Local:           c.QueryArray("local"),
+		Scholarship:     c.QueryArray("scholarship"),
+		Facilities:      c.QueryArray("facilities"),
+		FeeMax:          0,
+		Verified:        c.Query("verified"),
+		Popular:         c.Query("popular"),
+		DirectAdmission: c.Query("directAdmission") == "true",
+		MinRating:       c.Query("minRating"),
+		Search:          c.Query("search"),
+		CourseID:        c.Query("courseId"),
+		Sort:            c.DefaultQuery("sort", "rating"),
+		Order:           c.DefaultQuery("order", "DESC"),
 	}
 
 	if feeMax, err := strconv.Atoi(c.Query("feeMax")); err == nil && feeMax > 0 {

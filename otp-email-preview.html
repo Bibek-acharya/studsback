@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Studsphere OTP Email Preview</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 40px 20px;
+            background-color: #f9fbfb;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            color: #333333;
+        }
+
+        .email-container {
+            max-width: 540px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 12px;
+            border: 1px solid #eaeaea;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.04);
+            overflow: hidden;
+        }
+
+        .header {
+            padding: 40px 24px 20px;
+            text-align: center;
+        }
+
+        .brand-logo {
+            display: inline-block;
+            margin-bottom: 15px;
+        }
+
+        .brand-logo img {
+            height: 40px;
+            width: auto;
+        }
+
+        .welcome-title {
+            color: #111827;
+            font-size: 24px;
+            font-weight: 500;
+            margin: 0;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+
+        .content {
+            padding: 20px 40px;
+            color: #4b5563;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+
+        .content p {
+            margin: 0 0 16px 0;
+        }
+
+        .otp-section {
+            margin-top: 20px;
+            margin-bottom: 30px;
+        }
+
+        .otp-section p {
+            margin: 0 0 6px 0;
+            color: #111827;
+        }
+
+        .signature {
+            margin-top: 35px;
+        }
+
+        .signature p {
+            margin: 0 0 4px 0;
+            color: #374151;
+        }
+
+        .footer {
+            background-color: #f9fafb;
+            padding: 30px 40px;
+            text-align: center;
+            border-top: 1px solid #f3f4f6;
+        }
+
+        .social-icons {
+            margin-bottom: 24px;
+        }
+
+        .social-icons a {
+            display: inline-block;
+            margin: 0 12px;
+            text-decoration: none;
+        }
+
+        .social-icons svg {
+            fill: #9ca3af;
+            transition: fill 0.2s ease;
+        }
+
+        .social-icons a:hover svg {
+            fill: #0000ff;
+        }
+
+        .footer-text {
+            color: #6b7280;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .footer-text p {
+            margin: 0 0 8px 0;
+        }
+
+        .footer-text a {
+            color: #0000ff;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .footer-text a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding: 15px 10px;
+            }
+            .content {
+                padding: 20px 24px;
+            }
+            .footer {
+                padding: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="header">
+            <div class="brand-logo">
+                <img src="https://studsphere.com/assets/studsphere-logo.png" alt="Studsphere">
+            </div>
+            <h1 class="welcome-title">Welcome to Studsphere!</h1>
+        </div>
+
+        <div class="content">
+            <p>Hi,</p>
+            <p>Greetings!</p>
+            <p>You are just a step away from accessing your Studsphere account.</p>
+            <p>The code is valid for only 10 minutes and can be used only once.</p>
+
+            <div class="otp-section">
+                <p>Your OTP Code</p>
+                <p style="font-size: 32px; font-weight: bold; letter-spacing: 8px; font-family: 'Plus Jakarta Sans', sans-serif; color: #111827; text-align: center; margin: 20px 0; background: #f1f5f9; padding: 16px; border-radius: 8px;">655878</p>
+                <p>Expires in: 10 minutes</p>
+            </div>
+
+            <div class="signature">
+                <p>Best Regards,</p>
+                <p>Team Studsphere</p>
+            </div>
+        </div>
+
+        <div class="footer">
+            <div class="social-icons">
+                <a href="https://www.facebook.com/share/1CEcyRH9ZZ/" aria-label="Facebook" style="text-decoration: none; margin: 0 8px; display: inline-block;">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/5/51/Facebook_f_logo_%282019%29.svg" alt="Facebook" width="28" height="28" style="display: block;">
+                </a>
+                <a href="https://www.instagram.com/stud.sphere?igsh=NDM5Z29nc2ZqMmc=" aria-label="Instagram" style="text-decoration: none; margin: 0 8px; display: inline-block;">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/e/e7/Instagram_logo_2016.svg" alt="Instagram" width="28" height="28" style="display: block;">
+                </a>
+                <a href="https://www.tiktok.com/@stud.sphere?_r=1&_t=ZS-95OYyC0vodM" aria-label="TikTok" style="text-decoration: none; margin: 0 8px; display: inline-block;">
+                    <img src="https://cdn-icons-png.flaticon.com/512/2111/2111468.png" alt="TikTok" width="28" height="28" style="display: block;">
+                </a>
+                <a href="https://wa.me/9779800000000" aria-label="WhatsApp" style="text-decoration: none; margin: 0 8px; display: inline-block;">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp" width="28" height="28" style="display: block;">
+                </a>
+            </div>
+
+            <div class="footer-text">
+                <p>This email can't receive replies. For more information, visit the <a href="https://studsphere.com/help">Studsphere Help Center</a>.</p>
+                <p>&copy; 2026 Studsphere Inc., 123 Education Lane, Knowledge City, ST 12345, USA</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

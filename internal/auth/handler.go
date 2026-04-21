@@ -63,7 +63,14 @@ func (h *Handler) SendOTP(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.SendOTP(req.Email); err != nil {
+	otpType := req.Type
+	if otpType == "" {
+		otpType = "verification" // default
+	}
+
+	// For password_reset, check if email exists
+	// For verification (registration), allow without checking
+	if err := h.service.SendOTP(req.Email, otpType); err != nil {
 		response.Error(c, 500, err.Error())
 		return
 	}
@@ -85,6 +92,22 @@ func (h *Handler) VerifyOTP(c *gin.Context) {
 	}
 
 	response.Success(c, 200, "Email verified successfully", result)
+}
+
+func (h *Handler) ResetPassword(c *gin.Context) {
+	var req ResetPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+
+	err := h.service.ResetPassword(req.Email, req.OTP, req.Password)
+	if err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+
+	response.Success(c, 200, "Password reset successfully", nil)
 }
 
 func (h *Handler) GoogleLogin(c *gin.Context) {
