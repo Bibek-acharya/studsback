@@ -38,14 +38,20 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			entrances.GET("/:id", h.GetPublicEntranceByID)
 		}
 
-		// Superadmin blog management routes
-		adminBlogs := v1.Group("/superadmin/blogs")
+		// Admin blog management routes
+		adminBlogs := v1.Group("/admin/blogs")
 		adminBlogs.Use(authMW)
+		adminBlogs.Use(roleMW)
 		{
 			adminBlogs.GET("", h.AdminGetBlogs)
 			adminBlogs.POST("", h.CreateBlog)
 			adminBlogs.PUT("/:id", h.UpdateBlog)
 			adminBlogs.DELETE("/:id", h.DeleteBlog)
+			adminBlogs.POST("/upload-image", h.UploadBlogImage)
 		}
+
+		// Blog comments (public)
+		v1.GET("/blogs/:id/comments", h.GetBlogComments)
+		v1.POST("/blogs/:id/comments", h.CreateBlogComment)
 	}
 }

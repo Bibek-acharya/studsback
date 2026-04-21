@@ -517,127 +517,16 @@ func (r *Repository) DeleteBlog(id uint) error {
 	return r.db.Delete(&Blog{}, id).Error
 }
 
-// ─── Public Entrance Queries ────────────────────────────────────────────────
-
-func (r *Repository) FindPublicEntrances(page, limit int, search, level, stream, status string) ([]PublicEntranceResponse, int64, error) {
-	type result struct {
-		ID          uint
-		Title       string
-		Institution string
-		Location    string
-		ExamDate    string
-		Deadline    string
-		Status      string
-		Level       string
-	}
-
-	offset := (page - 1) * limit
-	query := r.db.Table("institution_entrances").
-		Select("institution_entrances.id, institution_entrances.title, institutions.name as institution, institution_entrances.location, institution_entrances.date as exam_date, institution_entrances.deadline, institution_entrances.status, COALESCE(institution_entrances.level, '') as level").
-		Joins("JOIN institutions ON institutions.id = institution_entrances.institution_id").
-		Where("institution_entrances.status IN ?", []string{"Published", "Ongoing", "Open"})
-
-	if search != "" {
-		query = query.Where("institution_entrances.title ILIKE ? OR institutions.name ILIKE ?", "%"+search+"%", "%"+search+"%")
-	}
-	if level != "" {
-		query = query.Where("institution_entrances.level = ?", level)
-	}
-	if status != "" {
-		query = query.Where("institution_entrances.status = ?", status)
-	}
-
-	var total int64
-	query.Count(&total)
-
-	var results []result
-	err := query.Order("institution_entrances.date desc").Offset(offset).Limit(limit).Find(&results).Error
-	if err != nil {
-		return nil, 0, err
-	}
-
-	entrances := make([]PublicEntranceResponse, len(results))
-	for i, e := range results {
-		entrances[i] = PublicEntranceResponse{
-			ID:          fmt.Sprintf("%d", e.ID),
-			Title:       e.Title,
-			Institution: e.Institution,
-			Location:    e.Location,
-			ExamDate:    e.ExamDate,
-			Deadline:    e.Deadline,
-			Status:      e.Status,
-			Level:       e.Level,
-		}
-	}
-
-	return entrances, total, nil
+func (r *Repository) CreateBlogComment(comment *BlogComment) error {
+	return r.db.Create(comment).Error
 }
 
-func (r *Repository) FindPublicEntranceByID(id string) (*PublicEntranceResponse, error) {
-	type result struct {
-		ID          uint
-		Title       string
-		Institution string
-		Location    string
-		ExamDate    string
-		Deadline    string
-		Status      string
-		Level       string
-	}
-
-	var entID uint
-	fmt.Sscanf(id, "%d", &entID)
-
-	var r2 result
-	err := r.db.Table("institution_entrances").
-		Select("institution_entrances.id, institution_entrances.title, institutions.name as institution, institution_entrances.location, institution_entrances.date as exam_date, institution_entrances.deadline, institution_entrances.status, COALESCE(institution_entrances.level, '') as level").
-		Joins("JOIN institutions ON institutions.id = institution_entrances.institution_id").
-		Where("institution_entrances.id = ?", entID).
-		First(&r2).Error
-
-	if err != nil {
-		return nil, err
-	}
-
-	resp := &PublicEntranceResponse{
-		ID:          fmt.Sprintf("%d", r2.ID),
-		Title:       r2.Title,
-		Institution: r2.Institution,
-		Location:    r2.Location,
-		ExamDate:    r2.ExamDate,
-		Deadline:    r2.Deadline,
-		Status:      r2.Status,
-		Level:       r2.Level,
-	}
-	return resp, nil
+func (r *Repository) GetBlogComments(blogID uint) ([]BlogComment, error) {
+	var comments []BlogComment
+	err := r.db.Where("blog_id = ?", blogID).Order("created_at desc").Find(&comments).Error
+	return comments, err
 }
 
-func (r *Repository) GetEntranceFilterCounts() (*EntranceFilterCountsResponse, error) {
-	counts := &EntranceFilterCountsResponse{
-		AcademicLevelCounts: make(map[string]int64),
-		StreamCounts:        make(map[string]int64),
-		StatusCounts:        make(map[string]int64),
-	}
-
-	// Level counts - use raw query
-	rows, _ := r.db.Raw("SELECT COALESCE(level, 'Unknown') as lvl, COUNT(*) as cnt FROM institution_entrances WHERE status IN ('Published', 'Ongoing', 'Open') GROUP BY lvl").Rows()
-	if rows != nil {
-		for rows.Next() {
-			var lvl string
-			var cnt int64
-			rows.Scan(&lvl, &cnt)
-			counts.AcademicLevelCounts[lvl] = cnt
-		}
-		rows.Close()
-	}
-
-	// Total
-	r.db.Raw("SELECT COUNT(*) FROM institution_entrances WHERE status IN ('Published', 'Ongoing', 'Open')").Scan(&counts.Total)
-
-	// Set default statuses
-	counts.StatusCounts["Ongoing"] = 0
-	counts.StatusCounts["Upcoming"] = 0
-	counts.StatusCounts["Closed"] = 0
-
-	return counts, nil
+func (r *Repository) IncrementCommentLikes(id uint) error {
+	return r.db.Model(&BlogComment{}).Where("id = ?", id).Update("likes", gorm.Expr("likes + ?", 1)).Error
 }

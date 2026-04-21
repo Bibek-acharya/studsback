@@ -1,6 +1,7 @@
 package education
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -404,4 +405,59 @@ func (h *Handler) DeleteBlog(c *gin.Context) {
 	}
 
 	response.Success(c, http.StatusOK, "Blog deleted successfully", nil)
+}
+
+func (h *Handler) UploadBlogImage(c *gin.Context) {
+	file, err := c.FormFile("image")
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "No image file provided")
+		return
+	}
+
+	urls, err := h.service.UploadBlogImage(file)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to upload image")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Image uploaded successfully", gin.H{"url": urls[0]})
+}
+
+func (h *Handler) GetBlogComments(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid blog ID")
+		return
+	}
+
+	comments, err := h.service.GetBlogComments(uint(id))
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch comments")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Comments retrieved successfully", comments)
+}
+
+func (h *Handler) CreateBlogComment(c *gin.Context) {
+	var input BlogCommentInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	blogID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid blog ID")
+		return
+	}
+	input.BlogID = uint(blogID)
+
+	comment, err := h.service.CreateBlogComment(input)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, fmt.Sprintf("Failed to create comment: %v", err))
+		return
+	}
+
+	response.Success(c, http.StatusCreated, "Comment posted successfully", comment)
 }
