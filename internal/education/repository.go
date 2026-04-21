@@ -239,3 +239,17 @@ func (r *Repository) UpdateBlog(blog *Blog) error {
 func (r *Repository) DeleteBlog(id uint) error {
 	return r.db.Delete(&Blog{}, id).Error
 }
+
+func (r *Repository) CreateBlogComment(comment *BlogComment) error {
+	return r.db.Create(comment).Error
+}
+
+func (r *Repository) GetBlogComments(blogID uint) ([]BlogComment, error) {
+	var comments []BlogComment
+	err := r.db.Where("blog_id = ?", blogID).Order("created_at desc").Find(&comments).Error
+	return comments, err
+}
+
+func (r *Repository) IncrementCommentLikes(id uint) error {
+	return r.db.Model(&BlogComment{}).Where("id = ?", id).Update("likes", gorm.Expr("likes + ?", 1)).Error
+}

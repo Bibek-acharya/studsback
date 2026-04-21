@@ -174,3 +174,19 @@ type Blog struct {
 func (Blog) TableName() string {
 	return "blogs"
 }
+
+type BlogComment struct {
+	ID        uint           `gorm:"primarykey" json:"id"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+	BlogID    uint           `gorm:"not null;index" json:"blog_id"`
+	Author    string         `gorm:"not null" json:"author"`
+	Avatar    string         `json:"avatar"`
+	Message   string         `gorm:"type:text;not null" json:"message" binding:"required"`
+	Likes     int            `gorm:"default:0" json:"likes"`
+}
+
+func (BlogComment) TableName() string {
+	return "blog_comments"
+}

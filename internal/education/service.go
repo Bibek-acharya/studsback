@@ -2,7 +2,14 @@ package education
 
 import (
 	"encoding/json"
+	"fmt"
+	"math/rand"
+	"mime/multipart"
+	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
+	"time"
 )
 
 type Service struct {
@@ -564,4 +571,155 @@ func (s *Service) DeleteBlog(id string) error {
 		return err
 	}
 	return s.repo.DeleteBlog(blog.ID)
+}
+
+type BlogCommentInput struct {
+	BlogID  uint   `json:"blog_id"`
+	Author  string `json:"author" binding:"required"`
+	Avatar  string `json:"avatar"`
+	Message string `json:"message" binding:"required"`
+}
+
+type BlogCommentResponse struct {
+	ID      uint   `json:"id"`
+	BlogID  uint   `json:"blog_id"`
+	Author  string `json:"author"`
+	Avatar  string `json:"avatar"`
+	Message string `json:"message"`
+	Likes   int    `json:"likes"`
+	Time    string `json:"time"`
+}
+
+func (s *Service) CreateBlogComment(input BlogCommentInput) (*BlogCommentResponse, error) {
+	fmt.Printf("[DEBUG] CreateBlogComment input: %+v\n", input)
+	blog, err := s.repo.FindBlogByID(strconv.FormatUint(uint64(input.BlogID), 10))
+	if err != nil {
+		fmt.Printf("[ERROR] FindBlogByID failed: %v\n", err)
+		return nil, err
+	}
+
+	comment := &BlogComment{
+		BlogID:  blog.ID,
+		Author:  input.Author,
+		Avatar:  input.Avatar,
+		Message: input.Message,
+	}
+
+	if err := s.repo.CreateBlogComment(comment); err != nil {
+		fmt.Printf("[ERROR] CreateBlogComment repo call failed: %v\n", err)
+		return nil, err
+	}
+
+	return &BlogCommentResponse{
+		ID:      comment.ID,
+		BlogID:  comment.BlogID,
+		Author:  comment.Author,
+		Avatar:  comment.Avatar,
+		Message: comment.Message,
+		Likes:   comment.Likes,
+		Time:    formatTimeAgo(comment.CreatedAt),
+	}, nil
+}
+
+func (s *Service) GetBlogComments(blogID uint) ([]BlogCommentResponse, error) {
+	comments, err := s.repo.GetBlogComments(blogID)
+	if err != nil {
+		return nil, err
+	}
+
+	responses := make([]BlogCommentResponse, 0, len(comments))
+	for _, c := range comments {
+		responses = append(responses, BlogCommentResponse{
+			ID:      c.ID,
+			BlogID:  c.BlogID,
+			Author:  c.Author,
+			Avatar:  c.Avatar,
+			Message: c.Message,
+			Likes:   c.Likes,
+			Time:    formatTimeAgo(c.CreatedAt),
+		})
+	}
+	return responses, nil
+}
+
+func (s *Service) LikeBlogComment(commentID uint) error {
+	return s.repo.IncrementCommentLikes(commentID)
+}
+
+func formatTimeAgo(t time.Time) string {
+	d := time.Since(t)
+	switch {
+	case d < time.Hour:
+		minutes := int(d.Minutes())
+		if minutes <= 1 {
+			return "Just now"
+		}
+		return fmt.Sprintf("%d min ago", minutes)
+	case d < 24*time.Hour:
+		hours := int(d.Hours())
+		if hours == 1 {
+			return "1 hour ago"
+		}
+		return fmt.Sprintf("%d hours ago", hours)
+	case d < 30*24*time.Hour:
+		days := int(d.Hours() / 24)
+		if days == 1 {
+			return "1 day ago"
+		}
+		return fmt.Sprintf("%d days ago", days)
+	case d < 365*24*time.Hour:
+		months := int(d.Hours() / 24 / 30)
+		if months == 1 {
+			return "1 month ago"
+		}
+		return fmt.Sprintf("%d months ago", months)
+	default:
+		years := int(d.Hours() / 24 / 365)
+		if years == 1 {
+			return "1 year ago"
+		}
+		return fmt.Sprintf("%d years ago", years)
+	}
+}
+
+func (s *Service) FindBlogByID(id uint) (*Blog, error) {
+	return s.repo.FindBlogByID(strconv.FormatUint(uint64(id), 10))
+}
+
+func (s *Service) UploadBlogImage(file *multipart.FileHeader) ([]string, error) {
+	uploadDir := filepath.Join("uploads", "blogs")
+	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create upload directory")
+	}
+
+	src, err := file.Open()
+	if err != nil {
+		return nil, fmt.Errorf("failed to open file")
+	}
+	defer src.Close()
+
+	ct := file.Header.Get("Content-Type")
+	if !strings.HasPrefix(ct, "image/") {
+		return nil, fmt.Errorf("only image files are allowed")
+	}
+
+	ext := filepath.Ext(file.Filename)
+	if ext == "" {
+		ext = ".jpg"
+	}
+
+	filename := fmt.Sprintf("%d_%d%s", time.Now().UnixNano(), rand.Intn(999999), ext)
+	savePath := filepath.Join(uploadDir, filename)
+
+	dst, err := os.Create(savePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create destination file")
+	}
+	defer dst.Close()
+
+	if _, err := dst.ReadFrom(src); err != nil {
+		return nil, fmt.Errorf("failed to save file")
+	}
+
+	return []string{"/uploads/blogs/" + filename}, nil
 }
