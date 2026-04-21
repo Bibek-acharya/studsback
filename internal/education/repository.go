@@ -1,8 +1,6 @@
 package education
 
 import (
-	"fmt"
-
 	"gorm.io/gorm"
 )
 
@@ -529,4 +527,55 @@ func (r *Repository) GetBlogComments(blogID uint) ([]BlogComment, error) {
 
 func (r *Repository) IncrementCommentLikes(id uint) error {
 	return r.db.Model(&BlogComment{}).Where("id = ?", id).Update("likes", gorm.Expr("likes + ?", 1)).Error
+}
+
+func (r *Repository) GetPublicEntrances(page, limit int, search, level, stream, status string) ([]Exam, int64, error) {
+	var exams []Exam
+	var total int64
+
+	query := r.db.Model(&Exam{})
+
+	if search != "" {
+		query = query.Where("name LIKE ? OR college LIKE ?", "%"+search+"%", "%"+search+"%")
+	}
+	if level != "" {
+		query = query.Where("level = ?", level)
+	}
+	if stream != "" {
+		query = query.Where("stream = ?", stream)
+	}
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
+
+	query.Count(&total)
+
+	offset := (page - 1) * limit
+	err := query.Order("created_at DESC").Offset(offset).Limit(limit).Find(&exams).Error
+	return exams, total, err
+}
+
+func (r *Repository) GetEntranceFilterCounts() (FilterCounts, error) {
+	var levels []string
+	var streams []string
+	var statuses []string
+
+	r.db.Model(&Exam{}).Distinct("level").Pluck("level", &levels)
+	r.db.Model(&Exam{}).Distinct("stream").Pluck("stream", &streams)
+	r.db.Model(&Exam{}).Distinct("status").Pluck("status", &statuses)
+
+	return FilterCounts{
+		Levels:  levels,
+		Streams: streams,
+		Status:  statuses,
+	}, nil
+}
+
+func (r *Repository) GetPublicEntranceByID(id string) (*Exam, error) {
+	var exam Exam
+	err := r.db.First(&exam, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &exam, nil
 }

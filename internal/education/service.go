@@ -833,3 +833,15 @@ func (s *Service) UploadBlogImage(file *multipart.FileHeader) ([]string, error) 
 
 	return []string{"/uploads/blogs/" + filename}, nil
 }
+
+func (s *Service) GetPublicEntrances(page, limit int, search, level, stream, status string) ([]Exam, int64, error) {
+	return s.repo.GetPublicEntrances(page, limit, search, level, stream, status)
+}
+
+func (s *Service) GetEntranceFilterCounts() (FilterCounts, error) {
+	return s.repo.GetEntranceFilterCounts()
+}
+
+func (s *Service) GetPublicEntranceByID(id string) (*Exam, error) {
+	return s.repo.GetPublicEntranceByID(id)
+}

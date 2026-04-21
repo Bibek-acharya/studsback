@@ -1,5 +1,11 @@
 package education
 
+type FilterCounts struct {
+	Levels  []string `json:"levels"`
+	Streams []string `json:"streams"`
+	Status  []string `json:"status"`
+}
+
 type ExamResponse struct {
 	ID           uint     `json:"id"`
 	Slug         string   `json:"slug"`
