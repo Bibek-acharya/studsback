@@ -8,10 +8,11 @@ import (
 )
 
 type Preferences struct {
-	Role           string                 `json:"role"`
-	PreferenceFlow string                 `json:"preference_flow"`
-	Preferences    map[string]interface{} `json:"preferences"`
-	CompletedAt    *time.Time             `json:"completed_at"`
+	Role                string                 `json:"role"`
+	PreferenceFlow      string                 `json:"preference_flow"`
+	Preferences         map[string]interface{} `json:"preferences"`
+	CompletedAt         *time.Time             `json:"completed_at"`
+	OnboardingCompleted bool                   `json:"onboarding_completed"`
 }
 
 type User struct {

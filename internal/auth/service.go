@@ -237,10 +237,11 @@ func (s *Service) SavePreferences(userID uint, req SavePreferencesRequest) (*Pre
 
 	now := time.Now()
 	prefs := &Preferences{
-		Role:           req.PreferenceRole,
-		PreferenceFlow: req.PreferenceFlow,
-		Preferences:    req.Preferences,
-		CompletedAt:    &now,
+		Role:                req.PreferenceRole,
+		PreferenceFlow:      req.PreferenceFlow,
+		Preferences:         req.Preferences,
+		CompletedAt:         &now,
+		OnboardingCompleted: true,
 	}
 
 	if err := s.repo.UpdatePreferences(user, prefs); err != nil {

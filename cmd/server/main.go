@@ -15,6 +15,7 @@ import (
 	"studsphere/backend/internal/emailqueue"
 	"studsphere/backend/internal/forum"
 	"studsphere/backend/internal/institution"
+	"studsphere/backend/internal/projectshiksha"
 	"studsphere/backend/internal/scholarship"
 	"studsphere/backend/internal/scholarshipprovider"
 	"studsphere/backend/internal/shared/config"
@@ -92,6 +93,8 @@ func main() {
 		&institution.InstitutionQMS{},
 		&institution.InstitutionMessage{},
 		&institution.InstitutionSettings{},
+		&projectshiksha.ShikshaApplication{},
+		&projectshiksha.ShikshaPayment{},
 		&system.ContactInquiry{},
 		&system.Ad{},
 		&system.CarouselSlide{},
@@ -136,6 +139,7 @@ func main() {
 	educationHandler := initModule(education.NewRepository(db), education.NewService, education.NewHandler)
 	forumHandler := initModule(forum.NewRepository(db), forum.NewService, forum.NewHandler)
 	institutionHandler := initModule(institution.NewRepository(db), institution.NewService, institution.NewHandler)
+	projectShikshaHandler := initModule(projectshiksha.NewRepository(db), projectshiksha.NewService, projectshiksha.NewHandler)
 	scholarshipHandler := initModule(scholarship.NewRepository(db), scholarship.NewService, scholarship.NewHandler)
 	scholarshipPHandler := initModule(scholarshipprovider.NewRepository(db), scholarshipprovider.NewService, scholarshipprovider.NewHandler)
 	studentDashHandler := initModule(studentdashboard.NewRepository(db), studentdashboard.NewService, studentdashboard.NewHandler)
@@ -170,6 +174,7 @@ func main() {
 	education.RegisterRoutes(router, authMW, roleMW, educationHandler)
 	forum.RegisterRoutes(router, authMW, roleMW, forumHandler)
 	institution.RegisterRoutes(router, authMW, roleMW, institutionHandler)
+	projectshiksha.RegisterRoutes(router, authMW, roleMW, projectShikshaHandler)
 	scholarship.RegisterRoutes(router, authMW, roleMW, scholarshipHandler)
 	scholarshipprovider.RegisterRoutes(router, authMW, roleMW, scholarshipPHandler)
 	studentdashboard.RegisterRoutes(router, authMW, roleMW, studentDashHandler)
