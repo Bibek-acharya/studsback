@@ -44,6 +44,9 @@ type ProviderApplication struct {
 	EvaluationNotes   string              `gorm:"type:text" json:"evaluation_notes"`
 	Documents         []byte              `gorm:"type:jsonb" json:"documents"`
 	PersonalStatement string              `gorm:"type:text" json:"personal_statement"`
+	Province          string              `json:"province"`
+	Stream            string              `json:"stream"`
+	GPA               float64             `json:"gpa"`
 }
 
 type ProviderInterview struct {
@@ -111,4 +114,88 @@ type ScholarshipProviderUser struct {
 	GoogleID           *string        `gorm:"uniqueIndex;default:null" json:"google_id"`
 	Password           *string        `json:"-"`
 	Role               string         `gorm:"default:'scholarship_provider'" json:"role"`
+}
+
+type ProviderNews struct {
+	ID          uint           `gorm:"primarykey" json:"id"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
+	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
+	ProviderID  uint           `gorm:"index;not null" json:"provider_id"`
+	Title       string         `gorm:"not null" json:"title"`
+	Content     string         `gorm:"type:text" json:"content"`
+	ImageURL    *string        `json:"image_url"`
+	Status      string         `gorm:"default:'draft'" json:"status"`
+	PublishedAt *time.Time     `json:"published_at"`
+}
+
+type ProviderEvent struct {
+	ID          uint           `gorm:"primarykey" json:"id"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
+	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
+	ProviderID  uint           `gorm:"index;not null" json:"provider_id"`
+	Name        string         `gorm:"not null" json:"name"`
+	Description string         `gorm:"type:text" json:"description"`
+	ImageURL    *string        `json:"image_url"`
+	EventType   string         `json:"event_type"`
+	StartDate   time.Time      `json:"start_date"`
+	EndDate     time.Time      `json:"end_date"`
+	Location    string         `json:"location"`
+	Status      string         `gorm:"default:'upcoming'" json:"status"`
+	Attendees   int            `gorm:"default:0" json:"attendees"`
+}
+
+type ProviderBlog struct {
+	ID          uint           `gorm:"primarykey" json:"id"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
+	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
+	ProviderID  uint           `gorm:"index;not null" json:"provider_id"`
+	Title       string         `gorm:"not null" json:"title"`
+	Content     string         `gorm:"type:text" json:"content"`
+	ImageURL    *string        `json:"image_url"`
+	Author      string         `json:"author"`
+	Status      string         `gorm:"default:'draft'" json:"status"`
+	PublishedAt *time.Time     `json:"published_at"`
+	Views       int            `gorm:"default:0" json:"views"`
+	Likes       int            `gorm:"default:0" json:"likes"`
+}
+
+type ProviderCalendarEvent struct {
+	ID          uint           `gorm:"primarykey" json:"id"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
+	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
+	ProviderID  uint           `gorm:"index;not null" json:"provider_id"`
+	Title       string         `gorm:"not null" json:"title"`
+	Description string         `gorm:"type:text" json:"description"`
+	StartDate   time.Time      `json:"start_date"`
+	EndDate     time.Time      `json:"end_date"`
+	Color       string         `json:"color"`
+	IsAllDay    bool           `gorm:"default:false" json:"is_all_day"`
+}
+
+type ProviderResult struct {
+	ID            uint           `gorm:"primarykey" json:"id"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
+	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
+	ProviderID    uint           `gorm:"index;not null" json:"provider_id"`
+	ScholarshipID uint           `gorm:"index" json:"scholarship_id"`
+	Title         string         `gorm:"not null" json:"title"`
+	Status        string         `gorm:"default:'draft'" json:"status"`
+	PublishedAt   *time.Time     `json:"published_at"`
+	Results       []byte         `gorm:"type:jsonb" json:"results"`
+}
+
+type ProviderAccess struct {
+	ID         uint           `gorm:"primarykey" json:"id"`
+	CreatedAt  time.Time      `json:"created_at"`
+	UpdatedAt  time.Time      `json:"updated_at"`
+	DeletedAt  gorm.DeletedAt `gorm:"index" json:"-"`
+	ProviderID uint           `gorm:"index;not null" json:"provider_id"`
+	Email      string         `gorm:"not null" json:"email"`
+	Role       string         `gorm:"default:'viewer'" json:"role"`
+	Status     string         `gorm:"default:'pending'" json:"status"`
 }

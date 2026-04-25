@@ -621,3 +621,749 @@ func toNotificationResponse(n *ProviderNotification) NotificationResponse {
 		Link:       n.Link,
 	}
 }
+
+func toNewsResponse(n *ProviderNews) NewsResponse {
+	return NewsResponse{
+		ID:          n.ID,
+		CreatedAt:   n.CreatedAt,
+		UpdatedAt:   n.UpdatedAt,
+		ProviderID:  n.ProviderID,
+		Title:       n.Title,
+		Content:     n.Content,
+		ImageURL:    n.ImageURL,
+		Status:      n.Status,
+		PublishedAt: n.PublishedAt,
+	}
+}
+
+func toEventResponse(e *ProviderEvent) EventResponse {
+	return EventResponse{
+		ID:          e.ID,
+		CreatedAt:   e.CreatedAt,
+		UpdatedAt:   e.UpdatedAt,
+		ProviderID:  e.ProviderID,
+		Name:        e.Name,
+		Description: e.Description,
+		ImageURL:    e.ImageURL,
+		EventType:   e.EventType,
+		StartDate:   e.StartDate,
+		EndDate:     e.EndDate,
+		Location:    e.Location,
+		Status:      e.Status,
+		Attendees:   e.Attendees,
+	}
+}
+
+func toBlogResponse(b *ProviderBlog) BlogResponse {
+	return BlogResponse{
+		ID:          b.ID,
+		CreatedAt:   b.CreatedAt,
+		UpdatedAt:   b.UpdatedAt,
+		ProviderID:  b.ProviderID,
+		Title:       b.Title,
+		Content:     b.Content,
+		ImageURL:    b.ImageURL,
+		Author:      b.Author,
+		Status:      b.Status,
+		PublishedAt: b.PublishedAt,
+		Views:       b.Views,
+		Likes:       b.Likes,
+	}
+}
+
+func toCalendarEventResponse(e *ProviderCalendarEvent) CalendarEventResponse {
+	return CalendarEventResponse{
+		ID:          e.ID,
+		CreatedAt:   e.CreatedAt,
+		UpdatedAt:   e.UpdatedAt,
+		ProviderID:  e.ProviderID,
+		Title:       e.Title,
+		Description: e.Description,
+		StartDate:   e.StartDate,
+		EndDate:     e.EndDate,
+		Color:       e.Color,
+		IsAllDay:    e.IsAllDay,
+	}
+}
+
+func toResultResponse(r *ProviderResult) ResultResponse {
+	return ResultResponse{
+		ID:            r.ID,
+		CreatedAt:     r.CreatedAt,
+		UpdatedAt:     r.UpdatedAt,
+		ProviderID:    r.ProviderID,
+		ScholarshipID: r.ScholarshipID,
+		Title:         r.Title,
+		Status:        r.Status,
+		PublishedAt:   r.PublishedAt,
+		Results:       r.Results,
+	}
+}
+
+func toAccessResponse(a *ProviderAccess) AccessResponse {
+	return AccessResponse{
+		ID:         a.ID,
+		CreatedAt:  a.CreatedAt,
+		UpdatedAt:  a.UpdatedAt,
+		ProviderID: a.ProviderID,
+		Email:      a.Email,
+		Role:       a.Role,
+		Status:     a.Status,
+	}
+}
+
+func (h *Handler) CreateNews(c *gin.Context) {
+	providerID := getProviderID(c)
+
+	var req CreateNewsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	news, err := h.service.CreateNews(providerID, req)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to create news")
+		return
+	}
+
+	response.Success(c, http.StatusCreated, "News created successfully", toNewsResponse(news))
+}
+
+func (h *Handler) GetNews(c *gin.Context) {
+	providerID := getProviderID(c)
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+
+	news, total, err := h.service.GetNews(providerID, page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch news")
+		return
+	}
+
+	responses := make([]NewsResponse, len(news))
+	for i, n := range news {
+		responses[i] = toNewsResponse(&n)
+	}
+
+	response.Success(c, http.StatusOK, "News retrieved successfully", NewsListResponse{
+		News: responses,
+		Meta: PaginationMeta{
+			Total: total,
+			Page:  page,
+			Limit: limit,
+		},
+	})
+}
+
+func (h *Handler) GetNewsByID(c *gin.Context) {
+	providerID := getProviderID(c)
+	idStr := c.Param("id")
+
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid news ID")
+		return
+	}
+
+	news, err := h.service.GetNewsByID(providerID, uint(id))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "News not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "News retrieved successfully", toNewsResponse(news))
+}
+
+func (h *Handler) UpdateNews(c *gin.Context) {
+	providerID := getProviderID(c)
+	idStr := c.Param("id")
+
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid news ID")
+		return
+	}
+
+	var req CreateNewsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	news, err := h.service.UpdateNews(providerID, uint(id), req)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "News not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "News updated successfully", toNewsResponse(news))
+}
+
+func (h *Handler) DeleteNews(c *gin.Context) {
+	providerID := getProviderID(c)
+	idStr := c.Param("id")
+
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid news ID")
+		return
+	}
+
+	if err := h.service.DeleteNews(providerID, uint(id)); err != nil {
+		if err.Error() == "record not found" {
+			response.Error(c, http.StatusNotFound, "News not found")
+			return
+		}
+		response.Error(c, http.StatusInternalServerError, "Failed to delete news")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "News deleted successfully", nil)
+}
+
+func (h *Handler) CreateEvent(c *gin.Context) {
+	providerID := getProviderID(c)
+
+	var req CreateEventRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	event, err := h.service.CreateEvent(providerID, req)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to create event")
+		return
+	}
+
+	response.Success(c, http.StatusCreated, "Event created successfully", toEventResponse(event))
+}
+
+func (h *Handler) GetEvents(c *gin.Context) {
+	providerID := getProviderID(c)
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+
+	events, total, err := h.service.GetEvents(providerID, page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch events")
+		return
+	}
+
+	responses := make([]EventResponse, len(events))
+	for i, e := range events {
+		responses[i] = toEventResponse(&e)
+	}
+
+	response.Success(c, http.StatusOK, "Events retrieved successfully", EventListResponse{
+		Events: responses,
+		Meta: PaginationMeta{
+			Total: total,
+			Page:  page,
+			Limit: limit,
+		},
+	})
+}
+
+func (h *Handler) GetEventByID(c *gin.Context) {
+	providerID := getProviderID(c)
+	idStr := c.Param("id")
+
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid event ID")
+		return
+	}
+
+	event, err := h.service.GetEventByID(providerID, uint(id))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Event not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Event retrieved successfully", toEventResponse(event))
+}
+
+func (h *Handler) UpdateEvent(c *gin.Context) {
+	providerID := getProviderID(c)
+	idStr := c.Param("id")
+
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid event ID")
+		return
+	}
+
+	var req CreateEventRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	event, err := h.service.UpdateEvent(providerID, uint(id), req)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Event not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Event updated successfully", toEventResponse(event))
+}
+
+func (h *Handler) DeleteEvent(c *gin.Context) {
+	providerID := getProviderID(c)
+	idStr := c.Param("id")
+
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid event ID")
+		return
+	}
+
+	if err := h.service.DeleteEvent(providerID, uint(id)); err != nil {
+		if err.Error() == "record not found" {
+			response.Error(c, http.StatusNotFound, "Event not found")
+			return
+		}
+		response.Error(c, http.StatusInternalServerError, "Failed to delete event")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Event deleted successfully", nil)
+}
+
+func (h *Handler) CreateBlog(c *gin.Context) {
+	providerID := getProviderID(c)
+
+	var req CreateBlogRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	blog, err := h.service.CreateBlog(providerID, req)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to create blog")
+		return
+	}
+
+	response.Success(c, http.StatusCreated, "Blog created successfully", toBlogResponse(blog))
+}
+
+func (h *Handler) GetBlogs(c *gin.Context) {
+	providerID := getProviderID(c)
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+
+	blogs, total, err := h.service.GetBlogs(providerID, page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch blogs")
+		return
+	}
+
+	responses := make([]BlogResponse, len(blogs))
+	for i, b := range blogs {
+		responses[i] = toBlogResponse(&b)
+	}
+
+	response.Success(c, http.StatusOK, "Blogs retrieved successfully", BlogListResponse{
+		Blogs: responses,
+		Meta: PaginationMeta{
+			Total: total,
+			Page:  page,
+			Limit: limit,
+		},
+	})
+}
+
+func (h *Handler) GetBlogByID(c *gin.Context) {
+	providerID := getProviderID(c)
+	idStr := c.Param("id")
+
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid blog ID")
+		return
+	}
+
+	blog, err := h.service.GetBlogByID(providerID, uint(id))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Blog not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Blog retrieved successfully", toBlogResponse(blog))
+}
+
+func (h *Handler) UpdateBlog(c *gin.Context) {
+	providerID := getProviderID(c)
+	idStr := c.Param("id")
+
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid blog ID")
+		return
+	}
+
+	var req CreateBlogRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	blog, err := h.service.UpdateBlog(providerID, uint(id), req)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Blog not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Blog updated successfully", toBlogResponse(blog))
+}
+
+func (h *Handler) DeleteBlog(c *gin.Context) {
+	providerID := getProviderID(c)
+	idStr := c.Param("id")
+
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid blog ID")
+		return
+	}
+
+	if err := h.service.DeleteBlog(providerID, uint(id)); err != nil {
+		if err.Error() == "record not found" {
+			response.Error(c, http.StatusNotFound, "Blog not found")
+			return
+		}
+		response.Error(c, http.StatusInternalServerError, "Failed to delete blog")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Blog deleted successfully", nil)
+}
+
+func (h *Handler) CreateCalendarEvent(c *gin.Context) {
+	providerID := getProviderID(c)
+
+	var req CreateCalendarEventRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	event, err := h.service.CreateCalendarEvent(providerID, req)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to create calendar event")
+		return
+	}
+
+	response.Success(c, http.StatusCreated, "Calendar event created successfully", toCalendarEventResponse(event))
+}
+
+func (h *Handler) GetCalendarEvents(c *gin.Context) {
+	providerID := getProviderID(c)
+
+	events, err := h.service.GetCalendarEvents(providerID)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch calendar events")
+		return
+	}
+
+	responses := make([]CalendarEventResponse, len(events))
+	for i, e := range events {
+		responses[i] = toCalendarEventResponse(&e)
+	}
+
+	response.Success(c, http.StatusOK, "Calendar events retrieved successfully", responses)
+}
+
+func (h *Handler) GetCalendarEventByID(c *gin.Context) {
+	providerID := getProviderID(c)
+	idStr := c.Param("id")
+
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid calendar event ID")
+		return
+	}
+
+	event, err := h.service.GetCalendarEventByID(providerID, uint(id))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Calendar event not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Calendar event retrieved successfully", toCalendarEventResponse(event))
+}
+
+func (h *Handler) UpdateCalendarEvent(c *gin.Context) {
+	providerID := getProviderID(c)
+	idStr := c.Param("id")
+
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid calendar event ID")
+		return
+	}
+
+	var req CreateCalendarEventRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	event, err := h.service.UpdateCalendarEvent(providerID, uint(id), req)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Calendar event not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Calendar event updated successfully", toCalendarEventResponse(event))
+}
+
+func (h *Handler) DeleteCalendarEvent(c *gin.Context) {
+	providerID := getProviderID(c)
+	idStr := c.Param("id")
+
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid calendar event ID")
+		return
+	}
+
+	if err := h.service.DeleteCalendarEvent(providerID, uint(id)); err != nil {
+		if err.Error() == "record not found" {
+			response.Error(c, http.StatusNotFound, "Calendar event not found")
+			return
+		}
+		response.Error(c, http.StatusInternalServerError, "Failed to delete calendar event")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Calendar event deleted successfully", nil)
+}
+
+func (h *Handler) CreateResult(c *gin.Context) {
+	providerID := getProviderID(c)
+
+	var req CreateResultRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	result, err := h.service.CreateResult(providerID, req)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to create result")
+		return
+	}
+
+	response.Success(c, http.StatusCreated, "Result created successfully", toResultResponse(result))
+}
+
+func (h *Handler) GetResults(c *gin.Context) {
+	providerID := getProviderID(c)
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+
+	results, total, err := h.service.GetResults(providerID, page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch results")
+		return
+	}
+
+	responses := make([]ResultResponse, len(results))
+	for i, r := range results {
+		responses[i] = toResultResponse(&r)
+	}
+
+	response.Success(c, http.StatusOK, "Results retrieved successfully", ResultListResponse{
+		Results: responses,
+		Meta: PaginationMeta{
+			Total: total,
+			Page:  page,
+			Limit: limit,
+		},
+	})
+}
+
+func (h *Handler) GetResultByID(c *gin.Context) {
+	providerID := getProviderID(c)
+	idStr := c.Param("id")
+
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid result ID")
+		return
+	}
+
+	result, err := h.service.GetResultByID(providerID, uint(id))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Result not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Result retrieved successfully", toResultResponse(result))
+}
+
+func (h *Handler) UpdateResult(c *gin.Context) {
+	providerID := getProviderID(c)
+	idStr := c.Param("id")
+
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid result ID")
+		return
+	}
+
+	var req CreateResultRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	result, err := h.service.UpdateResult(providerID, uint(id), req)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Result not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Result updated successfully", toResultResponse(result))
+}
+
+func (h *Handler) DeleteResult(c *gin.Context) {
+	providerID := getProviderID(c)
+	idStr := c.Param("id")
+
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid result ID")
+		return
+	}
+
+	if err := h.service.DeleteResult(providerID, uint(id)); err != nil {
+		if err.Error() == "record not found" {
+			response.Error(c, http.StatusNotFound, "Result not found")
+			return
+		}
+		response.Error(c, http.StatusInternalServerError, "Failed to delete result")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Result deleted successfully", nil)
+}
+
+func (h *Handler) CreateAccess(c *gin.Context) {
+	providerID := getProviderID(c)
+
+	var req CreateAccessRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	access, err := h.service.CreateAccess(providerID, req)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to create access")
+		return
+	}
+
+	response.Success(c, http.StatusCreated, "Access created successfully", toAccessResponse(access))
+}
+
+func (h *Handler) GetAccess(c *gin.Context) {
+	providerID := getProviderID(c)
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+
+	access, total, err := h.service.GetAccess(providerID, page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch access")
+		return
+	}
+
+	responses := make([]AccessResponse, len(access))
+	for i, a := range access {
+		responses[i] = toAccessResponse(&a)
+	}
+
+	response.Success(c, http.StatusOK, "Access retrieved successfully", AccessListResponse{
+		Access: responses,
+		Meta: PaginationMeta{
+			Total: total,
+			Page:  page,
+			Limit: limit,
+		},
+	})
+}
+
+func (h *Handler) GetAccessByID(c *gin.Context) {
+	providerID := getProviderID(c)
+	idStr := c.Param("id")
+
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid access ID")
+		return
+	}
+
+	access, err := h.service.GetAccessByID(providerID, uint(id))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Access not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Access retrieved successfully", toAccessResponse(access))
+}
+
+func (h *Handler) UpdateAccess(c *gin.Context) {
+	providerID := getProviderID(c)
+	idStr := c.Param("id")
+
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid access ID")
+		return
+	}
+
+	var req CreateAccessRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	access, err := h.service.UpdateAccess(providerID, uint(id), req)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Access not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Access updated successfully", toAccessResponse(access))
+}
+
+func (h *Handler) DeleteAccess(c *gin.Context) {
+	providerID := getProviderID(c)
+	idStr := c.Param("id")
+
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid access ID")
+		return
+	}
+
+	if err := h.service.DeleteAccess(providerID, uint(id)); err != nil {
+		if err.Error() == "record not found" {
+			response.Error(c, http.StatusNotFound, "Access not found")
+			return
+		}
+		response.Error(c, http.StatusInternalServerError, "Failed to delete access")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Access deleted successfully", nil)
+}

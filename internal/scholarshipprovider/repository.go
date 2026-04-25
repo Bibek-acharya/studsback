@@ -281,3 +281,254 @@ func (r *Repository) MarkAllNotificationsRead(providerID uint) error {
 func (r *Repository) CreateNotification(notification *ProviderNotification) error {
 	return r.db.Create(notification).Error
 }
+
+func (r *Repository) CreateNews(news *ProviderNews) error {
+	return r.db.Create(news).Error
+}
+
+func (r *Repository) GetNewsByProvider(providerID uint, page, limit int) ([]ProviderNews, int64, error) {
+	var total int64
+	if err := r.db.Model(&ProviderNews{}).Where("provider_id = ?", providerID).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var news []ProviderNews
+	offset := (page - 1) * limit
+	if err := r.db.Where("provider_id = ?", providerID).
+		Order("created_at desc").Offset(offset).Limit(limit).Find(&news).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return news, total, nil
+}
+
+func (r *Repository) GetNewsByIDAndProvider(id uint, providerID uint) (*ProviderNews, error) {
+	var news ProviderNews
+	if err := r.db.Where("id = ? AND provider_id = ?", id, providerID).First(&news).Error; err != nil {
+		return nil, err
+	}
+	return &news, nil
+}
+
+func (r *Repository) UpdateNews(news *ProviderNews, updates map[string]interface{}) error {
+	return r.db.Model(news).Updates(updates).Error
+}
+
+func (r *Repository) DeleteNews(id uint, providerID uint) error {
+	result := r.db.Where("id = ? AND provider_id = ?", id, providerID).Delete(&ProviderNews{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *Repository) CreateEvent(event *ProviderEvent) error {
+	return r.db.Create(event).Error
+}
+
+func (r *Repository) GetEventsByProvider(providerID uint, page, limit int) ([]ProviderEvent, int64, error) {
+	var total int64
+	if err := r.db.Model(&ProviderEvent{}).Where("provider_id = ?", providerID).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var events []ProviderEvent
+	offset := (page - 1) * limit
+	if err := r.db.Where("provider_id = ?", providerID).
+		Order("start_date desc").Offset(offset).Limit(limit).Find(&events).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return events, total, nil
+}
+
+func (r *Repository) GetEventByIDAndProvider(id uint, providerID uint) (*ProviderEvent, error) {
+	var event ProviderEvent
+	if err := r.db.Where("id = ? AND provider_id = ?", id, providerID).First(&event).Error; err != nil {
+		return nil, err
+	}
+	return &event, nil
+}
+
+func (r *Repository) UpdateEvent(event *ProviderEvent, updates map[string]interface{}) error {
+	return r.db.Model(event).Updates(updates).Error
+}
+
+func (r *Repository) DeleteEvent(id uint, providerID uint) error {
+	result := r.db.Where("id = ? AND provider_id = ?", id, providerID).Delete(&ProviderEvent{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *Repository) CreateBlog(blog *ProviderBlog) error {
+	return r.db.Create(blog).Error
+}
+
+func (r *Repository) GetBlogsByProvider(providerID uint, page, limit int) ([]ProviderBlog, int64, error) {
+	var total int64
+	if err := r.db.Model(&ProviderBlog{}).Where("provider_id = ?", providerID).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var blogs []ProviderBlog
+	offset := (page - 1) * limit
+	if err := r.db.Where("provider_id = ?", providerID).
+		Order("created_at desc").Offset(offset).Limit(limit).Find(&blogs).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return blogs, total, nil
+}
+
+func (r *Repository) GetBlogByIDAndProvider(id uint, providerID uint) (*ProviderBlog, error) {
+	var blog ProviderBlog
+	if err := r.db.Where("id = ? AND provider_id = ?", id, providerID).First(&blog).Error; err != nil {
+		return nil, err
+	}
+	return &blog, nil
+}
+
+func (r *Repository) UpdateBlog(blog *ProviderBlog, updates map[string]interface{}) error {
+	return r.db.Model(blog).Updates(updates).Error
+}
+
+func (r *Repository) DeleteBlog(id uint, providerID uint) error {
+	result := r.db.Where("id = ? AND provider_id = ?", id, providerID).Delete(&ProviderBlog{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *Repository) CreateCalendarEvent(event *ProviderCalendarEvent) error {
+	return r.db.Create(event).Error
+}
+
+func (r *Repository) GetCalendarEventsByProvider(providerID uint) ([]ProviderCalendarEvent, error) {
+	var events []ProviderCalendarEvent
+	if err := r.db.Where("provider_id = ?", providerID).
+		Order("start_date asc").Find(&events).Error; err != nil {
+		return nil, err
+	}
+	return events, nil
+}
+
+func (r *Repository) GetCalendarEventByIDAndProvider(id uint, providerID uint) (*ProviderCalendarEvent, error) {
+	var event ProviderCalendarEvent
+	if err := r.db.Where("id = ? AND provider_id = ?", id, providerID).First(&event).Error; err != nil {
+		return nil, err
+	}
+	return &event, nil
+}
+
+func (r *Repository) UpdateCalendarEvent(event *ProviderCalendarEvent, updates map[string]interface{}) error {
+	return r.db.Model(event).Updates(updates).Error
+}
+
+func (r *Repository) DeleteCalendarEvent(id uint, providerID uint) error {
+	result := r.db.Where("id = ? AND provider_id = ?", id, providerID).Delete(&ProviderCalendarEvent{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *Repository) CreateResult(result *ProviderResult) error {
+	return r.db.Create(result).Error
+}
+
+func (r *Repository) GetResultsByProvider(providerID uint, page, limit int) ([]ProviderResult, int64, error) {
+	var total int64
+	if err := r.db.Model(&ProviderResult{}).Where("provider_id = ?", providerID).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var results []ProviderResult
+	offset := (page - 1) * limit
+	if err := r.db.Where("provider_id = ?", providerID).
+		Order("created_at desc").Offset(offset).Limit(limit).Find(&results).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return results, total, nil
+}
+
+func (r *Repository) GetResultByIDAndProvider(id uint, providerID uint) (*ProviderResult, error) {
+	var result ProviderResult
+	if err := r.db.Where("id = ? AND provider_id = ?", id, providerID).First(&result).Error; err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func (r *Repository) UpdateResult(result *ProviderResult, updates map[string]interface{}) error {
+	return r.db.Model(result).Updates(updates).Error
+}
+
+func (r *Repository) DeleteResult(id uint, providerID uint) error {
+	result := r.db.Where("id = ? AND provider_id = ?", id, providerID).Delete(&ProviderResult{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *Repository) CreateAccess(access *ProviderAccess) error {
+	return r.db.Create(access).Error
+}
+
+func (r *Repository) GetAccessByProvider(providerID uint, page, limit int) ([]ProviderAccess, int64, error) {
+	var total int64
+	if err := r.db.Model(&ProviderAccess{}).Where("provider_id = ?", providerID).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var access []ProviderAccess
+	offset := (page - 1) * limit
+	if err := r.db.Where("provider_id = ?", providerID).
+		Order("created_at desc").Offset(offset).Limit(limit).Find(&access).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return access, total, nil
+}
+
+func (r *Repository) GetAccessByIDAndProvider(id uint, providerID uint) (*ProviderAccess, error) {
+	var access ProviderAccess
+	if err := r.db.Where("id = ? AND provider_id = ?", id, providerID).First(&access).Error; err != nil {
+		return nil, err
+	}
+	return &access, nil
+}
+
+func (r *Repository) UpdateAccess(access *ProviderAccess, updates map[string]interface{}) error {
+	return r.db.Model(access).Updates(updates).Error
+}
+
+func (r *Repository) DeleteAccess(id uint, providerID uint) error {
+	result := r.db.Where("id = ? AND provider_id = ?", id, providerID).Delete(&ProviderAccess{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}

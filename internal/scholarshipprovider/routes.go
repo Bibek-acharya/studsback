@@ -43,6 +43,42 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			scholarshipProvider.GET("/notifications", h.GetNotifications)
 			scholarshipProvider.PUT("/notifications/:id/read", h.MarkNotificationRead)
 			scholarshipProvider.PUT("/notifications/read-all", h.MarkAllNotificationsRead)
+
+			scholarshipProvider.POST("/news", h.CreateNews)
+			scholarshipProvider.GET("/news", h.GetNews)
+			scholarshipProvider.GET("/news/:id", h.GetNewsByID)
+			scholarshipProvider.PUT("/news/:id", h.UpdateNews)
+			scholarshipProvider.DELETE("/news/:id", h.DeleteNews)
+
+			scholarshipProvider.POST("/events", h.CreateEvent)
+			scholarshipProvider.GET("/events", h.GetEvents)
+			scholarshipProvider.GET("/events/:id", h.GetEventByID)
+			scholarshipProvider.PUT("/events/:id", h.UpdateEvent)
+			scholarshipProvider.DELETE("/events/:id", h.DeleteEvent)
+
+			scholarshipProvider.POST("/blogs", h.CreateBlog)
+			scholarshipProvider.GET("/blogs", h.GetBlogs)
+			scholarshipProvider.GET("/blogs/:id", h.GetBlogByID)
+			scholarshipProvider.PUT("/blogs/:id", h.UpdateBlog)
+			scholarshipProvider.DELETE("/blogs/:id", h.DeleteBlog)
+
+			scholarshipProvider.POST("/calendar-events", h.CreateCalendarEvent)
+			scholarshipProvider.GET("/calendar-events", h.GetCalendarEvents)
+			scholarshipProvider.GET("/calendar-events/:id", h.GetCalendarEventByID)
+			scholarshipProvider.PUT("/calendar-events/:id", h.UpdateCalendarEvent)
+			scholarshipProvider.DELETE("/calendar-events/:id", h.DeleteCalendarEvent)
+
+			scholarshipProvider.POST("/results", h.CreateResult)
+			scholarshipProvider.GET("/results", h.GetResults)
+			scholarshipProvider.GET("/results/:id", h.GetResultByID)
+			scholarshipProvider.PUT("/results/:id", h.UpdateResult)
+			scholarshipProvider.DELETE("/results/:id", h.DeleteResult)
+
+			scholarshipProvider.POST("/access", h.CreateAccess)
+			scholarshipProvider.GET("/access", h.GetAccess)
+			scholarshipProvider.GET("/access/:id", h.GetAccessByID)
+			scholarshipProvider.PUT("/access/:id", h.UpdateAccess)
+			scholarshipProvider.DELETE("/access/:id", h.DeleteAccess)
 		}
 	}
 }

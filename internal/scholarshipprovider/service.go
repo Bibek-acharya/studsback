@@ -412,3 +412,466 @@ func (s *Service) CreateNotification(providerID uint, title, message, notifType,
 
 	return s.repo.CreateNotification(notification)
 }
+
+func (s *Service) CreateNews(providerID uint, req CreateNewsRequest) (*ProviderNews, error) {
+	status := "draft"
+	if req.Status != "" {
+		status = req.Status
+	}
+
+	var imageURL *string
+	if req.Image != "" {
+		imageURL = &req.Image
+	}
+
+	news := &ProviderNews{
+		ProviderID: providerID,
+		Title:      req.Title,
+		Content:    req.Content,
+		ImageURL:   imageURL,
+		Status:     status,
+	}
+
+	if status == "published" {
+		now := time.Now()
+		news.PublishedAt = &now
+	}
+
+	if err := s.repo.CreateNews(news); err != nil {
+		return nil, err
+	}
+
+	return news, nil
+}
+
+func (s *Service) GetNews(providerID uint, page, limit int) ([]ProviderNews, int64, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50 {
+		limit = 10
+	}
+
+	return s.repo.GetNewsByProvider(providerID, page, limit)
+}
+
+func (s *Service) GetNewsByID(providerID, id uint) (*ProviderNews, error) {
+	return s.repo.GetNewsByIDAndProvider(id, providerID)
+}
+
+func (s *Service) UpdateNews(providerID, id uint, req CreateNewsRequest) (*ProviderNews, error) {
+	news, err := s.repo.GetNewsByIDAndProvider(id, providerID)
+	if err != nil {
+		return nil, err
+	}
+
+	updates := map[string]interface{}{
+		"title":   req.Title,
+		"content": req.Content,
+	}
+
+	if req.Image != "" {
+		updates["image_url"] = req.Image
+	}
+	if req.Status != "" {
+		updates["status"] = req.Status
+		if req.Status == "published" && news.PublishedAt == nil {
+			now := time.Now()
+			updates["published_at"] = now
+		}
+	}
+
+	if err := s.repo.UpdateNews(news, updates); err != nil {
+		return nil, err
+	}
+
+	return news, nil
+}
+
+func (s *Service) DeleteNews(providerID, id uint) error {
+	return s.repo.DeleteNews(id, providerID)
+}
+
+func (s *Service) CreateEvent(providerID uint, req CreateEventRequest) (*ProviderEvent, error) {
+	startDate, err := parseTime(req.StartDate)
+	if err != nil {
+		return nil, errors.New("invalid start_date format")
+	}
+
+	endDate := startDate
+	if req.EndDate != "" {
+		if t, err := parseTime(req.EndDate); err == nil {
+			endDate = t
+		}
+	}
+
+	status := "upcoming"
+	if req.Status != "" {
+		status = req.Status
+	}
+
+	var imageURL *string
+	if req.Image != "" {
+		imageURL = &req.Image
+	}
+
+	event := &ProviderEvent{
+		ProviderID:  providerID,
+		Name:        req.Name,
+		Description: req.Description,
+		ImageURL:    imageURL,
+		EventType:   req.EventType,
+		StartDate:   startDate,
+		EndDate:     endDate,
+		Location:    req.Location,
+		Status:      status,
+	}
+
+	if err := s.repo.CreateEvent(event); err != nil {
+		return nil, err
+	}
+
+	return event, nil
+}
+
+func (s *Service) GetEvents(providerID uint, page, limit int) ([]ProviderEvent, int64, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50 {
+		limit = 10
+	}
+
+	return s.repo.GetEventsByProvider(providerID, page, limit)
+}
+
+func (s *Service) GetEventByID(providerID, id uint) (*ProviderEvent, error) {
+	return s.repo.GetEventByIDAndProvider(id, providerID)
+}
+
+func (s *Service) UpdateEvent(providerID, id uint, req CreateEventRequest) (*ProviderEvent, error) {
+	event, err := s.repo.GetEventByIDAndProvider(id, providerID)
+	if err != nil {
+		return nil, err
+	}
+
+	updates := map[string]interface{}{
+		"name":        req.Name,
+		"description": req.Description,
+		"event_type":  req.EventType,
+		"location":    req.Location,
+	}
+
+	if req.Image != "" {
+		updates["image_url"] = req.Image
+	}
+	if req.StartDate != "" {
+		if t, err := parseTime(req.StartDate); err == nil {
+			updates["start_date"] = t
+		}
+	}
+	if req.EndDate != "" {
+		if t, err := parseTime(req.EndDate); err == nil {
+			updates["end_date"] = t
+		}
+	}
+	if req.Status != "" {
+		updates["status"] = req.Status
+	}
+
+	if err := s.repo.UpdateEvent(event, updates); err != nil {
+		return nil, err
+	}
+
+	return event, nil
+}
+
+func (s *Service) DeleteEvent(providerID, id uint) error {
+	return s.repo.DeleteEvent(id, providerID)
+}
+
+func (s *Service) CreateBlog(providerID uint, req CreateBlogRequest) (*ProviderBlog, error) {
+	status := "draft"
+	if req.Status != "" {
+		status = req.Status
+	}
+
+	var imageURL *string
+	if req.Image != "" {
+		imageURL = &req.Image
+	}
+
+	blog := &ProviderBlog{
+		ProviderID: providerID,
+		Title:      req.Title,
+		Content:    req.Content,
+		ImageURL:   imageURL,
+		Author:     req.Author,
+		Status:     status,
+	}
+
+	if status == "published" {
+		now := time.Now()
+		blog.PublishedAt = &now
+	}
+
+	if err := s.repo.CreateBlog(blog); err != nil {
+		return nil, err
+	}
+
+	return blog, nil
+}
+
+func (s *Service) GetBlogs(providerID uint, page, limit int) ([]ProviderBlog, int64, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50 {
+		limit = 10
+	}
+
+	return s.repo.GetBlogsByProvider(providerID, page, limit)
+}
+
+func (s *Service) GetBlogByID(providerID, id uint) (*ProviderBlog, error) {
+	return s.repo.GetBlogByIDAndProvider(id, providerID)
+}
+
+func (s *Service) UpdateBlog(providerID, id uint, req CreateBlogRequest) (*ProviderBlog, error) {
+	blog, err := s.repo.GetBlogByIDAndProvider(id, providerID)
+	if err != nil {
+		return nil, err
+	}
+
+	updates := map[string]interface{}{
+		"title":   req.Title,
+		"content": req.Content,
+		"author":  req.Author,
+	}
+
+	if req.Image != "" {
+		updates["image_url"] = req.Image
+	}
+	if req.Status != "" {
+		updates["status"] = req.Status
+		if req.Status == "published" && blog.PublishedAt == nil {
+			now := time.Now()
+			updates["published_at"] = now
+		}
+	}
+
+	if err := s.repo.UpdateBlog(blog, updates); err != nil {
+		return nil, err
+	}
+
+	return blog, nil
+}
+
+func (s *Service) DeleteBlog(providerID, id uint) error {
+	return s.repo.DeleteBlog(id, providerID)
+}
+
+func (s *Service) CreateCalendarEvent(providerID uint, req CreateCalendarEventRequest) (*ProviderCalendarEvent, error) {
+	startDate, err := parseTime(req.StartDate)
+	if err != nil {
+		return nil, errors.New("invalid start_date format")
+	}
+
+	endDate := startDate.Add(time.Hour)
+	if req.EndDate != "" {
+		if t, err := parseTime(req.EndDate); err == nil {
+			endDate = t
+		}
+	}
+
+	event := &ProviderCalendarEvent{
+		ProviderID:  providerID,
+		Title:       req.Title,
+		Description: req.Description,
+		StartDate:   startDate,
+		EndDate:     endDate,
+		Color:       req.Color,
+		IsAllDay:    req.IsAllDay,
+	}
+
+	if err := s.repo.CreateCalendarEvent(event); err != nil {
+		return nil, err
+	}
+
+	return event, nil
+}
+
+func (s *Service) GetCalendarEvents(providerID uint) ([]ProviderCalendarEvent, error) {
+	return s.repo.GetCalendarEventsByProvider(providerID)
+}
+
+func (s *Service) GetCalendarEventByID(providerID, id uint) (*ProviderCalendarEvent, error) {
+	return s.repo.GetCalendarEventByIDAndProvider(id, providerID)
+}
+
+func (s *Service) UpdateCalendarEvent(providerID, id uint, req CreateCalendarEventRequest) (*ProviderCalendarEvent, error) {
+	event, err := s.repo.GetCalendarEventByIDAndProvider(id, providerID)
+	if err != nil {
+		return nil, err
+	}
+
+	updates := map[string]interface{}{
+		"title":       req.Title,
+		"description": req.Description,
+		"color":       req.Color,
+		"is_all_day":  req.IsAllDay,
+	}
+
+	if req.StartDate != "" {
+		if t, err := parseTime(req.StartDate); err == nil {
+			updates["start_date"] = t
+		}
+	}
+	if req.EndDate != "" {
+		if t, err := parseTime(req.EndDate); err == nil {
+			updates["end_date"] = t
+		}
+	}
+
+	if err := s.repo.UpdateCalendarEvent(event, updates); err != nil {
+		return nil, err
+	}
+
+	return event, nil
+}
+
+func (s *Service) DeleteCalendarEvent(providerID, id uint) error {
+	return s.repo.DeleteCalendarEvent(id, providerID)
+}
+
+func (s *Service) CreateResult(providerID uint, req CreateResultRequest) (*ProviderResult, error) {
+	status := "draft"
+	if req.Status != "" {
+		status = req.Status
+	}
+
+	result := &ProviderResult{
+		ProviderID:    providerID,
+		ScholarshipID: req.ScholarshipID,
+		Title:         req.Title,
+		Status:        status,
+		Results:       req.Results,
+	}
+
+	if status == "published" {
+		now := time.Now()
+		result.PublishedAt = &now
+	}
+
+	if err := s.repo.CreateResult(result); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func (s *Service) GetResults(providerID uint, page, limit int) ([]ProviderResult, int64, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50 {
+		limit = 10
+	}
+
+	return s.repo.GetResultsByProvider(providerID, page, limit)
+}
+
+func (s *Service) GetResultByID(providerID, id uint) (*ProviderResult, error) {
+	return s.repo.GetResultByIDAndProvider(id, providerID)
+}
+
+func (s *Service) UpdateResult(providerID, id uint, req CreateResultRequest) (*ProviderResult, error) {
+	result, err := s.repo.GetResultByIDAndProvider(id, providerID)
+	if err != nil {
+		return nil, err
+	}
+
+	updates := map[string]interface{}{
+		"title":          req.Title,
+		"scholarship_id": req.ScholarshipID,
+		"results":        req.Results,
+	}
+
+	if req.Status != "" {
+		updates["status"] = req.Status
+		if req.Status == "published" && result.PublishedAt == nil {
+			now := time.Now()
+			updates["published_at"] = now
+		}
+	}
+
+	if err := s.repo.UpdateResult(result, updates); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func (s *Service) DeleteResult(providerID, id uint) error {
+	return s.repo.DeleteResult(id, providerID)
+}
+
+func (s *Service) CreateAccess(providerID uint, req CreateAccessRequest) (*ProviderAccess, error) {
+	role := "viewer"
+	if req.Role != "" {
+		role = req.Role
+	}
+
+	access := &ProviderAccess{
+		ProviderID: providerID,
+		Email:      req.Email,
+		Role:       role,
+		Status:     "pending",
+	}
+
+	if err := s.repo.CreateAccess(access); err != nil {
+		return nil, err
+	}
+
+	return access, nil
+}
+
+func (s *Service) GetAccess(providerID uint, page, limit int) ([]ProviderAccess, int64, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50 {
+		limit = 10
+	}
+
+	return s.repo.GetAccessByProvider(providerID, page, limit)
+}
+
+func (s *Service) GetAccessByID(providerID, id uint) (*ProviderAccess, error) {
+	return s.repo.GetAccessByIDAndProvider(id, providerID)
+}
+
+func (s *Service) UpdateAccess(providerID, id uint, req CreateAccessRequest) (*ProviderAccess, error) {
+	access, err := s.repo.GetAccessByIDAndProvider(id, providerID)
+	if err != nil {
+		return nil, err
+	}
+
+	updates := map[string]interface{}{
+		"email": req.Email,
+	}
+
+	if req.Role != "" {
+		updates["role"] = req.Role
+	}
+
+	if err := s.repo.UpdateAccess(access, updates); err != nil {
+		return nil, err
+	}
+
+	return access, nil
+}
+
+func (s *Service) DeleteAccess(providerID, id uint) error {
+	return s.repo.DeleteAccess(id, providerID)
+}

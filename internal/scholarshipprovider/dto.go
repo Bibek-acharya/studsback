@@ -209,3 +209,153 @@ type PaginationMeta struct {
 	Page  int   `json:"page"`
 	Limit int   `json:"limit"`
 }
+
+type CreateNewsRequest struct {
+	Title   string `json:"title" binding:"required"`
+	Content string `json:"content"`
+	Image   string `json:"image_url"`
+	Status  string `json:"status"`
+}
+
+type NewsResponse struct {
+	ID          uint       `json:"id"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	ProviderID  uint       `json:"provider_id"`
+	Title       string     `json:"title"`
+	Content     string     `json:"content"`
+	ImageURL    *string    `json:"image_url"`
+	Status      string     `json:"status"`
+	PublishedAt *time.Time `json:"published_at"`
+}
+
+type NewsListResponse struct {
+	News []NewsResponse `json:"news"`
+	Meta PaginationMeta `json:"meta"`
+}
+
+type CreateEventRequest struct {
+	Name        string `json:"name" binding:"required"`
+	Description string `json:"description"`
+	Image       string `json:"image_url"`
+	EventType   string `json:"event_type"`
+	StartDate   string `json:"start_date" binding:"required"`
+	EndDate     string `json:"end_date"`
+	Location    string `json:"location"`
+	Status      string `json:"status"`
+}
+
+type EventResponse struct {
+	ID          uint       `json:"id"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	ProviderID  uint       `json:"provider_id"`
+	Name        string     `json:"name"`
+	Description string     `json:"description"`
+	ImageURL    *string    `json:"image_url"`
+	EventType   string     `json:"event_type"`
+	StartDate   time.Time  `json:"start_date"`
+	EndDate     time.Time  `json:"end_date"`
+	Location    string     `json:"location"`
+	Status      string     `json:"status"`
+	Attendees   int        `json:"attendees"`
+}
+
+type EventListResponse struct {
+	Events []EventResponse `json:"events"`
+	Meta   PaginationMeta  `json:"meta"`
+}
+
+type CreateBlogRequest struct {
+	Title   string `json:"title" binding:"required"`
+	Content string `json:"content"`
+	Image   string `json:"image_url"`
+	Author  string `json:"author"`
+	Status  string `json:"status"`
+}
+
+type BlogResponse struct {
+	ID          uint       `json:"id"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	ProviderID  uint       `json:"provider_id"`
+	Title       string     `json:"title"`
+	Content     string     `json:"content"`
+	ImageURL    *string    `json:"image_url"`
+	Author      string     `json:"author"`
+	Status      string     `json:"status"`
+	PublishedAt *time.Time `json:"published_at"`
+	Views       int        `json:"views"`
+	Likes       int        `json:"likes"`
+}
+
+type BlogListResponse struct {
+	Blogs []BlogResponse `json:"blogs"`
+	Meta  PaginationMeta `json:"meta"`
+}
+
+type CreateCalendarEventRequest struct {
+	Title       string `json:"title" binding:"required"`
+	Description string `json:"description"`
+	StartDate   string `json:"start_date" binding:"required"`
+	EndDate     string `json:"end_date"`
+	Color       string `json:"color"`
+	IsAllDay    bool   `json:"is_all_day"`
+}
+
+type CalendarEventResponse struct {
+	ID          uint      `json:"id"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+	ProviderID  uint      `json:"provider_id"`
+	Title       string    `json:"title"`
+	Description string    `json:"description"`
+	StartDate   time.Time `json:"start_date"`
+	EndDate     time.Time `json:"end_date"`
+	Color       string    `json:"color"`
+	IsAllDay    bool      `json:"is_all_day"`
+}
+
+type CreateResultRequest struct {
+	ScholarshipID uint   `json:"scholarship_id" binding:"required"`
+	Title         string `json:"title" binding:"required"`
+	Status        string `json:"status"`
+	Results       []byte `json:"results"`
+}
+
+type ResultResponse struct {
+	ID            uint       `json:"id"`
+	CreatedAt     time.Time  `json:"created_at"`
+	UpdatedAt     time.Time  `json:"updated_at"`
+	ProviderID    uint       `json:"provider_id"`
+	ScholarshipID uint       `json:"scholarship_id"`
+	Title         string     `json:"title"`
+	Status        string     `json:"status"`
+	PublishedAt   *time.Time `json:"published_at"`
+	Results       []byte     `json:"results"`
+}
+
+type ResultListResponse struct {
+	Results []ResultResponse `json:"results"`
+	Meta    PaginationMeta   `json:"meta"`
+}
+
+type CreateAccessRequest struct {
+	Email string `json:"email" binding:"required"`
+	Role  string `json:"role"`
+}
+
+type AccessResponse struct {
+	ID         uint      `json:"id"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
+	ProviderID uint      `json:"provider_id"`
+	Email      string    `json:"email"`
+	Role       string    `json:"role"`
+	Status     string    `json:"status"`
+}
+
+type AccessListResponse struct {
+	Access []AccessResponse `json:"access"`
+	Meta   PaginationMeta   `json:"meta"`
+}
