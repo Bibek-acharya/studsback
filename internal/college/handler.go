@@ -97,6 +97,22 @@ func (h *Handler) CreateCollege(c *gin.Context) {
 	response.Success(c, 201, "College created successfully", result)
 }
 
+func (h *Handler) UploadCollegeImage(c *gin.Context) {
+	file, err := c.FormFile("image")
+	if err != nil {
+		response.Error(c, 400, "No image file provided")
+		return
+	}
+
+	urls, err := h.service.UploadCollegeImage(file)
+	if err != nil {
+		response.Error(c, 500, "Failed to upload image")
+		return
+	}
+
+	response.Success(c, 200, "Image uploaded successfully", gin.H{"url": urls[0]})
+}
+
 func (h *Handler) UpdateCollege(c *gin.Context) {
 	collegeID := c.Param("id")
 	parsedID, err := strconv.ParseUint(collegeID, 10, 64)
