@@ -36,6 +36,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			admin.GET("", h.GetColleges)
 			admin.GET("/:id", h.GetCollegeByID)
 			admin.POST("", h.CreateCollege)
+			admin.POST("/upload-image", h.UploadCollegeImage)
 			admin.PUT("/:id", h.UpdateCollege)
 			admin.DELETE("/:id", h.DeleteCollege)
 			admin.PUT("/:id/approve", h.ApproveCollege)

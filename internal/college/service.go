@@ -3,7 +3,14 @@ package college
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math"
+	"math/rand"
+	"mime/multipart"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
 )
 
 type Service struct {
@@ -122,6 +129,44 @@ func (s *Service) CreateCollege(req CreateCollegeRequest) (*CollegeResponse, err
 
 	resp := buildCollegeResponse(*created)
 	return &resp, nil
+}
+
+func (s *Service) UploadCollegeImage(file *multipart.FileHeader) ([]string, error) {
+	uploadDir := filepath.Join("uploads", "colleges")
+	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create upload directory")
+	}
+
+	src, err := file.Open()
+	if err != nil {
+		return nil, fmt.Errorf("failed to open file")
+	}
+	defer src.Close()
+
+	ct := file.Header.Get("Content-Type")
+	if !strings.HasPrefix(ct, "image/") {
+		return nil, fmt.Errorf("only image files are allowed")
+	}
+
+	ext := filepath.Ext(file.Filename)
+	if ext == "" {
+		ext = ".jpg"
+	}
+
+	filename := fmt.Sprintf("%d_%d%s", time.Now().UnixNano(), rand.Intn(999999), ext)
+	savePath := filepath.Join(uploadDir, filename)
+
+	dst, err := os.Create(savePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create destination file")
+	}
+	defer dst.Close()
+
+	if _, err := dst.ReadFrom(src); err != nil {
+		return nil, fmt.Errorf("failed to save file")
+	}
+
+	return []string{"/uploads/colleges/" + filename}, nil
 }
 
 func (s *Service) UpdateCollege(id uint, req UpdateCollegeRequest) (*CollegeResponse, error) {
