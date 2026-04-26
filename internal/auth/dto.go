@@ -81,7 +81,14 @@ type ScholarshipProviderRegisterRequest struct {
 	ProviderName       string `json:"provider_name" binding:"required"`
 	RegistrationNumber string `json:"registration_number" binding:"required"`
 	Email              string `json:"email" binding:"required,email"`
-	Password           string `json:"password" binding:"required,min=6"`
+	ContactNumber      string `json:"contact_number"`
+	PANNumber          string `json:"pan_number"`
+	WebsiteURL         string `json:"website_url"`
+}
+
+type ScholarshipProviderApprovalRequest struct {
+	ProviderID uint `json:"provider_id" binding:"required"`
+	Action     string `json:"action" binding:"required"` // "approved" or "rejected"
 }
 
 type ScholarshipProviderLoginRequest struct {

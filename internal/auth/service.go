@@ -136,6 +136,17 @@ func (s *Service) VerifyOTP(email, otp string) (*LoginResponse, error) {
 		return nil, errors.New("Registration data not found. Please register again.")
 	}
 
+	if providerUser, ok := data.(ScholarshipProviderUser); ok {
+		if err := s.repo.CreateScholarshipProviderUser(&providerUser); err != nil {
+			return nil, errors.New("Failed to create scholarship provider account")
+		}
+
+		return &LoginResponse{
+			User:  providerUser,
+			Token: "",
+		}, nil
+	}
+
 	user, ok := data.(User)
 	if !ok {
 		return nil, errors.New("Failed to recover user data")
@@ -344,7 +355,7 @@ func (s *Service) InstitutionGoogleLoginOrRegister(googleID, email, name string)
 	return instUser, token, nil
 }
 
-func (s *Service) ScholarshipProviderRegister(req ScholarshipProviderRegisterRequest) (*LoginResponse, error) {
+func (s *Service) ScholarshipProviderRegister(req ScholarshipProviderRegisterRequest) (*RegisterResponse, error) {
 	_, err := s.repo.FindScholarshipProviderUserByEmail(req.Email)
 	if err == nil {
 		return nil, errors.New("Scholarship provider account with this email already exists")
@@ -359,32 +370,91 @@ func (s *Service) ScholarshipProviderRegister(req ScholarshipProviderRegisterReq
 		ProviderName:       req.ProviderName,
 		RegistrationNumber: req.RegistrationNumber,
 		Email:              req.Email,
+		ContactNumber:      req.ContactNumber,
+		PANNumber:          req.PANNumber,
+		WebsiteURL:         req.WebsiteURL,
 		Role:               "scholarship_provider",
+		Status:             "pending",
 	}
 
-	if err := providerUser.HashPassword(req.Password); err != nil {
-		return nil, errors.New("Failed to hash password")
-	}
-
-	if err := s.repo.CreateScholarshipProviderUser(&providerUser); err != nil {
-		return nil, errors.New("Failed to create scholarship provider account")
-	}
-
-	token, err := utils.GenerateToken(providerUser.ID, providerUser.Email, providerUser.Role)
+	otp, err := utils.GenerateOTP()
 	if err != nil {
-		return nil, errors.New("Failed to generate token")
+		return nil, errors.New("Failed to generate OTP")
 	}
 
-	return &LoginResponse{
-		User:  providerUser,
-		Token: token,
+	utils.StoreOTP(req.Email, otp, providerUser)
+
+	return &RegisterResponse{
+		Email:       providerUser.Email,
+		RequiresOTP: true,
 	}, nil
+}
+
+func (s *Service) ListPendingScholarshipProviders() ([]ScholarshipProviderUser, error) {
+	return s.repo.FindScholarshipProvidersByStatus("pending")
+}
+
+func (s *Service) ApproveScholarshipProvider(providerID uint) error {
+	provider, err := s.repo.FindScholarshipProviderUserByID(providerID)
+	if err != nil {
+		return errors.New("Provider not found")
+	}
+
+	password, err := utils.GenerateRandomPassword(12)
+	if err != nil {
+		return errors.New("Failed to generate password")
+	}
+
+	if err := provider.HashPassword(password); err != nil {
+		return errors.New("Failed to hash password")
+	}
+
+	provider.Status = "approved"
+	if err := s.repo.UpdateScholarshipProviderUser(provider); err != nil {
+		return errors.New("Failed to update provider")
+	}
+
+	if emailErr := utils.SendApprovalEmail(provider.Email, provider.ProviderName, password); emailErr != nil {
+		log.Printf("Warning: failed to send approval email to %s: %v", provider.Email, emailErr)
+	}
+
+	return nil
+}
+
+func (s *Service) RejectScholarshipProvider(providerID uint) error {
+	provider, err := s.repo.FindScholarshipProviderUserByID(providerID)
+	if err != nil {
+		return errors.New("Provider not found")
+	}
+
+	provider.Status = "rejected"
+	if err := s.repo.UpdateScholarshipProviderUser(provider); err != nil {
+		return errors.New("Failed to update provider")
+	}
+
+	if emailErr := utils.SendRejectionEmail(provider.Email, provider.ProviderName); emailErr != nil {
+		log.Printf("Warning: failed to send rejection email to %s: %v", provider.Email, emailErr)
+	}
+
+	return nil
 }
 
 func (s *Service) ScholarshipProviderLogin(req ScholarshipProviderLoginRequest) (*LoginResponse, error) {
 	providerUser, err := s.repo.FindScholarshipProviderUserByEmail(req.Email)
 	if err != nil {
 		return nil, errors.New("Invalid email or password")
+	}
+
+	if providerUser.Status == "pending" {
+		return nil, errors.New("Your account is still under review. Please wait for admin approval.")
+	}
+
+	if providerUser.Status == "rejected" {
+		return nil, errors.New("Your registration has been rejected. Please contact support for more information.")
+	}
+
+	if providerUser.Password == nil {
+		return nil, errors.New("Your account has not been fully set up. Please contact support.")
 	}
 
 	if err := providerUser.CheckPassword(req.Password); err != nil {

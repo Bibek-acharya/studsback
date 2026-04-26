@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"time"
+
+	publicscholarship "studsphere/backend/internal/scholarship"
 )
 
 type Service struct {
@@ -87,6 +89,8 @@ func (s *Service) CreateScholarship(providerID uint, req CreateScholarshipReques
 		imageURL = &req.ImageURL
 	}
 
+	fieldOfStudy, _ := json.Marshal(req.FieldOfStudy)
+
 	scholarship := &ProviderScholarship{
 		ProviderID:      providerID,
 		Title:           req.Title,
@@ -97,7 +101,7 @@ func (s *Service) CreateScholarship(providerID uint, req CreateScholarshipReques
 		DegreeLevel:     req.DegreeLevel,
 		FundingType:     req.FundingType,
 		ScholarshipType: req.ScholarshipType,
-		FieldOfStudy:    toJSON(req.FieldOfStudy),
+		FieldOfStudy:    fieldOfStudy,
 		Status:          status,
 	}
 
@@ -111,7 +115,68 @@ func (s *Service) CreateScholarship(providerID uint, req CreateScholarshipReques
 		return nil, err
 	}
 
+	if err := s.syncPublicScholarship(providerID, req, fieldOfStudy, scholarship.Deadline, false); err != nil {
+		return nil, err
+	}
+
 	return scholarship, nil
+}
+
+func (s *Service) syncPublicScholarship(providerID uint, req CreateScholarshipRequest, fieldOfStudy []byte, deadline time.Time, isUpdate bool) error {
+	if req.Status != "active" {
+		if isUpdate {
+			// If deactivating, remove from public table
+			provider, err := s.repo.GetProviderProfile(providerID)
+			if err != nil {
+				return err
+			}
+			return s.repo.DeletePublicScholarship(req.Title, provider.ProviderName)
+		}
+		return nil
+	}
+
+	provider, err := s.repo.GetProviderProfile(providerID)
+	if err != nil {
+		return err
+	}
+
+	publicScholarship := &publicscholarship.Scholarship{
+		Title:               req.Title,
+		Provider:            provider.ProviderName,
+		Location:            req.Location,
+		Value:               req.Value,
+		Deadline:            deadline,
+		DegreeLevel:         req.DegreeLevel,
+		FundingType:         req.FundingType,
+		ScholarshipType:     req.ScholarshipType,
+		Description:         req.Description,
+		ImageURL:            req.ImageURL,
+		FieldOfStudy:        fieldOfStudy,
+		EligibilityCriteria: nil,
+		RequiredDocuments:   nil,
+	}
+
+	if isUpdate {
+		existing, err := s.repo.FindPublicScholarship(req.Title, provider.ProviderName)
+		if err == nil && existing != nil {
+			updates := map[string]interface{}{
+				"title":            req.Title,
+				"provider":         provider.ProviderName,
+				"location":         req.Location,
+				"value":            req.Value,
+				"deadline":         deadline,
+				"degree_level":     req.DegreeLevel,
+				"funding_type":     req.FundingType,
+				"scholarship_type": req.ScholarshipType,
+				"description":      req.Description,
+				"image_url":        req.ImageURL,
+				"field_of_study":   fieldOfStudy,
+			}
+			return s.repo.UpdatePublicScholarship(existing.ID, updates)
+		}
+	}
+
+	return s.repo.CreatePublicScholarship(publicScholarship)
 }
 
 func (s *Service) GetScholarships(providerID uint, page, limit int) ([]ProviderScholarship, int64, error) {
@@ -135,6 +200,7 @@ func (s *Service) UpdateScholarship(providerID, id uint, req CreateScholarshipRe
 		return nil, err
 	}
 
+	fieldOfStudy := toJSON(req.FieldOfStudy)
 	updates := map[string]interface{}{
 		"title":            req.Title,
 		"description":      req.Description,
@@ -143,7 +209,7 @@ func (s *Service) UpdateScholarship(providerID, id uint, req CreateScholarshipRe
 		"degree_level":     req.DegreeLevel,
 		"funding_type":     req.FundingType,
 		"scholarship_type": req.ScholarshipType,
-		"field_of_study":   toJSON(req.FieldOfStudy),
+		"field_of_study":   fieldOfStudy,
 	}
 
 	if req.ImageURL != "" {
@@ -152,8 +218,10 @@ func (s *Service) UpdateScholarship(providerID, id uint, req CreateScholarshipRe
 	if req.Status != "" {
 		updates["status"] = req.Status
 	}
+	var deadline time.Time
 	if req.Deadline != "" {
-		if deadline, err := parseTime(req.Deadline); err == nil {
+		if parsed, err := parseTime(req.Deadline); err == nil {
+			deadline = parsed
 			updates["deadline"] = deadline
 		}
 	}
@@ -162,10 +230,25 @@ func (s *Service) UpdateScholarship(providerID, id uint, req CreateScholarshipRe
 		return nil, err
 	}
 
+	if err := s.syncPublicScholarship(providerID, req, fieldOfStudy, deadline, true); err != nil {
+		return nil, err
+	}
+
 	return scholarship, nil
 }
 
 func (s *Service) DeleteScholarship(providerID, id uint) error {
+	scholarship, err := s.repo.GetScholarshipByIDAndProvider(id, providerID)
+	if err != nil {
+		return err
+	}
+
+	provider, err := s.repo.GetProviderProfile(providerID)
+	if err != nil {
+		return err
+	}
+
+	_ = s.repo.DeletePublicScholarship(scholarship.Title, provider.ProviderName)
 	return s.repo.DeleteScholarship(id, providerID)
 }
 

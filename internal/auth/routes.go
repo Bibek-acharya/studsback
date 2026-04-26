@@ -1,6 +1,10 @@
 package auth
 
-import "github.com/gin-gonic/gin"
+import (
+	"studsphere/backend/internal/shared/response"
+
+	"github.com/gin-gonic/gin"
+)
 
 func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 	if h == nil {
@@ -42,6 +46,13 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			superadminAuth.POST("/login", h.SuperadminLogin)
 		}
 
+		superadmin := v1.Group("/superadmin")
+		superadmin.Use(authMW, superadminOnly())
+		{
+			superadmin.GET("/pending-providers", h.ListPendingScholarshipProviders)
+			superadmin.POST("/providers/approve", h.ApproveScholarshipProvider)
+		}
+
 		protected := v1.Group("")
 		protected.Use(authMW)
 		{
@@ -49,5 +60,17 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			protected.PUT("/profile", h.UpdateProfile)
 			protected.POST("/preferences", h.SavePreferences)
 		}
+	}
+}
+
+func superadminOnly() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		role, exists := c.Get("user_role")
+		if !exists || (role.(string) != "superadmin" && role.(string) != "super_admin") {
+			response.Error(c, 403, "Superadmin access required")
+			c.Abort()
+			return
+		}
+		c.Next()
 	}
 }

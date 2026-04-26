@@ -96,13 +96,16 @@ func (h *Handler) ApplyScholarship(c *gin.Context) {
 		return
 	}
 
-	userID, _ := c.Get("user_id")
-	uid := userID.(uint)
-
 	var req ScholarshipApplicationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, 400, err.Error())
 		return
+	}
+
+	userID, _ := c.Get("user_id")
+	uid := uint(0)
+	if userID != nil {
+		uid = userID.(uint)
 	}
 
 	application, err := h.service.ApplyScholarship(scholarshipID, uid, req)

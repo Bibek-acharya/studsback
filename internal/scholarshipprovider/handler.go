@@ -1,6 +1,7 @@
 package scholarshipprovider
 
 import (
+	"encoding/json"
 	"net/http"
 	"strconv"
 
@@ -516,6 +517,24 @@ func (h *Handler) MarkAllNotificationsRead(c *gin.Context) {
 }
 
 func toScholarshipResponse(s *ProviderScholarship) ScholarshipResponse {
+	var fieldOfStudy interface{}
+	json.Unmarshal(s.FieldOfStudy, &fieldOfStudy)
+	if fieldOfStudy == nil {
+		fieldOfStudy = []string{}
+	}
+
+	var eligibilityCriteria interface{}
+	json.Unmarshal(s.EligibilityCriteria, &eligibilityCriteria)
+	if eligibilityCriteria == nil {
+		eligibilityCriteria = []interface{}{}
+	}
+
+	var requiredDocuments interface{}
+	json.Unmarshal(s.RequiredDocuments, &requiredDocuments)
+	if requiredDocuments == nil {
+		requiredDocuments = []interface{}{}
+	}
+
 	return ScholarshipResponse{
 		ID:                  s.ID,
 		CreatedAt:           s.CreatedAt,
@@ -530,9 +549,9 @@ func toScholarshipResponse(s *ProviderScholarship) ScholarshipResponse {
 		DegreeLevel:         s.DegreeLevel,
 		FundingType:         s.FundingType,
 		ScholarshipType:     s.ScholarshipType,
-		FieldOfStudy:        s.FieldOfStudy,
-		EligibilityCriteria: s.EligibilityCriteria,
-		RequiredDocuments:   s.RequiredDocuments,
+		FieldOfStudy:        fieldOfStudy,
+		EligibilityCriteria: eligibilityCriteria,
+		RequiredDocuments:   requiredDocuments,
 		Status:              s.Status,
 		ApplicationsCount:   s.ApplicationsCount,
 	}
@@ -553,6 +572,13 @@ func toApplicationResponse(a *ProviderApplication) ApplicationResponse {
 		EvaluationNotes:   a.EvaluationNotes,
 		Documents:         a.Documents,
 		PersonalStatement: a.PersonalStatement,
+		Province:          a.Province,
+		Stream:            a.Stream,
+		GPA:               a.GPA,
+		Gender:            a.Gender,
+		Age:               a.Age,
+		SchoolType:        a.SchoolType,
+		ExamCenter:        a.ExamCenter,
 	}
 
 	if a.Scholarship.ID != 0 {

@@ -15,7 +15,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			education.GET("/scholarships/:id", h.GetScholarshipByID)
 			education.GET("/scholarships/:id/similar", h.GetSimilarScholarships)
 
-			education.POST("/scholarships/:id/apply", authMW, h.ApplyScholarship)
+			education.POST("/scholarships/:id/apply", h.ApplyScholarship)
 		}
 
 		protected := v1.Group("")

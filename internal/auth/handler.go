@@ -375,7 +375,7 @@ func (h *Handler) ScholarshipProviderRegister(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, 201, "Scholarship provider account created successfully", result)
+	response.Success(c, 201, "Verification code sent to your email", result)
 }
 
 func (h *Handler) ScholarshipProviderLogin(c *gin.Context) {
@@ -509,4 +509,42 @@ func (h *Handler) SuperadminLogin(c *gin.Context) {
 	}
 
 	response.Success(c, 200, "Superadmin login successful", result)
+}
+
+func (h *Handler) ListPendingScholarshipProviders(c *gin.Context) {
+	providers, err := h.service.ListPendingScholarshipProviders()
+	if err != nil {
+		response.Error(c, 500, err.Error())
+		return
+	}
+
+	if providers == nil {
+		providers = []ScholarshipProviderUser{}
+	}
+
+	response.Success(c, 200, "Pending providers retrieved successfully", providers)
+}
+
+func (h *Handler) ApproveScholarshipProvider(c *gin.Context) {
+	var req ScholarshipProviderApprovalRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+
+	if req.Action == "approved" {
+		if err := h.service.ApproveScholarshipProvider(req.ProviderID); err != nil {
+			response.Error(c, 500, err.Error())
+			return
+		}
+		response.Success(c, 200, "Provider approved successfully. Email sent with login credentials.", nil)
+	} else if req.Action == "rejected" {
+		if err := h.service.RejectScholarshipProvider(req.ProviderID); err != nil {
+			response.Error(c, 500, err.Error())
+			return
+		}
+		response.Success(c, 200, "Provider rejected successfully. Rejection email sent.", nil)
+	} else {
+		response.Error(c, 400, "Invalid action. Use 'approved' or 'rejected'.")
+	}
 }

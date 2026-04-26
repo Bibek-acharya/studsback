@@ -1,6 +1,10 @@
 package scholarshipprovider
 
-import "gorm.io/gorm"
+import (
+	"studsphere/backend/internal/scholarship"
+
+	"gorm.io/gorm"
+)
 
 type Repository struct {
 	db *gorm.DB
@@ -68,6 +72,27 @@ func (r *Repository) GetApplicationCountByScholarship(scholarshipID uint) (int64
 
 func (r *Repository) CreateScholarship(scholarship *ProviderScholarship) error {
 	return r.db.Create(scholarship).Error
+}
+
+func (r *Repository) CreatePublicScholarship(s *scholarship.Scholarship) error {
+	return r.db.Create(s).Error
+}
+
+func (r *Repository) FindPublicScholarship(title, provider string) (*scholarship.Scholarship, error) {
+	var s scholarship.Scholarship
+	err := r.db.Where("title = ? AND provider = ?", title, provider).First(&s).Error
+	if err != nil {
+		return nil, err
+	}
+	return &s, nil
+}
+
+func (r *Repository) UpdatePublicScholarship(id uint, updates map[string]interface{}) error {
+	return r.db.Model(&scholarship.Scholarship{}).Where("id = ?", id).Updates(updates).Error
+}
+
+func (r *Repository) DeletePublicScholarship(title, provider string) error {
+	return r.db.Where("title = ? AND provider = ?", title, provider).Delete(&scholarship.Scholarship{}).Error
 }
 
 func (r *Repository) GetScholarshipsByProvider(providerID uint, page, limit int) ([]ProviderScholarship, int64, error) {

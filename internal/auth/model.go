@@ -84,8 +84,12 @@ type ScholarshipProviderUser struct {
 	ProviderName       string         `gorm:"not null" json:"provider_name" binding:"required"`
 	RegistrationNumber string         `gorm:"uniqueIndex;not null" json:"registration_number" binding:"required"`
 	Email              string         `gorm:"uniqueIndex;not null" json:"email" binding:"required,email"`
+	ContactNumber      string         `json:"contact_number"`
+	PANNumber          string         `json:"pan_number"`
+	WebsiteURL         string         `json:"website_url"`
 	GoogleID           *string        `gorm:"uniqueIndex;default:null" json:"google_id"`
 	Password           *string        `json:"-"`
+	Status             string         `gorm:"default:'pending'" json:"status"`
 	Role               string         `gorm:"default:'scholarship_provider'" json:"role"`
 }
 

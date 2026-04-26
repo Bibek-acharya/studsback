@@ -47,6 +47,10 @@ type ProviderApplication struct {
 	Province          string              `json:"province"`
 	Stream            string              `json:"stream"`
 	GPA               float64             `json:"gpa"`
+	Gender            string              `json:"gender"`
+	Age               int                 `json:"age"`
+	SchoolType        string              `json:"school_type"`
+	ExamCenter        string              `json:"exam_center"`
 }
 
 type ProviderInterview struct {
@@ -111,8 +115,12 @@ type ScholarshipProviderUser struct {
 	ProviderName       string         `gorm:"not null" json:"provider_name"`
 	RegistrationNumber string         `gorm:"uniqueIndex;not null" json:"registration_number"`
 	Email              string         `gorm:"uniqueIndex;not null" json:"email"`
+	ContactNumber      string         `json:"contact_number"`
+	PANNumber          string         `json:"pan_number"`
+	WebsiteURL         string         `json:"website_url"`
 	GoogleID           *string        `gorm:"uniqueIndex;default:null" json:"google_id"`
 	Password           *string        `json:"-"`
+	Status             string         `gorm:"default:'pending'" json:"status"`
 	Role               string         `gorm:"default:'scholarship_provider'" json:"role"`
 }
 

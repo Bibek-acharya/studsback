@@ -17,24 +17,24 @@ type CreateScholarshipRequest struct {
 }
 
 type ScholarshipResponse struct {
-	ID                  uint      `json:"id"`
-	CreatedAt           time.Time `json:"created_at"`
-	UpdatedAt           time.Time `json:"updated_at"`
-	ProviderID          uint      `json:"provider_id"`
-	Title               string    `json:"title"`
-	Description         string    `json:"description"`
-	ImageURL            *string   `json:"image_url"`
-	Location            string    `json:"location"`
-	Value               string    `json:"value"`
-	Deadline            time.Time `json:"deadline"`
-	DegreeLevel         string    `json:"degree_level"`
-	FundingType         string    `json:"funding_type"`
-	ScholarshipType     string    `json:"scholarship_type"`
-	FieldOfStudy        []byte    `json:"field_of_study"`
-	EligibilityCriteria []byte    `json:"eligibility_criteria"`
-	RequiredDocuments   []byte    `json:"required_documents"`
-	Status              string    `json:"status"`
-	ApplicationsCount   int       `json:"applications_count"`
+	ID                  uint        `json:"id"`
+	CreatedAt           time.Time   `json:"created_at"`
+	UpdatedAt           time.Time   `json:"updated_at"`
+	ProviderID          uint        `json:"provider_id"`
+	Title               string      `json:"title"`
+	Description         string      `json:"description"`
+	ImageURL            *string     `json:"image_url"`
+	Location            string      `json:"location"`
+	Value               string      `json:"value"`
+	Deadline            time.Time   `json:"deadline"`
+	DegreeLevel         string      `json:"degree_level"`
+	FundingType         string      `json:"funding_type"`
+	ScholarshipType     string      `json:"scholarship_type"`
+	FieldOfStudy        interface{} `json:"field_of_study"`
+	EligibilityCriteria interface{} `json:"eligibility_criteria"`
+	RequiredDocuments   interface{} `json:"required_documents"`
+	Status              string      `json:"status"`
+	ApplicationsCount   int         `json:"applications_count"`
 }
 
 type ScholarshipListResponse struct {
@@ -57,6 +57,13 @@ type ApplicationResponse struct {
 	EvaluationNotes   string               `json:"evaluation_notes"`
 	Documents         []byte               `json:"documents"`
 	PersonalStatement string               `json:"personal_statement"`
+	Province          string               `json:"province"`
+	Stream            string               `json:"stream"`
+	GPA               float64              `json:"gpa"`
+	Gender            string               `json:"gender"`
+	Age               int                  `json:"age"`
+	SchoolType        string               `json:"school_type"`
+	ExamCenter        string               `json:"exam_center"`
 }
 
 type ApplicationListResponse struct {

@@ -121,3 +121,16 @@ func (r *Repository) FindScholarshipProviderUserByEmailOrGoogleID(email, googleI
 	}
 	return &user, nil
 }
+
+func (r *Repository) FindScholarshipProvidersByStatus(status string) ([]ScholarshipProviderUser, error) {
+	var users []ScholarshipProviderUser
+	err := r.db.Where("status = ?", status).Find(&users).Error
+	if err != nil {
+		return nil, err
+	}
+	return users, nil
+}
+
+func (r *Repository) UpdateScholarshipProviderUser(user *ScholarshipProviderUser) error {
+	return r.db.Save(user).Error
+}

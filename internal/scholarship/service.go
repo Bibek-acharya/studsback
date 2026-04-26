@@ -119,12 +119,11 @@ func (s *Service) ApplyScholarship(scholarshipID uint, userID uint, req Scholars
 		return nil, errors.New("invalid date of birth format (expected YYYY-MM-DD)")
 	}
 
-	_, err = s.repo.FindByID(scholarshipID)
-	if err != nil {
+	if _, err := s.repo.FindByID(scholarshipID); err != nil {
 		return nil, errors.New("scholarship not found")
 	}
 
-	if s.repo.ApplicationExists(scholarshipID, userID) {
+	if userID > 0 && s.repo.ApplicationExists(scholarshipID, userID) {
 		return nil, errors.New("you have already applied for this scholarship")
 	}
 
