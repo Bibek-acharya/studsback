@@ -532,19 +532,20 @@ func (h *Handler) ApproveScholarshipProvider(c *gin.Context) {
 		return
 	}
 
-	if req.Action == "approved" {
+	switch req.Action {
+case "approved":
 		if err := h.service.ApproveScholarshipProvider(req.ProviderID); err != nil {
 			response.Error(c, 500, err.Error())
 			return
 		}
 		response.Success(c, 200, "Provider approved successfully. Email sent with login credentials.", nil)
-	} else if req.Action == "rejected" {
+	case "rejected":
 		if err := h.service.RejectScholarshipProvider(req.ProviderID); err != nil {
 			response.Error(c, 500, err.Error())
 			return
 		}
 		response.Success(c, 200, "Provider rejected successfully. Rejection email sent.", nil)
-	} else {
+	default:
 		response.Error(c, 400, "Invalid action. Use 'approved' or 'rejected'.")
 	}
 }
