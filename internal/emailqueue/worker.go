@@ -23,8 +23,10 @@ func StartWorker() error {
 
 	srv := asynq.NewServer(
 		&asynq.RedisClientOpt{
-			Addr: redisAddr,
-			DB:   redisDB,
+			Addr:     redisAddr,
+			Username: "default",
+			Password: getEnv("REDIS_PASSWORD", ""),
+			DB:       redisDB,
 		},
 		asynq.Config{
 			Concurrency: concurrency,
@@ -324,7 +326,7 @@ func renderOTPTemplate(otp string, expiresIn int) string {
             <div class="otp-section">
                 <p>Your OTP Code</p>
                 <p style="font-size: 32px; font-weight: bold; letter-spacing: 8px; font-family: 'Plus Jakarta Sans', sans-serif; color: #111827; text-align: left; margin: 20px 0;">%s</p>
-                <p>Expires in: 10 minutes</p>
+                <p>Expires in: %d minutes</p>
             </div>
 
             <div class="signature">
