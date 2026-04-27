@@ -9,6 +9,7 @@ import (
 	"net/url"
 
 	"studsphere/backend/internal/shared/config"
+	"studsphere/backend/internal/shared/middleware"
 	"studsphere/backend/internal/shared/response"
 
 	"github.com/gin-gonic/gin"
@@ -53,6 +54,7 @@ func (h *Handler) Login(c *gin.Context) {
 		return
 	}
 
+	middleware.SetAuthCookie(c, result.Token)
 	response.Success(c, 200, "Login successful", result)
 }
 
@@ -91,6 +93,9 @@ func (h *Handler) VerifyOTP(c *gin.Context) {
 		return
 	}
 
+	if result.Token != "" {
+		middleware.SetAuthCookie(c, result.Token)
+	}
 	response.Success(c, 200, "Email verified successfully", result)
 }
 
@@ -185,9 +190,9 @@ func (h *Handler) GoogleCallback(c *gin.Context) {
 		return
 	}
 
-	redirectURL := fmt.Sprintf("%s/auth/google-callback?token=%s",
+	middleware.SetAuthCookie(c, jwtToken)
+	redirectURL := fmt.Sprintf("%s/auth/google-callback",
 		config.AppConfig.FrontendURL,
-		jwtToken,
 	)
 
 	c.Redirect(http.StatusTemporaryRedirect, redirectURL)
@@ -274,6 +279,7 @@ func (h *Handler) InstitutionLogin(c *gin.Context) {
 		return
 	}
 
+	middleware.SetAuthCookie(c, result.Token)
 	response.Success(c, 200, "Institution login successful", result)
 }
 
@@ -347,15 +353,15 @@ func (h *Handler) InstitutionGoogleCallback(c *gin.Context) {
 		return
 	}
 
+	middleware.SetAuthCookie(c, jwtToken)
 	userData, _ := json.Marshal(gin.H{
 		"id":               instUser.ID,
 		"institution_name": instUser.InstitutionName,
 		"email":            instUser.Email,
 		"role":             instUser.Role,
 	})
-	redirectURL := fmt.Sprintf("%s/institutions/auth/google-callback?token=%s&user=%s",
+	redirectURL := fmt.Sprintf("%s/institutions/auth/google-callback?user=%s",
 		config.AppConfig.FrontendURL,
-		jwtToken,
 		url.QueryEscape(string(userData)),
 	)
 
@@ -391,6 +397,7 @@ func (h *Handler) ScholarshipProviderLogin(c *gin.Context) {
 		return
 	}
 
+	middleware.SetAuthCookie(c, result.Token)
 	response.Success(c, 200, "Scholarship provider login successful", result)
 }
 
@@ -464,15 +471,15 @@ func (h *Handler) ScholarshipProviderGoogleCallback(c *gin.Context) {
 		return
 	}
 
+	middleware.SetAuthCookie(c, jwtToken)
 	userData, _ := json.Marshal(gin.H{
 		"id":            providerUser.ID,
 		"provider_name": providerUser.ProviderName,
 		"email":         providerUser.Email,
 		"role":          providerUser.Role,
 	})
-	redirectURL := fmt.Sprintf("%s/scholarship-providers/auth/google-callback?token=%s&user=%s",
+	redirectURL := fmt.Sprintf("%s/scholarship-providers/auth/google-callback?user=%s",
 		config.AppConfig.FrontendURL,
-		jwtToken,
 		url.QueryEscape(string(userData)),
 	)
 
@@ -508,6 +515,7 @@ func (h *Handler) SuperadminLogin(c *gin.Context) {
 		return
 	}
 
+	middleware.SetAuthCookie(c, result.Token)
 	response.Success(c, 200, "Superadmin login successful", result)
 }
 
@@ -525,6 +533,20 @@ func (h *Handler) ListPendingScholarshipProviders(c *gin.Context) {
 	response.Success(c, 200, "Pending providers retrieved successfully", providers)
 }
 
+func (h *Handler) ListVerifiedScholarshipProviders(c *gin.Context) {
+	providers, err := h.service.ListVerifiedScholarshipProviders()
+	if err != nil {
+		response.Error(c, 500, err.Error())
+		return
+	}
+
+	if providers == nil {
+		providers = []ScholarshipProviderUser{}
+	}
+
+	response.Success(c, 200, "Verified providers retrieved successfully", providers)
+}
+
 func (h *Handler) ApproveScholarshipProvider(c *gin.Context) {
 	var req ScholarshipProviderApprovalRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -533,7 +555,7 @@ func (h *Handler) ApproveScholarshipProvider(c *gin.Context) {
 	}
 
 	switch req.Action {
-case "approved":
+	case "approved":
 		if err := h.service.ApproveScholarshipProvider(req.ProviderID); err != nil {
 			response.Error(c, 500, err.Error())
 			return
@@ -548,4 +570,9 @@ case "approved":
 	default:
 		response.Error(c, 400, "Invalid action. Use 'approved' or 'rejected'.")
 	}
+}
+
+func (h *Handler) Logout(c *gin.Context) {
+	middleware.ClearAuthCookie(c)
+	response.Success(c, 200, "Logged out successfully", nil)
 }

@@ -3,41 +3,54 @@ package config
 import (
 	"log"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/joho/godotenv"
 )
 
 type Config struct {
-	Port               string
-	DBHost             string
-	DBPort             string
-	DBUser             string
-	DBPassword         string
-	DBName             string
-	JWTSecret          string
-	JWTExpiry          string
-	GinMode            string
+	Port     string
+	GinMode  string
+	DBHost   string
+	DBPort   string
+	DBUser   string
+	DBPassword string
+	DBName   string
+	DBSSLMode string
+
+	JWTSecret string
+	JWTExpiry string
+
 	SuperAdminEmail    string
 	SuperAdminPassword string
 	SuperAdminRole     string
 	SuperAdminFirst    string
 	SuperAdminLast     string
+
 	GoogleClientID     string
 	GoogleClientSecret string
 	GoogleRedirectURL  string
 	FrontendURL        string
-	DBSSLMode          string
-	SMTPHost           string
-	SMTPPort           string
-	SMTPUser           string
-	SMTPPass           string
-	MinIOEndpoint      string
-	MinIOAPIEndpoint   string
-	MinIOAccessKey     string
-	MinIOSecretKey     string
-	MinIOBucket        string
-	MinIOUseSSL        bool
+
+	SMTPHost string
+	SMTPPort string
+	SMTPUser string
+	SMTPPass string
+
+	MinIOEndpoint   string
+	MinIOAPIEndpoint string
+	MinIOAccessKey  string
+	MinIOSecretKey  string
+	MinIOBucket     string
+	MinIOUseSSL     bool
+
+	EmbeddingEnabled    bool
+	EmbeddingAPIKey     string
+	EmbeddingBaseURL    string
+	EmbeddingModel      string
+	VectorDimension     int
+	EmbeddingBatchSize  int
 }
 
 var AppConfig *Config
@@ -88,12 +101,27 @@ func Load() {
 		MinIOSecretKey:     getEnv("MINIO_SECRET_KEY", "studsphere123"),
 		MinIOBucket:        getEnv("MINIO_BUCKET", "studsphere"),
 		MinIOUseSSL:        getEnv("MINIO_USE_SSL", "true") == "true",
+		EmbeddingEnabled:    getEnv("EMBEDDING_ENABLED", "false") == "true",
+		EmbeddingAPIKey:     getEnv("EMBEDDING_API_KEY", ""),
+		EmbeddingBaseURL:    getEnv("EMBEDDING_BASE_URL", "https://api.openai.com/v1"),
+		EmbeddingModel:      getEnv("EMBEDDING_MODEL", "text-embedding-3-small"),
+		VectorDimension:     getEnvInt("VECTOR_DIMENSION", 1536),
+		EmbeddingBatchSize:  getEnvInt("EMBEDDING_BATCH_SIZE", 20),
 	}
 }
 
 func getEnv(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
 		return value
+	}
+	return defaultValue
+}
+
+func getEnvInt(key string, defaultValue int) int {
+	if value := os.Getenv(key); value != "" {
+		if i, err := strconv.Atoi(value); err == nil {
+			return i
+		}
 	}
 	return defaultValue
 }

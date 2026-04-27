@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	"studsphere/backend/internal/projectshiksha"
 	"studsphere/backend/internal/scholarship"
 	"studsphere/backend/internal/scholarshipprovider"
+	"studsphere/backend/internal/search"
 	"studsphere/backend/internal/shared/config"
 	"studsphere/backend/internal/shared/logger"
 	"studsphere/backend/internal/shared/middleware"
@@ -46,6 +48,8 @@ func main() {
 	config.ConnectDatabase()
 
 	db := config.GetDB()
+
+	config.EnsurePgvectorExtension()
 
 	logger.Info("Running database migrations...")
 	if err := db.AutoMigrate(
@@ -104,10 +108,19 @@ func main() {
 		&system.ContactInquiry{},
 		&system.Ad{},
 		&system.CarouselSlide{},
+		&system.PublicNotification{},
 	); err != nil {
-		logger.Fatal("Failed to migrate database", "error", err)
+		if strings.Contains(err.Error(), "type \"vector\" does not exist") {
+			logger.Warn("pgvector type not available. Run as DB superuser:")
+			logger.Warn("  CREATE EXTENSION vector;")
+			logger.Warn("Then restart. Falling back to keyword-only search.")
+		} else {
+			logger.Fatal("Failed to migrate database", "error", err)
+		}
+	} else {
+		logger.Info("Database migrations completed successfully")
+		config.CreateVectorIndexes()
 	}
-	logger.Info("Database migrations completed successfully")
 
 	logger.Info("Initializing MinIO...")
 	if err := utils.InitMinIO(); err != nil {
@@ -152,6 +165,7 @@ func main() {
 	systemHandler := initModule(system.NewRepository(db), system.NewService, system.NewHandler)
 	toolsHandler := initModule(tools.NewRepository(db), tools.NewService, tools.NewHandler)
 	universityHandler := initModule(university.NewRepository(db), university.NewService, university.NewHandler)
+	searchHandler := search.NewHandler(search.NewService(db))
 	logger.Info("All module handlers initialized")
 
 	logger.Info("Setting up router...")
@@ -187,6 +201,7 @@ func main() {
 	system.RegisterRoutes(router, authMW, roleMW, systemHandler)
 	tools.RegisterRoutes(router, authMW, roleMW, toolsHandler)
 	university.RegisterRoutes(router, authMW, roleMW, universityHandler)
+	search.RegisterRoutes(router, authMW, roleMW, searchHandler)
 
 	logger.Info("All routes registered", "port", config.AppConfig.Port)
 
@@ -263,7 +278,13 @@ func ginLogger() gin.HandlerFunc {
 
 func corsMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		origin := c.Request.Header.Get("Origin")
+
+		if origin == "" {
+			origin = config.AppConfig.FrontendURL
+		}
+
+		c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
 		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE, PATCH")

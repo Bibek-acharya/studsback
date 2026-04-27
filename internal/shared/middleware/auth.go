@@ -11,21 +11,29 @@ import (
 
 func Auth() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		var token string
+
 		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			response.Error(c, 401, "Authorization header required")
+		if authHeader != "" {
+			parts := strings.Split(authHeader, " ")
+			if len(parts) == 2 && parts[0] == "Bearer" {
+				token = parts[1]
+			}
+		}
+
+		if token == "" {
+			cookieToken, err := c.Cookie("token")
+			if err == nil && cookieToken != "" {
+				token = cookieToken
+			}
+		}
+
+		if token == "" {
+			response.Error(c, 401, "Authentication required")
 			c.Abort()
 			return
 		}
 
-		parts := strings.Split(authHeader, " ")
-		if len(parts) != 2 || parts[0] != "Bearer" {
-			response.Error(c, 401, "Invalid authorization format")
-			c.Abort()
-			return
-		}
-
-		token := parts[1]
 		claims, err := utils.ValidateToken(token)
 		if err != nil {
 			response.Error(c, 401, "Invalid or expired token")
@@ -39,6 +47,16 @@ func Auth() gin.HandlerFunc {
 
 		c.Next()
 	}
+}
+
+func SetAuthCookie(c *gin.Context, token string) {
+	secure := c.Request.TLS != nil
+	c.SetCookie("token", token, 86400*7, "/", "", secure, true)
+}
+
+func ClearAuthCookie(c *gin.Context) {
+	secure := c.Request.TLS != nil
+	c.SetCookie("token", "", -1, "/", "", secure, true)
 }
 
 func RequireRole(allowedRoles ...string) gin.HandlerFunc {

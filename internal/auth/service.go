@@ -394,6 +394,10 @@ func (s *Service) ListPendingScholarshipProviders() ([]ScholarshipProviderUser, 
 	return s.repo.FindScholarshipProvidersByStatus("pending")
 }
 
+func (s *Service) ListVerifiedScholarshipProviders() ([]ScholarshipProviderUser, error) {
+	return s.repo.FindScholarshipProvidersByStatus("approved")
+}
+
 func (s *Service) ApproveScholarshipProvider(providerID uint) error {
 	provider, err := s.repo.FindScholarshipProviderUserByID(providerID)
 	if err != nil {

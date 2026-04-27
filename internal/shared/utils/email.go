@@ -141,7 +141,22 @@ func SendApprovalEmail(to, orgName, password string) error {
       <p style="color: #94a3b8; font-size: 13px; text-align: center; margin: 24px 0 0;">Please change your password after logging in for security purposes.</p>
     </div>
     <div style="background: #f8fafb; padding: 24px 32px; text-align: center; border-top: 1px solid #f3f4f6;">
-      <p style="color: #9ca3af; font-size: 12px; margin: 0;">&copy; 2026 Studsphere Inc.</p>
+      <div style="margin-bottom: 16px;">
+        <a href="https://www.facebook.com/share/1CEcyRH9ZZ/" style="text-decoration: none; margin: 0 6px; display: inline-block;">
+          <img src="https://upload.wikimedia.org/wikipedia/commons/5/51/Facebook_f_logo_%282019%29.svg" alt="Facebook" width="28" height="28" style="display: block;">
+        </a>
+        <a href="https://www.instagram.com/stud.sphere?igsh=NDM5Z29nc2ZqMmc=" style="text-decoration: none; margin: 0 6px; display: inline-block;">
+          <img src="https://upload.wikimedia.org/wikipedia/commons/e/e7/Instagram_logo_2016.svg" alt="Instagram" width="28" height="28" style="display: block;">
+        </a>
+        <a href="https://www.tiktok.com/@stud.sphere?_r=1&_t=ZS-95OYyC0vodM" style="text-decoration: none; margin: 0 6px; display: inline-block;">
+          <img src="https://cdn-icons-png.flaticon.com/512/2111/2111468.png" alt="TikTok" width="28" height="28" style="display: block;">
+        </a>
+        <a href="https://wa.me/9779800000000" style="text-decoration: none; margin: 0 6px; display: inline-block;">
+          <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp" width="28" height="28" style="display: block;">
+        </a>
+      </div>
+      <p style="color: #9ca3af; font-size: 12px; margin: 0;">This email can't receive replies. For more information, visit the <a href="https://studsphere.com/help" style="color: #2563eb; text-decoration: none;">Studsphere Help Center</a>.</p>
+      <p style="color: #9ca3af; font-size: 12px; margin: 8px 0 0;">&copy; 2026 Studsphere Inc.</p>
     </div>
   </div>
 </body>
@@ -167,7 +182,22 @@ func SendRejectionEmail(to, orgName string) error {
       <p style="color: #64748b; font-size: 15px; margin: 0 0 0;">If you have any questions, please contact our support team for further assistance.</p>
     </div>
     <div style="background: #f8fafb; padding: 24px 32px; text-align: center; border-top: 1px solid #f3f4f6;">
-      <p style="color: #9ca3af; font-size: 12px; margin: 0;">&copy; 2026 Studsphere Inc.</p>
+      <div style="margin-bottom: 16px;">
+        <a href="https://www.facebook.com/share/1CEcyRH9ZZ/" style="text-decoration: none; margin: 0 6px; display: inline-block;">
+          <img src="https://upload.wikimedia.org/wikipedia/commons/5/51/Facebook_f_logo_%282019%29.svg" alt="Facebook" width="28" height="28" style="display: block;">
+        </a>
+        <a href="https://www.instagram.com/stud.sphere?igsh=NDM5Z29nc2ZqMmc=" style="text-decoration: none; margin: 0 6px; display: inline-block;">
+          <img src="https://upload.wikimedia.org/wikipedia/commons/e/e7/Instagram_logo_2016.svg" alt="Instagram" width="28" height="28" style="display: block;">
+        </a>
+        <a href="https://www.tiktok.com/@stud.sphere?_r=1&_t=ZS-95OYyC0vodM" style="text-decoration: none; margin: 0 6px; display: inline-block;">
+          <img src="https://cdn-icons-png.flaticon.com/512/2111/2111468.png" alt="TikTok" width="28" height="28" style="display: block;">
+        </a>
+        <a href="https://wa.me/9779800000000" style="text-decoration: none; margin: 0 6px; display: inline-block;">
+          <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp" width="28" height="28" style="display: block;">
+        </a>
+      </div>
+      <p style="color: #9ca3af; font-size: 12px; margin: 0;">This email can't receive replies. For more information, visit the <a href="https://studsphere.com/help" style="color: #2563eb; text-decoration: none;">Studsphere Help Center</a>.</p>
+      <p style="color: #9ca3af; font-size: 12px; margin: 8px 0 0;">&copy; 2026 Studsphere Inc.</p>
     </div>
   </div>
 </body>

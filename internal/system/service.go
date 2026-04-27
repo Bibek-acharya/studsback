@@ -252,3 +252,7 @@ func (s *Service) ReorderCarouselSlides(items []struct {
 }) error {
 	return s.repo.ReorderCarouselSlides(items)
 }
+
+func (s *Service) GetActivePublicNotifications() ([]PublicNotification, error) {
+	return s.repo.FindActivePublicNotifications()
+}

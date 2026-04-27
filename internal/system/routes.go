@@ -14,6 +14,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			system.POST("/contact", h.SubmitContactInquiry)
 			system.GET("/ads", h.GetActiveAds)
 			system.GET("/carousels", h.GetCarousels)
+			system.GET("/notifications", h.GetPublicNotifications)
 		}
 
 		admin := v1.Group("/admin")

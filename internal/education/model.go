@@ -3,6 +3,7 @@ package education
 import (
 	"time"
 
+	"github.com/pgvector/pgvector-go"
 	"gorm.io/gorm"
 )
 
@@ -32,7 +33,8 @@ type Exam struct {
 	Weightage    []byte         `gorm:"type:jsonb" json:"weightage"`
 	Timeline     []byte         `gorm:"type:jsonb" json:"timeline"`
 	Notices      []byte         `gorm:"type:jsonb" json:"notices"`
-	Faqs         []byte         `gorm:"type:jsonb" json:"faqs"`
+	Faqs         []byte           `gorm:"type:jsonb" json:"faqs"`
+	Embedding    *pgvector.Vector  `gorm:"type:vector(1536)" json:"-"`
 }
 
 func (Exam) TableName() string {
@@ -64,7 +66,8 @@ type Course struct {
 	About         []byte         `gorm:"type:jsonb" json:"about"`
 	Curriculum    []byte         `gorm:"type:jsonb" json:"curriculum"`
 	Admissions    []byte         `gorm:"type:jsonb" json:"admissions"`
-	Careers       []byte         `gorm:"type:jsonb" json:"careers"`
+	Careers       []byte           `gorm:"type:jsonb" json:"careers"`
+	Embedding     *pgvector.Vector  `gorm:"type:vector(1536)" json:"-"`
 }
 
 func (Course) TableName() string {
@@ -100,7 +103,8 @@ type News struct {
 	Date      string         `json:"date"`
 	ReadTime  string         `json:"readTime"`
 	Source    string         `json:"source"`
-	Tags      []byte         `gorm:"type:jsonb" json:"tags"`
+	Tags      []byte           `gorm:"type:jsonb" json:"tags"`
+	Embedding *pgvector.Vector  `gorm:"type:vector(1536)" json:"-"`
 }
 
 func (News) TableName() string {
@@ -123,7 +127,8 @@ type Event struct {
 	RegistrationFee string         `json:"registration_fee"`
 	Image           string         `json:"image"`
 	Interested      int            `json:"interested"`
-	Trending        bool           `json:"trending"`
+	Trending        bool             `json:"trending"`
+	Embedding       *pgvector.Vector  `gorm:"type:vector(1536)" json:"-"`
 }
 
 func (Event) TableName() string {
@@ -174,7 +179,8 @@ type Blog struct {
 	ReadTime  string         `json:"read_time"`
 	Featured  bool           `gorm:"default:false" json:"featured"`
 	Published bool           `gorm:"default:true" json:"published"`
-	Views     int            `gorm:"default:0" json:"views"`
+	Views     int              `gorm:"default:0" json:"views"`
+	Embedding *pgvector.Vector  `gorm:"type:vector(1536)" json:"-"`
 }
 
 func (Blog) TableName() string {

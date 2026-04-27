@@ -38,6 +38,21 @@ type Ad struct {
 	Priority    int            `gorm:"default:0" json:"priority"`
 }
 
+type PublicNotification struct {
+	ID        uint           `gorm:"primarykey" json:"id"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+	Title     string         `gorm:"not null" json:"title"`
+	Message   string         `gorm:"type:text" json:"message"`
+	Type      string         `gorm:"default:'info'" json:"type"`
+	Link      string         `json:"link"`
+	Active    bool           `gorm:"default:true;index" json:"active"`
+	Icon      string         `json:"icon"`
+	Color     string         `json:"color"`
+	BgColor   string         `json:"bg_color"`
+}
+
 type CarouselSlide struct {
 	ID          uint           `gorm:"primarykey" json:"id"`
 	CreatedAt   time.Time      `json:"created_at"`

@@ -37,5 +37,8 @@ func Seed(db *gorm.DB) error {
 	if err := SeedForum(); err != nil {
 		return err
 	}
-	return SeedScholarships(db)
+	if err := SeedScholarships(db); err != nil {
+		return err
+	}
+	return SeedPublicNotifications(db)
 }

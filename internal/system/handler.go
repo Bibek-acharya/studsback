@@ -391,6 +391,21 @@ func (h *Handler) ReorderCarouselSlides(c *gin.Context) {
 	response.Success(c, http.StatusOK, "Slides reordered successfully", nil)
 }
 
+func (h *Handler) GetPublicNotifications(c *gin.Context) {
+	notifications, err := h.service.GetActivePublicNotifications()
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to retrieve notifications")
+		return
+	}
+
+	responses := make([]PublicNotificationResponse, len(notifications))
+	for i, n := range notifications {
+		responses[i] = toPublicNotificationResponse(&n)
+	}
+
+	response.Success(c, http.StatusOK, "Notifications retrieved successfully", responses)
+}
+
 func toContactInquiryResponse(inquiry *ContactInquiry) ContactInquiryResponse {
 	return ContactInquiryResponse{
 		ID:        inquiry.ID,
@@ -447,5 +462,19 @@ func toCarouselSlideResponse(slide *CarouselSlide) CarouselSlideResponse {
 		Active:      slide.Active,
 		CreatedAt:   slide.CreatedAt.Format("2006-01-02T15:04:05Z"),
 		UpdatedAt:   slide.UpdatedAt.Format("2006-01-02T15:04:05Z"),
+	}
+}
+
+func toPublicNotificationResponse(n *PublicNotification) PublicNotificationResponse {
+	return PublicNotificationResponse{
+		ID:        n.ID,
+		CreatedAt: n.CreatedAt.Format("2006-01-02T15:04:05Z"),
+		Title:     n.Title,
+		Message:   n.Message,
+		Type:      n.Type,
+		Link:      n.Link,
+		Icon:      n.Icon,
+		Color:     n.Color,
+		BgColor:   n.BgColor,
 	}
 }

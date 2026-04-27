@@ -17,6 +17,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 		{
 			auth.POST("/register", h.Register)
 			auth.POST("/login", h.Login)
+			auth.POST("/logout", h.Logout)
 			auth.POST("/send-otp", h.SendOTP)
 			auth.POST("/verify-otp", h.VerifyOTP)
 			auth.POST("/reset-password", h.ResetPassword)
@@ -50,6 +51,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 		superadmin.Use(authMW, superadminOnly())
 		{
 			superadmin.GET("/pending-providers", h.ListPendingScholarshipProviders)
+			superadmin.GET("/providers", h.ListVerifiedScholarshipProviders)
 			superadmin.POST("/providers/approve", h.ApproveScholarshipProvider)
 		}
 

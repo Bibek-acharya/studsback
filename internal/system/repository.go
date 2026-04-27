@@ -236,3 +236,13 @@ func (r *Repository) ReorderCarouselSlides(items []struct {
 	}
 	return tx.Commit().Error
 }
+
+func (r *Repository) FindActivePublicNotifications() ([]PublicNotification, error) {
+	var notifications []PublicNotification
+	if err := r.db.Where("active = ?", true).
+		Order("created_at desc").
+		Find(&notifications).Error; err != nil {
+		return nil, err
+	}
+	return notifications, nil
+}
