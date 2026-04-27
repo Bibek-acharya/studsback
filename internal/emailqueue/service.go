@@ -6,9 +6,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/hibiken/asynq"
 	"studsphere/backend/internal/shared/config"
 	"studsphere/backend/internal/shared/logger"
+
+	"github.com/hibiken/asynq"
 )
 
 var (
@@ -20,14 +21,17 @@ var (
 )
 
 func InitAsynq() error {
-	redisAddr := getEnv("REDIS_ADDR", "localhost:6379")
 	RedisDB = 6
-
+	redisAddr := getEnv("REDIS_ADDR", "localhost:6379")
+	redisPass := getEnv("REDIS_PASSWORD", "")
 	RedisAddr = redisAddr
+	RedisPass = redisPass
 
 	r := &asynq.RedisClientOpt{
-		Addr: redisAddr,
-		DB:   RedisDB,
+		Addr:     redisAddr,
+		Username: "default",
+		Password: redisPass,
+		DB:       RedisDB,
 	}
 
 	Queue = asynq.NewClient(r)
