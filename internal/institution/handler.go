@@ -21,7 +21,7 @@ func NewHandler(service *Service) *Handler {
 
 func getInstID(c *gin.Context) uint {
 	userID, _ := c.Get("user_id")
-	return uint(userID.(float64))
+	return userID.(uint)
 }
 
 func (h *Handler) GetDashboard(c *gin.Context) {

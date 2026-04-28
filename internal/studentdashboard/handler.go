@@ -19,7 +19,7 @@ func NewHandler(service *Service) *Handler {
 
 func (h *Handler) GetMessages(c *gin.Context) {
 	userID, _ := c.Get("user_id")
-	id := uint(userID.(float64))
+	id := userID.(uint)
 
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
@@ -42,7 +42,7 @@ func (h *Handler) GetMessages(c *gin.Context) {
 
 func (h *Handler) GetMessageByID(c *gin.Context) {
 	userID, _ := c.Get("user_id")
-	id := uint(userID.(float64))
+	id := userID.(uint)
 	msgID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "Invalid message ID")
@@ -60,7 +60,7 @@ func (h *Handler) GetMessageByID(c *gin.Context) {
 
 func (h *Handler) CreateMessage(c *gin.Context) {
 	userID, _ := c.Get("user_id")
-	senderID := uint(userID.(float64))
+	senderID := userID.(uint)
 
 	var req MessageRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -79,7 +79,7 @@ func (h *Handler) CreateMessage(c *gin.Context) {
 
 func (h *Handler) ReplyToMessage(c *gin.Context) {
 	userID, _ := c.Get("user_id")
-	senderID := uint(userID.(float64))
+	senderID := userID.(uint)
 	msgID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "Invalid message ID")
@@ -103,7 +103,7 @@ func (h *Handler) ReplyToMessage(c *gin.Context) {
 
 func (h *Handler) GetMessageContacts(c *gin.Context) {
 	userID, _ := c.Get("user_id")
-	id := uint(userID.(float64))
+	id := userID.(uint)
 
 	contacts, err := h.service.GetMessageContacts(id)
 	if err != nil {
@@ -116,7 +116,7 @@ func (h *Handler) GetMessageContacts(c *gin.Context) {
 
 func (h *Handler) GetCalendarEvents(c *gin.Context) {
 	userID, _ := c.Get("user_id")
-	id := uint(userID.(float64))
+	id := userID.(uint)
 
 	events, err := h.service.GetCalendarEvents(id)
 	if err != nil {
@@ -129,7 +129,7 @@ func (h *Handler) GetCalendarEvents(c *gin.Context) {
 
 func (h *Handler) GetCalendarEventByID(c *gin.Context) {
 	userID, _ := c.Get("user_id")
-	id := uint(userID.(float64))
+	id := userID.(uint)
 	eventID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "Invalid event ID")
@@ -147,7 +147,7 @@ func (h *Handler) GetCalendarEventByID(c *gin.Context) {
 
 func (h *Handler) CreateCalendarEvent(c *gin.Context) {
 	userID, _ := c.Get("user_id")
-	id := uint(userID.(float64))
+	id := userID.(uint)
 
 	var req CalendarEventRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -166,7 +166,7 @@ func (h *Handler) CreateCalendarEvent(c *gin.Context) {
 
 func (h *Handler) UpdateCalendarEvent(c *gin.Context) {
 	userID, _ := c.Get("user_id")
-	id := uint(userID.(float64))
+	id := userID.(uint)
 	eventID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "Invalid event ID")
@@ -190,7 +190,7 @@ func (h *Handler) UpdateCalendarEvent(c *gin.Context) {
 
 func (h *Handler) DeleteCalendarEvent(c *gin.Context) {
 	userID, _ := c.Get("user_id")
-	id := uint(userID.(float64))
+	id := userID.(uint)
 	eventID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "Invalid event ID")
@@ -211,7 +211,7 @@ func (h *Handler) DeleteCalendarEvent(c *gin.Context) {
 
 func (h *Handler) GetInvites(c *gin.Context) {
 	userID, _ := c.Get("user_id")
-	id := uint(userID.(float64))
+	id := userID.(uint)
 
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
@@ -234,7 +234,7 @@ func (h *Handler) GetInvites(c *gin.Context) {
 
 func (h *Handler) GetInviteByID(c *gin.Context) {
 	userID, _ := c.Get("user_id")
-	id := uint(userID.(float64))
+	id := userID.(uint)
 	inviteID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "Invalid invite ID")
@@ -252,7 +252,7 @@ func (h *Handler) GetInviteByID(c *gin.Context) {
 
 func (h *Handler) AcceptInvite(c *gin.Context) {
 	userID, _ := c.Get("user_id")
-	id := uint(userID.(float64))
+	id := userID.(uint)
 	inviteID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "Invalid invite ID")
@@ -274,7 +274,7 @@ func (h *Handler) AcceptInvite(c *gin.Context) {
 
 func (h *Handler) DeclineInvite(c *gin.Context) {
 	userID, _ := c.Get("user_id")
-	id := uint(userID.(float64))
+	id := userID.(uint)
 	inviteID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "Invalid invite ID")
@@ -296,7 +296,7 @@ func (h *Handler) DeclineInvite(c *gin.Context) {
 
 func (h *Handler) SaveInvite(c *gin.Context) {
 	userID, _ := c.Get("user_id")
-	id := uint(userID.(float64))
+	id := userID.(uint)
 	inviteID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "Invalid invite ID")
@@ -314,7 +314,7 @@ func (h *Handler) SaveInvite(c *gin.Context) {
 
 func (h *Handler) GetBookmarks(c *gin.Context) {
 	userID, _ := c.Get("user_id")
-	id := uint(userID.(float64))
+	id := userID.(uint)
 
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
@@ -337,7 +337,7 @@ func (h *Handler) GetBookmarks(c *gin.Context) {
 
 func (h *Handler) CreateBookmark(c *gin.Context) {
 	userID, _ := c.Get("user_id")
-	id := uint(userID.(float64))
+	id := userID.(uint)
 
 	var req BookmarkRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -360,7 +360,7 @@ func (h *Handler) CreateBookmark(c *gin.Context) {
 
 func (h *Handler) DeleteBookmark(c *gin.Context) {
 	userID, _ := c.Get("user_id")
-	id := uint(userID.(float64))
+	id := userID.(uint)
 	bookmarkID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "Invalid bookmark ID")
@@ -381,7 +381,7 @@ func (h *Handler) DeleteBookmark(c *gin.Context) {
 
 func (h *Handler) GetBookmarksByType(c *gin.Context) {
 	userID, _ := c.Get("user_id")
-	id := uint(userID.(float64))
+	id := userID.(uint)
 	itemType := c.Param("type")
 
 	bookmarks, err := h.service.GetBookmarksByType(id, itemType)
@@ -395,7 +395,7 @@ func (h *Handler) GetBookmarksByType(c *gin.Context) {
 
 func (h *Handler) GetNotifications(c *gin.Context) {
 	userID, _ := c.Get("user_id")
-	id := uint(userID.(float64))
+	id := userID.(uint)
 
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
@@ -419,7 +419,7 @@ func (h *Handler) GetNotifications(c *gin.Context) {
 
 func (h *Handler) MarkNotificationRead(c *gin.Context) {
 	userID, _ := c.Get("user_id")
-	id := uint(userID.(float64))
+	id := userID.(uint)
 	notifID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "Invalid notification ID")
@@ -436,7 +436,7 @@ func (h *Handler) MarkNotificationRead(c *gin.Context) {
 
 func (h *Handler) MarkAllNotificationsRead(c *gin.Context) {
 	userID, _ := c.Get("user_id")
-	id := uint(userID.(float64))
+	id := userID.(uint)
 
 	if err := h.service.MarkAllNotificationsRead(id); err != nil {
 		response.Error(c, http.StatusInternalServerError, "Failed to mark notifications as read")
