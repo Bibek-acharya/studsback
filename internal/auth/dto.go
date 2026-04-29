@@ -36,9 +36,45 @@ type SavePreferencesRequest struct {
 	Preferences    map[string]interface{} `json:"preferences" binding:"required"`
 }
 
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"current_password" binding:"required"`
+	NewPassword     string `json:"new_password" binding:"required,min=6"`
+}
+
+type EducationEntryRequest struct {
+	Level            string `json:"level" binding:"required"`
+	InstitutionName  string `json:"institution_name" binding:"required"`
+	BoardUniversity  string `json:"board_university" binding:"required"`
+	Country          string `json:"country" binding:"required"`
+	Stream           string `json:"stream"`
+	StartYear        string `json:"start_year" binding:"required"`
+	EndYear          string `json:"end_year" binding:"required"`
+	GradingSystem    string `json:"grading_system"`
+	Grade            string `json:"grade"`
+}
+
+type EducationEntryResponse struct {
+	ID               uint   `json:"id"`
+	Level            string `json:"level"`
+	InstitutionName  string `json:"institution_name"`
+	BoardUniversity  string `json:"board_university"`
+	Country          string `json:"country"`
+	Stream           string `json:"stream"`
+	StartYear        string `json:"start_year"`
+	EndYear          string `json:"end_year"`
+	GradingSystem    string `json:"grading_system"`
+	Grade            string `json:"grade"`
+}
+
 type UpdateProfileRequest struct {
-	FirstName string `json:"first_name"`
-	LastName  string `json:"last_name"`
+	FirstName  string `json:"first_name"`
+	LastName   string `json:"last_name"`
+	Phone      string `json:"phone"`
+	DateOfBirth string `json:"date_of_birth"`
+	Gender     string `json:"gender"`
+	Nationality string `json:"nationality"`
+	Address    string `json:"address"`
+	Bio        string `json:"bio"`
 }
 
 type RegisterResponse struct {
@@ -56,6 +92,12 @@ type ProfileResponse struct {
 	Email       string       `json:"email"`
 	FirstName   string       `json:"first_name"`
 	LastName    string       `json:"last_name"`
+	Phone       string       `json:"phone"`
+	DateOfBirth string       `json:"date_of_birth"`
+	Gender      string       `json:"gender"`
+	Nationality string       `json:"nationality"`
+	Address     string       `json:"address"`
+	Bio         string       `json:"bio"`
 	Role        string       `json:"role"`
 	GoogleID    *string      `json:"google_id"`
 	Preferences *Preferences `json:"preferences,omitempty"`

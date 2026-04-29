@@ -434,6 +434,57 @@ func (h *Handler) MarkNotificationRead(c *gin.Context) {
 	response.Success(c, http.StatusOK, "Notification marked as read", nil)
 }
 
+func (h *Handler) GetDashboardStats(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+	id := userID.(uint)
+
+	stats, err := h.service.GetDashboardStats(id)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to retrieve dashboard stats")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Dashboard stats retrieved successfully", stats)
+}
+
+func (h *Handler) GetRecentApplications(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+	id := userID.(uint)
+
+	apps, err := h.service.GetRecentApplications(id)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to retrieve recent applications")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Recent applications retrieved successfully", gin.H{
+		"applications": apps,
+	})
+}
+
+func (h *Handler) GetMyApplications(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+	id := userID.(uint)
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+
+	apps, total, err := h.service.GetMyApplications(id, page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to retrieve applications")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Applications retrieved successfully", gin.H{
+		"applications": apps,
+		"meta": gin.H{
+			"total": total,
+			"page":  page,
+			"limit": limit,
+		},
+	})
+}
+
 func (h *Handler) MarkAllNotificationsRead(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 	id := userID.(uint)
@@ -482,6 +533,7 @@ func toCalendarEventResponse(e *CalendarEvent) CalendarEventResponse {
 		Link:        e.Link,
 		Color:       e.Color,
 		Reminder:    e.Reminder,
+		Type:        e.Type,
 	}
 }
 

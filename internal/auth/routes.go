@@ -37,6 +37,8 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 		{
 			scholarshipProviderAuth.POST("/register", h.ScholarshipProviderRegister)
 			scholarshipProviderAuth.POST("/login", h.ScholarshipProviderLogin)
+			scholarshipProviderAuth.POST("/send-otp", h.SendOTP)
+			scholarshipProviderAuth.POST("/reset-password", h.ResetPassword)
 			scholarshipProviderAuth.GET("/google", h.ScholarshipProviderGoogleLogin)
 			scholarshipProviderAuth.GET("/google/callback", h.ScholarshipProviderGoogleCallback)
 		}
@@ -60,6 +62,11 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 		{
 			protected.GET("/profile", h.GetProfile)
 			protected.PUT("/profile", h.UpdateProfile)
+			protected.PUT("/auth/change-password", h.ChangePassword)
+			protected.GET("/profile/education", h.GetEducationEntries)
+			protected.POST("/profile/education", h.CreateEducationEntry)
+			protected.PUT("/profile/education/:id", h.UpdateEducationEntry)
+			protected.DELETE("/profile/education/:id", h.DeleteEducationEntry)
 			protected.POST("/preferences", h.SavePreferences)
 		}
 	}

@@ -33,6 +33,7 @@ type CalendarEvent struct {
 	Link        string         `json:"link"`
 	Color       string         `json:"color"`
 	Reminder    bool           `gorm:"default:true" json:"reminder"`
+	Type        string         `gorm:"default:'event'" json:"type"`
 }
 
 type SphereInvite struct {

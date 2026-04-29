@@ -3,6 +3,8 @@ package studentdashboard
 import (
 	"errors"
 	"time"
+
+	"studsphere/backend/internal/auth"
 )
 
 type Service struct {
@@ -118,6 +120,7 @@ func (s *Service) CreateCalendarEvent(userID uint, req CalendarEventRequest) (*C
 		Link:        req.Link,
 		Color:       req.Color,
 		Reminder:    req.Reminder,
+		Type:        req.Type,
 	}
 
 	if err := s.repo.CreateCalendarEvent(event); err != nil {
@@ -161,6 +164,9 @@ func (s *Service) UpdateCalendarEvent(eventID, userID uint, req CalendarEventUpd
 	}
 	if req.Reminder != nil {
 		updates["reminder"] = *req.Reminder
+	}
+	if req.Type != "" {
+		updates["type"] = req.Type
 	}
 
 	if err := s.repo.UpdateCalendarEvent(event, updates); err != nil {
@@ -295,4 +301,131 @@ func (s *Service) MarkNotificationRead(notifID, userID uint) error {
 
 func (s *Service) MarkAllNotificationsRead(userID uint) error {
 	return s.repo.MarkAllNotificationsRead(userID)
+}
+
+func (s *Service) GetDashboardStats(userID uint) (*DashboardStats, error) {
+	applicationsSubmitted, err := s.repo.CountAdmissions(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	savedColleges, err := s.repo.CountSavedColleges(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	scholarshipsApplied, err := s.repo.CountScholarshipApplications(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	profileCompletion := 0
+	user, err := s.repo.GetUserByID(userID)
+	if err == nil && user != nil {
+		profileCompletion = computeProfileCompletion(user)
+	}
+
+	return &DashboardStats{
+		ApplicationsSubmitted: int(applicationsSubmitted),
+		SavedColleges:         int(savedColleges),
+		ScholarshipsApplied:   int(scholarshipsApplied),
+		ProfileCompletion:     profileCompletion,
+	}, nil
+}
+
+func computeProfileCompletion(user *auth.User) int {
+	score := 0
+	totalChecks := 10
+
+	if user.FirstName != "" {
+		score++
+	}
+	if user.LastName != "" {
+		score++
+	}
+	if user.Phone != "" {
+		score++
+	}
+	if user.DateOfBirth != "" {
+		score++
+	}
+	if user.Gender != "" {
+		score++
+	}
+	if user.Nationality != "" {
+		score++
+	}
+	if user.Address != "" {
+		score++
+	}
+	if user.Bio != "" {
+		score++
+	}
+	if user.Preferences != nil && user.Preferences.OnboardingCompleted {
+		score++
+	}
+	if user.Role != "" {
+		score++
+	}
+
+	percent := (score * 100) / totalChecks
+	if percent > 100 {
+		percent = 100
+	}
+	return percent
+}
+
+func (s *Service) GetRecentApplications(userID uint) ([]RecentApplication, error) {
+	admissions, err := s.repo.GetRecentAdmissions(userID, 5)
+	if err != nil {
+		return nil, err
+	}
+
+	apps := make([]RecentApplication, len(admissions))
+	for i, a := range admissions {
+		institution := ""
+		if a.College.Name != "" {
+			institution = a.College.Name
+		}
+		apps[i] = RecentApplication{
+			ID:          a.ID,
+			Institution: institution,
+			Program:     a.ProgramName,
+			Type:        a.ProgramLevel,
+			Status:      a.Status,
+			UpdatedAt:   a.UpdatedAt.Format(time.RFC3339),
+		}
+	}
+	return apps, nil
+}
+
+func (s *Service) GetMyApplications(userID uint, page, limit int) ([]MyApplication, int64, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50 {
+		limit = 20
+	}
+
+	admissions, total, err := s.repo.GetUserAdmissions(userID, page, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	apps := make([]MyApplication, len(admissions))
+	for i, a := range admissions {
+		institution := ""
+		if a.College.Name != "" {
+			institution = a.College.Name
+		}
+		apps[i] = MyApplication{
+			ID:          a.ID,
+			Institution: institution,
+			Program:     a.ProgramName,
+			Type:        a.ProgramLevel,
+			Status:      a.Status,
+			AppliedDate: a.CreatedAt.Format(time.RFC3339),
+		}
+	}
+	return apps, total, nil
 }

@@ -1,6 +1,9 @@
 package scholarship
 
 import (
+	"fmt"
+	"time"
+
 	"gorm.io/gorm"
 )
 
@@ -53,10 +56,18 @@ func (r *Repository) FindAll(search, typeFilter, locationFilter, levelFilter, so
 	return scholarships, err
 }
 
-func (r *Repository) FindAllUnfiltered() ([]Scholarship, error) {
-	var scholarships []Scholarship
-	err := r.db.Model(&Scholarship{}).Find(&scholarships).Error
-	return scholarships, err
+type scholarshipCategoryRow struct {
+	ScholarshipType string
+	FundingType     string
+	Deadline        time.Time
+}
+
+func (r *Repository) FindAllCategoryRows() ([]scholarshipCategoryRow, error) {
+	var rows []scholarshipCategoryRow
+	err := r.db.Model(&Scholarship{}).
+		Select("scholarship_type", "funding_type", "deadline").
+		Find(&rows).Error
+	return rows, err
 }
 
 func (r *Repository) FindAllAdmin() ([]Scholarship, error) {
@@ -168,4 +179,76 @@ func (r *Repository) ApplicationExists(scholarshipID uint, userID uint) bool {
 	var count int64
 	r.db.Model(&ScholarshipApplication{}).Where("scholarship_id = ? AND user_id = ?", scholarshipID, userID).Count(&count)
 	return count > 0
+}
+
+func (r *Repository) CreateProviderApplication(providerScholarshipID uint, app *ScholarshipApplication) error {
+	nameParts := splitFullName(app.FullName)
+	now := time.Now()
+	return r.db.Table("provider_applications").Create(map[string]interface{}{
+		"scholarship_id":      providerScholarshipID,
+		"user_id":             app.UserID,
+		"first_name":          nameParts[0],
+		"last_name":           nameParts[1],
+		"email":               app.Email,
+		"phone_number":        app.PhoneNumber,
+		"status":              "pending",
+		"gender":              app.Gender,
+		"gpa":                 parseGPA(app.SEEGPA),
+		"stream":              app.Stream,
+		"exam_center":         app.ExamCenter,
+		"personal_statement":  "",
+		"documents":           app.Documents,
+		"created_at":          now,
+		"updated_at":          now,
+	}).Error
+}
+
+func splitFullName(fullName string) [2]string {
+	parts := splitAndTrim(fullName)
+	if len(parts) == 0 {
+		return [2]string{"", ""}
+	}
+	if len(parts) == 1 {
+		return [2]string{parts[0], parts[0]}
+	}
+	return [2]string{parts[0], joinRest(parts[1:])}
+}
+
+func splitAndTrim(s string) []string {
+	var result []string
+	current := ""
+	for _, r := range s {
+		if r == ' ' {
+			if current != "" {
+				result = append(result, current)
+				current = ""
+			}
+		} else {
+			current += string(r)
+		}
+	}
+	if current != "" {
+		result = append(result, current)
+	}
+	return result
+}
+
+func joinRest(parts []string) string {
+	result := ""
+	for i, p := range parts {
+		if i > 0 {
+			result += " "
+		}
+		result += p
+	}
+	return result
+}
+
+func parseGPA(gpa string) float64 {
+	if gpa == "" {
+		return 0
+	}
+	var f float64
+	_, _ = fmt.Sscanf(gpa, "%f", &f)
+	return f
 }

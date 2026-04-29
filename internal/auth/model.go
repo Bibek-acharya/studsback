@@ -24,6 +24,12 @@ type User struct {
 	Password    *string        `json:"-"`
 	FirstName   string         `gorm:"not null" json:"first_name" binding:"required"`
 	LastName    string         `gorm:"not null" json:"last_name" binding:"required"`
+	Phone       string         `gorm:"default:''" json:"phone"`
+	DateOfBirth string         `gorm:"default:''" json:"date_of_birth"`
+	Gender      string         `gorm:"default:''" json:"gender"`
+	Nationality string         `gorm:"default:''" json:"nationality"`
+	Address     string         `gorm:"type:text;default:''" json:"address"`
+	Bio         string         `gorm:"type:text;default:''" json:"bio"`
 	GoogleID    *string        `gorm:"uniqueIndex;default:null" json:"google_id"`
 	Role        string         `gorm:"default:'student'" json:"role"`
 	Preferences *Preferences   `gorm:"type:jsonb;serializer:json;default:'null'" json:"preferences,omitempty"`
@@ -108,4 +114,21 @@ func (u *ScholarshipProviderUser) CheckPassword(password string) error {
 		return bcrypt.ErrMismatchedHashAndPassword
 	}
 	return bcrypt.CompareHashAndPassword([]byte(*u.Password), []byte(password))
+}
+
+type EducationEntry struct {
+	ID               uint           `gorm:"primarykey" json:"id"`
+	CreatedAt        time.Time      `json:"created_at"`
+	UpdatedAt        time.Time      `json:"updated_at"`
+	DeletedAt        gorm.DeletedAt `gorm:"index" json:"-"`
+	UserID           uint           `gorm:"index;not null" json:"user_id"`
+	Level            string         `json:"level"`
+	InstitutionName  string         `json:"institution_name"`
+	BoardUniversity  string         `json:"board_university"`
+	Country          string         `json:"country"`
+	Stream           string         `json:"stream"`
+	StartYear        string         `json:"start_year"`
+	EndYear          string         `json:"end_year"`
+	GradingSystem    string         `json:"grading_system"`
+	Grade            string         `json:"grade"`
 }

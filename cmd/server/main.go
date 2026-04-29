@@ -17,6 +17,7 @@ import (
 	"studsphere/backend/internal/forum"
 	"studsphere/backend/internal/institution"
 	"studsphere/backend/internal/projectshiksha"
+	"studsphere/backend/internal/review"
 	"studsphere/backend/internal/scholarship"
 	"studsphere/backend/internal/scholarshipprovider"
 	"studsphere/backend/internal/search"
@@ -56,6 +57,7 @@ func main() {
 		&auth.User{},
 		&auth.InstitutionUser{},
 		&auth.ScholarshipProviderUser{},
+		&auth.EducationEntry{},
 		&university.University{},
 		&college.College{},
 		&counselling.CounsellingBooking{},
@@ -103,6 +105,9 @@ func main() {
 		&institution.InstitutionQMS{},
 		&institution.InstitutionMessage{},
 		&institution.InstitutionSettings{},
+		&review.Review{},
+		&review.ReviewHelpful{},
+		&review.ReviewReport{},
 		&projectshiksha.ShikshaApplication{},
 		&projectshiksha.ShikshaPayment{},
 		&system.ContactInquiry{},
@@ -159,6 +164,7 @@ func main() {
 	forumHandler := initModule(forum.NewRepository(db), forum.NewService, forum.NewHandler)
 	institutionHandler := initModule(institution.NewRepository(db), institution.NewService, institution.NewHandler)
 	projectShikshaHandler := initModule(projectshiksha.NewRepository(db), projectshiksha.NewService, projectshiksha.NewHandler)
+	reviewHandler := initModule(review.NewRepository(db), review.NewService, review.NewHandler)
 	scholarshipHandler := initModule(scholarship.NewRepository(db), scholarship.NewService, scholarship.NewHandler)
 	scholarshipPHandler := initModule(scholarshipprovider.NewRepository(db), scholarshipprovider.NewService, scholarshipprovider.NewHandler)
 	studentDashHandler := initModule(studentdashboard.NewRepository(db), studentdashboard.NewService, studentdashboard.NewHandler)
@@ -195,6 +201,7 @@ func main() {
 	forum.RegisterRoutes(router, authMW, roleMW, forumHandler)
 	institution.RegisterRoutes(router, authMW, roleMW, institutionHandler)
 	projectshiksha.RegisterRoutes(router, authMW, roleMW, projectShikshaHandler)
+	review.RegisterRoutes(router, authMW, roleMW, reviewHandler)
 	scholarship.RegisterRoutes(router, authMW, roleMW, scholarshipHandler)
 	scholarshipprovider.RegisterRoutes(router, authMW, roleMW, scholarshipPHandler)
 	studentdashboard.RegisterRoutes(router, authMW, roleMW, studentDashHandler)

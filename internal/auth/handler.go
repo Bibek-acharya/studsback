@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 
 	"studsphere/backend/internal/shared/config"
 	"studsphere/backend/internal/shared/middleware"
@@ -570,6 +571,109 @@ func (h *Handler) ApproveScholarshipProvider(c *gin.Context) {
 	default:
 		response.Error(c, 400, "Invalid action. Use 'approved' or 'rejected'.")
 	}
+}
+
+func (h *Handler) ChangePassword(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+	id := userID.(uint)
+
+	var req ChangePasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err := h.service.ChangePassword(id, req.CurrentPassword, req.NewPassword); err != nil {
+		if err.Error() == "invalid credentials" {
+			response.Error(c, http.StatusUnauthorized, "Current password is incorrect")
+			return
+		}
+		response.Error(c, http.StatusInternalServerError, "Failed to change password")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Password changed successfully", nil)
+}
+
+func (h *Handler) GetEducationEntries(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+	id := userID.(uint)
+
+	entries, err := h.service.GetEducationEntries(id)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to retrieve education entries")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Education entries retrieved successfully", entries)
+}
+
+func (h *Handler) CreateEducationEntry(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+	id := userID.(uint)
+
+	var req EducationEntryRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	entry, err := h.service.CreateEducationEntry(id, req)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to create education entry")
+		return
+	}
+
+	response.Success(c, http.StatusCreated, "Education entry created successfully", entry)
+}
+
+func (h *Handler) UpdateEducationEntry(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+	id := userID.(uint)
+	entryID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid education entry ID")
+		return
+	}
+
+	var req EducationEntryRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	entry, err := h.service.UpdateEducationEntry(uint(entryID), id, req)
+	if err != nil {
+		if err.Error() == "not found" {
+			response.Error(c, http.StatusNotFound, "Education entry not found")
+			return
+		}
+		response.Error(c, http.StatusInternalServerError, "Failed to update education entry")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Education entry updated successfully", entry)
+}
+
+func (h *Handler) DeleteEducationEntry(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+	id := userID.(uint)
+	entryID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid education entry ID")
+		return
+	}
+
+	if err := h.service.DeleteEducationEntry(uint(entryID), id); err != nil {
+		if err.Error() == "not found" {
+			response.Error(c, http.StatusNotFound, "Education entry not found")
+			return
+		}
+		response.Error(c, http.StatusInternalServerError, "Failed to delete education entry")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Education entry deleted successfully", nil)
 }
 
 func (h *Handler) Logout(c *gin.Context) {

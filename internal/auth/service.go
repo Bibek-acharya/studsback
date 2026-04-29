@@ -16,10 +16,22 @@ func NewService(repo *Repository) *Service {
 	return &Service{repo: repo}
 }
 
-func (s *Service) Register(req RegisterRequest) (*RegisterResponse, error) {
-	_, err := s.repo.FindUserByEmail(req.Email)
+func (s *Service) emailExistsAcrossTypes(email string) bool {
+	_, err := s.repo.FindUserByEmail(email)
 	if err == nil {
-		return nil, errors.New("User with this email already exists")
+		return true
+	}
+	_, err = s.repo.FindInstitutionUserByEmail(email)
+	if err == nil {
+		return true
+	}
+	_, err = s.repo.FindScholarshipProviderUserByEmail(email)
+	return err == nil
+}
+
+func (s *Service) Register(req RegisterRequest) (*RegisterResponse, error) {
+	if s.emailExistsAcrossTypes(req.Email) {
+		return nil, errors.New("An account with this email already exists")
 	}
 
 	user := User{
@@ -90,15 +102,10 @@ func (s *Service) SendOTP(email string, otpType string) error {
 		otpType = "verification"
 	}
 
-	// For password_reset, we must verify the email exists
 	if otpType == "password_reset" {
-		userExists := true
-		_, err := s.repo.FindUserByEmail(email)
-		if err != nil {
-			userExists = false
-		}
-
-		if !userExists {
+		_, userErr := s.repo.FindUserByEmail(email)
+		_, providerErr := s.repo.FindScholarshipProviderUserByEmail(email)
+		if userErr != nil && providerErr != nil {
 			return errors.New("No account found with this email address")
 		}
 	}
@@ -137,6 +144,9 @@ func (s *Service) VerifyOTP(email, otp string) (*LoginResponse, error) {
 	}
 
 	if providerUser, ok := data.(ScholarshipProviderUser); ok {
+		if s.emailExistsAcrossTypes(providerUser.Email) {
+			return nil, errors.New("An account with this email already exists")
+		}
 		if err := s.repo.CreateScholarshipProviderUser(&providerUser); err != nil {
 			return nil, errors.New("Failed to create scholarship provider account")
 		}
@@ -150,6 +160,10 @@ func (s *Service) VerifyOTP(email, otp string) (*LoginResponse, error) {
 	user, ok := data.(User)
 	if !ok {
 		return nil, errors.New("Failed to recover user data")
+	}
+
+	if s.emailExistsAcrossTypes(user.Email) {
+		return nil, errors.New("An account with this email already exists")
 	}
 
 	if err := s.repo.CreateUser(&user); err != nil {
@@ -170,6 +184,12 @@ func (s *Service) VerifyOTP(email, otp string) (*LoginResponse, error) {
 func (s *Service) GoogleLoginOrRegister(googleID, email, givenName, familyName string) (string, error) {
 	user, err := s.repo.FindUserByEmail(email)
 	if err != nil {
+		_, instErr := s.repo.FindInstitutionUserByEmail(email)
+		_, provErr := s.repo.FindScholarshipProviderUserByEmail(email)
+		if instErr == nil || provErr == nil {
+			return "", errors.New("An account with this email already exists using a different login method")
+		}
+
 		user = &User{
 			Email:     email,
 			FirstName: givenName,
@@ -206,6 +226,12 @@ func (s *Service) GetProfile(userID uint) (*ProfileResponse, error) {
 		Email:       user.Email,
 		FirstName:   user.FirstName,
 		LastName:    user.LastName,
+		Phone:       user.Phone,
+		DateOfBirth: user.DateOfBirth,
+		Gender:      user.Gender,
+		Nationality: user.Nationality,
+		Address:     user.Address,
+		Bio:         user.Bio,
 		Role:        user.Role,
 		GoogleID:    user.GoogleID,
 		Preferences: user.Preferences,
@@ -224,6 +250,24 @@ func (s *Service) UpdateProfile(userID uint, req UpdateProfileRequest) (*Profile
 	if req.LastName != "" {
 		user.LastName = req.LastName
 	}
+	if req.Phone != "" {
+		user.Phone = req.Phone
+	}
+	if req.DateOfBirth != "" {
+		user.DateOfBirth = req.DateOfBirth
+	}
+	if req.Gender != "" {
+		user.Gender = req.Gender
+	}
+	if req.Nationality != "" {
+		user.Nationality = req.Nationality
+	}
+	if req.Address != "" {
+		user.Address = req.Address
+	}
+	if req.Bio != "" {
+		user.Bio = req.Bio
+	}
 
 	if err := s.repo.SaveUser(user); err != nil {
 		return nil, errors.New("Failed to update profile")
@@ -234,6 +278,12 @@ func (s *Service) UpdateProfile(userID uint, req UpdateProfileRequest) (*Profile
 		Email:       user.Email,
 		FirstName:   user.FirstName,
 		LastName:    user.LastName,
+		Phone:       user.Phone,
+		DateOfBirth: user.DateOfBirth,
+		Gender:      user.Gender,
+		Nationality: user.Nationality,
+		Address:     user.Address,
+		Bio:         user.Bio,
 		Role:        user.Role,
 		GoogleID:    user.GoogleID,
 		Preferences: user.Preferences,
@@ -270,12 +320,11 @@ func (s *Service) SavePreferences(userID uint, req SavePreferencesRequest) (*Pre
 }
 
 func (s *Service) InstitutionRegister(req InstitutionRegisterRequest) (*LoginResponse, error) {
-	_, err := s.repo.FindInstitutionUserByEmail(req.Email)
-	if err == nil {
-		return nil, errors.New("Institution account with this email already exists")
+	if s.emailExistsAcrossTypes(req.Email) {
+		return nil, errors.New("An account with this email already exists")
 	}
 
-	_, err = s.repo.FindInstitutionUserByRegistrationNumber(req.RegistrationNumber)
+	_, err := s.repo.FindInstitutionUserByRegistrationNumber(req.RegistrationNumber)
 	if err == nil {
 		return nil, errors.New("Institution with this registration number already exists")
 	}
@@ -328,6 +377,15 @@ func (s *Service) InstitutionLogin(req InstitutionLoginRequest) (*LoginResponse,
 }
 
 func (s *Service) InstitutionGoogleLoginOrRegister(googleID, email, name string) (*InstitutionUser, string, error) {
+	_, err := s.repo.FindInstitutionUserByEmailOrGoogleID(email, googleID)
+	if err != nil {
+		_, userErr := s.repo.FindUserByEmail(email)
+		_, provErr := s.repo.FindScholarshipProviderUserByEmail(email)
+		if userErr == nil || provErr == nil {
+			return nil, "", errors.New("An account with this email already exists using a different login method")
+		}
+	}
+
 	instUser, err := s.repo.FindInstitutionUserByEmailOrGoogleID(email, googleID)
 	if err != nil {
 		instUser = &InstitutionUser{
@@ -356,12 +414,11 @@ func (s *Service) InstitutionGoogleLoginOrRegister(googleID, email, name string)
 }
 
 func (s *Service) ScholarshipProviderRegister(req ScholarshipProviderRegisterRequest) (*RegisterResponse, error) {
-	_, err := s.repo.FindScholarshipProviderUserByEmail(req.Email)
-	if err == nil {
-		return nil, errors.New("Scholarship provider account with this email already exists")
+	if s.emailExistsAcrossTypes(req.Email) {
+		return nil, errors.New("An account with this email already exists")
 	}
 
-	_, err = s.repo.FindScholarshipProviderUserByRegistrationNumber(req.RegistrationNumber)
+	_, err := s.repo.FindScholarshipProviderUserByRegistrationNumber(req.RegistrationNumber)
 	if err == nil {
 		return nil, errors.New("Scholarship provider with this registration number already exists")
 	}
@@ -477,6 +534,15 @@ func (s *Service) ScholarshipProviderLogin(req ScholarshipProviderLoginRequest) 
 }
 
 func (s *Service) ScholarshipProviderGoogleLoginOrRegister(googleID, email, name string) (*ScholarshipProviderUser, string, error) {
+	_, err := s.repo.FindScholarshipProviderUserByEmailOrGoogleID(email, googleID)
+	if err != nil {
+		_, userErr := s.repo.FindUserByEmail(email)
+		_, instErr := s.repo.FindInstitutionUserByEmail(email)
+		if userErr == nil || instErr == nil {
+			return nil, "", errors.New("An account with this email already exists using a different login method")
+		}
+	}
+
 	providerUser, err := s.repo.FindScholarshipProviderUserByEmailOrGoogleID(email, googleID)
 	if err != nil {
 		providerUser = &ScholarshipProviderUser{
@@ -566,6 +632,117 @@ func (s *Service) SuperadminLogin(req SuperadminLoginRequest) (*LoginResponse, e
 	}, nil
 }
 
+func (s *Service) ChangePassword(userID uint, currentPassword, newPassword string) error {
+	user, err := s.repo.FindUserByID(userID)
+	if err != nil {
+		return errors.New("User not found")
+	}
+
+	if user.CheckPassword(currentPassword) != nil {
+		return errors.New("invalid credentials")
+	}
+
+	if err := user.HashPassword(newPassword); err != nil {
+		return errors.New("Failed to hash password")
+	}
+
+	return s.repo.SaveUser(user)
+}
+
+func (s *Service) GetEducationEntries(userID uint) ([]EducationEntryResponse, error) {
+	entries, err := s.repo.FindEducationEntriesByUserID(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	responses := make([]EducationEntryResponse, len(entries))
+	for i, e := range entries {
+		responses[i] = EducationEntryResponse{
+			ID:              e.ID,
+			Level:           e.Level,
+			InstitutionName: e.InstitutionName,
+			BoardUniversity: e.BoardUniversity,
+			Country:         e.Country,
+			Stream:          e.Stream,
+			StartYear:       e.StartYear,
+			EndYear:         e.EndYear,
+			GradingSystem:   e.GradingSystem,
+			Grade:           e.Grade,
+		}
+	}
+	return responses, nil
+}
+
+func (s *Service) CreateEducationEntry(userID uint, req EducationEntryRequest) (*EducationEntryResponse, error) {
+	entry := &EducationEntry{
+		UserID:          userID,
+		Level:           req.Level,
+		InstitutionName: req.InstitutionName,
+		BoardUniversity: req.BoardUniversity,
+		Country:         req.Country,
+		Stream:          req.Stream,
+		StartYear:       req.StartYear,
+		EndYear:         req.EndYear,
+		GradingSystem:   req.GradingSystem,
+		Grade:           req.Grade,
+	}
+
+	if err := s.repo.CreateEducationEntry(entry); err != nil {
+		return nil, err
+	}
+
+	return &EducationEntryResponse{
+		ID:              entry.ID,
+		Level:           entry.Level,
+		InstitutionName: entry.InstitutionName,
+		BoardUniversity: entry.BoardUniversity,
+		Country:         entry.Country,
+		Stream:          entry.Stream,
+		StartYear:       entry.StartYear,
+		EndYear:         entry.EndYear,
+		GradingSystem:   entry.GradingSystem,
+		Grade:           entry.Grade,
+	}, nil
+}
+
+func (s *Service) UpdateEducationEntry(entryID, userID uint, req EducationEntryRequest) (*EducationEntryResponse, error) {
+	entry, err := s.repo.FindEducationEntryByID(entryID, userID)
+	if err != nil {
+		return nil, errors.New("not found")
+	}
+
+	entry.Level = req.Level
+	entry.InstitutionName = req.InstitutionName
+	entry.BoardUniversity = req.BoardUniversity
+	entry.Country = req.Country
+	entry.Stream = req.Stream
+	entry.StartYear = req.StartYear
+	entry.EndYear = req.EndYear
+	entry.GradingSystem = req.GradingSystem
+	entry.Grade = req.Grade
+
+	if err := s.repo.SaveEducationEntry(entry); err != nil {
+		return nil, err
+	}
+
+	return &EducationEntryResponse{
+		ID:              entry.ID,
+		Level:           entry.Level,
+		InstitutionName: entry.InstitutionName,
+		BoardUniversity: entry.BoardUniversity,
+		Country:         entry.Country,
+		Stream:          entry.Stream,
+		StartYear:       entry.StartYear,
+		EndYear:         entry.EndYear,
+		GradingSystem:   entry.GradingSystem,
+		Grade:           entry.Grade,
+	}, nil
+}
+
+func (s *Service) DeleteEducationEntry(entryID, userID uint) error {
+	return s.repo.DeleteEducationEntry(entryID, userID)
+}
+
 func (s *Service) ResetPassword(email, otp, newPassword string) error {
 	valid, otpType, _ := utils.VerifyOTP(email, otp)
 	if !valid {
@@ -576,14 +753,22 @@ func (s *Service) ResetPassword(email, otp, newPassword string) error {
 		return errors.New("Invalid OTP type")
 	}
 
-	user, err := s.repo.FindUserByEmail(email)
-	if err != nil {
+	user, userErr := s.repo.FindUserByEmail(email)
+	if userErr == nil {
+		if err := user.HashPassword(newPassword); err != nil {
+			return errors.New("Failed to hash password")
+		}
+		return s.repo.SaveUser(user)
+	}
+
+	providerUser, providerErr := s.repo.FindScholarshipProviderUserByEmail(email)
+	if providerErr != nil {
 		return errors.New("User not found")
 	}
 
-	if err := user.HashPassword(newPassword); err != nil {
+	if err := providerUser.HashPassword(newPassword); err != nil {
 		return errors.New("Failed to hash password")
 	}
 
-	return s.repo.SaveUser(user)
+	return s.repo.UpdateScholarshipProviderUser(providerUser)
 }

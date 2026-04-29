@@ -31,6 +31,38 @@ type ContactResponse struct {
 	Unread      int    `json:"unread"`
 }
 
+type DashboardStats struct {
+	ApplicationsSubmitted int `json:"applications_submitted"`
+	SavedColleges         int `json:"saved_colleges"`
+	ScholarshipsApplied   int `json:"scholarships_applied"`
+	ProfileCompletion     int `json:"profile_completion"`
+}
+
+type RecentApplication struct {
+	ID          uint   `json:"id"`
+	Institution string `json:"institution"`
+	Program     string `json:"program"`
+	Type        string `json:"type"`
+	Status      string `json:"status"`
+	UpdatedAt   string `json:"updated_at"`
+}
+
+type MyApplication struct {
+	ID          uint   `json:"id"`
+	Institution string `json:"institution"`
+	Program     string `json:"program"`
+	Type        string `json:"type"`
+	Status      string `json:"status"`
+	AppliedDate string `json:"applied_date"`
+	Deadline    string `json:"deadline"`
+	Location    string `json:"location"`
+}
+
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"current_password" binding:"required"`
+	NewPassword     string `json:"new_password" binding:"required,min=6"`
+}
+
 type CalendarEventRequest struct {
 	Title       string `json:"title" binding:"required"`
 	Description string `json:"description"`
@@ -40,6 +72,7 @@ type CalendarEventRequest struct {
 	Link        string `json:"link"`
 	Color       string `json:"color"`
 	Reminder    bool   `json:"reminder"`
+	Type        string `json:"type"`
 }
 
 type CalendarEventUpdateRequest struct {
@@ -51,6 +84,7 @@ type CalendarEventUpdateRequest struct {
 	Link        string `json:"link"`
 	Color       string `json:"color"`
 	Reminder    *bool  `json:"reminder"`
+	Type        string `json:"type"`
 }
 
 type CalendarEventResponse struct {
@@ -66,6 +100,7 @@ type CalendarEventResponse struct {
 	Link        string    `json:"link"`
 	Color       string    `json:"color"`
 	Reminder    bool      `json:"reminder"`
+	Type        string    `json:"type"`
 }
 
 type BookmarkRequest struct {

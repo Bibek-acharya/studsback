@@ -381,34 +381,57 @@ func toScholarshipSummary(s Scholarship) ScholarshipSummary {
 }
 
 func toApplicationResponse(a ScholarshipApplication) ScholarshipApplicationResponse {
-	resp := ScholarshipApplicationResponse{
-		ID:                  a.ID,
-		CreatedAt:           a.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:           a.UpdatedAt.Format(time.RFC3339),
-		ScholarshipID:       a.ScholarshipID,
-		UserID:              a.UserID,
-		NationalID:          a.NationalID,
-		FirstName:           a.FirstName,
-		LastName:            a.LastName,
-		DateOfBirth:         a.DateOfBirth.Format("2006-01-02"),
-		Gender:              a.Gender,
-		StreetAddress:       a.StreetAddress,
-		City:                a.City,
-		PostCode:            a.PostCode,
-		Country:             a.Country,
-		PhoneCode:           a.PhoneCode,
-		PhoneNumber:         a.PhoneNumber,
-		Email:               a.Email,
-		LatestInstitution:   a.LatestInstitution,
-		LevelCompleted:      a.LevelCompleted,
-		GPAPercentage:       a.GPAPercentage,
-		AnnualFamilyIncome:  a.AnnualFamilyIncome,
-		PrimaryIncomeSource: a.PrimaryIncomeSource,
-		PersonalStatement:   a.PersonalStatement,
-		Status:              a.Status,
+	dobAD := ""
+	if !a.DateOfBirthAD.IsZero() {
+		dobAD = a.DateOfBirthAD.Format("2006-01-02")
 	}
 
-	resp.SpecialCircumstances = parseStringArray(a.SpecialCircumstances)
+	resp := ScholarshipApplicationResponse{
+		ID:                   a.ID,
+		CreatedAt:            a.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:            a.UpdatedAt.Format(time.RFC3339),
+		ScholarshipID:        a.ScholarshipID,
+		UserID:               a.UserID,
+		FullName:             a.FullName,
+		Gender:               a.Gender,
+		Ethnicity:            a.Ethnicity,
+		EthnicityOther:       a.EthnicityOther,
+		DateOfBirthBS:        a.DateOfBirthBS,
+		DateOfBirthAD:        dobAD,
+		Age:                  a.Age,
+		PhoneNumber:          a.PhoneNumber,
+		Email:                a.Email,
+		PhotoURL:             a.PhotoURL,
+		SEEGPA:               a.SEEGPA,
+		SchoolType:           a.SchoolType,
+		SchoolName:           a.SchoolName,
+		SchoolProvince:       a.SchoolProvince,
+		SchoolDistrict:       a.SchoolDistrict,
+		SchoolMunicipality:   a.SchoolMunicipality,
+		SchoolTole:           a.SchoolTole,
+		PermanentProvince:    a.PermanentProvince,
+		PermanentDistrict:    a.PermanentDistrict,
+		PermanentMunicipality: a.PermanentMunicipality,
+		PermanentWard:        a.PermanentWard,
+		PermanentTole:        a.PermanentTole,
+		TemporaryProvince:    a.TemporaryProvince,
+		TemporaryDistrict:    a.TemporaryDistrict,
+		TemporaryMunicipality: a.TemporaryMunicipality,
+		TemporaryWard:        a.TemporaryWard,
+		TemporaryTole:        a.TemporaryTole,
+		GuardianName:         a.GuardianName,
+		GuardianPhone:        a.GuardianPhone,
+		GuardianEmail:        a.GuardianEmail,
+		FatherOccupation:     a.FatherOccupation,
+		FatherOccupationOther: a.FatherOccupationOther,
+		MotherOccupation:     a.MotherOccupation,
+		MotherOccupationOther: a.MotherOccupationOther,
+		FamilyMonthlyIncome:  a.FamilyMonthlyIncome,
+		FamilyMembersCount:   a.FamilyMembersCount,
+		Stream:               a.Stream,
+		ExamCenter:           a.ExamCenter,
+		Status:               a.Status,
+	}
 
 	if a.Scholarship.ID != 0 {
 		resp.Scholarship = &ScholarshipSummary{
@@ -531,6 +554,16 @@ func mapScholarshipToCategoryID(s Scholarship) string {
 		return id
 	}
 	if id := normalizeCategoryID(s.FundingType); id != "" {
+		return id
+	}
+	return ""
+}
+
+func mapFieldsToCategoryID(scholarshipType, fundingType string) string {
+	if id := normalizeCategoryID(scholarshipType); id != "" {
+		return id
+	}
+	if id := normalizeCategoryID(fundingType); id != "" {
 		return id
 	}
 	return ""

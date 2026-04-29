@@ -74,8 +74,14 @@ func (r *Repository) CreateScholarship(scholarship *ProviderScholarship) error {
 	return r.db.Create(scholarship).Error
 }
 
-func (r *Repository) CreatePublicScholarship(s *scholarship.Scholarship) error {
+func (r *Repository) CreatePublicScholarship(s *scholarship.Scholarship, providerScholarshipID uint) error {
+	s.ProviderScholarshipID = &providerScholarshipID
 	return r.db.Create(s).Error
+}
+
+func (r *Repository) UpdatePublicScholarshipProviderID(publicID, providerScholarshipID uint) error {
+	return r.db.Model(&scholarship.Scholarship{}).Where("id = ?", publicID).
+		Update("provider_scholarship_id", providerScholarshipID).Error
 }
 
 func (r *Repository) FindPublicScholarship(title, provider string) (*scholarship.Scholarship, error) {

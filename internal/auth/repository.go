@@ -1,6 +1,8 @@
 package auth
 
 import (
+	"errors"
+
 	"gorm.io/gorm"
 )
 
@@ -133,4 +135,35 @@ func (r *Repository) FindScholarshipProvidersByStatus(status string) ([]Scholars
 
 func (r *Repository) UpdateScholarshipProviderUser(user *ScholarshipProviderUser) error {
 	return r.db.Save(user).Error
+}
+
+func (r *Repository) FindEducationEntriesByUserID(userID uint) ([]EducationEntry, error) {
+	var entries []EducationEntry
+	result := r.db.Where("user_id = ?", userID).Order("created_at desc").Find(&entries)
+	return entries, result.Error
+}
+
+func (r *Repository) FindEducationEntryByID(id, userID uint) (*EducationEntry, error) {
+	var entry EducationEntry
+	result := r.db.Where("id = ? AND user_id = ?", id, userID).First(&entry)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return &entry, nil
+}
+
+func (r *Repository) CreateEducationEntry(entry *EducationEntry) error {
+	return r.db.Create(entry).Error
+}
+
+func (r *Repository) SaveEducationEntry(entry *EducationEntry) error {
+	return r.db.Save(entry).Error
+}
+
+func (r *Repository) DeleteEducationEntry(id, userID uint) error {
+	result := r.db.Where("id = ? AND user_id = ?", id, userID).Delete(&EducationEntry{})
+	if result.RowsAffected == 0 {
+		return errors.New("not found")
+	}
+	return result.Error
 }

@@ -30,39 +30,67 @@ type Scholarship struct {
 	Timeline            []byte         `gorm:"type:jsonb" json:"timeline"`
 	Benefits            []byte         `gorm:"type:jsonb" json:"benefits"`
 	FAQs                []byte           `gorm:"type:jsonb" json:"faqs"`
-	Embedding           *pgvector.Vector  `gorm:"type:vector(1536)" json:"-"`
+	ProviderScholarshipID *uint           `gorm:"index" json:"-"`
+	Embedding              *pgvector.Vector `gorm:"type:vector(1536)" json:"-"`
 }
 
 type ScholarshipApplication struct {
-	ID                   uint           `gorm:"primarykey" json:"id"`
-	CreatedAt            time.Time      `json:"created_at"`
-	UpdatedAt            time.Time      `json:"updated_at"`
-	DeletedAt            gorm.DeletedAt `gorm:"index" json:"-"`
-	ScholarshipID        uint           `gorm:"index" json:"scholarship_id"`
-	Scholarship          Scholarship    `gorm:"foreignKey:ScholarshipID" json:"scholarship,omitempty"`
-	UserID               uint           `gorm:"index" json:"user_id"`
-	User                 User           `gorm:"foreignKey:UserID" json:"user,omitempty"`
-	NationalID           string         `json:"national_id"`
-	FirstName            string         `json:"first_name"`
-	LastName             string         `json:"last_name"`
-	DateOfBirth          time.Time      `json:"date_of_birth"`
-	Gender               string         `json:"gender"`
-	StreetAddress        string         `json:"street_address"`
-	City                 string         `json:"city"`
-	PostCode             string         `json:"post_code"`
-	Country              string         `json:"country"`
-	PhoneCode            string         `json:"phone_code"`
-	PhoneNumber          string         `json:"phone_number"`
-	Email                string         `json:"email"`
-	LatestInstitution    string         `json:"latest_institution"`
-	LevelCompleted       string         `json:"level_completed"`
-	GPAPercentage        string         `json:"gpa_percentage"`
-	AnnualFamilyIncome   string         `json:"annual_family_income"`
-	PrimaryIncomeSource  string         `json:"primary_income_source"`
-	SpecialCircumstances []byte         `gorm:"type:jsonb" json:"special_circumstances"`
-	PersonalStatement    string         `gorm:"type:text" json:"personal_statement"`
-	Documents            []byte         `gorm:"type:jsonb" json:"documents"`
-	Status               string         `gorm:"default:'pending'" json:"status"`
+	ID              uint           `gorm:"primarykey" json:"id"`
+	CreatedAt       time.Time      `json:"created_at"`
+	UpdatedAt       time.Time      `json:"updated_at"`
+	DeletedAt       gorm.DeletedAt `gorm:"index" json:"-"`
+	ScholarshipID   uint           `gorm:"index" json:"scholarship_id"`
+	Scholarship     Scholarship    `gorm:"foreignKey:ScholarshipID" json:"scholarship,omitempty"`
+	UserID          uint           `gorm:"index" json:"user_id"`
+	User            User           `gorm:"foreignKey:UserID" json:"user,omitempty"`
+
+	FullName        string    `gorm:"not null" json:"full_name"`
+	Gender          string    `gorm:"not null" json:"gender"`
+	Ethnicity       string    `json:"ethnicity"`
+	EthnicityOther  string    `json:"ethnicity_other"`
+	DateOfBirthBS   string    `json:"date_of_birth_bs"`
+	DateOfBirthAD   time.Time `json:"date_of_birth_ad"`
+	Age             int       `json:"age"`
+	PhoneNumber     string    `json:"phone_number"`
+	Email           string    `json:"email"`
+	PhotoURL        string    `json:"photo_url"`
+
+	SEEGPA              string `json:"see_gpa"`
+	SchoolType          string `json:"school_type"`
+	SchoolName          string `json:"school_name"`
+	SchoolProvince      string `json:"school_province"`
+	SchoolDistrict      string `json:"school_district"`
+	SchoolMunicipality  string `json:"school_municipality"`
+	SchoolTole          string `json:"school_tole"`
+
+	Documents []byte `gorm:"type:jsonb" json:"documents"`
+
+	PermanentProvince      string `json:"permanent_province"`
+	PermanentDistrict      string `json:"permanent_district"`
+	PermanentMunicipality  string `json:"permanent_municipality"`
+	PermanentWard          string `json:"permanent_ward"`
+	PermanentTole          string `json:"permanent_tole"`
+
+	TemporaryProvince      string `json:"temporary_province"`
+	TemporaryDistrict      string `json:"temporary_district"`
+	TemporaryMunicipality  string `json:"temporary_municipality"`
+	TemporaryWard          string `json:"temporary_ward"`
+	TemporaryTole          string `json:"temporary_tole"`
+
+	GuardianName          string  `json:"guardian_name"`
+	GuardianPhone         string  `json:"guardian_phone"`
+	GuardianEmail         string  `json:"guardian_email"`
+	FatherOccupation      string  `json:"father_occupation"`
+	FatherOccupationOther string  `json:"father_occupation_other"`
+	MotherOccupation      string  `json:"mother_occupation"`
+	MotherOccupationOther string  `json:"mother_occupation_other"`
+	FamilyMonthlyIncome   float64 `json:"family_monthly_income"`
+	FamilyMembersCount    int     `json:"family_members_count"`
+
+	Stream     string `json:"stream"`
+	ExamCenter string `json:"exam_center"`
+
+	Status string `gorm:"default:'pending'" json:"status"`
 }
 
 type User struct {

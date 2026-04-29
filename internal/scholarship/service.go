@@ -3,6 +3,7 @@ package scholarship
 import (
 	"encoding/json"
 	"errors"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -21,7 +22,7 @@ func (s *Service) GetScholarships(search, categoryFilter, typeFilter, locationFi
 		return nil, nil, err
 	}
 
-	allScholarships, err := s.repo.FindAllUnfiltered()
+	categoryRows, err := s.repo.FindAllCategoryRows()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -32,8 +33,8 @@ func (s *Service) GetScholarships(search, categoryFilter, typeFilter, locationFi
 		categoryCounts[def.ID] = 0
 	}
 
-	for _, scholarship := range allScholarships {
-		status := deriveScholarshipStatus(scholarship.Deadline)
+	for _, row := range categoryRows {
+		status := deriveScholarshipStatus(row.Deadline)
 		if statusFilter != "" && statusFilter != status {
 			continue
 		}
@@ -41,7 +42,7 @@ func (s *Service) GetScholarships(search, categoryFilter, typeFilter, locationFi
 			continue
 		}
 
-		if categoryID := mapScholarshipToCategoryID(scholarship); categoryID != "" {
+		if categoryID := mapFieldsToCategoryID(row.ScholarshipType, row.FundingType); categoryID != "" {
 			categoryCounts[categoryID]++
 		}
 	}
@@ -114,12 +115,8 @@ func (s *Service) GetSimilarScholarships(id uint) ([]Scholarship, error) {
 }
 
 func (s *Service) ApplyScholarship(scholarshipID uint, userID uint, req ScholarshipApplicationRequest) (*ScholarshipApplication, error) {
-	dob, err := time.Parse("2006-01-02", req.DateOfBirth)
+	scholarship, err := s.repo.FindByID(scholarshipID)
 	if err != nil {
-		return nil, errors.New("invalid date of birth format (expected YYYY-MM-DD)")
-	}
-
-	if _, err := s.repo.FindByID(scholarshipID); err != nil {
 		return nil, errors.New("scholarship not found")
 	}
 
@@ -127,35 +124,76 @@ func (s *Service) ApplyScholarship(scholarshipID uint, userID uint, req Scholars
 		return nil, errors.New("you have already applied for this scholarship")
 	}
 
-	specialCircumstances, _ := json.Marshal(req.SpecialCircumstances)
+	var dobAD time.Time
+	if req.DateOfBirthAD != "" {
+		dobAD, _ = time.Parse("2006-01-02", req.DateOfBirthAD)
+	}
+
+	if req.SEEGPA != "" {
+		gpa, err := strconv.ParseFloat(req.SEEGPA, 64)
+		if err != nil || gpa < 0 || gpa > 4 {
+			return nil, errors.New("SEE GPA must be between 0 and 4")
+		}
+	}
 
 	application := &ScholarshipApplication{
-		ScholarshipID:        scholarshipID,
-		UserID:               userID,
-		NationalID:           req.NationalID,
-		FirstName:            req.FirstName,
-		LastName:             req.LastName,
-		DateOfBirth:          dob,
-		Gender:               req.Gender,
-		StreetAddress:        req.StreetAddress,
-		City:                 req.City,
-		PostCode:             req.PostCode,
-		Country:              req.Country,
-		PhoneCode:            req.PhoneCode,
-		PhoneNumber:          req.PhoneNumber,
-		Email:                req.Email,
-		LatestInstitution:    req.LatestInstitution,
-		LevelCompleted:       req.LevelCompleted,
-		GPAPercentage:        req.GPAPercentage,
-		AnnualFamilyIncome:   req.AnnualFamilyIncome,
-		PrimaryIncomeSource:  req.PrimaryIncomeSource,
-		SpecialCircumstances: specialCircumstances,
-		PersonalStatement:    req.PersonalStatement,
-		Status:               "pending",
+		ScholarshipID:  scholarshipID,
+		UserID:         userID,
+		FullName:       req.FullName,
+		Gender:         req.Gender,
+		Ethnicity:      req.Ethnicity,
+		EthnicityOther: req.EthnicityOther,
+		DateOfBirthBS:  req.DateOfBirthBS,
+		DateOfBirthAD:  dobAD,
+		Age:            req.Age,
+		PhoneNumber:    req.PhoneNumber,
+		Email:          req.Email,
+		PhotoURL:       req.PhotoURL,
+
+		SEEGPA:             req.SEEGPA,
+		SchoolType:         req.SchoolType,
+		SchoolName:         req.SchoolName,
+		SchoolProvince:     req.SchoolProvince,
+		SchoolDistrict:     req.SchoolDistrict,
+		SchoolMunicipality: req.SchoolMunicipality,
+		SchoolTole:         req.SchoolTole,
+
+		PermanentProvince:     req.PermanentProvince,
+		PermanentDistrict:     req.PermanentDistrict,
+		PermanentMunicipality: req.PermanentMunicipality,
+		PermanentWard:         req.PermanentWard,
+		PermanentTole:         req.PermanentTole,
+
+		TemporaryProvince:     req.TemporaryProvince,
+		TemporaryDistrict:     req.TemporaryDistrict,
+		TemporaryMunicipality: req.TemporaryMunicipality,
+		TemporaryWard:         req.TemporaryWard,
+		TemporaryTole:         req.TemporaryTole,
+
+		GuardianName:          req.GuardianName,
+		GuardianPhone:         req.GuardianPhone,
+		GuardianEmail:         req.GuardianEmail,
+		FatherOccupation:      req.FatherOccupation,
+		FatherOccupationOther: req.FatherOccupationOther,
+		MotherOccupation:      req.MotherOccupation,
+		MotherOccupationOther: req.MotherOccupationOther,
+		FamilyMonthlyIncome:   req.FamilyMonthlyIncome,
+		FamilyMembersCount:    req.FamilyMembersCount,
+
+		Stream:     req.Stream,
+		ExamCenter: req.ExamCenter,
+
+		Status: "pending",
 	}
 
 	if err := s.repo.ApplicationCreate(application); err != nil {
 		return nil, errors.New("failed to submit application")
+	}
+
+	if scholarship.ProviderScholarshipID != nil {
+		if err := s.repo.CreateProviderApplication(*scholarship.ProviderScholarshipID, application); err != nil {
+			return nil, errors.New("failed to submit application")
+		}
 	}
 
 	return application, nil
@@ -188,37 +226,28 @@ func (s *Service) UpdateApplication(id uint, userID uint, req UpdateScholarshipA
 		return nil, errors.New("you can only update your own applications")
 	}
 
-	if req.NationalID != nil {
-		app.NationalID = *req.NationalID
-	}
-	if req.FirstName != nil {
-		app.FirstName = *req.FirstName
-	}
-	if req.LastName != nil {
-		app.LastName = *req.LastName
-	}
-	if req.DateOfBirth != nil {
-		if dob, err := time.Parse("2006-01-02", *req.DateOfBirth); err == nil {
-			app.DateOfBirth = dob
-		}
+	if req.FullName != nil {
+		app.FullName = *req.FullName
 	}
 	if req.Gender != nil {
 		app.Gender = *req.Gender
 	}
-	if req.StreetAddress != nil {
-		app.StreetAddress = *req.StreetAddress
+	if req.Ethnicity != nil {
+		app.Ethnicity = *req.Ethnicity
 	}
-	if req.City != nil {
-		app.City = *req.City
+	if req.EthnicityOther != nil {
+		app.EthnicityOther = *req.EthnicityOther
 	}
-	if req.PostCode != nil {
-		app.PostCode = *req.PostCode
+	if req.DateOfBirthBS != nil {
+		app.DateOfBirthBS = *req.DateOfBirthBS
 	}
-	if req.Country != nil {
-		app.Country = *req.Country
+	if req.DateOfBirthAD != nil {
+		if dob, err := time.Parse("2006-01-02", *req.DateOfBirthAD); err == nil {
+			app.DateOfBirthAD = dob
+		}
 	}
-	if req.PhoneCode != nil {
-		app.PhoneCode = *req.PhoneCode
+	if req.Age != nil {
+		app.Age = *req.Age
 	}
 	if req.PhoneNumber != nil {
 		app.PhoneNumber = *req.PhoneNumber
@@ -226,28 +255,92 @@ func (s *Service) UpdateApplication(id uint, userID uint, req UpdateScholarshipA
 	if req.Email != nil {
 		app.Email = *req.Email
 	}
-	if req.LatestInstitution != nil {
-		app.LatestInstitution = *req.LatestInstitution
+	if req.PhotoURL != nil {
+		app.PhotoURL = *req.PhotoURL
 	}
-	if req.LevelCompleted != nil {
-		app.LevelCompleted = *req.LevelCompleted
+	if req.SEEGPA != nil {
+		app.SEEGPA = *req.SEEGPA
 	}
-	if req.GPAPercentage != nil {
-		app.GPAPercentage = *req.GPAPercentage
+	if req.SchoolType != nil {
+		app.SchoolType = *req.SchoolType
 	}
-	if req.AnnualFamilyIncome != nil {
-		app.AnnualFamilyIncome = *req.AnnualFamilyIncome
+	if req.SchoolName != nil {
+		app.SchoolName = *req.SchoolName
 	}
-	if req.PrimaryIncomeSource != nil {
-		app.PrimaryIncomeSource = *req.PrimaryIncomeSource
+	if req.SchoolProvince != nil {
+		app.SchoolProvince = *req.SchoolProvince
 	}
-	if req.PersonalStatement != nil {
-		app.PersonalStatement = *req.PersonalStatement
+	if req.SchoolDistrict != nil {
+		app.SchoolDistrict = *req.SchoolDistrict
 	}
-	if len(req.SpecialCircumstances) > 0 {
-		if data, err := json.Marshal(req.SpecialCircumstances); err == nil {
-			app.SpecialCircumstances = data
-		}
+	if req.SchoolMunicipality != nil {
+		app.SchoolMunicipality = *req.SchoolMunicipality
+	}
+	if req.SchoolTole != nil {
+		app.SchoolTole = *req.SchoolTole
+	}
+	if req.PermanentProvince != nil {
+		app.PermanentProvince = *req.PermanentProvince
+	}
+	if req.PermanentDistrict != nil {
+		app.PermanentDistrict = *req.PermanentDistrict
+	}
+	if req.PermanentMunicipality != nil {
+		app.PermanentMunicipality = *req.PermanentMunicipality
+	}
+	if req.PermanentWard != nil {
+		app.PermanentWard = *req.PermanentWard
+	}
+	if req.PermanentTole != nil {
+		app.PermanentTole = *req.PermanentTole
+	}
+	if req.TemporaryProvince != nil {
+		app.TemporaryProvince = *req.TemporaryProvince
+	}
+	if req.TemporaryDistrict != nil {
+		app.TemporaryDistrict = *req.TemporaryDistrict
+	}
+	if req.TemporaryMunicipality != nil {
+		app.TemporaryMunicipality = *req.TemporaryMunicipality
+	}
+	if req.TemporaryWard != nil {
+		app.TemporaryWard = *req.TemporaryWard
+	}
+	if req.TemporaryTole != nil {
+		app.TemporaryTole = *req.TemporaryTole
+	}
+	if req.GuardianName != nil {
+		app.GuardianName = *req.GuardianName
+	}
+	if req.GuardianPhone != nil {
+		app.GuardianPhone = *req.GuardianPhone
+	}
+	if req.GuardianEmail != nil {
+		app.GuardianEmail = *req.GuardianEmail
+	}
+	if req.FatherOccupation != nil {
+		app.FatherOccupation = *req.FatherOccupation
+	}
+	if req.FatherOccupationOther != nil {
+		app.FatherOccupationOther = *req.FatherOccupationOther
+	}
+	if req.MotherOccupation != nil {
+		app.MotherOccupation = *req.MotherOccupation
+	}
+	if req.MotherOccupationOther != nil {
+		app.MotherOccupationOther = *req.MotherOccupationOther
+	}
+	if req.FamilyMonthlyIncome != nil {
+		app.FamilyMonthlyIncome = *req.FamilyMonthlyIncome
+	}
+	if req.FamilyMembersCount != nil {
+		app.FamilyMembersCount = *req.FamilyMembersCount
+	}
+	if req.Stream != nil {
+		app.Stream = *req.Stream
+	}
+	if req.ExamCenter != nil {
+		app.ExamCenter = *req.ExamCenter
 	}
 
 	if err := s.repo.ApplicationSave(app); err != nil {

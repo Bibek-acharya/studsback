@@ -1,6 +1,10 @@
 package studentdashboard
 
 import (
+	"studsphere/backend/internal/admission"
+	"studsphere/backend/internal/scholarship"
+	"studsphere/backend/internal/auth"
+
 	"gorm.io/gorm"
 )
 
@@ -239,6 +243,60 @@ func (r *Repository) MarkNotificationRead(notifID uint) error {
 
 func (r *Repository) MarkAllNotificationsRead(userID uint) error {
 	return r.db.Model(&Notification{}).Where("user_id = ? AND read = ?", userID, false).Update("read", true).Error
+}
+
+func (r *Repository) CountAdmissions(userID uint) (int64, error) {
+	var count int64
+	err := r.db.Model(&admission.Admission{}).Where("user_id = ?", userID).Count(&count).Error
+	return count, err
+}
+
+func (r *Repository) CountSavedColleges(userID uint) (int64, error) {
+	var count int64
+	err := r.db.Model(&Bookmark{}).Where("user_id = ? AND item_type = ?", userID, "college").Count(&count).Error
+	return count, err
+}
+
+func (r *Repository) CountScholarshipApplications(userID uint) (int64, error) {
+	var count int64
+	err := r.db.Model(&scholarship.ScholarshipApplication{}).Where("user_id = ?", userID).Count(&count).Error
+	return count, err
+}
+
+func (r *Repository) GetUserByID(userID uint) (*auth.User, error) {
+	var user auth.User
+	err := r.db.First(&user, userID).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (r *Repository) GetRecentAdmissions(userID uint, limit int) ([]admission.Admission, error) {
+	var admissions []admission.Admission
+	if err := r.db.Where("user_id = ?", userID).
+		Preload("College").
+		Order("created_at desc").Limit(limit).Find(&admissions).Error; err != nil {
+		return nil, err
+	}
+	return admissions, nil
+}
+
+func (r *Repository) GetUserAdmissions(userID uint, page, limit int) ([]admission.Admission, int64, error) {
+	var total int64
+	if err := r.db.Model(&admission.Admission{}).Where("user_id = ?", userID).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var admissions []admission.Admission
+	offset := (page - 1) * limit
+	if err := r.db.Where("user_id = ?", userID).
+		Preload("College").
+		Order("created_at desc").Offset(offset).Limit(limit).Find(&admissions).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return admissions, total, nil
 }
 
 type Contact struct {

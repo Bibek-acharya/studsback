@@ -35,6 +35,10 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			protected.DELETE("/bookmarks/:id", h.DeleteBookmark)
 			protected.GET("/bookmarks/:type", h.GetBookmarksByType)
 
+			protected.GET("/dashboard/stats", h.GetDashboardStats)
+			protected.GET("/dashboard/recent-applications", h.GetRecentApplications)
+			protected.GET("/my-applications", h.GetMyApplications)
+
 			protected.GET("/notifications", h.GetNotifications)
 			protected.PUT("/notifications/:id/read", h.MarkNotificationRead)
 			protected.PUT("/notifications/read-all", h.MarkAllNotificationsRead)

@@ -115,17 +115,16 @@ func (s *Service) CreateScholarship(providerID uint, req CreateScholarshipReques
 		return nil, err
 	}
 
-	if err := s.syncPublicScholarship(providerID, req, fieldOfStudy, scholarship.Deadline, false); err != nil {
+	if err := s.syncPublicScholarship(providerID, scholarship.ID, req, fieldOfStudy, scholarship.Deadline, false); err != nil {
 		return nil, err
 	}
 
 	return scholarship, nil
 }
 
-func (s *Service) syncPublicScholarship(providerID uint, req CreateScholarshipRequest, fieldOfStudy []byte, deadline time.Time, isUpdate bool) error {
+func (s *Service) syncPublicScholarship(providerID uint, providerScholarshipID uint, req CreateScholarshipRequest, fieldOfStudy []byte, deadline time.Time, isUpdate bool) error {
 	if req.Status != "active" {
 		if isUpdate {
-			// If deactivating, remove from public table
 			provider, err := s.repo.GetProviderProfile(providerID)
 			if err != nil {
 				return err
@@ -154,29 +153,31 @@ func (s *Service) syncPublicScholarship(providerID uint, req CreateScholarshipRe
 		FieldOfStudy:        fieldOfStudy,
 		EligibilityCriteria: nil,
 		RequiredDocuments:   nil,
+		ProviderScholarshipID: &providerScholarshipID,
 	}
 
 	if isUpdate {
 		existing, err := s.repo.FindPublicScholarship(req.Title, provider.ProviderName)
 		if err == nil && existing != nil {
 			updates := map[string]interface{}{
-				"title":            req.Title,
-				"provider":         provider.ProviderName,
-				"location":         req.Location,
-				"value":            req.Value,
-				"deadline":         deadline,
-				"degree_level":     req.DegreeLevel,
-				"funding_type":     req.FundingType,
-				"scholarship_type": req.ScholarshipType,
-				"description":      req.Description,
-				"image_url":        req.ImageURL,
-				"field_of_study":   fieldOfStudy,
+				"title":                  req.Title,
+				"provider":               provider.ProviderName,
+				"location":               req.Location,
+				"value":                  req.Value,
+				"deadline":               deadline,
+				"degree_level":           req.DegreeLevel,
+				"funding_type":           req.FundingType,
+				"scholarship_type":       req.ScholarshipType,
+				"description":            req.Description,
+				"image_url":              req.ImageURL,
+				"field_of_study":         fieldOfStudy,
+				"provider_scholarship_id": providerScholarshipID,
 			}
 			return s.repo.UpdatePublicScholarship(existing.ID, updates)
 		}
 	}
 
-	return s.repo.CreatePublicScholarship(publicScholarship)
+	return s.repo.CreatePublicScholarship(publicScholarship, providerScholarshipID)
 }
 
 func (s *Service) GetScholarships(providerID uint, page, limit int) ([]ProviderScholarship, int64, error) {
@@ -230,7 +231,7 @@ func (s *Service) UpdateScholarship(providerID, id uint, req CreateScholarshipRe
 		return nil, err
 	}
 
-	if err := s.syncPublicScholarship(providerID, req, fieldOfStudy, deadline, true); err != nil {
+	if err := s.syncPublicScholarship(providerID, id, req, fieldOfStudy, deadline, true); err != nil {
 		return nil, err
 	}
 

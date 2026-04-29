@@ -15,47 +15,90 @@ type CreateScholarshipRequest struct {
 }
 
 type ScholarshipApplicationRequest struct {
-	NationalID           string   `json:"national_id" binding:"required"`
-	FirstName            string   `json:"first_name" binding:"required"`
-	LastName             string   `json:"last_name" binding:"required"`
-	DateOfBirth          string   `json:"date_of_birth" binding:"required"`
-	Gender               string   `json:"gender" binding:"required"`
-	StreetAddress        string   `json:"street_address" binding:"required"`
-	City                 string   `json:"city" binding:"required"`
-	PostCode             string   `json:"post_code" binding:"required"`
-	Country              string   `json:"country" binding:"required"`
-	PhoneCode            string   `json:"phone_code" binding:"required"`
-	PhoneNumber          string   `json:"phone_number" binding:"required"`
-	Email                string   `json:"email" binding:"required,email"`
-	LatestInstitution    string   `json:"latest_institution" binding:"required"`
-	LevelCompleted       string   `json:"level_completed" binding:"required"`
-	GPAPercentage        string   `json:"gpa_percentage" binding:"required"`
-	AnnualFamilyIncome   string   `json:"annual_family_income" binding:"required"`
-	PrimaryIncomeSource  string   `json:"primary_income_source" binding:"required"`
-	SpecialCircumstances []string `json:"special_circumstances"`
-	PersonalStatement    string   `json:"personal_statement" binding:"required"`
+	FullName        string  `json:"full_name" binding:"required"`
+	Gender          string  `json:"gender" binding:"required"`
+	Ethnicity       string  `json:"ethnicity"`
+	EthnicityOther  string  `json:"ethnicity_other"`
+	DateOfBirthBS   string  `json:"date_of_birth_bs" binding:"required"`
+	DateOfBirthAD   string  `json:"date_of_birth_ad" binding:"required"`
+	Age             int     `json:"age"`
+	PhoneNumber     string  `json:"phone_number" binding:"required"`
+	Email           string  `json:"email"`
+	PhotoURL        string  `json:"photo_url"`
+
+	SEEGPA             string `json:"see_gpa" binding:"required"`
+	SchoolType         string `json:"school_type" binding:"required"`
+	SchoolName         string `json:"school_name" binding:"required"`
+	SchoolProvince     string `json:"school_province" binding:"required"`
+	SchoolDistrict     string `json:"school_district" binding:"required"`
+	SchoolMunicipality string `json:"school_municipality" binding:"required"`
+	SchoolTole         string `json:"school_tole" binding:"required"`
+
+	PermanentProvince     string `json:"permanent_province" binding:"required"`
+	PermanentDistrict     string `json:"permanent_district" binding:"required"`
+	PermanentMunicipality string `json:"permanent_municipality" binding:"required"`
+	PermanentWard         string `json:"permanent_ward" binding:"required"`
+	PermanentTole         string `json:"permanent_tole"`
+
+	TemporaryProvince     string `json:"temporary_province" binding:"required"`
+	TemporaryDistrict     string `json:"temporary_district" binding:"required"`
+	TemporaryMunicipality string `json:"temporary_municipality" binding:"required"`
+	TemporaryWard         string `json:"temporary_ward" binding:"required"`
+	TemporaryTole         string `json:"temporary_tole"`
+
+	GuardianName          string  `json:"guardian_name" binding:"required"`
+	GuardianPhone         string  `json:"guardian_phone" binding:"required"`
+	GuardianEmail         string  `json:"guardian_email"`
+	FatherOccupation      string  `json:"father_occupation" binding:"required"`
+	FatherOccupationOther string  `json:"father_occupation_other"`
+	MotherOccupation      string  `json:"mother_occupation" binding:"required"`
+	MotherOccupationOther string  `json:"mother_occupation_other"`
+	FamilyMonthlyIncome   float64 `json:"family_monthly_income" binding:"required"`
+	FamilyMembersCount    int     `json:"family_members_count" binding:"required"`
+
+	Stream     string `json:"stream" binding:"required"`
+	ExamCenter string `json:"exam_center" binding:"required"`
 }
 
 type UpdateScholarshipApplicationRequest struct {
-	NationalID           *string  `json:"national_id"`
-	FirstName            *string  `json:"first_name"`
-	LastName             *string  `json:"last_name"`
-	DateOfBirth          *string  `json:"date_of_birth"`
-	Gender               *string  `json:"gender"`
-	StreetAddress        *string  `json:"street_address"`
-	City                 *string  `json:"city"`
-	PostCode             *string  `json:"post_code"`
-	Country              *string  `json:"country"`
-	PhoneCode            *string  `json:"phone_code"`
-	PhoneNumber          *string  `json:"phone_number"`
-	Email                *string  `json:"email"`
-	LatestInstitution    *string  `json:"latest_institution"`
-	LevelCompleted       *string  `json:"level_completed"`
-	GPAPercentage        *string  `json:"gpa_percentage"`
-	AnnualFamilyIncome   *string  `json:"annual_family_income"`
-	PrimaryIncomeSource  *string  `json:"primary_income_source"`
-	SpecialCircumstances []string `json:"special_circumstances"`
-	PersonalStatement    *string  `json:"personal_statement"`
+	FullName             *string   `json:"full_name"`
+	Gender               *string   `json:"gender"`
+	Ethnicity            *string   `json:"ethnicity"`
+	EthnicityOther       *string   `json:"ethnicity_other"`
+	DateOfBirthBS        *string   `json:"date_of_birth_bs"`
+	DateOfBirthAD        *string   `json:"date_of_birth_ad"`
+	Age                  *int      `json:"age"`
+	PhoneNumber          *string   `json:"phone_number"`
+	Email                *string   `json:"email"`
+	PhotoURL             *string   `json:"photo_url"`
+	SEEGPA               *string   `json:"see_gpa"`
+	SchoolType           *string   `json:"school_type"`
+	SchoolName           *string   `json:"school_name"`
+	SchoolProvince       *string   `json:"school_province"`
+	SchoolDistrict       *string   `json:"school_district"`
+	SchoolMunicipality    *string   `json:"school_municipality"`
+	SchoolTole           *string   `json:"school_tole"`
+	PermanentProvince    *string   `json:"permanent_province"`
+	PermanentDistrict    *string   `json:"permanent_district"`
+	PermanentMunicipality *string  `json:"permanent_municipality"`
+	PermanentWard        *string   `json:"permanent_ward"`
+	PermanentTole        *string   `json:"permanent_tole"`
+	TemporaryProvince    *string   `json:"temporary_province"`
+	TemporaryDistrict    *string   `json:"temporary_district"`
+	TemporaryMunicipality *string  `json:"temporary_municipality"`
+	TemporaryWard        *string   `json:"temporary_ward"`
+	TemporaryTole        *string   `json:"temporary_tole"`
+	GuardianName         *string   `json:"guardian_name"`
+	GuardianPhone        *string   `json:"guardian_phone"`
+	GuardianEmail        *string   `json:"guardian_email"`
+	FatherOccupation     *string   `json:"father_occupation"`
+	FatherOccupationOther *string  `json:"father_occupation_other"`
+	MotherOccupation     *string   `json:"mother_occupation"`
+	MotherOccupationOther *string  `json:"mother_occupation_other"`
+	FamilyMonthlyIncome  *float64  `json:"family_monthly_income"`
+	FamilyMembersCount   *int      `json:"family_members_count"`
+	Stream               *string   `json:"stream"`
+	ExamCenter           *string   `json:"exam_center"`
 }
 
 type UpdateScholarshipApplicationStatusRequest struct {
@@ -96,25 +139,44 @@ type ScholarshipApplicationResponse struct {
 	UpdatedAt            string              `json:"updated_at"`
 	ScholarshipID        uint                `json:"scholarship_id"`
 	UserID               uint                `json:"user_id"`
-	NationalID           string              `json:"national_id"`
-	FirstName            string              `json:"first_name"`
-	LastName             string              `json:"last_name"`
-	DateOfBirth          string              `json:"date_of_birth"`
+	FullName             string              `json:"full_name"`
 	Gender               string              `json:"gender"`
-	StreetAddress        string              `json:"street_address"`
-	City                 string              `json:"city"`
-	PostCode             string              `json:"post_code"`
-	Country              string              `json:"country"`
-	PhoneCode            string              `json:"phone_code"`
+	Ethnicity            string              `json:"ethnicity"`
+	EthnicityOther       string              `json:"ethnicity_other"`
+	DateOfBirthBS        string              `json:"date_of_birth_bs"`
+	DateOfBirthAD        string              `json:"date_of_birth_ad"`
+	Age                  int                 `json:"age"`
 	PhoneNumber          string              `json:"phone_number"`
 	Email                string              `json:"email"`
-	LatestInstitution    string              `json:"latest_institution"`
-	LevelCompleted       string              `json:"level_completed"`
-	GPAPercentage        string              `json:"gpa_percentage"`
-	AnnualFamilyIncome   string              `json:"annual_family_income"`
-	PrimaryIncomeSource  string              `json:"primary_income_source"`
-	SpecialCircumstances []string            `json:"special_circumstances,omitempty"`
-	PersonalStatement    string              `json:"personal_statement"`
+	PhotoURL             string              `json:"photo_url"`
+	SEEGPA               string              `json:"see_gpa"`
+	SchoolType           string              `json:"school_type"`
+	SchoolName           string              `json:"school_name"`
+	SchoolProvince       string              `json:"school_province"`
+	SchoolDistrict       string              `json:"school_district"`
+	SchoolMunicipality   string              `json:"school_municipality"`
+	SchoolTole           string              `json:"school_tole"`
+	PermanentProvince    string              `json:"permanent_province"`
+	PermanentDistrict    string              `json:"permanent_district"`
+	PermanentMunicipality string             `json:"permanent_municipality"`
+	PermanentWard        string              `json:"permanent_ward"`
+	PermanentTole        string              `json:"permanent_tole"`
+	TemporaryProvince    string              `json:"temporary_province"`
+	TemporaryDistrict    string              `json:"temporary_district"`
+	TemporaryMunicipality string             `json:"temporary_municipality"`
+	TemporaryWard        string              `json:"temporary_ward"`
+	TemporaryTole        string              `json:"temporary_tole"`
+	GuardianName         string              `json:"guardian_name"`
+	GuardianPhone        string              `json:"guardian_phone"`
+	GuardianEmail        string              `json:"guardian_email"`
+	FatherOccupation     string              `json:"father_occupation"`
+	FatherOccupationOther string             `json:"father_occupation_other"`
+	MotherOccupation     string              `json:"mother_occupation"`
+	MotherOccupationOther string             `json:"mother_occupation_other"`
+	FamilyMonthlyIncome  float64             `json:"family_monthly_income"`
+	FamilyMembersCount   int                 `json:"family_members_count"`
+	Stream               string              `json:"stream"`
+	ExamCenter           string              `json:"exam_center"`
 	Status               string              `json:"status"`
 	Scholarship          *ScholarshipSummary `json:"scholarship,omitempty"`
 	User                 *UserSummary        `json:"user,omitempty"`
