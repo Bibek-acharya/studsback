@@ -26,6 +26,30 @@ type ProviderScholarship struct {
 	RequiredDocuments   []byte         `gorm:"type:jsonb" json:"required_documents"`
 	Status              string         `gorm:"default:'draft'" json:"status"`
 	ApplicationsCount   int            `gorm:"default:0" json:"applications_count"`
+
+	// Prototype extended fields
+	BannerBackgroundImageURL *string `gorm:"type:text" json:"banner_background_image_url"`
+	AboutParagraph1          string  `gorm:"type:text" json:"about_paragraph_1"`
+	AboutParagraph2          string  `gorm:"type:text" json:"about_paragraph_2"`
+	VideoTutorials           []byte  `gorm:"type:jsonb" json:"video_tutorials"`
+	JourneyTimeline          []byte  `gorm:"type:jsonb" json:"journey_timeline"`
+	ScholarshipSectionTitle  string  `json:"scholarship_section_title"`
+	ScholarshipSubtitle      string  `json:"scholarship_subtitle"`
+	ScholarshipDescription1  string  `gorm:"type:text" json:"scholarship_description_1"`
+	ScholarshipDescription2  string  `gorm:"type:text" json:"scholarship_description_2"`
+	ScholarshipTypes         []byte  `gorm:"type:jsonb" json:"scholarship_types"`
+	SelectionRubric          []byte  `gorm:"type:jsonb" json:"selection_rubric"`
+	EligibilitySectionTitle  string  `json:"eligibility_section_title"`
+	EligibilitySubtitle      string  `json:"eligibility_subtitle"`
+	BasicEligibilityCriteria []byte  `gorm:"type:jsonb" json:"basic_eligibility_criteria"`
+	FullyFundedCriteria      []byte  `gorm:"type:jsonb" json:"fully_funded_criteria"`
+	PartiallyFundedCriteria  []byte  `gorm:"type:jsonb" json:"partially_funded_criteria"`
+	SelectionProcessSteps    []byte  `gorm:"type:jsonb" json:"selection_process_steps"`
+	FAQs                     []byte  `gorm:"type:jsonb" json:"faqs"`
+	GalleryImages            []byte  `gorm:"type:jsonb" json:"gallery_images"`
+	PartnerGroups            []byte  `gorm:"type:jsonb" json:"partner_groups"`
+	ExamCenters              []byte  `gorm:"type:jsonb" json:"exam_centers"`
+	Downloads                []byte  `gorm:"type:jsonb" json:"downloads"`
 }
 
 type ProviderApplication struct {

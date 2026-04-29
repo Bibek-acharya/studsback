@@ -516,25 +516,16 @@ func (h *Handler) MarkAllNotificationsRead(c *gin.Context) {
 	response.Success(c, http.StatusOK, "All notifications marked as read", nil)
 }
 
+func unmarshalJSONB(data []byte) interface{} {
+	var v interface{}
+	json.Unmarshal(data, &v)
+	if v == nil {
+		return []interface{}{}
+	}
+	return v
+}
+
 func toScholarshipResponse(s *ProviderScholarship) ScholarshipResponse {
-	var fieldOfStudy interface{}
-	json.Unmarshal(s.FieldOfStudy, &fieldOfStudy)
-	if fieldOfStudy == nil {
-		fieldOfStudy = []string{}
-	}
-
-	var eligibilityCriteria interface{}
-	json.Unmarshal(s.EligibilityCriteria, &eligibilityCriteria)
-	if eligibilityCriteria == nil {
-		eligibilityCriteria = []interface{}{}
-	}
-
-	var requiredDocuments interface{}
-	json.Unmarshal(s.RequiredDocuments, &requiredDocuments)
-	if requiredDocuments == nil {
-		requiredDocuments = []interface{}{}
-	}
-
 	return ScholarshipResponse{
 		ID:                  s.ID,
 		CreatedAt:           s.CreatedAt,
@@ -549,11 +540,34 @@ func toScholarshipResponse(s *ProviderScholarship) ScholarshipResponse {
 		DegreeLevel:         s.DegreeLevel,
 		FundingType:         s.FundingType,
 		ScholarshipType:     s.ScholarshipType,
-		FieldOfStudy:        fieldOfStudy,
-		EligibilityCriteria: eligibilityCriteria,
-		RequiredDocuments:   requiredDocuments,
+		FieldOfStudy:        unmarshalJSONB(s.FieldOfStudy),
+		EligibilityCriteria: unmarshalJSONB(s.EligibilityCriteria),
+		RequiredDocuments:   unmarshalJSONB(s.RequiredDocuments),
 		Status:              s.Status,
 		ApplicationsCount:   s.ApplicationsCount,
+
+		BannerBackgroundImageURL: s.BannerBackgroundImageURL,
+		AboutParagraph1:          s.AboutParagraph1,
+		AboutParagraph2:          s.AboutParagraph2,
+		VideoTutorials:           unmarshalJSONB(s.VideoTutorials),
+		JourneyTimeline:          unmarshalJSONB(s.JourneyTimeline),
+		ScholarshipSectionTitle:  s.ScholarshipSectionTitle,
+		ScholarshipSubtitle:      s.ScholarshipSubtitle,
+		ScholarshipDescription1:  s.ScholarshipDescription1,
+		ScholarshipDescription2:  s.ScholarshipDescription2,
+		ScholarshipTypes:         unmarshalJSONB(s.ScholarshipTypes),
+		SelectionRubric:          unmarshalJSONB(s.SelectionRubric),
+		EligibilitySectionTitle:  s.EligibilitySectionTitle,
+		EligibilitySubtitle:      s.EligibilitySubtitle,
+		BasicEligibilityCriteria: unmarshalJSONB(s.BasicEligibilityCriteria),
+		FullyFundedCriteria:      unmarshalJSONB(s.FullyFundedCriteria),
+		PartiallyFundedCriteria:  unmarshalJSONB(s.PartiallyFundedCriteria),
+		SelectionProcessSteps:    unmarshalJSONB(s.SelectionProcessSteps),
+		FAQs:                     unmarshalJSONB(s.FAQs),
+		GalleryImages:            unmarshalJSONB(s.GalleryImages),
+		PartnerGroups:            unmarshalJSONB(s.PartnerGroups),
+		ExamCenters:              unmarshalJSONB(s.ExamCenters),
+		Downloads:                unmarshalJSONB(s.Downloads),
 	}
 }
 

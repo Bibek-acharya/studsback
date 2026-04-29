@@ -89,20 +89,46 @@ func (s *Service) CreateScholarship(providerID uint, req CreateScholarshipReques
 		imageURL = &req.ImageURL
 	}
 
-	fieldOfStudy, _ := json.Marshal(req.FieldOfStudy)
+	var bannerBG *string
+	if req.BannerBackgroundImageURL != "" {
+		bannerBG = &req.BannerBackgroundImageURL
+	}
 
 	scholarship := &ProviderScholarship{
-		ProviderID:      providerID,
-		Title:           req.Title,
-		Description:     req.Description,
-		ImageURL:        imageURL,
-		Location:        req.Location,
-		Value:           req.Value,
-		DegreeLevel:     req.DegreeLevel,
-		FundingType:     req.FundingType,
-		ScholarshipType: req.ScholarshipType,
-		FieldOfStudy:    fieldOfStudy,
-		Status:          status,
+		ProviderID:                providerID,
+		Title:                     req.Title,
+		Description:               req.Description,
+		ImageURL:                  imageURL,
+		Location:                  req.Location,
+		Value:                     req.Value,
+		DegreeLevel:               req.DegreeLevel,
+		FundingType:               req.FundingType,
+		ScholarshipType:           req.ScholarshipType,
+		FieldOfStudy:              toJSON(req.FieldOfStudy),
+		Status:                    status,
+		BannerBackgroundImageURL:  bannerBG,
+		AboutParagraph1:           req.AboutParagraph1,
+		AboutParagraph2:           req.AboutParagraph2,
+		VideoTutorials:            toJSON(req.VideoTutorials),
+		JourneyTimeline:           toJSON(req.JourneyTimeline),
+		ScholarshipSectionTitle:   req.ScholarshipSectionTitle,
+		ScholarshipSubtitle:       req.ScholarshipSubtitle,
+		ScholarshipDescription1:   req.ScholarshipDescription1,
+		ScholarshipDescription2:   req.ScholarshipDescription2,
+		ScholarshipTypes:          toJSON(req.ScholarshipTypes),
+		SelectionRubric:           toJSON(req.SelectionRubric),
+		EligibilitySectionTitle:   req.EligibilitySectionTitle,
+		EligibilitySubtitle:       req.EligibilitySubtitle,
+		BasicEligibilityCriteria:  toJSON(req.BasicEligibilityCriteria),
+		FullyFundedCriteria:       toJSON(req.FullyFundedCriteria),
+		PartiallyFundedCriteria:   toJSON(req.PartiallyFundedCriteria),
+		SelectionProcessSteps:     toJSON(req.SelectionProcessSteps),
+		RequiredDocuments:         toJSON(req.RequiredDocuments),
+		FAQs:                      toJSON(req.FAQs),
+		GalleryImages:             toJSON(req.GalleryImages),
+		PartnerGroups:             toJSON(req.PartnerGroups),
+		ExamCenters:               toJSON(req.ExamCenters),
+		Downloads:                 toJSON(req.Downloads),
 	}
 
 	if req.Deadline != "" {
@@ -115,6 +141,7 @@ func (s *Service) CreateScholarship(providerID uint, req CreateScholarshipReques
 		return nil, err
 	}
 
+	fieldOfStudy := toJSON(req.FieldOfStudy)
 	if err := s.syncPublicScholarship(providerID, scholarship.ID, req, fieldOfStudy, scholarship.Deadline, false); err != nil {
 		return nil, err
 	}
@@ -203,18 +230,43 @@ func (s *Service) UpdateScholarship(providerID, id uint, req CreateScholarshipRe
 
 	fieldOfStudy := toJSON(req.FieldOfStudy)
 	updates := map[string]interface{}{
-		"title":            req.Title,
-		"description":      req.Description,
-		"location":         req.Location,
-		"value":            req.Value,
-		"degree_level":     req.DegreeLevel,
-		"funding_type":     req.FundingType,
-		"scholarship_type": req.ScholarshipType,
-		"field_of_study":   fieldOfStudy,
+		"title":                      req.Title,
+		"description":                req.Description,
+		"location":                   req.Location,
+		"value":                      req.Value,
+		"degree_level":               req.DegreeLevel,
+		"funding_type":               req.FundingType,
+		"scholarship_type":           req.ScholarshipType,
+		"field_of_study":             fieldOfStudy,
+		"about_paragraph_1":          req.AboutParagraph1,
+		"about_paragraph_2":          req.AboutParagraph2,
+		"video_tutorials":            toJSON(req.VideoTutorials),
+		"journey_timeline":           toJSON(req.JourneyTimeline),
+		"scholarship_section_title":  req.ScholarshipSectionTitle,
+		"scholarship_subtitle":       req.ScholarshipSubtitle,
+		"scholarship_description_1":  req.ScholarshipDescription1,
+		"scholarship_description_2":  req.ScholarshipDescription2,
+		"scholarship_types":          toJSON(req.ScholarshipTypes),
+		"selection_rubric":           toJSON(req.SelectionRubric),
+		"eligibility_section_title":  req.EligibilitySectionTitle,
+		"eligibility_subtitle":       req.EligibilitySubtitle,
+		"basic_eligibility_criteria": toJSON(req.BasicEligibilityCriteria),
+		"fully_funded_criteria":      toJSON(req.FullyFundedCriteria),
+		"partially_funded_criteria":  toJSON(req.PartiallyFundedCriteria),
+		"selection_process_steps":    toJSON(req.SelectionProcessSteps),
+		"required_documents":         toJSON(req.RequiredDocuments),
+		"faqs":                       toJSON(req.FAQs),
+		"gallery_images":             toJSON(req.GalleryImages),
+		"partner_groups":             toJSON(req.PartnerGroups),
+		"exam_centers":               toJSON(req.ExamCenters),
+		"downloads":                  toJSON(req.Downloads),
 	}
 
 	if req.ImageURL != "" {
 		updates["image_url"] = req.ImageURL
+	}
+	if req.BannerBackgroundImageURL != "" {
+		updates["banner_background_image_url"] = req.BannerBackgroundImageURL
 	}
 	if req.Status != "" {
 		updates["status"] = req.Status

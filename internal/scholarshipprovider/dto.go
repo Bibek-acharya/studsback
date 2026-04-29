@@ -2,6 +2,69 @@ package scholarshipprovider
 
 import "time"
 
+type VideoTutorial struct {
+	URL         string `json:"url"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+}
+
+type JourneyTimelineItem struct {
+	Year        string `json:"year"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+}
+
+type ScholarshipTypeItem struct {
+	Type     string `json:"type"`
+	Seats    string `json:"seats"`
+	Coverage string `json:"coverage"`
+}
+
+type SelectionRubricItem struct {
+	Criteria    string `json:"criteria"`
+	Description string `json:"description"`
+	Weight      string `json:"weight"`
+}
+
+type SelectionProcessStepItem struct {
+	Step        int    `json:"step"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+}
+
+type FAQItem struct {
+	Question string `json:"question"`
+	Answer   string `json:"answer"`
+}
+
+type GalleryImageItem struct {
+	Title string `json:"title"`
+	URL   string `json:"url"`
+}
+
+type PartnerOrganization struct {
+	Name    string `json:"name"`
+	Website string `json:"website"`
+}
+
+type PartnerGroup struct {
+	Heading  string                `json:"heading"`
+	Partners []PartnerOrganization `json:"partners"`
+}
+
+type ExamCenterItem struct {
+	Province      string `json:"province"`
+	CenterName    string `json:"center_name"`
+	ContactPerson string `json:"contact_person"`
+	PhoneNumber   string `json:"phone_number"`
+	MapCoordinates string `json:"map_coordinates"`
+}
+
+type DownloadItem struct {
+	Title       string `json:"title"`
+	Description string `json:"description"`
+}
+
 type CreateScholarshipRequest struct {
 	Title           string   `json:"title" binding:"required"`
 	Description     string   `json:"description"`
@@ -14,6 +77,30 @@ type CreateScholarshipRequest struct {
 	ScholarshipType string   `json:"scholarship_type"`
 	FieldOfStudy    []string `json:"field_of_study"`
 	Status          string   `json:"status"`
+
+	BannerBackgroundImageURL string                `json:"banner_background_image_url"`
+	AboutParagraph1          string                `json:"about_paragraph_1"`
+	AboutParagraph2          string                `json:"about_paragraph_2"`
+	VideoTutorials           []VideoTutorial       `json:"video_tutorials"`
+	JourneyTimeline          []JourneyTimelineItem `json:"journey_timeline"`
+	ScholarshipSectionTitle  string                `json:"scholarship_section_title"`
+	ScholarshipSubtitle      string                `json:"scholarship_subtitle"`
+	ScholarshipDescription1  string                `json:"scholarship_description_1"`
+	ScholarshipDescription2  string                `json:"scholarship_description_2"`
+	ScholarshipTypes         []ScholarshipTypeItem `json:"scholarship_types"`
+	SelectionRubric          []SelectionRubricItem `json:"selection_rubric"`
+	EligibilitySectionTitle  string                `json:"eligibility_section_title"`
+	EligibilitySubtitle      string                `json:"eligibility_subtitle"`
+	BasicEligibilityCriteria []string              `json:"basic_eligibility_criteria"`
+	FullyFundedCriteria      []string              `json:"fully_funded_criteria"`
+	PartiallyFundedCriteria  []string              `json:"partially_funded_criteria"`
+	SelectionProcessSteps    []SelectionProcessStepItem `json:"selection_process_steps"`
+	RequiredDocuments        []string              `json:"required_documents"`
+	FAQs                     []FAQItem             `json:"faqs"`
+	GalleryImages            []GalleryImageItem    `json:"gallery_images"`
+	PartnerGroups            []PartnerGroup        `json:"partner_groups"`
+	ExamCenters              []ExamCenterItem      `json:"exam_centers"`
+	Downloads                []DownloadItem        `json:"downloads"`
 }
 
 type ScholarshipResponse struct {
@@ -35,6 +122,29 @@ type ScholarshipResponse struct {
 	RequiredDocuments   interface{} `json:"required_documents"`
 	Status              string      `json:"status"`
 	ApplicationsCount   int         `json:"applications_count"`
+
+	BannerBackgroundImageURL *string     `json:"banner_background_image_url"`
+	AboutParagraph1          string      `json:"about_paragraph_1"`
+	AboutParagraph2          string      `json:"about_paragraph_2"`
+	VideoTutorials           interface{} `json:"video_tutorials"`
+	JourneyTimeline          interface{} `json:"journey_timeline"`
+	ScholarshipSectionTitle  string      `json:"scholarship_section_title"`
+	ScholarshipSubtitle      string      `json:"scholarship_subtitle"`
+	ScholarshipDescription1  string      `json:"scholarship_description_1"`
+	ScholarshipDescription2  string      `json:"scholarship_description_2"`
+	ScholarshipTypes         interface{} `json:"scholarship_types"`
+	SelectionRubric          interface{} `json:"selection_rubric"`
+	EligibilitySectionTitle  string      `json:"eligibility_section_title"`
+	EligibilitySubtitle      string      `json:"eligibility_subtitle"`
+	BasicEligibilityCriteria interface{} `json:"basic_eligibility_criteria"`
+	FullyFundedCriteria      interface{} `json:"fully_funded_criteria"`
+	PartiallyFundedCriteria  interface{} `json:"partially_funded_criteria"`
+	SelectionProcessSteps    interface{} `json:"selection_process_steps"`
+	FAQs                     interface{} `json:"faqs"`
+	GalleryImages            interface{} `json:"gallery_images"`
+	PartnerGroups            interface{} `json:"partner_groups"`
+	ExamCenters              interface{} `json:"exam_centers"`
+	Downloads                interface{} `json:"downloads"`
 }
 
 type ScholarshipListResponse struct {
