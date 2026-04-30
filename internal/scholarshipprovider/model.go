@@ -50,6 +50,20 @@ type ProviderScholarship struct {
 	PartnerGroups            []byte  `gorm:"type:jsonb" json:"partner_groups"`
 	ExamCenters              []byte  `gorm:"type:jsonb" json:"exam_centers"`
 	Downloads                []byte  `gorm:"type:jsonb" json:"downloads"`
+	TotalSeats               int       `json:"total_seats"`
+	AmountPerStudent         float64   `json:"amount_per_student"`
+	DisbursementType         string    `json:"disbursement_type"`
+	ApplicationStartDate     time.Time `json:"application_start_date"`
+	ResultPublicationDate    time.Time `json:"result_publication_date"`
+	MinGPA                   float64   `json:"min_gpa"`
+	EligibleProvinces        []byte    `gorm:"type:jsonb" json:"eligible_provinces"`
+	SelectionCriteria        []byte    `gorm:"type:jsonb" json:"selection_criteria"`
+	InterviewRounds          int       `json:"interview_rounds"`
+	Timeline                 []byte    `gorm:"type:jsonb" json:"timeline"`
+	Achievements             []byte    `gorm:"type:jsonb" json:"achievements"`
+	SocialLinks              []byte    `gorm:"type:jsonb" json:"social_links"`
+	MapEmbedURL              string    `json:"map_embed_url"`
+	GuidelinesURL            string    `json:"guidelines_url"`
 }
 
 type ProviderApplication struct {
