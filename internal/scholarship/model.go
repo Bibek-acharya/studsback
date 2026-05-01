@@ -30,6 +30,13 @@ type Scholarship struct {
 	Timeline            []byte         `gorm:"type:jsonb" json:"timeline"`
 	Benefits            []byte         `gorm:"type:jsonb" json:"benefits"`
 	FAQs                []byte           `gorm:"type:jsonb" json:"faqs"`
+	Status             string           `json:"status" gorm:"default:draft"`
+	FormConfig         []byte           `gorm:"type:jsonb" json:"form_config"`
+	PaymentConfig      []byte           `gorm:"type:jsonb" json:"payment_config"`
+	BankAccountName   string           `json:"bank_account_name"`
+	BankAccountNo     string           `json:"bank_account_no"`
+	BankName          string           `json:"bank_name"`
+	BankBranch       string           `json:"bank_branch"`
 	ProviderScholarshipID *uint           `gorm:"index" json:"-"`
 	Embedding              *pgvector.Vector `gorm:"type:vector(1536)" json:"-"`
 }

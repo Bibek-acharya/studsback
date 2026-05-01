@@ -1,5 +1,13 @@
 package scholarship
 
+const (
+	ApplicationStatusPending      = "pending"
+	ApplicationStatusUnderReview  = "under_review"
+	ApplicationStatusApproved     = "approved"
+	ApplicationStatusRejected     = "rejected"
+	ApplicationStatusShortlisted  = "shortlisted"
+)
+
 type CreateScholarshipRequest struct {
 	Title           string   `json:"title" binding:"required"`
 	Provider        string   `json:"provider" binding:"required"`
@@ -12,6 +20,9 @@ type CreateScholarshipRequest struct {
 	Description     string   `json:"description"`
 	ImageURL        string   `json:"image_url"`
 	FieldOfStudy    []string `json:"field_of_study"`
+	Status          string   `json:"status"`
+	FormConfig      any      `json:"form_config"`
+	PaymentConfig   any      `json:"payment_config"`
 }
 
 type ScholarshipApplicationRequest struct {
