@@ -32,6 +32,7 @@ import (
 	"studsphere/backend/internal/university"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 func main() {
@@ -63,6 +64,7 @@ func main() {
 		&counselling.CounsellingBooking{},
 		&scholarship.Scholarship{},
 		&scholarship.ScholarshipApplication{},
+		&scholarship.Payment{},
 		&education.Exam{},
 		&education.Course{},
 		&education.CollegeUniversityCourse{},
@@ -123,6 +125,9 @@ func main() {
 			logger.Fatal("Failed to migrate database", "error", err)
 		}
 	} else {
+		if err := allowAnonymousScholarshipApplications(db); err != nil {
+			logger.Fatal("Failed to update scholarship application user_id nullability", "error", err)
+		}
 		logger.Info("Database migrations completed successfully")
 		config.CreateVectorIndexes()
 	}
@@ -165,7 +170,9 @@ func main() {
 	institutionHandler := initModule(institution.NewRepository(db), institution.NewService, institution.NewHandler)
 	projectShikshaHandler := initModule(projectshiksha.NewRepository(db), projectshiksha.NewService, projectshiksha.NewHandler)
 	reviewHandler := initModule(review.NewRepository(db), review.NewService, review.NewHandler)
-	scholarshipHandler := initModule(scholarship.NewRepository(db), scholarship.NewService, scholarship.NewHandler)
+	scholarshipRepo := scholarship.NewRepository(db)
+	scholarshipSvc := scholarship.NewService(scholarshipRepo, db)
+	scholarshipHandler := scholarship.NewHandler(scholarshipSvc, scholarship.NewPaymentService(db))
 	scholarshipPHandler := initModule(scholarshipprovider.NewRepository(db), scholarshipprovider.NewService, scholarshipprovider.NewHandler)
 	studentDashHandler := initModule(studentdashboard.NewRepository(db), studentdashboard.NewService, studentdashboard.NewHandler)
 	systemHandler := initModule(system.NewRepository(db), system.NewService, system.NewHandler)
@@ -233,6 +240,19 @@ func main() {
 
 func initModule[R any, S any, H any](repo R, newService func(R) S, newHandler func(S) H) H {
 	return newHandler(newService(repo))
+}
+
+func allowAnonymousScholarshipApplications(db *gorm.DB) error {
+	if config.IsSQLite {
+		return nil
+	}
+	if err := db.Exec(`ALTER TABLE scholarship_applications ALTER COLUMN user_id DROP NOT NULL`).Error; err != nil {
+		return err
+	}
+	if err := db.Exec(`ALTER TABLE provider_applications ALTER COLUMN user_id DROP NOT NULL`).Error; err != nil {
+		return err
+	}
+	return nil
 }
 
 func ginLogger() gin.HandlerFunc {

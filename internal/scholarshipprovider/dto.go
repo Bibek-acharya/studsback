@@ -53,10 +53,10 @@ type PartnerGroup struct {
 }
 
 type ExamCenterItem struct {
-	Province      string `json:"province"`
-	CenterName    string `json:"center_name"`
-	ContactPerson string `json:"contact_person"`
-	PhoneNumber   string `json:"phone_number"`
+	Province       string `json:"province"`
+	CenterName     string `json:"center_name"`
+	ContactPerson  string `json:"contact_person"`
+	PhoneNumber    string `json:"phone_number"`
 	MapCoordinates string `json:"map_coordinates"`
 }
 
@@ -66,7 +66,7 @@ type DownloadItem struct {
 }
 
 type CreateScholarshipRequest struct {
-	Title           string   `json:"title" binding:"required"`
+	Title           string   `json:"title"`
 	Description     string   `json:"description"`
 	ImageURL        string   `json:"image_url"`
 	Location        string   `json:"location"`
@@ -78,29 +78,29 @@ type CreateScholarshipRequest struct {
 	FieldOfStudy    []string `json:"field_of_study"`
 	Status          string   `json:"status"`
 
-	BannerBackgroundImageURL string                `json:"banner_background_image_url"`
-	AboutParagraph1          string                `json:"about_paragraph_1"`
-	AboutParagraph2          string                `json:"about_paragraph_2"`
-	VideoTutorials           []VideoTutorial       `json:"video_tutorials"`
-	JourneyTimeline          []JourneyTimelineItem `json:"journey_timeline"`
-	ScholarshipSectionTitle  string                `json:"scholarship_section_title"`
-	ScholarshipSubtitle      string                `json:"scholarship_subtitle"`
-	ScholarshipDescription1  string                `json:"scholarship_description_1"`
-	ScholarshipDescription2  string                `json:"scholarship_description_2"`
-	ScholarshipTypes         []ScholarshipTypeItem `json:"scholarship_types"`
-	SelectionRubric          []SelectionRubricItem `json:"selection_rubric"`
-	EligibilitySectionTitle  string                `json:"eligibility_section_title"`
-	EligibilitySubtitle      string                `json:"eligibility_subtitle"`
-	BasicEligibilityCriteria []string              `json:"basic_eligibility_criteria"`
-	FullyFundedCriteria      []string              `json:"fully_funded_criteria"`
-	PartiallyFundedCriteria  []string              `json:"partially_funded_criteria"`
+	BannerBackgroundImageURL string                     `json:"banner_background_image_url"`
+	AboutParagraph1          string                     `json:"about_paragraph_1"`
+	AboutParagraph2          string                     `json:"about_paragraph_2"`
+	VideoTutorials           []VideoTutorial            `json:"video_tutorials"`
+	JourneyTimeline          []JourneyTimelineItem      `json:"journey_timeline"`
+	ScholarshipSectionTitle  string                     `json:"scholarship_section_title"`
+	ScholarshipSubtitle      string                     `json:"scholarship_subtitle"`
+	ScholarshipDescription1  string                     `json:"scholarship_description_1"`
+	ScholarshipDescription2  string                     `json:"scholarship_description_2"`
+	ScholarshipTypes         []ScholarshipTypeItem      `json:"scholarship_types"`
+	SelectionRubric          []SelectionRubricItem      `json:"selection_rubric"`
+	EligibilitySectionTitle  string                     `json:"eligibility_section_title"`
+	EligibilitySubtitle      string                     `json:"eligibility_subtitle"`
+	BasicEligibilityCriteria []string                   `json:"basic_eligibility_criteria"`
+	FullyFundedCriteria      []string                   `json:"fully_funded_criteria"`
+	PartiallyFundedCriteria  []string                   `json:"partially_funded_criteria"`
 	SelectionProcessSteps    []SelectionProcessStepItem `json:"selection_process_steps"`
-	RequiredDocuments        []string              `json:"required_documents"`
-	FAQs                     []FAQItem             `json:"faqs"`
-	GalleryImages            []GalleryImageItem    `json:"gallery_images"`
-	PartnerGroups            []PartnerGroup        `json:"partner_groups"`
-	ExamCenters              []ExamCenterItem      `json:"exam_centers"`
-	Downloads                []DownloadItem        `json:"downloads"`
+	RequiredDocuments        []string                   `json:"required_documents"`
+	FAQs                     []FAQItem                  `json:"faqs"`
+	GalleryImages            []GalleryImageItem         `json:"gallery_images"`
+	PartnerGroups            []PartnerGroup             `json:"partner_groups"`
+	ExamCenters              []ExamCenterItem           `json:"exam_centers"`
+	Downloads                []DownloadItem             `json:"downloads"`
 }
 
 type ScholarshipResponse struct {
@@ -153,27 +153,59 @@ type ScholarshipListResponse struct {
 }
 
 type ApplicationResponse struct {
-	ID                uint                 `json:"id"`
-	CreatedAt         time.Time            `json:"created_at"`
-	UpdatedAt         time.Time            `json:"updated_at"`
-	ScholarshipID     uint                 `json:"scholarship_id"`
-	Scholarship       *ScholarshipResponse `json:"scholarship,omitempty"`
-	UserID            uint                 `json:"user_id"`
-	FirstName         string               `json:"first_name"`
-	LastName          string               `json:"last_name"`
-	Email             string               `json:"email"`
-	PhoneNumber       string               `json:"phone_number"`
-	Status            string               `json:"status"`
-	EvaluationNotes   string               `json:"evaluation_notes"`
-	Documents         []byte               `json:"documents"`
-	PersonalStatement string               `json:"personal_statement"`
-	Province          string               `json:"province"`
-	Stream            string               `json:"stream"`
-	GPA               float64              `json:"gpa"`
-	Gender            string               `json:"gender"`
-	Age               int                  `json:"age"`
-	SchoolType        string               `json:"school_type"`
-	ExamCenter        string               `json:"exam_center"`
+	ID                    uint                 `json:"id"`
+	CreatedAt             time.Time            `json:"created_at"`
+	UpdatedAt             time.Time            `json:"updated_at"`
+	ScholarshipID         uint                 `json:"scholarship_id"`
+	Scholarship           *ScholarshipResponse `json:"scholarship,omitempty"`
+	UserID                uint                 `json:"user_id"`
+	FullName              string               `json:"full_name"`
+	FirstName             string               `json:"first_name"`
+	LastName              string               `json:"last_name"`
+	Email                 string               `json:"email"`
+	PhoneNumber           string               `json:"phone_number"`
+	Gender                string               `json:"gender"`
+	Ethnicity             string               `json:"ethnicity"`
+	EthnicityOther        string               `json:"ethnicity_other"`
+	DateOfBirthBS         string               `json:"date_of_birth_bs"`
+	DateOfBirthAD         time.Time            `json:"date_of_birth_ad"`
+	Age                   int                  `json:"age"`
+	PhotoURL              string               `json:"photo_url"`
+	SEEGPA                string               `json:"see_gpa"`
+	SchoolName            string               `json:"school_name"`
+	SchoolProvince        string               `json:"school_province"`
+	SchoolDistrict        string               `json:"school_district"`
+	SchoolMunicipality    string               `json:"school_municipality"`
+	SchoolTole            string               `json:"school_tole"`
+	PermanentProvince     string               `json:"permanent_province"`
+	PermanentDistrict     string               `json:"permanent_district"`
+	PermanentMunicipality string               `json:"permanent_municipality"`
+	PermanentWard         string               `json:"permanent_ward"`
+	PermanentTole         string               `json:"permanent_tole"`
+	TemporaryProvince     string               `json:"temporary_province"`
+	TemporaryDistrict     string               `json:"temporary_district"`
+	TemporaryMunicipality string               `json:"temporary_municipality"`
+	TemporaryWard         string               `json:"temporary_ward"`
+	TemporaryTole         string               `json:"temporary_tole"`
+	GuardianName          string               `json:"guardian_name"`
+	GuardianPhone         string               `json:"guardian_phone"`
+	GuardianEmail         string               `json:"guardian_email"`
+	FatherOccupation      string               `json:"father_occupation"`
+	FatherOccupationOther string               `json:"father_occupation_other"`
+	MotherOccupation      string               `json:"mother_occupation"`
+	MotherOccupationOther string               `json:"mother_occupation_other"`
+	FamilyMonthlyIncome   float64              `json:"family_monthly_income"`
+	FamilyMembersCount    int                  `json:"family_members_count"`
+	Status                string               `json:"status"`
+	EvaluationNotes       string               `json:"evaluation_notes"`
+	Documents             []byte               `json:"documents"`
+	PersonalStatement     string               `json:"personal_statement"`
+	Province              string               `json:"province"`
+	District              string               `json:"district"`
+	Stream                string               `json:"stream"`
+	GPA                   float64              `json:"gpa"`
+	SchoolType            string               `json:"school_type"`
+	ExamCenter            string               `json:"exam_center"`
 }
 
 type ApplicationListResponse struct {
@@ -363,19 +395,19 @@ type CreateEventRequest struct {
 }
 
 type EventResponse struct {
-	ID          uint       `json:"id"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
-	ProviderID  uint       `json:"provider_id"`
-	Name        string     `json:"name"`
-	Description string     `json:"description"`
-	ImageURL    *string    `json:"image_url"`
-	EventType   string     `json:"event_type"`
-	StartDate   time.Time  `json:"start_date"`
-	EndDate     time.Time  `json:"end_date"`
-	Location    string     `json:"location"`
-	Status      string     `json:"status"`
-	Attendees   int        `json:"attendees"`
+	ID          uint      `json:"id"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+	ProviderID  uint      `json:"provider_id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	ImageURL    *string   `json:"image_url"`
+	EventType   string    `json:"event_type"`
+	StartDate   time.Time `json:"start_date"`
+	EndDate     time.Time `json:"end_date"`
+	Location    string    `json:"location"`
+	Status      string    `json:"status"`
+	Attendees   int       `json:"attendees"`
 }
 
 type EventListResponse struct {

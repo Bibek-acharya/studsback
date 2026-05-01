@@ -3,23 +3,75 @@ package scholarship
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
+
+	"gorm.io/gorm"
+
+	"studsphere/backend/internal/emailqueue"
 )
 
 type Service struct {
-	repo *Repository
+	repo       *Repository
+	providerDB *gorm.DB
 }
 
-func NewService(repo *Repository) *Service {
-	return &Service{repo: repo}
+type PaymentService struct {
+	repo            *PaymentRepository
+	scholarshipRepo *Repository
+}
+
+func NewPaymentService(db *gorm.DB) *PaymentService {
+	return &PaymentService{
+		repo:            NewPaymentRepository(db),
+		scholarshipRepo: NewRepository(db),
+	}
+}
+
+func NewService(repo *Repository, providerDB *gorm.DB) *Service {
+	return &Service{repo: repo, providerDB: providerDB}
 }
 
 func (s *Service) GetScholarships(search, categoryFilter, typeFilter, locationFilter, levelFilter, statusFilter, sortBy, order string) ([]Scholarship, []CategoryResponse, error) {
 	scholarships, err := s.repo.FindAll(search, typeFilter, locationFilter, levelFilter, sortBy, order)
 	if err != nil {
 		return nil, nil, err
+	}
+
+	providerScholarships, err := s.repo.FindPublishedProviderScholarships()
+	if err != nil {
+		return nil, nil, err
+	}
+	for _, ps := range providerScholarships {
+		status := deriveScholarshipStatus(ps.Deadline)
+		if statusFilter != "" && statusFilter != status {
+			continue
+		}
+		providerName := "Provider"
+		imageURL := ""
+		if ps.ImageURL != nil {
+			imageURL = *ps.ImageURL
+		}
+		bannerURL := ""
+		if ps.BannerBackgroundImageURL != nil {
+			bannerURL = *ps.BannerBackgroundImageURL
+		}
+		scholarships = append(scholarships, Scholarship{
+			ID:                       ps.ID + 10000,
+			Title:                    ps.Title,
+			Provider:                 providerName,
+			Location:                 ps.Location,
+			Value:                    ps.Value,
+			Deadline:                 ps.Deadline,
+			DegreeLevel:              ps.DegreeLevel,
+			FundingType:              ps.FundingType,
+			ScholarshipType:          ps.ScholarshipType,
+			Description:              ps.Description,
+			ImageURL:                 imageURL,
+			BannerBackgroundImageURL: bannerURL,
+		})
 	}
 
 	categoryRows, err := s.repo.FindAllCategoryRows()
@@ -90,6 +142,36 @@ func (s *Service) GetScholarships(search, categoryFilter, typeFilter, locationFi
 }
 
 func (s *Service) GetScholarshipByID(id uint) (*Scholarship, error) {
+	if id > 10000 {
+		providerID := id - 10000
+		ps, err := s.repo.FindProviderScholarshipByID(providerID)
+		if err != nil {
+			return nil, err
+		}
+		providerName := "Provider"
+		imageURL := ""
+		if ps.ImageURL != nil {
+			imageURL = *ps.ImageURL
+		}
+		bannerURL := ""
+		if ps.BannerBackgroundImageURL != nil {
+			bannerURL = *ps.BannerBackgroundImageURL
+		}
+		return &Scholarship{
+			ID:                       id,
+			Title:                    ps.Title,
+			Provider:                 providerName,
+			Location:                 ps.Location,
+			Value:                    ps.Value,
+			Deadline:                 ps.Deadline,
+			DegreeLevel:              ps.DegreeLevel,
+			FundingType:              ps.FundingType,
+			ScholarshipType:          ps.ScholarshipType,
+			Description:              ps.Description,
+			ImageURL:                 imageURL,
+			BannerBackgroundImageURL: bannerURL,
+		}, nil
+	}
 	return s.repo.FindByID(id)
 }
 
@@ -114,13 +196,84 @@ func (s *Service) GetSimilarScholarships(id uint) ([]Scholarship, error) {
 	return similar, nil
 }
 
-func (s *Service) ApplyScholarship(scholarshipID uint, userID uint, req ScholarshipApplicationRequest) (*ScholarshipApplication, error) {
-	scholarship, err := s.repo.FindByID(scholarshipID)
+func (s *Service) resolveScholarshipForApplication(scholarshipID uint) (*Scholarship, error) {
+	return resolveScholarshipForApplication(s.repo, scholarshipID)
+}
+
+type scholarshipApplicationResolver interface {
+	FindByProviderScholarshipID(providerScholarshipID uint) (*Scholarship, error)
+	FindProviderScholarshipByID(id uint) (*ProviderScholarship, error)
+	FindByID(id uint) (*Scholarship, error)
+	Create(scholarship *Scholarship) error
+}
+
+func resolveScholarshipForApplication(repo scholarshipApplicationResolver, scholarshipID uint) (*Scholarship, error) {
+	if scholarshipID <= 10000 {
+		return repo.FindByID(scholarshipID)
+	}
+
+	providerScholarshipID := scholarshipID - 10000
+	scholarship, err := repo.FindByProviderScholarshipID(providerScholarshipID)
+	if err == nil {
+		if scholarship.ProviderScholarshipID == nil {
+			scholarship.ProviderScholarshipID = &providerScholarshipID
+		}
+		return scholarship, nil
+	}
+
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+
+	providerScholarship, err := repo.FindProviderScholarshipByID(providerScholarshipID)
+	if err != nil {
+		return nil, err
+	}
+
+	scholarship = providerScholarshipToScholarship(providerScholarship)
+	scholarship.ProviderScholarshipID = &providerScholarshipID
+
+	if err := repo.Create(scholarship); err != nil {
+		return nil, err
+	}
+
+	return scholarship, nil
+}
+
+func providerScholarshipToScholarship(ps *ProviderScholarship) *Scholarship {
+	providerName := "Provider"
+	imageURL := ""
+	bannerURL := ""
+	if ps.ImageURL != nil {
+		imageURL = *ps.ImageURL
+	}
+	if ps.BannerBackgroundImageURL != nil {
+		bannerURL = *ps.BannerBackgroundImageURL
+	}
+
+	return &Scholarship{
+		Title:                    ps.Title,
+		Provider:                 providerName,
+		Location:                 ps.Location,
+		Value:                    ps.Value,
+		Deadline:                 ps.Deadline,
+		DegreeLevel:              ps.DegreeLevel,
+		FundingType:              ps.FundingType,
+		ScholarshipType:          ps.ScholarshipType,
+		Description:              ps.Description,
+		ImageURL:                 imageURL,
+		BannerBackgroundImageURL: bannerURL,
+		Status:                   ps.Status,
+	}
+}
+
+func (s *Service) ApplyScholarship(scholarshipID uint, userID *uint, req ScholarshipApplicationRequest) (*ScholarshipApplication, error) {
+	scholarship, err := s.resolveScholarshipForApplication(scholarshipID)
 	if err != nil {
 		return nil, errors.New("scholarship not found")
 	}
 
-	if userID > 0 && s.repo.ApplicationExists(scholarshipID, userID) {
+	if userID != nil && s.repo.ApplicationExists(scholarship.ID, *userID) {
 		return nil, errors.New("you have already applied for this scholarship")
 	}
 
@@ -137,7 +290,7 @@ func (s *Service) ApplyScholarship(scholarshipID uint, userID uint, req Scholars
 	}
 
 	application := &ScholarshipApplication{
-		ScholarshipID:  scholarshipID,
+		ScholarshipID:  scholarship.ID,
 		UserID:         userID,
 		FullName:       req.FullName,
 		Gender:         req.Gender,
@@ -209,11 +362,15 @@ func (s *Service) GetApplication(id uint, userID uint) (*ScholarshipApplication,
 		return nil, err
 	}
 
-	if app.UserID != userID {
+	if app.UserID == nil || *app.UserID != userID {
 		return nil, errors.New("you can only view your own applications")
 	}
 
 	return app, nil
+}
+
+func (s *Service) GetApplicationByUserAndScholarshipID(scholarshipID uint, userID uint) (*ScholarshipApplication, error) {
+	return s.repo.ApplicationFindByUserAndScholarshipID(scholarshipID, userID)
 }
 
 func (s *Service) UpdateApplication(id uint, userID uint, req UpdateScholarshipApplicationRequest) (*ScholarshipApplication, error) {
@@ -222,7 +379,7 @@ func (s *Service) UpdateApplication(id uint, userID uint, req UpdateScholarshipA
 		return nil, errors.New("application not found")
 	}
 
-	if app.UserID != userID {
+	if app.UserID == nil || *app.UserID != userID {
 		return nil, errors.New("you can only update your own applications")
 	}
 
@@ -356,7 +513,7 @@ func (s *Service) DeleteApplication(id uint, userID uint) error {
 		return errors.New("application not found")
 	}
 
-	if app.UserID != userID {
+	if app.UserID == nil || *app.UserID != userID {
 		return errors.New("you can only delete your own applications")
 	}
 
@@ -477,4 +634,112 @@ func (s *Service) AdminDeleteScholarship(id uint) error {
 	}
 
 	return s.repo.Delete(id)
+}
+
+func (s *PaymentService) CreatePayment(appID uint, scholarshipID, userID uint, req PaymentRequest) (*Payment, error) {
+	payment := &Payment{
+		ApplicationID: appID,
+		ScholarshipID: scholarshipID,
+		UserID:        userID,
+		Method:        req.Method,
+		Amount:        req.Amount,
+		Status:        "pending",
+	}
+	if err := s.repo.Create(payment); err != nil {
+		return nil, err
+	}
+	return payment, nil
+}
+
+func (s *PaymentService) ProcessSuccessfulPayment(paymentID uint, transactionID string) error {
+	payment, err := s.repo.FindByID(paymentID)
+	if err != nil {
+		return err
+	}
+	payment.Status = "completed"
+	payment.TransactionID = transactionID
+	now := time.Now()
+	payment.PaidAt = &now
+
+	if err := s.repo.Update(payment); err != nil {
+		return err
+	}
+
+	app, _ := s.scholarshipRepo.ApplicationFindByID(payment.ApplicationID)
+	if app != nil {
+		app.Status = "confirmed"
+		s.scholarshipRepo.ApplicationSave(app)
+	}
+
+	return s.sendAdmitCard(payment)
+}
+
+func (s *PaymentService) UploadBankReceipt(paymentID uint, receiptURL string) error {
+	payment, err := s.repo.FindByID(paymentID)
+	if err != nil {
+		return err
+	}
+	payment.Status = "pending_approval"
+	payment.ReceiptURL = receiptURL
+	return s.repo.Update(payment)
+}
+
+func (s *PaymentService) ApproveBankPayment(paymentID uint, approvedBy uint, reason string) error {
+	payment, err := s.repo.FindByID(paymentID)
+	if err != nil {
+		return err
+	}
+	if reason != "" {
+		payment.Status = "failed"
+		payment.RejectionReason = reason
+	} else {
+		payment.Status = "completed"
+		now := time.Now()
+		payment.PaidAt = &now
+		payment.ApprovedBy = approvedBy
+		nowApproval := now
+		payment.ApprovedAt = &nowApproval
+
+		app, _ := s.scholarshipRepo.ApplicationFindByID(payment.ApplicationID)
+		if app != nil {
+			app.Status = "confirmed"
+			s.scholarshipRepo.ApplicationSave(app)
+		}
+
+		s.sendAdmitCard(payment)
+	}
+	return s.repo.Update(payment)
+}
+
+func (s *PaymentService) sendAdmitCard(payment *Payment) error {
+	app, _ := s.scholarshipRepo.ApplicationFindByID(payment.ApplicationID)
+	scholarship, _ := s.scholarshipRepo.FindByID(payment.ScholarshipID)
+
+	if app == nil || scholarship == nil {
+		return nil
+	}
+
+	subject := fmt.Sprintf("Admit Card - %s", scholarship.Title)
+	body := fmt.Sprintf(`
+Dear %s,
+
+Congratulations! Your application for %s has been confirmed.
+
+SCHOLARSHIP DETAILS:
+- Provider: %s
+- Amount: %s
+- Application ID: %d
+- Status: CONFIRMED
+
+Please keep this email for your records.
+
+Best regards,
+%s Team
+	`, app.FullName, scholarship.Title, scholarship.Provider, scholarship.Value, app.ID, scholarship.Provider)
+
+	if emailqueue.Queue != nil {
+		return emailqueue.EnqueueGenericEmail(app.Email, subject, body)
+	}
+
+	return nil
 }

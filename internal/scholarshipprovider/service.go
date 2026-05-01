@@ -231,38 +231,35 @@ func (s *Service) UpdateScholarship(providerID, id uint, req CreateScholarshipRe
 
 	log.Printf("scholarshipprovider: Service.UpdateScholarship - requestedProviderID=%d, scholarship.ProviderID=%d, scholarshipID=%d", providerID, scholarship.ProviderID, scholarship.ID)
 
-	fieldOfStudy := toJSON(req.FieldOfStudy)
-	updates := map[string]interface{}{
-		"title":                      req.Title,
-		"description":                req.Description,
-		"location":                   req.Location,
-		"value":                      req.Value,
-		"degree_level":               req.DegreeLevel,
-		"funding_type":               req.FundingType,
-		"scholarship_type":           req.ScholarshipType,
-		"field_of_study":             fieldOfStudy,
-		"about_paragraph1":          req.AboutParagraph1,
-		"about_paragraph2":          req.AboutParagraph2,
-		"video_tutorials":            toJSON(req.VideoTutorials),
-		"journey_timeline":           toJSON(req.JourneyTimeline),
-		"scholarship_section_title":  req.ScholarshipSectionTitle,
-		"scholarship_subtitle":       req.ScholarshipSubtitle,
-		"scholarship_description1":  req.ScholarshipDescription1,
-		"scholarship_description2":  req.ScholarshipDescription2,
-		"scholarship_types":          toJSON(req.ScholarshipTypes),
-		"selection_rubric":           toJSON(req.SelectionRubric),
-		"eligibility_section_title":  req.EligibilitySectionTitle,
-		"eligibility_subtitle":       req.EligibilitySubtitle,
-		"basic_eligibility_criteria": toJSON(req.BasicEligibilityCriteria),
-		"fully_funded_criteria":      toJSON(req.FullyFundedCriteria),
-		"partially_funded_criteria":  toJSON(req.PartiallyFundedCriteria),
-		"selection_process_steps":    toJSON(req.SelectionProcessSteps),
-		"required_documents":         toJSON(req.RequiredDocuments),
-		"fa_qs":                       toJSON(req.FAQs),
-		"gallery_images":             toJSON(req.GalleryImages),
-		"partner_groups":             toJSON(req.PartnerGroups),
-		"exam_centers":               toJSON(req.ExamCenters),
-		"downloads":                  toJSON(req.Downloads),
+	updates := make(map[string]interface{})
+
+	// Only update fields that are provided (non-empty)
+	if req.Title != "" {
+		updates["title"] = req.Title
+	}
+	if req.Description != "" {
+		updates["description"] = req.Description
+	}
+	if req.Location != "" {
+		updates["location"] = req.Location
+	}
+	if req.Value != "" {
+		updates["value"] = req.Value
+	}
+	if req.DegreeLevel != "" {
+		updates["degree_level"] = req.DegreeLevel
+	}
+	if req.FundingType != "" {
+		updates["funding_type"] = req.FundingType
+	}
+	if req.ScholarshipType != "" {
+		updates["scholarship_type"] = req.ScholarshipType
+	}
+	if len(req.FieldOfStudy) > 0 {
+		updates["field_of_study"] = toJSON(req.FieldOfStudy)
+	}
+	if req.Status != "" {
+		updates["status"] = req.Status
 	}
 
 	if req.ImageURL != "" {
@@ -271,15 +268,18 @@ func (s *Service) UpdateScholarship(providerID, id uint, req CreateScholarshipRe
 	if req.BannerBackgroundImageURL != "" {
 		updates["banner_background_image_url"] = req.BannerBackgroundImageURL
 	}
-	if req.Status != "" {
+if req.Status != "" {
 		updates["status"] = req.Status
 	}
-	var deadline time.Time
+
 	if req.Deadline != "" {
 		if parsed, err := parseTime(req.Deadline); err == nil {
-			deadline = parsed
-			updates["deadline"] = deadline
+			updates["deadline"] = parsed
 		}
+	}
+
+	if len(updates) == 0 {
+		return scholarship, nil
 	}
 
 	if err := s.repo.UpdateScholarship(scholarship, updates); err != nil {
@@ -287,9 +287,18 @@ func (s *Service) UpdateScholarship(providerID, id uint, req CreateScholarshipRe
 		return nil, err
 	}
 
-	if err := s.syncPublicScholarship(providerID, id, req, fieldOfStudy, deadline, true); err != nil {
-		log.Printf("scholarshipprovider: UpdateScholarship syncPublicScholarship error: %v", err)
-		return nil, err
+	// Only sync if status is being changed to published
+	if updates["status"] == "published" {
+		fieldOfStudy := toJSON(req.FieldOfStudy)
+		var deadline time.Time
+		if req.Deadline != "" {
+			if parsed, err := parseTime(req.Deadline); err == nil {
+				deadline = parsed
+			}
+		}
+		if err := s.syncPublicScholarship(providerID, id, req, fieldOfStudy, deadline, true); err != nil {
+			log.Printf("scholarshipprovider: UpdateScholarship syncPublicScholarship error: %v", err)
+		}
 	}
 
 	return scholarship, nil

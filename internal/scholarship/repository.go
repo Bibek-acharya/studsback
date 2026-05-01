@@ -76,6 +76,52 @@ func (r *Repository) FindAllAdmin() ([]Scholarship, error) {
 	return scholarships, err
 }
 
+type ProviderScholarship struct {
+	ID                       uint   `gorm:"primaryKey"`
+	ProviderID               uint   `gorm:"index"`
+	Title                    string `gorm:"not null"`
+	Description              string `gorm:"type:text"`
+	ImageURL                 *string
+	BannerBackgroundImageURL *string `gorm:"column:banner_background_image_url"`
+	Location                 string
+	Value                    string
+	Deadline                 time.Time
+	DegreeLevel              string
+	FundingType              string
+	ScholarshipType          string
+	Status                   string
+}
+
+func (r *Repository) FindPublishedProviderScholarships() ([]ProviderScholarship, error) {
+	var scholarships []ProviderScholarship
+	err := r.db.Table("provider_scholarships").
+		Select("id", "provider_id", "title", "description", "image_url", "banner_background_image_url", "location", "value", "deadline", "degree_level", "funding_type", "scholarship_type", "status").
+		Where("status IN ?", []string{"published", "active"}).
+		Find(&scholarships).Error
+	return scholarships, err
+}
+
+func (r *Repository) FindProviderScholarshipByID(id uint) (*ProviderScholarship, error) {
+	var scholarship ProviderScholarship
+	err := r.db.Table("provider_scholarships").
+		Select("id", "provider_id", "title", "description", "image_url", "banner_background_image_url", "location", "value", "deadline", "degree_level", "funding_type", "scholarship_type", "status").
+		Where("id = ?", id).
+		First(&scholarship).Error
+	if err != nil {
+		return nil, err
+	}
+	return &scholarship, nil
+}
+
+func (r *Repository) FindByProviderScholarshipID(providerScholarshipID uint) (*Scholarship, error) {
+	var scholarship Scholarship
+	err := r.db.Where("provider_scholarship_id = ?", providerScholarshipID).First(&scholarship).Error
+	if err != nil {
+		return nil, err
+	}
+	return &scholarship, nil
+}
+
 func (r *Repository) FindByID(id uint) (*Scholarship, error) {
 	var scholarship Scholarship
 	err := r.db.First(&scholarship, id).Error
@@ -164,15 +210,22 @@ func (r *Repository) ApplicationFindAll(status string) ([]ScholarshipApplication
 }
 
 func (r *Repository) ApplicationFindByScholarshipID(scholarshipID string, status string) ([]ScholarshipApplication, error) {
-	var applications []ScholarshipApplication
-	query := r.db.Where("scholarship_id = ?", scholarshipID).Preload("User")
-
+	var apps []ScholarshipApplication
+	query := r.db.Where("scholarship_id = ?", scholarshipID)
 	if status != "" {
 		query = query.Where("status = ?", status)
 	}
+	err := query.Find(&apps).Error
+	return apps, err
+}
 
-	err := query.Order("created_at DESC").Find(&applications).Error
-	return applications, err
+func (r *Repository) ApplicationFindByUserAndScholarshipID(scholarshipID uint, userID uint) (*ScholarshipApplication, error) {
+	var app ScholarshipApplication
+	err := r.db.Where("scholarship_id = ? AND user_id = ?", scholarshipID, userID).First(&app).Error
+	if err != nil {
+		return nil, err
+	}
+	return &app, nil
 }
 
 func (r *Repository) ApplicationExists(scholarshipID uint, userID uint) bool {
@@ -185,21 +238,56 @@ func (r *Repository) CreateProviderApplication(providerScholarshipID uint, app *
 	nameParts := splitFullName(app.FullName)
 	now := time.Now()
 	return r.db.Table("provider_applications").Create(map[string]interface{}{
-		"scholarship_id":      providerScholarshipID,
-		"user_id":             app.UserID,
-		"first_name":          nameParts[0],
-		"last_name":           nameParts[1],
-		"email":               app.Email,
-		"phone_number":        app.PhoneNumber,
-		"status":              "pending",
-		"gender":              app.Gender,
-		"gpa":                 parseGPA(app.SEEGPA),
-		"stream":              app.Stream,
-		"exam_center":         app.ExamCenter,
-		"personal_statement":  "",
-		"documents":           app.Documents,
-		"created_at":          now,
-		"updated_at":          now,
+		"scholarship_id":          providerScholarshipID,
+		"user_id":                 app.UserID,
+		"full_name":               app.FullName,
+		"first_name":              nameParts[0],
+		"last_name":               nameParts[1],
+		"email":                   app.Email,
+		"phone_number":            app.PhoneNumber,
+		"gender":                  app.Gender,
+		"ethnicity":               app.Ethnicity,
+		"ethnicity_other":         app.EthnicityOther,
+		"date_of_birth_bs":        app.DateOfBirthBS,
+		"date_of_birth_ad":        app.DateOfBirthAD,
+		"age":                     app.Age,
+		"photo_url":               app.PhotoURL,
+		"see_gpa":                 app.SEEGPA,
+		"gpa":                     parseGPA(app.SEEGPA),
+		"school_type":             app.SchoolType,
+		"school_name":             app.SchoolName,
+		"school_province":         app.SchoolProvince,
+		"school_district":         app.SchoolDistrict,
+		"school_municipality":     app.SchoolMunicipality,
+		"school_tole":             app.SchoolTole,
+		"province":                app.PermanentProvince,
+		"district":                app.PermanentDistrict,
+		"permanent_province":      app.PermanentProvince,
+		"permanent_district":      app.PermanentDistrict,
+		"permanent_municipality":  app.PermanentMunicipality,
+		"permanent_ward":          app.PermanentWard,
+		"permanent_tole":          app.PermanentTole,
+		"temporary_province":      app.TemporaryProvince,
+		"temporary_district":      app.TemporaryDistrict,
+		"temporary_municipality":  app.TemporaryMunicipality,
+		"temporary_ward":          app.TemporaryWard,
+		"temporary_tole":          app.TemporaryTole,
+		"guardian_name":           app.GuardianName,
+		"guardian_phone":          app.GuardianPhone,
+		"guardian_email":          app.GuardianEmail,
+		"father_occupation":       app.FatherOccupation,
+		"father_occupation_other": app.FatherOccupationOther,
+		"mother_occupation":       app.MotherOccupation,
+		"mother_occupation_other": app.MotherOccupationOther,
+		"family_monthly_income":   app.FamilyMonthlyIncome,
+		"family_members_count":    app.FamilyMembersCount,
+		"status":                  "pending",
+		"stream":                  app.Stream,
+		"exam_center":             app.ExamCenter,
+		"personal_statement":      "",
+		"documents":               app.Documents,
+		"created_at":              now,
+		"updated_at":              now,
 	}).Error
 }
 

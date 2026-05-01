@@ -584,26 +584,58 @@ func toScholarshipResponse(s *ProviderScholarship) ScholarshipResponse {
 
 func toApplicationResponse(a *ProviderApplication) ApplicationResponse {
 	resp := ApplicationResponse{
-		ID:                a.ID,
-		CreatedAt:         a.CreatedAt,
-		UpdatedAt:         a.UpdatedAt,
-		ScholarshipID:     a.ScholarshipID,
-		UserID:            a.UserID,
-		FirstName:         a.FirstName,
-		LastName:          a.LastName,
-		Email:             a.Email,
-		PhoneNumber:       a.PhoneNumber,
-		Status:            a.Status,
-		EvaluationNotes:   a.EvaluationNotes,
-		Documents:         a.Documents,
-		PersonalStatement: a.PersonalStatement,
-		Province:          a.Province,
-		Stream:            a.Stream,
-		GPA:               a.GPA,
-		Gender:            a.Gender,
-		Age:               a.Age,
-		SchoolType:        a.SchoolType,
-		ExamCenter:        a.ExamCenter,
+		ID:                    a.ID,
+		CreatedAt:             a.CreatedAt,
+		UpdatedAt:             a.UpdatedAt,
+		ScholarshipID:         a.ScholarshipID,
+		UserID:                uintValueOrZero(a.UserID),
+		FullName:              a.FullName,
+		FirstName:             a.FirstName,
+		LastName:              a.LastName,
+		Email:                 a.Email,
+		PhoneNumber:           a.PhoneNumber,
+		Gender:                a.Gender,
+		Ethnicity:             a.Ethnicity,
+		EthnicityOther:        a.EthnicityOther,
+		DateOfBirthBS:         a.DateOfBirthBS,
+		DateOfBirthAD:         a.DateOfBirthAD,
+		Age:                   a.Age,
+		PhotoURL:              a.PhotoURL,
+		SEEGPA:                a.SEEGPA,
+		SchoolName:            a.SchoolName,
+		SchoolProvince:        a.SchoolProvince,
+		SchoolDistrict:        a.SchoolDistrict,
+		SchoolMunicipality:    a.SchoolMunicipality,
+		SchoolTole:            a.SchoolTole,
+		PermanentProvince:     a.PermanentProvince,
+		PermanentDistrict:     a.PermanentDistrict,
+		PermanentMunicipality: a.PermanentMunicipality,
+		PermanentWard:         a.PermanentWard,
+		PermanentTole:         a.PermanentTole,
+		TemporaryProvince:     a.TemporaryProvince,
+		TemporaryDistrict:     a.TemporaryDistrict,
+		TemporaryMunicipality: a.TemporaryMunicipality,
+		TemporaryWard:         a.TemporaryWard,
+		TemporaryTole:         a.TemporaryTole,
+		GuardianName:          a.GuardianName,
+		GuardianPhone:         a.GuardianPhone,
+		GuardianEmail:         a.GuardianEmail,
+		FatherOccupation:      a.FatherOccupation,
+		FatherOccupationOther: a.FatherOccupationOther,
+		MotherOccupation:      a.MotherOccupation,
+		MotherOccupationOther: a.MotherOccupationOther,
+		FamilyMonthlyIncome:   a.FamilyMonthlyIncome,
+		FamilyMembersCount:    a.FamilyMembersCount,
+		Status:                a.Status,
+		EvaluationNotes:       a.EvaluationNotes,
+		Documents:             a.Documents,
+		PersonalStatement:     a.PersonalStatement,
+		Province:              a.Province,
+		District:              a.District,
+		Stream:                a.Stream,
+		GPA:                   a.GPA,
+		SchoolType:            a.SchoolType,
+		ExamCenter:            a.ExamCenter,
 	}
 
 	if a.Scholarship.ID != 0 {
@@ -612,6 +644,13 @@ func toApplicationResponse(a *ProviderApplication) ApplicationResponse {
 	}
 
 	return resp
+}
+
+func uintValueOrZero(v *uint) uint {
+	if v == nil {
+		return 0
+	}
+	return *v
 }
 
 func toInterviewResponse(i *ProviderInterview) InterviewResponse {

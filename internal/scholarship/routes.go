@@ -14,7 +14,6 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			education.GET("/scholarships", h.GetScholarships)
 			education.GET("/scholarships/:id", h.GetScholarshipByID)
 			education.GET("/scholarships/:id/similar", h.GetSimilarScholarships)
-
 			education.POST("/scholarships/:id/apply", h.ApplyScholarship)
 		}
 
@@ -25,6 +24,16 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			protected.GET("/scholarships/applications/:id", h.GetApplication)
 			protected.PUT("/scholarships/applications/:id", h.UpdateApplication)
 			protected.DELETE("/scholarships/applications/:id", h.DeleteApplication)
+
+			protected.POST("/scholarships/:id/pay", h.ProcessPayment)
+			protected.POST("/scholarships/pay/:id/confirm", h.ConfirmPayment)
+			protected.POST("/scholarships/pay/:id/receipt", h.uploadBankReceipt)
+		}
+
+		provider := v1.Group("/providers")
+		provider.Use(authMW)
+		{
+			provider.POST("/payments/:id/approve", h.ApprovePayment)
 		}
 
 		admin := v1.Group("/admin")

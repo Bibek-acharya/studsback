@@ -12,11 +12,12 @@ import (
 )
 
 type Handler struct {
-	service *Service
+	service        *Service
+	paymentService *PaymentService
 }
 
-func NewHandler(service *Service) *Handler {
-	return &Handler{service: service}
+func NewHandler(service *Service, paymentService *PaymentService) *Handler {
+	return &Handler{service: service, paymentService: paymentService}
 }
 
 func (h *Handler) GetScholarships(c *gin.Context) {
@@ -103,9 +104,10 @@ func (h *Handler) ApplyScholarship(c *gin.Context) {
 	}
 
 	userID, _ := c.Get("user_id")
-	uid := uint(0)
+	var uid *uint
 	if userID != nil {
-		uid = userID.(uint)
+		currentUserID := userID.(uint)
+		uid = &currentUserID
 	}
 
 	application, err := h.service.ApplyScholarship(scholarshipID, uid, req)
@@ -387,50 +389,50 @@ func toApplicationResponse(a ScholarshipApplication) ScholarshipApplicationRespo
 	}
 
 	resp := ScholarshipApplicationResponse{
-		ID:                   a.ID,
-		CreatedAt:            a.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:            a.UpdatedAt.Format(time.RFC3339),
-		ScholarshipID:        a.ScholarshipID,
-		UserID:               a.UserID,
-		FullName:             a.FullName,
-		Gender:               a.Gender,
-		Ethnicity:            a.Ethnicity,
-		EthnicityOther:       a.EthnicityOther,
-		DateOfBirthBS:        a.DateOfBirthBS,
-		DateOfBirthAD:        dobAD,
-		Age:                  a.Age,
-		PhoneNumber:          a.PhoneNumber,
-		Email:                a.Email,
-		PhotoURL:             a.PhotoURL,
-		SEEGPA:               a.SEEGPA,
-		SchoolType:           a.SchoolType,
-		SchoolName:           a.SchoolName,
-		SchoolProvince:       a.SchoolProvince,
-		SchoolDistrict:       a.SchoolDistrict,
-		SchoolMunicipality:   a.SchoolMunicipality,
-		SchoolTole:           a.SchoolTole,
-		PermanentProvince:    a.PermanentProvince,
-		PermanentDistrict:    a.PermanentDistrict,
+		ID:                    a.ID,
+		CreatedAt:             a.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:             a.UpdatedAt.Format(time.RFC3339),
+		ScholarshipID:         a.ScholarshipID,
+		UserID:                uintValueOrZero(a.UserID),
+		FullName:              a.FullName,
+		Gender:                a.Gender,
+		Ethnicity:             a.Ethnicity,
+		EthnicityOther:        a.EthnicityOther,
+		DateOfBirthBS:         a.DateOfBirthBS,
+		DateOfBirthAD:         dobAD,
+		Age:                   a.Age,
+		PhoneNumber:           a.PhoneNumber,
+		Email:                 a.Email,
+		PhotoURL:              a.PhotoURL,
+		SEEGPA:                a.SEEGPA,
+		SchoolType:            a.SchoolType,
+		SchoolName:            a.SchoolName,
+		SchoolProvince:        a.SchoolProvince,
+		SchoolDistrict:        a.SchoolDistrict,
+		SchoolMunicipality:    a.SchoolMunicipality,
+		SchoolTole:            a.SchoolTole,
+		PermanentProvince:     a.PermanentProvince,
+		PermanentDistrict:     a.PermanentDistrict,
 		PermanentMunicipality: a.PermanentMunicipality,
-		PermanentWard:        a.PermanentWard,
-		PermanentTole:        a.PermanentTole,
-		TemporaryProvince:    a.TemporaryProvince,
-		TemporaryDistrict:    a.TemporaryDistrict,
+		PermanentWard:         a.PermanentWard,
+		PermanentTole:         a.PermanentTole,
+		TemporaryProvince:     a.TemporaryProvince,
+		TemporaryDistrict:     a.TemporaryDistrict,
 		TemporaryMunicipality: a.TemporaryMunicipality,
-		TemporaryWard:        a.TemporaryWard,
-		TemporaryTole:        a.TemporaryTole,
-		GuardianName:         a.GuardianName,
-		GuardianPhone:        a.GuardianPhone,
-		GuardianEmail:        a.GuardianEmail,
-		FatherOccupation:     a.FatherOccupation,
+		TemporaryWard:         a.TemporaryWard,
+		TemporaryTole:         a.TemporaryTole,
+		GuardianName:          a.GuardianName,
+		GuardianPhone:         a.GuardianPhone,
+		GuardianEmail:         a.GuardianEmail,
+		FatherOccupation:      a.FatherOccupation,
 		FatherOccupationOther: a.FatherOccupationOther,
-		MotherOccupation:     a.MotherOccupation,
+		MotherOccupation:      a.MotherOccupation,
 		MotherOccupationOther: a.MotherOccupationOther,
-		FamilyMonthlyIncome:  a.FamilyMonthlyIncome,
-		FamilyMembersCount:   a.FamilyMembersCount,
-		Stream:               a.Stream,
-		ExamCenter:           a.ExamCenter,
-		Status:               a.Status,
+		FamilyMonthlyIncome:   a.FamilyMonthlyIncome,
+		FamilyMembersCount:    a.FamilyMembersCount,
+		Stream:                a.Stream,
+		ExamCenter:            a.ExamCenter,
+		Status:                a.Status,
 	}
 
 	if a.Scholarship.ID != 0 {
@@ -467,6 +469,13 @@ func parseID(s string) (uint, error) {
 		return 0, err
 	}
 	return uint(parsed), nil
+}
+
+func uintValueOrZero(v *uint) uint {
+	if v == nil {
+		return 0
+	}
+	return *v
 }
 
 func formatDeadline(t time.Time) string {
@@ -613,4 +622,101 @@ type categoryMeta struct {
 
 func countString(count int) string {
 	return strconv.Itoa(count) + " Scholarships Open"
+}
+
+func (h *Handler) ProcessPayment(c *gin.Context) {
+	scholarshipID, err := parseID(c.Param("id"))
+	if err != nil {
+		response.Error(c, 400, "Invalid scholarship ID")
+		return
+	}
+
+	var req PaymentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+
+	userID, _ := c.Get("user_id")
+	uid := userID.(uint)
+
+	app, err := h.service.GetApplicationByUserAndScholarshipID(scholarshipID, uid)
+	if err != nil {
+		response.Error(c, 404, "No application found")
+		return
+	}
+
+	payment, err := h.paymentService.CreatePayment(app.ID, scholarshipID, uid, req)
+	if err != nil {
+		response.Error(c, 500, "Failed to process payment")
+		return
+	}
+
+	response.Success(c, 201, "Payment initiated", payment)
+}
+
+func (h *Handler) ConfirmPayment(c *gin.Context) {
+	paymentID, err := parseID(c.Param("id"))
+	if err != nil {
+		response.Error(c, 400, "Invalid payment ID")
+		return
+	}
+
+	var req struct {
+		TransactionID string `json:"transaction_id"`
+	}
+	c.ShouldBindJSON(&req)
+
+	if err := h.paymentService.ProcessSuccessfulPayment(paymentID, req.TransactionID); err != nil {
+		response.Error(c, 500, "Failed to confirm payment")
+		return
+	}
+
+	response.Success(c, 200, "Payment confirmed", nil)
+}
+
+func (h *Handler) uploadBankReceipt(c *gin.Context) {
+	paymentID, err := parseID(c.Param("id"))
+	if err != nil {
+		response.Error(c, 400, "Invalid payment ID")
+		return
+	}
+
+	var req struct {
+		ReceiptImage string `json:"receipt_image"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+
+	if err := h.paymentService.UploadBankReceipt(paymentID, req.ReceiptImage); err != nil {
+		response.Error(c, 500, "Failed to upload receipt")
+		return
+	}
+
+	response.Success(c, 200, "Receipt uploaded", nil)
+}
+
+func (h *Handler) ApprovePayment(c *gin.Context) {
+	paymentID, err := parseID(c.Param("id"))
+	if err != nil {
+		response.Error(c, 400, "Invalid payment ID")
+		return
+	}
+
+	var req ApprovePaymentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+
+	providerID, _ := c.Get("provider_id")
+
+	if err := h.paymentService.ApproveBankPayment(paymentID, providerID.(uint), req.Reason); err != nil {
+		response.Error(c, 500, "Failed to process approval")
+		return
+	}
+
+	response.Success(c, 200, "Payment processed", nil)
 }
