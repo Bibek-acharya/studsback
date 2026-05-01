@@ -1,8 +1,10 @@
 package middleware
 
 import (
+	"net/url"
 	"strings"
 
+	"studsphere/backend/internal/shared/config"
 	"studsphere/backend/internal/shared/response"
 	"studsphere/backend/internal/shared/utils"
 
@@ -51,12 +53,33 @@ func Auth() gin.HandlerFunc {
 
 func SetAuthCookie(c *gin.Context, token string) {
 	secure := c.Request.TLS != nil
-	c.SetCookie("token", token, 86400*7, "/", "", secure, true)
+
+	// Get frontend domain from config to set cookie on correct domain
+	// This ensures cookie is accessible by frontend (different from API domain in production)
+	frontendURL := config.AppConfig.FrontendURL
+	domain := ""
+	if frontendURL != "" {
+		if parsedURL, err := url.Parse(frontendURL); err == nil {
+			domain = parsedURL.Host
+		}
+	}
+
+	c.SetCookie("token", token, 86400*7, "/", domain, secure, true)
 }
 
 func ClearAuthCookie(c *gin.Context) {
 	secure := c.Request.TLS != nil
-	c.SetCookie("token", "", -1, "/", "", secure, true)
+
+	// Get frontend domain from config to clear cookie on correct domain
+	frontendURL := config.AppConfig.FrontendURL
+	domain := ""
+	if frontendURL != "" {
+		if parsedURL, err := url.Parse(frontendURL); err == nil {
+			domain = parsedURL.Host
+		}
+	}
+
+	c.SetCookie("token", "", -1, "/", domain, secure, true)
 }
 
 func RequireRole(allowedRoles ...string) gin.HandlerFunc {
