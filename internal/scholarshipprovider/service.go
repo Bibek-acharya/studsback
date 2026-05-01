@@ -3,6 +3,7 @@ package scholarshipprovider
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"time"
 
 	publicscholarship "studsphere/backend/internal/scholarship"
@@ -95,40 +96,40 @@ func (s *Service) CreateScholarship(providerID uint, req CreateScholarshipReques
 	}
 
 	scholarship := &ProviderScholarship{
-		ProviderID:                providerID,
-		Title:                     req.Title,
-		Description:               req.Description,
-		ImageURL:                  imageURL,
-		Location:                  req.Location,
-		Value:                     req.Value,
-		DegreeLevel:               req.DegreeLevel,
-		FundingType:               req.FundingType,
-		ScholarshipType:           req.ScholarshipType,
-		FieldOfStudy:              toJSON(req.FieldOfStudy),
-		Status:                    status,
-		BannerBackgroundImageURL:  bannerBG,
-		AboutParagraph1:           req.AboutParagraph1,
-		AboutParagraph2:           req.AboutParagraph2,
-		VideoTutorials:            toJSON(req.VideoTutorials),
-		JourneyTimeline:           toJSON(req.JourneyTimeline),
-		ScholarshipSectionTitle:   req.ScholarshipSectionTitle,
-		ScholarshipSubtitle:       req.ScholarshipSubtitle,
-		ScholarshipDescription1:   req.ScholarshipDescription1,
-		ScholarshipDescription2:   req.ScholarshipDescription2,
-		ScholarshipTypes:          toJSON(req.ScholarshipTypes),
-		SelectionRubric:           toJSON(req.SelectionRubric),
-		EligibilitySectionTitle:   req.EligibilitySectionTitle,
-		EligibilitySubtitle:       req.EligibilitySubtitle,
-		BasicEligibilityCriteria:  toJSON(req.BasicEligibilityCriteria),
-		FullyFundedCriteria:       toJSON(req.FullyFundedCriteria),
-		PartiallyFundedCriteria:   toJSON(req.PartiallyFundedCriteria),
-		SelectionProcessSteps:     toJSON(req.SelectionProcessSteps),
-		RequiredDocuments:         toJSON(req.RequiredDocuments),
-		FAQs:                      toJSON(req.FAQs),
-		GalleryImages:             toJSON(req.GalleryImages),
-		PartnerGroups:             toJSON(req.PartnerGroups),
-		ExamCenters:               toJSON(req.ExamCenters),
-		Downloads:                 toJSON(req.Downloads),
+		ProviderID:               providerID,
+		Title:                    req.Title,
+		Description:              req.Description,
+		ImageURL:                 imageURL,
+		Location:                 req.Location,
+		Value:                    req.Value,
+		DegreeLevel:              req.DegreeLevel,
+		FundingType:              req.FundingType,
+		ScholarshipType:          req.ScholarshipType,
+		FieldOfStudy:             toJSON(req.FieldOfStudy),
+		Status:                   status,
+		BannerBackgroundImageURL: bannerBG,
+		AboutParagraph1:          req.AboutParagraph1,
+		AboutParagraph2:          req.AboutParagraph2,
+		VideoTutorials:           toJSON(req.VideoTutorials),
+		JourneyTimeline:          toJSON(req.JourneyTimeline),
+		ScholarshipSectionTitle:  req.ScholarshipSectionTitle,
+		ScholarshipSubtitle:      req.ScholarshipSubtitle,
+		ScholarshipDescription1:  req.ScholarshipDescription1,
+		ScholarshipDescription2:  req.ScholarshipDescription2,
+		ScholarshipTypes:         toJSON(req.ScholarshipTypes),
+		SelectionRubric:          toJSON(req.SelectionRubric),
+		EligibilitySectionTitle:  req.EligibilitySectionTitle,
+		EligibilitySubtitle:      req.EligibilitySubtitle,
+		BasicEligibilityCriteria: toJSON(req.BasicEligibilityCriteria),
+		FullyFundedCriteria:      toJSON(req.FullyFundedCriteria),
+		PartiallyFundedCriteria:  toJSON(req.PartiallyFundedCriteria),
+		SelectionProcessSteps:    toJSON(req.SelectionProcessSteps),
+		RequiredDocuments:        toJSON(req.RequiredDocuments),
+		FAQs:                     toJSON(req.FAQs),
+		GalleryImages:            toJSON(req.GalleryImages),
+		PartnerGroups:            toJSON(req.PartnerGroups),
+		ExamCenters:              toJSON(req.ExamCenters),
+		Downloads:                toJSON(req.Downloads),
 	}
 
 	if req.Deadline != "" {
@@ -167,19 +168,19 @@ func (s *Service) syncPublicScholarship(providerID uint, providerScholarshipID u
 	}
 
 	publicScholarship := &publicscholarship.Scholarship{
-		Title:               req.Title,
-		Provider:            provider.ProviderName,
-		Location:            req.Location,
-		Value:               req.Value,
-		Deadline:            deadline,
-		DegreeLevel:         req.DegreeLevel,
-		FundingType:         req.FundingType,
-		ScholarshipType:     req.ScholarshipType,
-		Description:         req.Description,
-		ImageURL:            req.ImageURL,
-		FieldOfStudy:        fieldOfStudy,
-		EligibilityCriteria: nil,
-		RequiredDocuments:   nil,
+		Title:                 req.Title,
+		Provider:              provider.ProviderName,
+		Location:              req.Location,
+		Value:                 req.Value,
+		Deadline:              deadline,
+		DegreeLevel:           req.DegreeLevel,
+		FundingType:           req.FundingType,
+		ScholarshipType:       req.ScholarshipType,
+		Description:           req.Description,
+		ImageURL:              req.ImageURL,
+		FieldOfStudy:          fieldOfStudy,
+		EligibilityCriteria:   nil,
+		RequiredDocuments:     nil,
 		ProviderScholarshipID: &providerScholarshipID,
 	}
 
@@ -187,17 +188,17 @@ func (s *Service) syncPublicScholarship(providerID uint, providerScholarshipID u
 		existing, err := s.repo.FindPublicScholarship(req.Title, provider.ProviderName)
 		if err == nil && existing != nil {
 			updates := map[string]interface{}{
-				"title":                  req.Title,
-				"provider":               provider.ProviderName,
-				"location":               req.Location,
-				"value":                  req.Value,
-				"deadline":               deadline,
-				"degree_level":           req.DegreeLevel,
-				"funding_type":           req.FundingType,
-				"scholarship_type":       req.ScholarshipType,
-				"description":            req.Description,
-				"image_url":              req.ImageURL,
-				"field_of_study":         fieldOfStudy,
+				"title":                   req.Title,
+				"provider":                provider.ProviderName,
+				"location":                req.Location,
+				"value":                   req.Value,
+				"deadline":                deadline,
+				"degree_level":            req.DegreeLevel,
+				"funding_type":            req.FundingType,
+				"scholarship_type":        req.ScholarshipType,
+				"description":             req.Description,
+				"image_url":               req.ImageURL,
+				"field_of_study":          fieldOfStudy,
 				"provider_scholarship_id": providerScholarshipID,
 			}
 			return s.repo.UpdatePublicScholarship(existing.ID, updates)
@@ -227,6 +228,8 @@ func (s *Service) UpdateScholarship(providerID, id uint, req CreateScholarshipRe
 	if err != nil {
 		return nil, err
 	}
+
+	log.Printf("scholarshipprovider: Service.UpdateScholarship - requestedProviderID=%d, scholarship.ProviderID=%d, scholarshipID=%d", providerID, scholarship.ProviderID, scholarship.ID)
 
 	fieldOfStudy := toJSON(req.FieldOfStudy)
 	updates := map[string]interface{}{
@@ -280,10 +283,12 @@ func (s *Service) UpdateScholarship(providerID, id uint, req CreateScholarshipRe
 	}
 
 	if err := s.repo.UpdateScholarship(scholarship, updates); err != nil {
+		log.Printf("scholarshipprovider: UpdateScholarship repo.UpdateScholarship error: %v", err)
 		return nil, err
 	}
 
 	if err := s.syncPublicScholarship(providerID, id, req, fieldOfStudy, deadline, true); err != nil {
+		log.Printf("scholarshipprovider: UpdateScholarship syncPublicScholarship error: %v", err)
 		return nil, err
 	}
 

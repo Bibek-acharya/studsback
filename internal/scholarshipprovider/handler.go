@@ -2,12 +2,15 @@ package scholarshipprovider
 
 import (
 	"encoding/json"
+	"errors"
+	"log"
 	"net/http"
 	"strconv"
 
 	"studsphere/backend/internal/shared/response"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type Handler struct {
@@ -121,6 +124,9 @@ func (h *Handler) UpdateScholarship(c *gin.Context) {
 		return
 	}
 
+	// Debug: log incoming update request context to help diagnose 404s
+	log.Printf("scholarshipprovider: UpdateScholarship request - providerID=%d, scholarshipID=%d, remote=%s", providerID, id, c.ClientIP())
+
 	var req CreateScholarshipRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
@@ -129,7 +135,12 @@ func (h *Handler) UpdateScholarship(c *gin.Context) {
 
 	scholarship, err := h.service.UpdateScholarship(providerID, uint(id), req)
 	if err != nil {
-		response.Error(c, http.StatusNotFound, "Scholarship not found")
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			response.Error(c, http.StatusNotFound, "Scholarship not found")
+			return
+		}
+		log.Printf("scholarshipprovider: UpdateScholarship handler error: %v", err)
+		response.Error(c, http.StatusInternalServerError, "Failed to update scholarship")
 		return
 	}
 
