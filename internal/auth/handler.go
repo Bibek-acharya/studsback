@@ -2,12 +2,16 @@ package auth
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
+	"sync"
+	"time"
 
 	"studsphere/backend/internal/shared/config"
 	"studsphere/backend/internal/shared/middleware"
@@ -17,6 +21,74 @@ import (
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 )
+
+// OAuthStateStore stores OAuth state with redirect URLs
+type OAuthStateStore struct {
+	states map[string]struct {
+		redirectURL string
+		expires     time.Time
+	}
+	mu sync.RWMutex
+}
+
+var stateStore = &OAuthStateStore{
+	states: make(map[string]struct {
+		redirectURL string
+		expires     time.Time
+	}),
+}
+
+// generateOAuthState creates a secure state token with embedded redirect URL
+func generateOAuthState(redirectURL string) (string, error) {
+	// Generate random bytes for state
+	bytes := make([]byte, 32)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	state := base64.URLEncoding.EncodeToString(bytes)
+
+	// Store state with redirect URL (expires in 10 minutes)
+	stateStore.mu.Lock()
+	stateStore.states[state] = struct {
+		redirectURL string
+		expires     time.Time
+	}{
+		redirectURL: redirectURL,
+		expires:     time.Now().Add(10 * time.Minute),
+	}
+	stateStore.mu.Unlock()
+
+	return state, nil
+}
+
+// validateOAuthState validates the state and returns the redirect URL
+func validateOAuthState(state string) (string, bool) {
+	stateStore.mu.RLock()
+	defer stateStore.mu.RUnlock()
+
+	if val, exists := stateStore.states[state]; exists {
+		if time.Now().Before(val.expires) {
+			return val.redirectURL, true
+		}
+		// Clean up expired state
+		delete(stateStore.states, state)
+	}
+	return "", false
+}
+
+// cleanupStates removes expired states periodically
+func cleanupStates() {
+	for {
+		time.Sleep(5 * time.Minute)
+		stateStore.mu.Lock()
+		for state, val := range stateStore.states {
+			if time.Now().After(val.expires) {
+				delete(stateStore.states, state)
+			}
+		}
+		stateStore.mu.Unlock()
+	}
+}
 
 type Handler struct {
 	service *Service
@@ -128,11 +200,38 @@ func (h *Handler) GoogleLogin(c *gin.Context) {
 		Endpoint: google.Endpoint,
 	}
 
-	url := googleConfig.AuthCodeURL("state-token")
+	// Get redirect URL from query parameter, default to home
+	redirectURL := c.Query("redirect")
+	if redirectURL == "" {
+		redirectURL = "/"
+	}
+
+	// Generate secure state with embedded redirect URL
+	state, err := generateOAuthState(redirectURL)
+	if err != nil {
+		response.Error(c, 500, "Failed to generate state")
+		return
+	}
+
+	// Build auth URL with optional prompt parameter for account selection
+	url := googleConfig.AuthCodeURL(state)
+	prompt := c.Query("prompt")
+	if prompt == "select_account" {
+		url += "&prompt=select_account"
+	}
+
 	c.Redirect(http.StatusTemporaryRedirect, url)
 }
 
 func (h *Handler) GoogleCallback(c *gin.Context) {
+	// Validate state parameter (CSRF protection)
+	state := c.Query("state")
+	redirectURL, valid := validateOAuthState(state)
+	if !valid {
+		response.Error(c, 400, "Invalid or expired state parameter")
+		return
+	}
+
 	googleConfig := &oauth2.Config{
 		RedirectURL:  config.AppConfig.GoogleRedirectURL,
 		ClientID:     config.AppConfig.GoogleClientID,
@@ -192,11 +291,14 @@ func (h *Handler) GoogleCallback(c *gin.Context) {
 	}
 
 	middleware.SetAuthCookie(c, jwtToken)
-	redirectURL := fmt.Sprintf("%s/auth/google-callback",
-		config.AppConfig.FrontendURL,
-	)
 
-	c.Redirect(http.StatusTemporaryRedirect, redirectURL)
+	// Use the redirect URL from state (original destination) instead of fixed callback
+	finalRedirectURL := redirectURL
+	if finalRedirectURL == "" {
+		finalRedirectURL = "/"
+	}
+
+	c.Redirect(http.StatusTemporaryRedirect, finalRedirectURL)
 }
 
 func (h *Handler) GetProfile(c *gin.Context) {
@@ -296,12 +398,38 @@ func (h *Handler) InstitutionGoogleLogin(c *gin.Context) {
 		Endpoint: google.Endpoint,
 	}
 
-	state := "institution-oauth-state"
+	// Get redirect URL from query parameter, default to institution dashboard
+	redirectURL := c.Query("redirect")
+	if redirectURL == "" {
+		redirectURL = "/institutions/dashboard"
+	}
+
+	// Generate secure state with embedded redirect URL
+	state, err := generateOAuthState(redirectURL)
+	if err != nil {
+		response.Error(c, 500, "Failed to generate state")
+		return
+	}
+
+	// Build auth URL with optional prompt parameter for account selection
 	url := googleConfig.AuthCodeURL(state)
+	prompt := c.Query("prompt")
+	if prompt == "select_account" {
+		url += "&prompt=select_account"
+	}
+
 	c.Redirect(302, url)
 }
 
 func (h *Handler) InstitutionGoogleCallback(c *gin.Context) {
+	// Validate state parameter (CSRF protection)
+	state := c.Query("state")
+	redirectURL, valid := validateOAuthState(state)
+	if !valid {
+		response.Error(c, 400, "Invalid or expired state parameter")
+		return
+	}
+
 	googleConfig := &oauth2.Config{
 		RedirectURL:  config.AppConfig.GoogleRedirectURL,
 		ClientID:     config.AppConfig.GoogleClientID,
@@ -355,16 +483,22 @@ func (h *Handler) InstitutionGoogleCallback(c *gin.Context) {
 	}
 
 	middleware.SetAuthCookie(c, jwtToken)
-	userData, _ := json.Marshal(gin.H{
-		"id":               instUser.ID,
-		"institution_name": instUser.InstitutionName,
-		"email":            instUser.Email,
-		"role":             instUser.Role,
-	})
-	redirectURL := fmt.Sprintf("%s/institutions/auth/google-callback?user=%s",
-		config.AppConfig.FrontendURL,
-		url.QueryEscape(string(userData)),
-	)
+
+	// Use redirect URL from state (original destination)
+	if redirectURL == "" {
+		redirectURL = "/institutions/dashboard"
+	}
+
+	// If redirect contains query params, preserve user data
+	if strings.Contains(redirectURL, "?") {
+		userData, _ := json.Marshal(gin.H{
+			"id":               instUser.ID,
+			"institution_name": instUser.InstitutionName,
+			"email":            instUser.Email,
+			"role":             instUser.Role,
+		})
+		redirectURL += "&user=" + url.QueryEscape(string(userData))
+	}
 
 	c.Redirect(302, redirectURL)
 }
@@ -414,12 +548,38 @@ func (h *Handler) ScholarshipProviderGoogleLogin(c *gin.Context) {
 		Endpoint: google.Endpoint,
 	}
 
-	state := "scholarship-provider-oauth-state"
+	// Get redirect URL from query parameter, default to scholarship provider dashboard
+	redirectURL := c.Query("redirect")
+	if redirectURL == "" {
+		redirectURL = "/scholarship-provider/dashboard"
+	}
+
+	// Generate secure state with embedded redirect URL
+	state, err := generateOAuthState(redirectURL)
+	if err != nil {
+		response.Error(c, 500, "Failed to generate state")
+		return
+	}
+
+	// Build auth URL with optional prompt parameter for account selection
 	url := googleConfig.AuthCodeURL(state)
+	prompt := c.Query("prompt")
+	if prompt == "select_account" {
+		url += "&prompt=select_account"
+	}
+
 	c.Redirect(302, url)
 }
 
 func (h *Handler) ScholarshipProviderGoogleCallback(c *gin.Context) {
+	// Validate state parameter (CSRF protection)
+	state := c.Query("state")
+	redirectURL, valid := validateOAuthState(state)
+	if !valid {
+		response.Error(c, 400, "Invalid or expired state parameter")
+		return
+	}
+
 	googleConfig := &oauth2.Config{
 		RedirectURL:  config.AppConfig.GoogleRedirectURL,
 		ClientID:     config.AppConfig.GoogleClientID,
@@ -473,16 +633,22 @@ func (h *Handler) ScholarshipProviderGoogleCallback(c *gin.Context) {
 	}
 
 	middleware.SetAuthCookie(c, jwtToken)
-	userData, _ := json.Marshal(gin.H{
-		"id":            providerUser.ID,
-		"provider_name": providerUser.ProviderName,
-		"email":         providerUser.Email,
-		"role":          providerUser.Role,
-	})
-	redirectURL := fmt.Sprintf("%s/scholarship-providers/auth/google-callback?user=%s",
-		config.AppConfig.FrontendURL,
-		url.QueryEscape(string(userData)),
-	)
+
+	// Use redirect URL from state (original destination)
+	if redirectURL == "" {
+		redirectURL = "/scholarship-provider/dashboard"
+	}
+
+	// If redirect contains query params, preserve user data
+	if strings.Contains(redirectURL, "?") {
+		userData, _ := json.Marshal(gin.H{
+			"id":            providerUser.ID,
+			"provider_name": providerUser.ProviderName,
+			"email":         providerUser.Email,
+			"role":          providerUser.Role,
+		})
+		redirectURL += "&user=" + url.QueryEscape(string(userData))
+	}
 
 	c.Redirect(302, redirectURL)
 }
