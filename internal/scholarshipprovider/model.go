@@ -28,28 +28,28 @@ type ProviderScholarship struct {
 	ApplicationsCount   int            `gorm:"default:0" json:"applications_count"`
 
 	// Prototype extended fields
-	BannerBackgroundImageURL *string `gorm:"type:text" json:"banner_background_image_url"`
-	AboutParagraph1          string  `gorm:"type:text" json:"about_paragraph_1"`
-	AboutParagraph2          string  `gorm:"type:text" json:"about_paragraph_2"`
-	VideoTutorials           []byte  `gorm:"type:jsonb" json:"video_tutorials"`
-	JourneyTimeline          []byte  `gorm:"type:jsonb" json:"journey_timeline"`
-	ScholarshipSectionTitle  string  `json:"scholarship_section_title"`
-	ScholarshipSubtitle      string  `json:"scholarship_subtitle"`
-	ScholarshipDescription1  string  `gorm:"type:text" json:"scholarship_description_1"`
-	ScholarshipDescription2  string  `gorm:"type:text" json:"scholarship_description_2"`
-	ScholarshipTypes         []byte  `gorm:"type:jsonb" json:"scholarship_types"`
-	SelectionRubric          []byte  `gorm:"type:jsonb" json:"selection_rubric"`
-	EligibilitySectionTitle  string  `json:"eligibility_section_title"`
-	EligibilitySubtitle      string  `json:"eligibility_subtitle"`
-	BasicEligibilityCriteria []byte  `gorm:"type:jsonb" json:"basic_eligibility_criteria"`
-	FullyFundedCriteria      []byte  `gorm:"type:jsonb" json:"fully_funded_criteria"`
-	PartiallyFundedCriteria  []byte  `gorm:"type:jsonb" json:"partially_funded_criteria"`
-	SelectionProcessSteps    []byte  `gorm:"type:jsonb" json:"selection_process_steps"`
-	FAQs                     []byte  `gorm:"type:jsonb" json:"faqs"`
-	GalleryImages            []byte  `gorm:"type:jsonb" json:"gallery_images"`
-	PartnerGroups            []byte  `gorm:"type:jsonb" json:"partner_groups"`
-	ExamCenters              []byte  `gorm:"type:jsonb" json:"exam_centers"`
-	Downloads                []byte  `gorm:"type:jsonb" json:"downloads"`
+	BannerBackgroundImageURL *string `gorm:"type:text;column:banner_background_image_url" json:"banner_background_image_url"`
+	AboutParagraph1          string  `gorm:"type:text;column:about_paragraph1" json:"about_paragraph_1"`
+	AboutParagraph2          string  `gorm:"type:text;column:about_paragraph2" json:"about_paragraph_2"`
+	VideoTutorials           []byte  `gorm:"type:jsonb;column:video_tutorials" json:"video_tutorials"`
+	JourneyTimeline          []byte  `gorm:"type:jsonb;column:journey_timeline" json:"journey_timeline"`
+	ScholarshipSectionTitle  string  `gorm:"column:scholarship_section_title" json:"scholarship_section_title"`
+	ScholarshipSubtitle      string  `gorm:"column:scholarship_subtitle" json:"scholarship_subtitle"`
+	ScholarshipDescription1  string  `gorm:"type:text;column:scholarship_description1" json:"scholarship_description_1"`
+	ScholarshipDescription2  string  `gorm:"type:text;column:scholarship_description2" json:"scholarship_description_2"`
+	ScholarshipTypes         []byte  `gorm:"type:jsonb;column:scholarship_types" json:"scholarship_types"`
+	SelectionRubric          []byte  `gorm:"type:jsonb;column:selection_rubric" json:"selection_rubric"`
+	EligibilitySectionTitle  string  `gorm:"column:eligibility_section_title" json:"eligibility_section_title"`
+	EligibilitySubtitle      string  `gorm:"column:eligibility_subtitle" json:"eligibility_subtitle"`
+	BasicEligibilityCriteria []byte  `gorm:"type:jsonb;column:basic_eligibility_criteria" json:"basic_eligibility_criteria"`
+	FullyFundedCriteria      []byte  `gorm:"type:jsonb;column:fully_funded_criteria" json:"fully_funded_criteria"`
+	PartiallyFundedCriteria  []byte  `gorm:"type:jsonb;column:partially_funded_criteria" json:"partially_funded_criteria"`
+	SelectionProcessSteps    []byte  `gorm:"type:jsonb;column:selection_process_steps" json:"selection_process_steps"`
+	FAQs                     []byte  `gorm:"type:jsonb;column:fa_qs" json:"faqs"`
+	GalleryImages            []byte  `gorm:"type:jsonb;column:gallery_images" json:"gallery_images"`
+	PartnerGroups            []byte  `gorm:"type:jsonb;column:partner_groups" json:"partner_groups"`
+	ExamCenters              []byte  `gorm:"type:jsonb;column:exam_centers" json:"exam_centers"`
+	Downloads                []byte  `gorm:"type:jsonb;column:downloads" json:"downloads"`
 	TotalSeats               int       `json:"total_seats"`
 	AmountPerStudent         float64   `json:"amount_per_student"`
 	DisbursementType         string    `json:"disbursement_type"`
