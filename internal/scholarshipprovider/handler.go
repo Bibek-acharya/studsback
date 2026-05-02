@@ -608,7 +608,13 @@ func toScholarshipResponse(s *ProviderScholarship) ScholarshipResponse {
 		ApplicationStartDate:  formatTimeOrEmpty(s.ApplicationStartDate),
 		ApplicationEndDate:    formatTimeOrEmpty(s.Deadline),
 		ResultPublicationDate: formatTimeOrEmpty(s.ResultPublicationDate),
-		PaymentConfig:         unmarshalJSONB(s.PaymentConfig),
+		PaymentConfig: func() *PaymentConfig {
+		var pc *PaymentConfig
+		if s.PaymentConfig != nil {
+			json.Unmarshal(s.PaymentConfig, &pc)
+		}
+		return pc
+	}(),
 		DegreeLevel:           s.DegreeLevel,
 		FundingType:           s.FundingType,
 		ScholarshipType:       s.ScholarshipType,
@@ -774,34 +780,57 @@ func toNotificationResponse(n *ProviderNotification) NotificationResponse {
 }
 
 func toNewsResponse(n *ProviderNews) NewsResponse {
+	var tags interface{}
+	if n.Tags != nil {
+		json.Unmarshal(n.Tags, &tags)
+	}
 	return NewsResponse{
-		ID:          n.ID,
-		CreatedAt:   n.CreatedAt,
-		UpdatedAt:   n.UpdatedAt,
-		ProviderID:  n.ProviderID,
-		Title:       n.Title,
-		Content:     n.Content,
-		ImageURL:    n.ImageURL,
-		Status:      n.Status,
-		PublishedAt: n.PublishedAt,
+		ID:            n.ID,
+		CreatedAt:     n.CreatedAt,
+		UpdatedAt:     n.UpdatedAt,
+		ProviderID:    n.ProviderID,
+		Title:         n.Title,
+		ShortDesc:     n.ShortDesc,
+		Content:       n.Content,
+		ImageURL:      n.ImageURL,
+		NewsType:      n.NewsType,
+		PublishedBy:   n.PublishedBy,
+		PublishDate:   n.PublishDate,
+		Tags:          tags,
+		AllowComments: n.AllowComments,
+		Status:        n.Status,
+		PublishedAt:   n.PublishedAt,
 	}
 }
 
 func toEventResponse(e *ProviderEvent) EventResponse {
+	var tags interface{}
+	if e.Tags != nil {
+		json.Unmarshal(e.Tags, &tags)
+	}
 	return EventResponse{
-		ID:          e.ID,
-		CreatedAt:   e.CreatedAt,
-		UpdatedAt:   e.UpdatedAt,
-		ProviderID:  e.ProviderID,
-		Name:        e.Name,
-		Description: e.Description,
-		ImageURL:    e.ImageURL,
-		EventType:   e.EventType,
-		StartDate:   e.StartDate,
-		EndDate:     e.EndDate,
-		Location:    e.Location,
-		Status:      e.Status,
-		Attendees:   e.Attendees,
+		ID:                 e.ID,
+		CreatedAt:          e.CreatedAt,
+		UpdatedAt:          e.UpdatedAt,
+		ProviderID:         e.ProviderID,
+		Name:               e.Name,
+		ShortDesc:          e.ShortDesc,
+		Description:        e.Description,
+		ImageURL:           e.ImageURL,
+		EventType:          e.EventType,
+		Category:           e.Category,
+		MaxParticipants:    e.MaxParticipants,
+		OnlineLink:         e.OnlineLink,
+		OrganizedBy:        e.OrganizedBy,
+		ContactPerson:      e.ContactPerson,
+		ContactEmail:       e.ContactEmail,
+		StartDate:          e.StartDate,
+		EndDate:            e.EndDate,
+		Location:           e.Location,
+		Tags:               tags,
+		EnableRegistration: e.EnableRegistration,
+		Status:             e.Status,
+		Attendees:          e.Attendees,
 	}
 }
 
@@ -1517,4 +1546,90 @@ func (h *Handler) DeleteAccess(c *gin.Context) {
 	}
 
 	response.Success(c, http.StatusOK, "Access deleted successfully", nil)
+}
+
+func (h *Handler) GetPublicNews(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "12"))
+
+	news, total, err := h.service.GetPublishedNews(page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch news")
+		return
+	}
+
+	responses := make([]NewsResponse, len(news))
+	for i, n := range news {
+		responses[i] = toNewsResponse(&n)
+	}
+
+	response.Success(c, http.StatusOK, "News retrieved successfully", NewsListResponse{
+		News: responses,
+		Meta: PaginationMeta{
+			Total: total,
+			Page:  page,
+			Limit: limit,
+		},
+	})
+}
+
+func (h *Handler) GetPublicNewsByID(c *gin.Context) {
+	idStr := c.Param("id")
+
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid news ID")
+		return
+	}
+
+	news, err := h.service.GetPublishedNewsByID(uint(id))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "News not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "News retrieved successfully", toNewsResponse(news))
+}
+
+func (h *Handler) GetPublicEvents(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "12"))
+
+	events, total, err := h.service.GetPublishedEvents(page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch events")
+		return
+	}
+
+	responses := make([]EventResponse, len(events))
+	for i, e := range events {
+		responses[i] = toEventResponse(&e)
+	}
+
+	response.Success(c, http.StatusOK, "Events retrieved successfully", EventListResponse{
+		Events: responses,
+		Meta: PaginationMeta{
+			Total: total,
+			Page:  page,
+			Limit: limit,
+		},
+	})
+}
+
+func (h *Handler) GetPublicEventByID(c *gin.Context) {
+	idStr := c.Param("id")
+
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid event ID")
+		return
+	}
+
+	event, err := h.service.GetPublishedEventByID(uint(id))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Event not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Event retrieved successfully", toEventResponse(event))
 }

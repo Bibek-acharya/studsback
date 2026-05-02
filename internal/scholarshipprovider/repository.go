@@ -576,3 +576,59 @@ func (r *Repository) DeleteAccess(id uint, providerID uint) error {
 	}
 	return nil
 }
+
+func (r *Repository) GetPublishedNews(page, limit int) ([]ProviderNews, int64, error) {
+	var news []ProviderNews
+	var total int64
+
+	offset := (page - 1) * limit
+
+	if err := r.db.Model(&ProviderNews{}).Where("status = ?", "published").Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	if err := r.db.Where("status = ?", "published").
+		Order("created_at desc").
+		Offset(offset).Limit(limit).
+		Find(&news).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return news, total, nil
+}
+
+func (r *Repository) GetPublishedNewsByID(id uint) (*ProviderNews, error) {
+	var news ProviderNews
+	if err := r.db.Where("id = ? AND status = ?", id, "published").First(&news).Error; err != nil {
+		return nil, err
+	}
+	return &news, nil
+}
+
+func (r *Repository) GetPublishedEvents(page, limit int) ([]ProviderEvent, int64, error) {
+	var events []ProviderEvent
+	var total int64
+
+	offset := (page - 1) * limit
+
+	if err := r.db.Model(&ProviderEvent{}).Where("status = ?", "upcoming").Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	if err := r.db.Where("status = ?", "upcoming").
+		Order("start_date asc").
+		Offset(offset).Limit(limit).
+		Find(&events).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return events, total, nil
+}
+
+func (r *Repository) GetPublishedEventByID(id uint) (*ProviderEvent, error) {
+	var event ProviderEvent
+	if err := r.db.Where("id = ? AND status = ?", id, "upcoming").First(&event).Error; err != nil {
+		return nil, err
+	}
+	return &event, nil
+}

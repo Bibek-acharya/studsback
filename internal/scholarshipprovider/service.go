@@ -174,7 +174,6 @@ func (s *Service) CreateScholarship(providerID uint, req CreateScholarshipReques
 		WebsiteUrl:           req.WebsiteUrl,
 		OfficeAddress:        req.OfficeAddress,
 		MapUrl:               req.MapUrl,
-		PaymentConfig:        toJSON(req.PaymentConfig),
 	}
 
 	if req.ApplicationStartDate != "" {
@@ -332,8 +331,8 @@ func (s *Service) UpdateScholarship(providerID, id uint, req CreateScholarshipRe
 	if req.AmountPerStudent != 0 {
 		updates["amount_per_student"] = req.AmountPerStudent
 	}
-	if len(req.PaymentConfig) > 0 {
-		updates["payment_config"] = req.PaymentConfig
+	if req.PaymentConfig != nil {
+		updates["payment_config"] = toJSON(req.PaymentConfig)
 	}
 	if len(req.FieldOfStudy) > 0 {
 		updates["field_of_study"] = toJSON(req.FieldOfStudy)
@@ -539,8 +538,8 @@ func (s *Service) UpdateScholarship(providerID, id uint, req CreateScholarshipRe
 	if req.AmountPerStudent != 0 {
 		resolved.AmountPerStudent = req.AmountPerStudent
 	}
-	if len(req.PaymentConfig) > 0 {
-		resolved.PaymentConfig = req.PaymentConfig
+	if req.PaymentConfig != nil {
+		resolved.PaymentConfig = toJSON(req.PaymentConfig)
 	}
 	if len(req.FieldOfStudy) > 0 {
 		resolved.FieldOfStudy = toJSON(req.FieldOfStudy)
@@ -920,16 +919,29 @@ func (s *Service) CreateNews(providerID uint, req CreateNewsRequest) (*ProviderN
 	}
 
 	var imageURL *string
-	if req.Image != "" {
-		imageURL = &req.Image
+	if req.ImageURL != "" {
+		imageURL = &req.ImageURL
 	}
 
+	tagsBytes, _ := json.Marshal(req.Tags)
+
 	news := &ProviderNews{
-		ProviderID: providerID,
-		Title:      req.Title,
-		Content:    req.Content,
-		ImageURL:   imageURL,
-		Status:     status,
+		ProviderID:    providerID,
+		Title:         req.Title,
+		ShortDesc:     req.ShortDesc,
+		Content:       req.Content,
+		ImageURL:      imageURL,
+		NewsType:      req.NewsType,
+		PublishedBy:   req.PublishedBy,
+		Tags:          tagsBytes,
+		AllowComments: req.AllowComments,
+		Status:        status,
+	}
+
+	if req.PublishDate != "" {
+		if t, err := time.Parse("2006-01-02", req.PublishDate); err == nil {
+			news.PublishDate = &t
+		}
 	}
 
 	if status == "published" {
@@ -966,13 +978,29 @@ func (s *Service) UpdateNews(providerID, id uint, req CreateNewsRequest) (*Provi
 	}
 
 	updates := map[string]interface{}{
-		"title":   req.Title,
-		"content": req.Content,
+		"title":           req.Title,
+		"short_desc":      req.ShortDesc,
+		"content":         req.Content,
+		"news_type":       req.NewsType,
+		"published_by":    req.PublishedBy,
+		"allow_comments":  req.AllowComments,
 	}
 
-	if req.Image != "" {
-		updates["image_url"] = req.Image
+	if req.ImageURL != "" {
+		updates["image_url"] = req.ImageURL
 	}
+
+	if req.Tags != nil {
+		tagsBytes, _ := json.Marshal(req.Tags)
+		updates["tags"] = tagsBytes
+	}
+
+	if req.PublishDate != "" {
+		if t, err := time.Parse("2006-01-02", req.PublishDate); err == nil {
+			updates["publish_date"] = t
+		}
+	}
+
 	if req.Status != "" {
 		updates["status"] = req.Status
 		if req.Status == "published" && news.PublishedAt == nil {
@@ -1011,20 +1039,31 @@ func (s *Service) CreateEvent(providerID uint, req CreateEventRequest) (*Provide
 	}
 
 	var imageURL *string
-	if req.Image != "" {
-		imageURL = &req.Image
+	if req.ImageURL != "" {
+		imageURL = &req.ImageURL
 	}
 
+	tagsBytes, _ := json.Marshal(req.Tags)
+
 	event := &ProviderEvent{
-		ProviderID:  providerID,
-		Name:        req.Name,
-		Description: req.Description,
-		ImageURL:    imageURL,
-		EventType:   req.EventType,
-		StartDate:   startDate,
-		EndDate:     endDate,
-		Location:    req.Location,
-		Status:      status,
+		ProviderID:         providerID,
+		Name:               req.Name,
+		ShortDesc:          req.ShortDesc,
+		Description:        req.Description,
+		ImageURL:           imageURL,
+		EventType:          req.EventType,
+		Category:           req.Category,
+		MaxParticipants:    req.MaxParticipants,
+		OnlineLink:         req.OnlineLink,
+		OrganizedBy:        req.OrganizedBy,
+		ContactPerson:      req.ContactPerson,
+		ContactEmail:       req.ContactEmail,
+		StartDate:          startDate,
+		EndDate:            endDate,
+		Location:           req.Location,
+		Tags:               tagsBytes,
+		EnableRegistration: req.EnableRegistration,
+		Status:             status,
 	}
 
 	if err := s.repo.CreateEvent(event); err != nil {
@@ -1056,15 +1095,29 @@ func (s *Service) UpdateEvent(providerID, id uint, req CreateEventRequest) (*Pro
 	}
 
 	updates := map[string]interface{}{
-		"name":        req.Name,
-		"description": req.Description,
-		"event_type":  req.EventType,
-		"location":    req.Location,
+		"name":                 req.Name,
+		"short_desc":           req.ShortDesc,
+		"description":          req.Description,
+		"event_type":           req.EventType,
+		"category":            req.Category,
+		"max_participants":     req.MaxParticipants,
+		"online_link":         req.OnlineLink,
+		"organized_by":        req.OrganizedBy,
+		"contact_person":       req.ContactPerson,
+		"contact_email":       req.ContactEmail,
+		"location":            req.Location,
+		"enable_registration":  req.EnableRegistration,
 	}
 
-	if req.Image != "" {
-		updates["image_url"] = req.Image
+	if req.ImageURL != "" {
+		updates["image_url"] = req.ImageURL
 	}
+
+	if req.Tags != nil {
+		tagsBytes, _ := json.Marshal(req.Tags)
+		updates["tags"] = tagsBytes
+	}
+
 	if req.StartDate != "" {
 		if t, err := parseTime(req.StartDate); err == nil {
 			updates["start_date"] = t
@@ -1374,4 +1427,32 @@ func (s *Service) UpdateAccess(providerID, id uint, req CreateAccessRequest) (*P
 
 func (s *Service) DeleteAccess(providerID, id uint) error {
 	return s.repo.DeleteAccess(id, providerID)
+}
+
+func (s *Service) GetPublishedNews(page, limit int) ([]ProviderNews, int64, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50 {
+		limit = 12
+	}
+	return s.repo.GetPublishedNews(page, limit)
+}
+
+func (s *Service) GetPublishedNewsByID(id uint) (*ProviderNews, error) {
+	return s.repo.GetPublishedNewsByID(id)
+}
+
+func (s *Service) GetPublishedEvents(page, limit int) ([]ProviderEvent, int64, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50 {
+		limit = 12
+	}
+	return s.repo.GetPublishedEvents(page, limit)
+}
+
+func (s *Service) GetPublishedEventByID(id uint) (*ProviderEvent, error) {
+	return s.repo.GetPublishedEventByID(id)
 }

@@ -1,7 +1,6 @@
 package scholarshipprovider
 
 import (
-	"encoding/json"
 	"time"
 )
 
@@ -102,7 +101,6 @@ type CreateScholarshipRequest struct {
 	ApplicationStartDate  string          `json:"application_start_date"`
 	ApplicationEndDate    string          `json:"application_end_date"`
 	ResultPublicationDate string          `json:"result_publication_date"`
-	PaymentConfig         json.RawMessage `json:"payment_config"`
 	DegreeLevel           string          `json:"degree_level"`
 	FundingType           string          `json:"funding_type"`
 	ScholarshipType       string          `json:"scholarship_type"`
@@ -175,7 +173,6 @@ type ScholarshipResponse struct {
 	ApplicationStartDate  string      `json:"application_start_date"`
 	ApplicationEndDate    string      `json:"application_end_date"`
 	ResultPublicationDate string      `json:"result_publication_date"`
-	PaymentConfig         interface{} `json:"payment_config"`
 	DegreeLevel           string      `json:"degree_level"`
 	FundingType           string      `json:"funding_type"`
 	ScholarshipType       string      `json:"scholarship_type"`
@@ -447,22 +444,34 @@ type PaginationMeta struct {
 }
 
 type CreateNewsRequest struct {
-	Title   string `json:"title" binding:"required"`
-	Content string `json:"content"`
-	Image   string `json:"image_url"`
-	Status  string `json:"status"`
+	Title         string   `json:"title" binding:"required"`
+	ShortDesc     string   `json:"short_desc"`
+	Content       string   `json:"content"`
+	ImageURL      string   `json:"image_url"`
+	NewsType      string   `json:"news_type"`
+	PublishedBy   string   `json:"published_by"`
+	PublishDate   string   `json:"publish_date"`
+	Tags          []string `json:"tags"`
+	AllowComments bool     `json:"allow_comments"`
+	Status        string   `json:"status"`
 }
 
 type NewsResponse struct {
-	ID          uint       `json:"id"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
-	ProviderID  uint       `json:"provider_id"`
-	Title       string     `json:"title"`
-	Content     string     `json:"content"`
-	ImageURL    *string    `json:"image_url"`
-	Status      string     `json:"status"`
-	PublishedAt *time.Time `json:"published_at"`
+	ID            uint       `json:"id"`
+	CreatedAt     time.Time  `json:"created_at"`
+	UpdatedAt     time.Time  `json:"updated_at"`
+	ProviderID    uint       `json:"provider_id"`
+	Title         string     `json:"title"`
+	ShortDesc     string     `json:"short_desc"`
+	Content       string     `json:"content"`
+	ImageURL      *string    `json:"image_url"`
+	NewsType      string     `json:"news_type"`
+	PublishedBy   string     `json:"published_by"`
+	PublishDate   *time.Time `json:"publish_date"`
+	Tags          interface{} `json:"tags"`
+	AllowComments bool       `json:"allow_comments"`
+	Status        string     `json:"status"`
+	PublishedAt   *time.Time `json:"published_at"`
 }
 
 type NewsListResponse struct {
@@ -471,30 +480,48 @@ type NewsListResponse struct {
 }
 
 type CreateEventRequest struct {
-	Name        string `json:"name" binding:"required"`
-	Description string `json:"description"`
-	Image       string `json:"image_url"`
-	EventType   string `json:"event_type"`
-	StartDate   string `json:"start_date" binding:"required"`
-	EndDate     string `json:"end_date"`
-	Location    string `json:"location"`
-	Status      string `json:"status"`
+	Name               string   `json:"name" binding:"required"`
+	ShortDesc          string   `json:"short_desc"`
+	Description        string   `json:"description"`
+	ImageURL           string   `json:"image_url"`
+	EventType          string   `json:"event_type"`
+	Category           string   `json:"category"`
+	MaxParticipants    int      `json:"max_participants"`
+	OnlineLink         string   `json:"online_link"`
+	OrganizedBy        string   `json:"organized_by"`
+	ContactPerson      string   `json:"contact_person"`
+	ContactEmail       string   `json:"contact_email"`
+	StartDate          string   `json:"start_date" binding:"required"`
+	EndDate            string   `json:"end_date"`
+	Location           string   `json:"location"`
+	Tags               []string `json:"tags"`
+	EnableRegistration bool     `json:"enable_registration"`
+	Status             string   `json:"status"`
 }
 
 type EventResponse struct {
-	ID          uint      `json:"id"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
-	ProviderID  uint      `json:"provider_id"`
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-	ImageURL    *string   `json:"image_url"`
-	EventType   string    `json:"event_type"`
-	StartDate   time.Time `json:"start_date"`
-	EndDate     time.Time `json:"end_date"`
-	Location    string    `json:"location"`
-	Status      string    `json:"status"`
-	Attendees   int       `json:"attendees"`
+	ID                 uint        `json:"id"`
+	CreatedAt          time.Time   `json:"created_at"`
+	UpdatedAt          time.Time   `json:"updated_at"`
+	ProviderID         uint        `json:"provider_id"`
+	Name               string      `json:"name"`
+	ShortDesc          string      `json:"short_desc"`
+	Description        string      `json:"description"`
+	ImageURL           *string     `json:"image_url"`
+	EventType          string      `json:"event_type"`
+	Category           string      `json:"category"`
+	MaxParticipants    int         `json:"max_participants"`
+	OnlineLink         string      `json:"online_link"`
+	OrganizedBy        string      `json:"organized_by"`
+	ContactPerson      string      `json:"contact_person"`
+	ContactEmail       string      `json:"contact_email"`
+	StartDate          time.Time   `json:"start_date"`
+	EndDate            time.Time   `json:"end_date"`
+	Location           string      `json:"location"`
+	Tags               interface{} `json:"tags"`
+	EnableRegistration bool        `json:"enable_registration"`
+	Status             string      `json:"status"`
+	Attendees          int         `json:"attendees"`
 }
 
 type EventListResponse struct {

@@ -2,6 +2,23 @@ package scholarshipprovider
 
 import "github.com/gin-gonic/gin"
 
+func RegisterPublicRoutes(r *gin.Engine, h *Handler) {
+	if h == nil {
+		return
+	}
+
+	v1 := r.Group("/api/v1")
+	{
+		public := v1.Group("/public")
+		{
+			public.GET("/news", h.GetPublicNews)
+			public.GET("/news/:id", h.GetPublicNewsByID)
+			public.GET("/events", h.GetPublicEvents)
+			public.GET("/events/:id", h.GetPublicEventByID)
+		}
+	}
+}
+
 func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 	if h == nil {
 		return

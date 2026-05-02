@@ -77,7 +77,6 @@ type ProviderScholarship struct {
 	PaymentConfig []byte `gorm:"type:jsonb;column:payment_config" json:"payment_config"`
 	TotalSeats               int       `json:"total_seats"`
 	AmountPerStudent         float64   `json:"amount_per_student"`
-	PaymentConfig            []byte    `gorm:"type:jsonb;column:payment_config" json:"payment_config"`
 	DisbursementType         string    `json:"disbursement_type"`
 	ApplicationStartDate     time.Time `json:"application_start_date"`
 	ResultPublicationDate    time.Time `json:"result_publication_date"`
@@ -221,33 +220,48 @@ type ScholarshipProviderUser struct {
 }
 
 type ProviderNews struct {
-	ID          uint           `gorm:"primarykey" json:"id"`
-	CreatedAt   time.Time      `json:"created_at"`
-	UpdatedAt   time.Time      `json:"updated_at"`
-	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
-	ProviderID  uint           `gorm:"index;not null" json:"provider_id"`
-	Title       string         `gorm:"not null" json:"title"`
-	Content     string         `gorm:"type:text" json:"content"`
-	ImageURL    *string        `json:"image_url"`
-	Status      string         `gorm:"default:'draft'" json:"status"`
-	PublishedAt *time.Time     `json:"published_at"`
+	ID            uint           `gorm:"primarykey" json:"id"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
+	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
+	ProviderID    uint           `gorm:"index;not null" json:"provider_id"`
+	Title         string         `gorm:"not null" json:"title"`
+	ShortDesc     string         `gorm:"type:text" json:"short_desc"`
+	Content       string         `gorm:"type:text" json:"content"`
+	ImageURL      *string        `json:"image_url"`
+	NewsType      string         `json:"news_type"`
+	PublishedBy   string         `json:"published_by"`
+	PublishDate   *time.Time     `json:"publish_date"`
+	Tags          []byte         `gorm:"type:jsonb" json:"tags"`
+	AllowComments bool           `gorm:"default:false" json:"allow_comments"`
+	Status        string         `gorm:"default:'draft'" json:"status"`
+	PublishedAt   *time.Time     `json:"published_at"`
 }
 
 type ProviderEvent struct {
-	ID          uint           `gorm:"primarykey" json:"id"`
-	CreatedAt   time.Time      `json:"created_at"`
-	UpdatedAt   time.Time      `json:"updated_at"`
-	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
-	ProviderID  uint           `gorm:"index;not null" json:"provider_id"`
-	Name        string         `gorm:"not null" json:"name"`
-	Description string         `gorm:"type:text" json:"description"`
-	ImageURL    *string        `json:"image_url"`
-	EventType   string         `json:"event_type"`
-	StartDate   time.Time      `json:"start_date"`
-	EndDate     time.Time      `json:"end_date"`
-	Location    string         `json:"location"`
-	Status      string         `gorm:"default:'upcoming'" json:"status"`
-	Attendees   int            `gorm:"default:0" json:"attendees"`
+	ID                 uint           `gorm:"primarykey" json:"id"`
+	CreatedAt          time.Time      `json:"created_at"`
+	UpdatedAt          time.Time      `json:"updated_at"`
+	DeletedAt          gorm.DeletedAt `gorm:"index" json:"-"`
+	ProviderID         uint           `gorm:"index;not null" json:"provider_id"`
+	Name               string         `gorm:"not null" json:"name"`
+	ShortDesc          string         `gorm:"type:text" json:"short_desc"`
+	Description        string         `gorm:"type:text" json:"description"`
+	ImageURL           *string        `json:"image_url"`
+	EventType          string         `json:"event_type"`
+	Category           string         `json:"category"`
+	MaxParticipants    int            `json:"max_participants"`
+	OnlineLink         string         `json:"online_link"`
+	OrganizedBy        string         `json:"organized_by"`
+	ContactPerson      string         `json:"contact_person"`
+	ContactEmail       string         `json:"contact_email"`
+	StartDate          time.Time      `json:"start_date"`
+	EndDate            time.Time      `json:"end_date"`
+	Location           string         `json:"location"`
+	Tags               []byte          `gorm:"type:jsonb" json:"tags"`
+	EnableRegistration bool           `gorm:"default:false" json:"enable_registration"`
+	Status             string          `gorm:"default:'upcoming'" json:"status"`
+	Attendees          int            `gorm:"default:0" json:"attendees"`
 }
 
 type ProviderBlog struct {
