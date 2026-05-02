@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"net/url"
 	"strings"
 
 	"studsphere/backend/internal/shared/config"
@@ -10,6 +9,33 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+func cookieDomain() string {
+	if domain := strings.TrimSpace(config.AppConfig.CookieDomain); domain != "" {
+		domain = strings.TrimPrefix(domain, ".")
+		if strings.Contains(domain, ":") {
+			// Drop any accidental port component so we never emit an invalid cookie domain.
+			if host, _, found := strings.Cut(domain, ":"); found && host != "" {
+				domain = host
+			}
+		}
+		if domain == "localhost" || domain == "127.0.0.1" {
+			return ""
+		}
+		return domain
+	}
+	return ""
+}
+
+func cookieSecure(c *gin.Context) bool {
+	if c.Request.TLS != nil {
+		return true
+	}
+	if proto := c.GetHeader("X-Forwarded-Proto"); strings.EqualFold(proto, "https") {
+		return true
+	}
+	return false
+}
 
 func Auth() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -52,34 +78,15 @@ func Auth() gin.HandlerFunc {
 }
 
 func SetAuthCookie(c *gin.Context, token string) {
-	secure := c.Request.TLS != nil
+	secure := cookieSecure(c)
 
-	// Get frontend domain from config to set cookie on correct domain
-	// This ensures cookie is accessible by frontend (different from API domain in production)
-	frontendURL := config.AppConfig.FrontendURL
-	domain := ""
-	if frontendURL != "" {
-		if parsedURL, err := url.Parse(frontendURL); err == nil {
-			domain = parsedURL.Host
-		}
-	}
-
-	c.SetCookie("token", token, 86400*7, "/", domain, secure, true)
+	c.SetCookie("token", token, 86400*7, "/", cookieDomain(), secure, true)
 }
 
 func ClearAuthCookie(c *gin.Context) {
-	secure := c.Request.TLS != nil
+	secure := cookieSecure(c)
 
-	// Get frontend domain from config to clear cookie on correct domain
-	frontendURL := config.AppConfig.FrontendURL
-	domain := ""
-	if frontendURL != "" {
-		if parsedURL, err := url.Parse(frontendURL); err == nil {
-			domain = parsedURL.Host
-		}
-	}
-
-	c.SetCookie("token", "", -1, "/", domain, secure, true)
+	c.SetCookie("token", "", -1, "/", cookieDomain(), secure, true)
 }
 
 func RequireRole(allowedRoles ...string) gin.HandlerFunc {

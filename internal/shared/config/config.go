@@ -10,14 +10,14 @@ import (
 )
 
 type Config struct {
-	Port     string
-	GinMode  string
-	DBHost   string
-	DBPort   string
-	DBUser   string
+	Port       string
+	GinMode    string
+	DBHost     string
+	DBPort     string
+	DBUser     string
 	DBPassword string
-	DBName   string
-	DBSSLMode string
+	DBName     string
+	DBSSLMode  string
 
 	JWTSecret string
 	JWTExpiry string
@@ -32,25 +32,26 @@ type Config struct {
 	GoogleClientSecret string
 	GoogleRedirectURL  string
 	FrontendURL        string
+	CookieDomain       string
 
 	SMTPHost string
 	SMTPPort string
 	SMTPUser string
 	SMTPPass string
 
-	MinIOEndpoint   string
+	MinIOEndpoint    string
 	MinIOAPIEndpoint string
-	MinIOAccessKey  string
-	MinIOSecretKey  string
-	MinIOBucket     string
-	MinIOUseSSL     bool
+	MinIOAccessKey   string
+	MinIOSecretKey   string
+	MinIOBucket      string
+	MinIOUseSSL      bool
 
-	EmbeddingEnabled    bool
-	EmbeddingAPIKey     string
-	EmbeddingBaseURL    string
-	EmbeddingModel      string
-	VectorDimension     int
-	EmbeddingBatchSize  int
+	EmbeddingEnabled   bool
+	EmbeddingAPIKey    string
+	EmbeddingBaseURL   string
+	EmbeddingModel     string
+	VectorDimension    int
+	EmbeddingBatchSize int
 }
 
 var AppConfig *Config
@@ -90,6 +91,7 @@ func Load() {
 		GoogleClientSecret: getEnv("GOOGLE_CLIENT_SECRET", ""),
 		GoogleRedirectURL:  getEnv("GOOGLE_REDIRECT_URL", "http://localhost:8080/api/v1/auth/google/callback"),
 		FrontendURL:        getEnv("FRONTEND_URL", "http://localhost:5173"),
+		CookieDomain:       getEnv("COOKIE_DOMAIN", ""),
 		DBSSLMode:          dbSSLMode,
 		SMTPHost:           getEnv("SMTP_HOST", "smtp.hostinger.com"),
 		SMTPPort:           getEnv("SMTP_PORT", "587"),
@@ -101,12 +103,12 @@ func Load() {
 		MinIOSecretKey:     getEnv("MINIO_SECRET_KEY", "studsphere123"),
 		MinIOBucket:        getEnv("MINIO_BUCKET", "studsphere"),
 		MinIOUseSSL:        getEnv("MINIO_USE_SSL", "true") == "true",
-		EmbeddingEnabled:    getEnv("EMBEDDING_ENABLED", "false") == "true",
-		EmbeddingAPIKey:     getEnv("EMBEDDING_API_KEY", ""),
-		EmbeddingBaseURL:    getEnv("EMBEDDING_BASE_URL", "https://api.openai.com/v1"),
-		EmbeddingModel:      getEnv("EMBEDDING_MODEL", "text-embedding-3-small"),
-		VectorDimension:     getEnvInt("VECTOR_DIMENSION", 1536),
-		EmbeddingBatchSize:  getEnvInt("EMBEDDING_BATCH_SIZE", 20),
+		EmbeddingEnabled:   getEnv("EMBEDDING_ENABLED", "false") == "true",
+		EmbeddingAPIKey:    getEnv("EMBEDDING_API_KEY", ""),
+		EmbeddingBaseURL:   getEnv("EMBEDDING_BASE_URL", "https://api.openai.com/v1"),
+		EmbeddingModel:     getEnv("EMBEDDING_MODEL", "text-embedding-3-small"),
+		VectorDimension:    getEnvInt("VECTOR_DIMENSION", 1536),
+		EmbeddingBatchSize: getEnvInt("EMBEDDING_BATCH_SIZE", 20),
 	}
 }
 

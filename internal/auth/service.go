@@ -488,9 +488,8 @@ func (s *Service) RejectScholarshipProvider(providerID uint) error {
 		return errors.New("Provider not found")
 	}
 
-	provider.Status = "rejected"
-	if err := s.repo.UpdateScholarshipProviderUser(provider); err != nil {
-		return errors.New("Failed to update provider")
+	if err := s.repo.DeleteScholarshipProviderUser(providerID); err != nil {
+		return errors.New("Failed to remove provider")
 	}
 
 	if emailErr := utils.SendRejectionEmail(provider.Email, provider.ProviderName); emailErr != nil {

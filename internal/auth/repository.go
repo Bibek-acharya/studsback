@@ -138,6 +138,17 @@ func (r *Repository) UpdateScholarshipProviderUser(user *ScholarshipProviderUser
 	return r.db.Save(user).Error
 }
 
+func (r *Repository) DeleteScholarshipProviderUser(id uint) error {
+	result := r.db.Unscoped().Delete(&ScholarshipProviderUser{}, id)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return errors.New("provider not found")
+	}
+	return nil
+}
+
 func (r *Repository) FindEducationEntriesByUserID(userID uint) ([]EducationEntry, error) {
 	var entries []EducationEntry
 	result := r.db.Where("user_id = ?", userID).Order("created_at desc").Find(&entries)
