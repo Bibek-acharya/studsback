@@ -317,3 +317,20 @@ type ProviderAccess struct {
 	Role       string         `gorm:"default:'viewer'" json:"role"`
 	Status     string         `gorm:"default:'pending'" json:"status"`
 }
+
+type ProviderAccessUser struct {
+	ID          uint           `gorm:"primarykey" json:"id"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
+	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
+	ProviderID  uint           `gorm:"index;not null" json:"provider_id"`
+	Name        string         `gorm:"not null" json:"name"`
+	Email       string         `gorm:"uniqueIndex;not null" json:"email"`
+	Password    string         `gorm:"-" json:"-"`
+	Role        string         `gorm:"default:'user'" json:"role"`
+	RoleLabel   string         `gorm:"default:'User'" json:"role_label"`
+	Status      string         `gorm:"default:'Active'" json:"status"`
+	LastActive  time.Time      `json:"last_active"`
+	Avatar      string         `json:"avatar"`
+	Permissions []byte         `gorm:"type:jsonb" json:"permissions"`
+}
