@@ -132,6 +132,12 @@ func main() {
 		config.CreateVectorIndexes()
 	}
 
+	logger.Info("Seeding super admin account...")
+	if err := seeder.SeedSuperAdmin(db); err != nil {
+		logger.Fatal("Failed to seed super admin account", "error", err)
+	}
+	logger.Info("Super admin account seeded successfully")
+
 	logger.Info("Initializing MinIO...")
 	if err := utils.InitMinIO(); err != nil {
 		logger.Warn("Failed to initialize MinIO (MinIO may not be running)", "error", err)
