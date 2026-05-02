@@ -6,8 +6,10 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"studsphere/backend/internal/shared/response"
+	"studsphere/backend/internal/shared/utils"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -24,6 +26,27 @@ func NewHandler(service *Service) *Handler {
 func getProviderID(c *gin.Context) uint {
 	userID, _ := c.Get("user_id")
 	return userID.(uint)
+}
+
+func resolveProviderUploadFolder(folder string) (string, error) {
+	switch folder {
+	case "", "general":
+		return "scholarship-provider/general", nil
+	case "scholarship-banners":
+		return "scholarship-provider/scholarship-banners", nil
+	case "news":
+		return "scholarship-provider/news", nil
+	case "events":
+		return "scholarship-provider/events", nil
+	case "blogs":
+		return "scholarship-provider/blogs", nil
+	case "profile":
+		return "scholarship-provider/profile", nil
+	case "logos":
+		return "scholarship-provider/logos", nil
+	default:
+		return "", errors.New("invalid upload folder")
+	}
 }
 
 func (h *Handler) GetDashboard(c *gin.Context) {
@@ -48,6 +71,31 @@ func (h *Handler) GetAnalytics(c *gin.Context) {
 	}
 
 	response.Success(c, http.StatusOK, "Analytics data retrieved successfully", analytics)
+}
+
+func (h *Handler) UploadImage(c *gin.Context) {
+	providerID := getProviderID(c)
+	_ = providerID
+
+	folder, err := resolveProviderUploadFolder(c.Query("folder"))
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	header, err := c.FormFile("file")
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "No file provided")
+		return
+	}
+
+	url, err := utils.SaveUploadedImage(header, folder)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "File uploaded successfully", gin.H{"url": url})
 }
 
 func (h *Handler) CreateScholarship(c *gin.Context) {
@@ -536,26 +584,39 @@ func unmarshalJSONB(data []byte) interface{} {
 	return v
 }
 
+func formatTimeOrEmpty(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+	return t.Format(time.RFC3339)
+}
+
 func toScholarshipResponse(s *ProviderScholarship) ScholarshipResponse {
 	return ScholarshipResponse{
-		ID:                  s.ID,
-		CreatedAt:           s.CreatedAt,
-		UpdatedAt:           s.UpdatedAt,
-		ProviderID:          s.ProviderID,
-		Title:               s.Title,
-		Description:         s.Description,
-		ImageURL:            s.ImageURL,
-		Location:            s.Location,
-		Value:               s.Value,
-		Deadline:            s.Deadline,
-		DegreeLevel:         s.DegreeLevel,
-		FundingType:         s.FundingType,
-		ScholarshipType:     s.ScholarshipType,
-		FieldOfStudy:        unmarshalJSONB(s.FieldOfStudy),
-		EligibilityCriteria: unmarshalJSONB(s.EligibilityCriteria),
-		RequiredDocuments:   unmarshalJSONB(s.RequiredDocuments),
-		Status:              s.Status,
-		ApplicationsCount:   s.ApplicationsCount,
+		ID:                    s.ID,
+		CreatedAt:             s.CreatedAt,
+		UpdatedAt:             s.UpdatedAt,
+		ProviderID:            s.ProviderID,
+		Title:                 s.Title,
+		Description:           s.Description,
+		ImageURL:              s.ImageURL,
+		Location:              s.Location,
+		Value:                 s.Value,
+		Deadline:              s.Deadline,
+		TotalSeats:            s.TotalSeats,
+		AmountPerStudent:      s.AmountPerStudent,
+		ApplicationStartDate:  formatTimeOrEmpty(s.ApplicationStartDate),
+		ApplicationEndDate:    formatTimeOrEmpty(s.Deadline),
+		ResultPublicationDate: formatTimeOrEmpty(s.ResultPublicationDate),
+		PaymentConfig:         unmarshalJSONB(s.PaymentConfig),
+		DegreeLevel:           s.DegreeLevel,
+		FundingType:           s.FundingType,
+		ScholarshipType:       s.ScholarshipType,
+		FieldOfStudy:          unmarshalJSONB(s.FieldOfStudy),
+		EligibilityCriteria:   unmarshalJSONB(s.EligibilityCriteria),
+		RequiredDocuments:     unmarshalJSONB(s.RequiredDocuments),
+		Status:                s.Status,
+		ApplicationsCount:     s.ApplicationsCount,
 
 		BannerBackgroundImageURL: s.BannerBackgroundImageURL,
 		AboutParagraph1:          s.AboutParagraph1,

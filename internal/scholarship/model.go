@@ -24,6 +24,10 @@ type Scholarship struct {
 	ImageURL                 string           `json:"image_url"`
 	BannerBackgroundImageURL string           `json:"banner_background_image_url"`
 	FieldOfStudy             []byte           `gorm:"type:jsonb" json:"field_of_study"`
+	TotalSeats               int              `json:"total_seats"`
+	AmountPerStudent         float64          `json:"amount_per_student"`
+	ApplicationStartDate     time.Time        `json:"application_start_date"`
+	ResultPublicationDate    time.Time        `json:"result_publication_date"`
 	SelectionProcess         []byte           `gorm:"type:jsonb" json:"selection_process"`
 	EligibilityCriteria      []byte           `gorm:"type:jsonb" json:"eligibility_criteria"`
 	ExcludedRegions          []byte           `gorm:"type:jsonb" json:"excluded_regions"`

@@ -8,16 +8,10 @@ import (
 	"strings"
 	"studsphere/backend/internal/emailqueue"
 	"studsphere/backend/internal/shared/config"
-	"studsphere/backend/internal/shared/utils"
 )
 
 func main() {
 	config.Load()
-
-	// Test MinIO initialization
-	if err := utils.InitMinIO(); err != nil {
-		log.Printf("MinIO init failed, but continuing: %v", err)
-	}
 
 	smtpHost := config.AppConfig.SMTPHost
 	smtpPort := config.AppConfig.SMTPPort

@@ -93,12 +93,25 @@ func (r *Repository) FindPublicScholarship(title, provider string) (*scholarship
 	return &s, nil
 }
 
+func (r *Repository) FindPublicScholarshipByProviderScholarshipID(providerScholarshipID uint) (*scholarship.Scholarship, error) {
+	var s scholarship.Scholarship
+	err := r.db.Where("provider_scholarship_id = ?", providerScholarshipID).First(&s).Error
+	if err != nil {
+		return nil, err
+	}
+	return &s, nil
+}
+
 func (r *Repository) UpdatePublicScholarship(id uint, updates map[string]interface{}) error {
 	return r.db.Model(&scholarship.Scholarship{}).Where("id = ?", id).Updates(updates).Error
 }
 
 func (r *Repository) DeletePublicScholarship(title, provider string) error {
 	return r.db.Where("title = ? AND provider = ?", title, provider).Delete(&scholarship.Scholarship{}).Error
+}
+
+func (r *Repository) DeletePublicScholarshipByProviderScholarshipID(providerScholarshipID uint) error {
+	return r.db.Where("provider_scholarship_id = ?", providerScholarshipID).Delete(&scholarship.Scholarship{}).Error
 }
 
 func (r *Repository) GetScholarshipsByProvider(providerID uint, page, limit int) ([]ProviderScholarship, int64, error) {

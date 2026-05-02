@@ -53,14 +53,13 @@ func (h *Handler) GetCollegeRecommenderRecommendations(c *gin.Context) {
 }
 
 func (h *Handler) UploadLogo(c *gin.Context) {
-	file, header, err := c.Request.FormFile("logo")
+	header, err := c.FormFile("logo")
 	if err != nil {
 		response.Error(c, 400, "Failed to get logo file")
 		return
 	}
-	defer file.Close()
 
-	url, err := utils.UploadImageToMinIO(file, header, "logos")
+	url, err := utils.SaveUploadedImage(header, "tools/logo")
 	if err != nil {
 		response.Error(c, 500, "Failed to upload logo: "+err.Error())
 		return
@@ -79,11 +78,9 @@ func (h *Handler) GetLogoURL(c *gin.Context) {
 }
 
 func (h *Handler) ServeLogo(c *gin.Context) {
-	// Fetch logo from MinIO and serve it
-	logoData, contentType, err := utils.GetLogoFromMinIO()
+	logoData, contentType, err := utils.ReadLatestUploadedImage("tools/logo")
 	if err != nil {
-		// Fallback: redirect to a default logo URL or return 404
-		// For now, return a simple SVG placeholder
+		// Fallback: return a simple SVG placeholder
 		svgLogo := `<svg xmlns="http://www.w3.org/2000/svg" width="150" height="40" viewBox="0 0 150 40">
 			<rect width="150" height="40" fill="#2563eb" rx="8"/>
 			<text x="75" y="25" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="14" font-weight="bold">StudSphere</text>

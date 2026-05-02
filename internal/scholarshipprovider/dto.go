@@ -1,6 +1,9 @@
 package scholarshipprovider
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 type VideoTutorial struct {
 	URL         string `json:"url"`
@@ -66,17 +69,23 @@ type DownloadItem struct {
 }
 
 type CreateScholarshipRequest struct {
-	Title           string   `json:"title"`
-	Description     string   `json:"description"`
-	ImageURL        string   `json:"image_url"`
-	Location        string   `json:"location"`
-	Value           string   `json:"value"`
-	Deadline        string   `json:"deadline"`
-	DegreeLevel     string   `json:"degree_level"`
-	FundingType     string   `json:"funding_type"`
-	ScholarshipType string   `json:"scholarship_type"`
-	FieldOfStudy    []string `json:"field_of_study"`
-	Status          string   `json:"status"`
+	Title                 string          `json:"title"`
+	Description           string          `json:"description"`
+	ImageURL              string          `json:"image_url"`
+	Location              string          `json:"location"`
+	Value                 string          `json:"value"`
+	Deadline              string          `json:"deadline"`
+	TotalSeats            int             `json:"total_seats"`
+	AmountPerStudent      float64         `json:"amount_per_student"`
+	ApplicationStartDate  string          `json:"application_start_date"`
+	ApplicationEndDate    string          `json:"application_end_date"`
+	ResultPublicationDate string          `json:"result_publication_date"`
+	PaymentConfig         json.RawMessage `json:"payment_config"`
+	DegreeLevel           string          `json:"degree_level"`
+	FundingType           string          `json:"funding_type"`
+	ScholarshipType       string          `json:"scholarship_type"`
+	FieldOfStudy          []string        `json:"field_of_study"`
+	Status                string          `json:"status"`
 
 	BannerBackgroundImageURL string                     `json:"banner_background_image_url"`
 	AboutParagraph1          string                     `json:"about_paragraph_1"`
@@ -104,24 +113,30 @@ type CreateScholarshipRequest struct {
 }
 
 type ScholarshipResponse struct {
-	ID                  uint        `json:"id"`
-	CreatedAt           time.Time   `json:"created_at"`
-	UpdatedAt           time.Time   `json:"updated_at"`
-	ProviderID          uint        `json:"provider_id"`
-	Title               string      `json:"title"`
-	Description         string      `json:"description"`
-	ImageURL            *string     `json:"image_url"`
-	Location            string      `json:"location"`
-	Value               string      `json:"value"`
-	Deadline            time.Time   `json:"deadline"`
-	DegreeLevel         string      `json:"degree_level"`
-	FundingType         string      `json:"funding_type"`
-	ScholarshipType     string      `json:"scholarship_type"`
-	FieldOfStudy        interface{} `json:"field_of_study"`
-	EligibilityCriteria interface{} `json:"eligibility_criteria"`
-	RequiredDocuments   interface{} `json:"required_documents"`
-	Status              string      `json:"status"`
-	ApplicationsCount   int         `json:"applications_count"`
+	ID                    uint        `json:"id"`
+	CreatedAt             time.Time   `json:"created_at"`
+	UpdatedAt             time.Time   `json:"updated_at"`
+	ProviderID            uint        `json:"provider_id"`
+	Title                 string      `json:"title"`
+	Description           string      `json:"description"`
+	ImageURL              *string     `json:"image_url"`
+	Location              string      `json:"location"`
+	Value                 string      `json:"value"`
+	Deadline              time.Time   `json:"deadline"`
+	TotalSeats            int         `json:"total_seats"`
+	AmountPerStudent      float64     `json:"amount_per_student"`
+	ApplicationStartDate  string      `json:"application_start_date"`
+	ApplicationEndDate    string      `json:"application_end_date"`
+	ResultPublicationDate string      `json:"result_publication_date"`
+	PaymentConfig         interface{} `json:"payment_config"`
+	DegreeLevel           string      `json:"degree_level"`
+	FundingType           string      `json:"funding_type"`
+	ScholarshipType       string      `json:"scholarship_type"`
+	FieldOfStudy          interface{} `json:"field_of_study"`
+	EligibilityCriteria   interface{} `json:"eligibility_criteria"`
+	RequiredDocuments     interface{} `json:"required_documents"`
+	Status                string      `json:"status"`
+	ApplicationsCount     int         `json:"applications_count"`
 
 	BannerBackgroundImageURL *string     `json:"banner_background_image_url"`
 	AboutParagraph1          string      `json:"about_paragraph_1"`

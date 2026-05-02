@@ -429,7 +429,6 @@ func GetStudSphereLogoURL() string {
 	}
 
 	// Return the internal API endpoint that serves the logo
-	// This hides the MinIO URL and provides better control
 	// For production, use the backend URL since emails need to access the API
 	backendURL := "https://api.studsphere.com" // TODO: Make this configurable from env
 

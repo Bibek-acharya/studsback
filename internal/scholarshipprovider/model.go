@@ -52,6 +52,7 @@ type ProviderScholarship struct {
 	Downloads                []byte    `gorm:"type:jsonb;column:downloads" json:"downloads"`
 	TotalSeats               int       `json:"total_seats"`
 	AmountPerStudent         float64   `json:"amount_per_student"`
+	PaymentConfig            []byte    `gorm:"type:jsonb;column:payment_config" json:"payment_config"`
 	DisbursementType         string    `json:"disbursement_type"`
 	ApplicationStartDate     time.Time `json:"application_start_date"`
 	ResultPublicationDate    time.Time `json:"result_publication_date"`

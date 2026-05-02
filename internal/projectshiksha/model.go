@@ -22,7 +22,7 @@ type ShikshaApplication struct {
 	OtherSchoolType       string    `gorm:"size:100" json:"other_school_type"`
 	SchoolName            string    `gorm:"size:200;not null" json:"school_name"`
 	
-	// Photo URL (stored in MinIO)
+	// Photo URL (stored in backend uploads)
 	PhotoURL              string    `gorm:"size:500" json:"photo_url"`
 	
 	// Permanent Address
@@ -48,7 +48,7 @@ type ShikshaApplication struct {
 	FamilyIncome          int       `json:"family_income"`
 	FamilyMembers         int       `json:"family_members"`
 	
-	// Documents (URLs stored in MinIO)
+	// Documents (URLs stored in backend uploads)
 	SEEMarksheetURL       string    `gorm:"size:500" json:"see_marksheet_url"`
 	CitizenshipURL        string    `gorm:"size:500" json:"citizenship_url"`
 	

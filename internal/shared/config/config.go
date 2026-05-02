@@ -39,13 +39,6 @@ type Config struct {
 	SMTPUser string
 	SMTPPass string
 
-	MinIOEndpoint    string
-	MinIOAPIEndpoint string
-	MinIOAccessKey   string
-	MinIOSecretKey   string
-	MinIOBucket      string
-	MinIOUseSSL      bool
-
 	EmbeddingEnabled   bool
 	EmbeddingAPIKey    string
 	EmbeddingBaseURL   string
@@ -97,12 +90,6 @@ func Load() {
 		SMTPPort:           getEnv("SMTP_PORT", "587"),
 		SMTPUser:           getEnv("SMTP_USER", "system@studsphere.com"),
 		SMTPPass:           getEnv("SMTP_PASS", "Systemtask@200"),
-		MinIOEndpoint:      getEnv("MINIO_ENDPOINT", "storage.studsphere.com"),
-		MinIOAPIEndpoint:   getEnv("MINIO_API_ENDPOINT", ""),
-		MinIOAccessKey:     getEnv("MINIO_ACCESS_KEY", "studsphere"),
-		MinIOSecretKey:     getEnv("MINIO_SECRET_KEY", "studsphere123"),
-		MinIOBucket:        getEnv("MINIO_BUCKET", "studsphere"),
-		MinIOUseSSL:        getEnv("MINIO_USE_SSL", "true") == "true",
 		EmbeddingEnabled:   getEnv("EMBEDDING_ENABLED", "false") == "true",
 		EmbeddingAPIKey:    getEnv("EMBEDDING_API_KEY", ""),
 		EmbeddingBaseURL:   getEnv("EMBEDDING_BASE_URL", "https://api.openai.com/v1"),

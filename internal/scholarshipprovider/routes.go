@@ -44,6 +44,8 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			scholarshipProvider.PUT("/notifications/:id/read", h.MarkNotificationRead)
 			scholarshipProvider.PUT("/notifications/read-all", h.MarkAllNotificationsRead)
 
+			scholarshipProvider.POST("/uploads", h.UploadImage)
+
 			scholarshipProvider.POST("/news", h.CreateNews)
 			scholarshipProvider.GET("/news", h.GetNews)
 			scholarshipProvider.GET("/news/:id", h.GetNewsByID)

@@ -8,7 +8,6 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/hibiken/asynq v0.24.1
 	github.com/joho/godotenv v1.5.1
-	github.com/minio/minio-go/v7 v7.0.100
 	github.com/swaggo/swag v1.8.12
 	go.uber.org/zap v1.27.1
 	golang.org/x/crypto v0.48.0
@@ -56,8 +55,6 @@ require (
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	github.com/minio/crc64nvme v1.1.1 // indirect
-	github.com/minio/md5-simd v1.1.2 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect

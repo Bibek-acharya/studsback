@@ -25,7 +25,6 @@ import (
 	"studsphere/backend/internal/shared/logger"
 	"studsphere/backend/internal/shared/middleware"
 	"studsphere/backend/internal/shared/seeder"
-	"studsphere/backend/internal/shared/utils"
 	"studsphere/backend/internal/studentdashboard"
 	"studsphere/backend/internal/system"
 	"studsphere/backend/internal/tools"
@@ -137,13 +136,6 @@ func main() {
 		logger.Fatal("Failed to seed super admin account", "error", err)
 	}
 	logger.Info("Super admin account seeded successfully")
-
-	logger.Info("Initializing MinIO...")
-	if err := utils.InitMinIO(); err != nil {
-		logger.Warn("Failed to initialize MinIO (MinIO may not be running)", "error", err)
-	} else {
-		logger.Info("MinIO initialized successfully")
-	}
 
 	logger.Info("Initializing email queue...")
 	if err := emailqueue.InitAsynq(); err != nil {

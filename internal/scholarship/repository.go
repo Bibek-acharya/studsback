@@ -86,6 +86,10 @@ type ProviderScholarship struct {
 	Location                 string
 	Value                    string
 	Deadline                 time.Time
+	TotalSeats               int
+	AmountPerStudent         float64
+	ApplicationStartDate     time.Time
+	ResultPublicationDate    time.Time
 	DegreeLevel              string
 	FundingType              string
 	ScholarshipType          string
@@ -95,7 +99,7 @@ type ProviderScholarship struct {
 func (r *Repository) FindPublishedProviderScholarships() ([]ProviderScholarship, error) {
 	var scholarships []ProviderScholarship
 	err := r.db.Table("provider_scholarships").
-		Select("id", "provider_id", "title", "description", "image_url", "banner_background_image_url", "location", "value", "deadline", "degree_level", "funding_type", "scholarship_type", "status").
+		Select("id", "provider_id", "title", "description", "image_url", "banner_background_image_url", "location", "value", "deadline", "total_seats", "amount_per_student", "application_start_date", "result_publication_date", "degree_level", "funding_type", "scholarship_type", "status").
 		Where("status IN ?", []string{"published", "active"}).
 		Find(&scholarships).Error
 	return scholarships, err
@@ -104,7 +108,7 @@ func (r *Repository) FindPublishedProviderScholarships() ([]ProviderScholarship,
 func (r *Repository) FindProviderScholarshipByID(id uint) (*ProviderScholarship, error) {
 	var scholarship ProviderScholarship
 	err := r.db.Table("provider_scholarships").
-		Select("id", "provider_id", "title", "description", "image_url", "banner_background_image_url", "location", "value", "deadline", "degree_level", "funding_type", "scholarship_type", "status").
+		Select("id", "provider_id", "title", "description", "image_url", "banner_background_image_url", "location", "value", "deadline", "total_seats", "amount_per_student", "application_start_date", "result_publication_date", "degree_level", "funding_type", "scholarship_type", "status").
 		Where("id = ?", id).
 		First(&scholarship).Error
 	if err != nil {
