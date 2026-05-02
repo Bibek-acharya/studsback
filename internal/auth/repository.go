@@ -41,7 +41,8 @@ func (r *Repository) FindUserByID(id uint) (*User, error) {
 }
 
 func (r *Repository) UpdatePreferences(user *User, prefs *Preferences) error {
-	return r.db.Model(user).Update("preferences", prefs).Error
+	user.Preferences = prefs
+	return r.db.Save(user).Error
 }
 
 func (r *Repository) FindInstitutionUserByEmail(email string) (*InstitutionUser, error) {

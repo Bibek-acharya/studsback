@@ -90,6 +90,44 @@ func cleanupStates() {
 	}
 }
 
+func resolveOAuthRedirectURL(frontendURL, redirectURL string) string {
+	frontendBase := strings.TrimRight(frontendURL, "/")
+	if frontendBase == "" {
+		frontendBase = "http://localhost:5173"
+	}
+	frontendParsed, err := url.Parse(frontendBase)
+	if err != nil {
+		return frontendBase + "/"
+	}
+
+	if redirectURL == "" {
+		return frontendBase + "/"
+	}
+
+	if parsedURL, err := url.Parse(redirectURL); err == nil {
+		if parsedURL.Path == "/login" {
+			return frontendBase + "/"
+		}
+
+		if parsedURL.IsAbs() {
+			if strings.EqualFold(parsedURL.Host, frontendParsed.Host) {
+				return parsedURL.String()
+			}
+			return frontendBase + "/"
+		}
+	}
+
+	if !strings.HasPrefix(redirectURL, "/") {
+		redirectURL = "/" + redirectURL
+	}
+
+	if redirectURL == "/login" {
+		return frontendBase + "/"
+	}
+
+	return frontendBase + redirectURL
+}
+
 type Handler struct {
 	service *Service
 }
@@ -202,9 +240,7 @@ func (h *Handler) GoogleLogin(c *gin.Context) {
 
 	// Get redirect URL from query parameter, default to home
 	redirectURL := c.Query("redirect")
-	if redirectURL == "" {
-		redirectURL = "/"
-	}
+	redirectURL = resolveOAuthRedirectURL(config.AppConfig.FrontendURL, redirectURL)
 
 	// Generate secure state with embedded redirect URL
 	state, err := generateOAuthState(redirectURL)
@@ -295,7 +331,7 @@ func (h *Handler) GoogleCallback(c *gin.Context) {
 	// Use the redirect URL from state (original destination) instead of fixed callback
 	finalRedirectURL := redirectURL
 	if finalRedirectURL == "" {
-		finalRedirectURL = "/"
+		finalRedirectURL = resolveOAuthRedirectURL(config.AppConfig.FrontendURL, "")
 	}
 
 	c.Redirect(http.StatusTemporaryRedirect, finalRedirectURL)
@@ -403,6 +439,7 @@ func (h *Handler) InstitutionGoogleLogin(c *gin.Context) {
 	if redirectURL == "" {
 		redirectURL = "/institutions/dashboard"
 	}
+	redirectURL = resolveOAuthRedirectURL(config.AppConfig.FrontendURL, redirectURL)
 
 	// Generate secure state with embedded redirect URL
 	state, err := generateOAuthState(redirectURL)
@@ -553,6 +590,7 @@ func (h *Handler) ScholarshipProviderGoogleLogin(c *gin.Context) {
 	if redirectURL == "" {
 		redirectURL = "/scholarship-provider/dashboard"
 	}
+	redirectURL = resolveOAuthRedirectURL(config.AppConfig.FrontendURL, redirectURL)
 
 	// Generate secure state with embedded redirect URL
 	state, err := generateOAuthState(redirectURL)
