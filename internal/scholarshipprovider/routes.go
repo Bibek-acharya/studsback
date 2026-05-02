@@ -54,6 +54,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 
 			scholarshipProvider.GET("/profile", h.GetProfile)
 			scholarshipProvider.PUT("/profile", h.UpdateProfile)
+			scholarshipProvider.PUT("/change-password", h.ChangePassword)
 			scholarshipProvider.GET("/settings", h.GetSettings)
 			scholarshipProvider.PUT("/settings", h.UpdateSettings)
 
@@ -98,6 +99,17 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			scholarshipProvider.GET("/access/:id", h.GetAccessByID)
 			scholarshipProvider.PUT("/access/:id", h.UpdateAccess)
 			scholarshipProvider.DELETE("/access/:id", h.DeleteAccess)
+
+			auth := v1.Group("/auth")
+			{
+				auth.POST("/access-users", h.CreateAccessUser)
+				auth.GET("/access-users", h.GetAccessUsers)
+				auth.GET("/access-users/:id", h.GetAccessUser)
+				auth.PUT("/access-users/:id", h.UpdateAccessUser)
+				auth.DELETE("/access-users/:id", h.DeleteAccessUser)
+				auth.PUT("/access-users/:id/permissions", h.UpdatePermissions)
+				auth.POST("/access-login", h.LoginAccessUser)
+			}
 		}
 	}
 }

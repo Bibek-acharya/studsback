@@ -622,3 +622,66 @@ type AccessListResponse struct {
 	Access []AccessResponse `json:"access"`
 	Meta   PaginationMeta   `json:"meta"`
 }
+
+type CreateAccessUserRequest struct {
+	Name         string   `json:"name" binding:"required"`
+	Email       string   `json:"email" binding:"required,email"`
+	Password   string   `json:"password" binding:"required,min=6"`
+	Role       string   `json:"role"`
+	RoleLabel  string   `json:"role_label"`
+	Permissions []string `json:"permissions"`
+}
+
+type UpdateAccessUserRequest struct {
+	Name          string   `json:"name"`
+	Email         string   `json:"email"`
+	Password     string   `json:"password"`
+	Role         string   `json:"role"`
+	RoleLabel    string   `json:"role_label"`
+	Status      string   `json:"status"`
+	Permissions []string `json:"permissions"`
+}
+
+type AccessUserResponse struct {
+	ID           uint      `json:"id"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+	ProviderID  uint      `json:"provider_id"`
+	Name        string    `json:"name"`
+	Email       string    `json:"email"`
+	Role        string    `json:"role"`
+	RoleLabel   string    `json:"role_label"`
+	Status     string    `json:"status"`
+	LastActive  time.Time `json:"last_active"`
+	Avatar     string    `json:"avatar"`
+	Permissions []string `json:"permissions"`
+}
+
+type AccessUserListResponse struct {
+	Users []AccessUserResponse `json:"users"`
+	Meta  PaginationMeta     `json:"meta"`
+}
+
+type UpdatePermissionsRequest struct {
+	Permissions []string `json:"permissions" binding:"required"`
+}
+
+type ProviderLoginRequest struct {
+	Email    string `json:"email" binding:"required,email"`
+	Password string `json:"password" binding:"required"`
+}
+
+type ProviderLoginResponse struct {
+	User        AccessUserResponse `json:"user"`
+	Token       string            `json:"token"`
+	Permissions []string        `json:"permissions"`
+}
+
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"current_password" binding:"required"`
+	NewPassword     string `json:"new_password" binding:"required,min=6"`
+}
+
+type ChangePasswordResponse struct {
+	Message string `json:"message"`
+}

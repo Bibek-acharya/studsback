@@ -3,6 +3,7 @@ package scholarshipprovider
 import (
 	"studsphere/backend/internal/scholarship"
 
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
@@ -631,4 +632,73 @@ func (r *Repository) GetPublishedEventByID(id uint) (*ProviderEvent, error) {
 		return nil, err
 	}
 	return &event, nil
+}
+
+func (r *Repository) CreateAccessUser(user *ProviderAccessUser) error {
+	if user.Password != "" {
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+		if err != nil {
+			return err
+		}
+		user.Password = string(hashedPassword)
+	}
+	return r.db.Create(user).Error
+}
+
+func (r *Repository) GetAccessUserByID(id uint) (*ProviderAccessUser, error) {
+	var user ProviderAccessUser
+	if err := r.db.First(&user, id).Error; err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (r *Repository) GetAccessUserByEmail(email string, providerID uint) (*ProviderAccessUser, error) {
+	var user ProviderAccessUser
+	if err := r.db.Where("email = ? AND provider_id = ?", email, providerID).First(&user).Error; err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (r *Repository) GetAccessUsers(providerID uint, page, limit int) ([]ProviderAccessUser, int64, error) {
+	var total int64
+	if err := r.db.Model(&ProviderAccessUser{}).Where("provider_id = ?", providerID).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var users []ProviderAccessUser
+	offset := (page - 1) * limit
+	if err := r.db.Where("provider_id = ?", providerID).
+		Order("created_at desc").Offset(offset).Limit(limit).Find(&users).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return users, total, nil
+}
+
+func (r *Repository) UpdateAccessUser(user *ProviderAccessUser) error {
+	if user.Password != "" {
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+		if err != nil {
+			return err
+		}
+		user.Password = string(hashedPassword)
+	}
+	return r.db.Save(user).Error
+}
+
+func (r *Repository) DeleteAccessUser(id uint) error {
+	result := r.db.Delete(&ProviderAccessUser{}, id)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *Repository) UpdateAccessUserPermissions(id uint, permissions []byte) error {
+	return r.db.Model(&ProviderAccessUser{}).Where("id = ?", id).Update("permissions", permissions).Error
 }

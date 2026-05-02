@@ -3,11 +3,14 @@ package scholarshipprovider
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"strings"
 	"time"
 
 	publicscholarship "studsphere/backend/internal/scholarship"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 type Service struct {
@@ -484,21 +487,46 @@ func (s *Service) UpdateScholarship(providerID, id uint, req CreateScholarshipRe
 		updates["payment_config"] = toJSON(req.PaymentConfig)
 	}
 
-	// JSON fields
-	if len(req.ScholarshipTypesNew) > 0 {
-		updates["scholarship_types_new"] = toJSON(req.ScholarshipTypesNew)
+	// JSON fields - always save (empty arrays allowed) to ensure all data is persisted
+	updates["scholarship_types_new"] = toJSON(req.ScholarshipTypesNew)
+	updates["selection_rubric_new"] = toJSON(req.SelectionRubricNew)
+	updates["faqs_new"] = toJSON(req.FAQsNew)
+	updates["gallery_images_new"] = toJSON(req.GalleryImagesNew)
+	updates["exam_centers_new"] = toJSON(req.ExamCentersNew)
+
+	// Additional JSON fields
+	if len(req.ScholarshipTypes) > 0 {
+		updates["scholarship_types"] = toJSON(req.ScholarshipTypes)
 	}
-	if len(req.SelectionRubricNew) > 0 {
-		updates["selection_rubric_new"] = toJSON(req.SelectionRubricNew)
+	if len(req.SelectionRubric) > 0 {
+		updates["selection_rubric"] = toJSON(req.SelectionRubric)
 	}
-	if len(req.FAQsNew) > 0 {
-		updates["faqs_new"] = toJSON(req.FAQsNew)
+	if len(req.FieldOfStudy) > 0 {
+		updates["field_of_study"] = toJSON(req.FieldOfStudy)
 	}
-	if len(req.GalleryImagesNew) > 0 {
-		updates["gallery_images_new"] = toJSON(req.GalleryImagesNew)
+	if len(req.VideoTutorials) > 0 {
+		updates["video_tutorials"] = toJSON(req.VideoTutorials)
 	}
-	if len(req.ExamCentersNew) > 0 {
-		updates["exam_centers_new"] = toJSON(req.ExamCentersNew)
+	if len(req.JourneyTimeline) > 0 {
+		updates["journey_timeline"] = toJSON(req.JourneyTimeline)
+	}
+	if len(req.BasicEligibilityCriteria) > 0 {
+		updates["basic_eligibility_criteria"] = toJSON(req.BasicEligibilityCriteria)
+	}
+	if len(req.FullyFundedCriteria) > 0 {
+		updates["fully_funded_criteria"] = toJSON(req.FullyFundedCriteria)
+	}
+	if len(req.PartiallyFundedCriteria) > 0 {
+		updates["partially_funded_criteria"] = toJSON(req.PartiallyFundedCriteria)
+	}
+	if len(req.SelectionProcessSteps) > 0 {
+		updates["selection_process_steps"] = toJSON(req.SelectionProcessSteps)
+	}
+	if len(req.RequiredDocuments) > 0 {
+		updates["required_documents"] = toJSON(req.RequiredDocuments)
+	}
+	if len(req.Downloads) > 0 {
+		updates["downloads"] = toJSON(req.Downloads)
 	}
 
 	if len(updates) == 0 {
@@ -849,6 +877,36 @@ func (s *Service) UpdateProviderProfile(providerID uint, req UpdateProfileReques
 	}
 
 	return provider, nil
+}
+
+func (s *Service) ChangePassword(providerID uint, req ChangePasswordRequest) error {
+	provider, err := s.repo.GetProviderProfile(providerID)
+	if err != nil {
+		return err
+	}
+
+	if provider.Password == nil || *provider.Password == "" {
+		return errors.New("password not set for this account")
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(*provider.Password), []byte(req.CurrentPassword)); err != nil {
+		return errors.New("current password is incorrect")
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+
+	updates := map[string]interface{}{
+		"password": string(hashedPassword),
+	}
+
+	if err := s.repo.UpdateProviderProfile(provider, updates); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (s *Service) GetProviderSettings(providerID uint) (*ProviderSettings, error) {
@@ -1455,4 +1513,170 @@ func (s *Service) GetPublishedEvents(page, limit int) ([]ProviderEvent, int64, e
 
 func (s *Service) GetPublishedEventByID(id uint) (*ProviderEvent, error) {
 	return s.repo.GetPublishedEventByID(id)
+}
+
+func toAccessUserResponse(user *ProviderAccessUser) *AccessUserResponse {
+	var perms []string
+	json.Unmarshal(user.Permissions, &perms)
+	return &AccessUserResponse{
+		ID:          user.ID,
+		CreatedAt:   user.CreatedAt,
+		UpdatedAt:   user.UpdatedAt,
+		ProviderID: user.ProviderID,
+		Name:        user.Name,
+		Email:       user.Email,
+		Role:        user.Role,
+		RoleLabel:   user.RoleLabel,
+		Status:      user.Status,
+		LastActive:  user.LastActive,
+		Avatar:      user.Avatar,
+		Permissions: perms,
+	}
+}
+
+func (s *Service) CreateAccessUser(req CreateAccessUserRequest, providerID uint) (*AccessUserResponse, error) {
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, err
+	}
+
+	role := "user"
+	if req.Role != "" {
+		role = req.Role
+	}
+	roleLabel := "User"
+	if req.RoleLabel != "" {
+		roleLabel = req.RoleLabel
+	}
+
+	var perms []string
+	if len(req.Permissions) > 0 {
+		perms = req.Permissions
+	}
+
+	user := &ProviderAccessUser{
+		ProviderID:  providerID,
+		Name:        req.Name,
+		Email:       req.Email,
+		Password:   string(hashedPassword),
+		Role:        role,
+		RoleLabel:   roleLabel,
+		Status:      "Active",
+		LastActive:  time.Now(),
+		Avatar:      fmt.Sprintf("https://i.pravatar.cc/150?u=%d", time.Now().UnixNano()),
+		Permissions: toJSON(perms),
+	}
+
+	if err := s.repo.CreateAccessUser(user); err != nil {
+		return nil, err
+	}
+
+	return toAccessUserResponse(user), nil
+}
+
+func (s *Service) GetAccessUsers(providerID uint, page, limit int) (*AccessUserListResponse, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50 {
+		limit = 10
+	}
+
+	users, total, err := s.repo.GetAccessUsers(providerID, page, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	var userResponses []AccessUserResponse
+	for _, user := range users {
+		userResponses = append(userResponses, *toAccessUserResponse(&user))
+	}
+
+	return &AccessUserListResponse{
+		Users: userResponses,
+		Meta: PaginationMeta{
+			Page:  page,
+			Limit: limit,
+			Total: total,
+		},
+	}, nil
+}
+
+func (s *Service) GetAccessUser(id uint) (*AccessUserResponse, error) {
+	user, err := s.repo.GetAccessUserByID(id)
+	if err != nil {
+		return nil, err
+	}
+	return toAccessUserResponse(user), nil
+}
+
+func (s *Service) UpdateAccessUser(id uint, req UpdateAccessUserRequest) (*AccessUserResponse, error) {
+	user, err := s.repo.GetAccessUserByID(id)
+	if err != nil {
+		return nil, err
+	}
+
+	updates := make(map[string]interface{})
+
+	if req.Name != "" {
+		updates["name"] = req.Name
+		user.Name = req.Name
+	}
+	if req.Email != "" {
+		updates["email"] = req.Email
+		user.Email = req.Email
+	}
+	if req.Password != "" {
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+		if err != nil {
+			return nil, err
+		}
+		updates["password"] = string(hashedPassword)
+		user.Password = string(hashedPassword)
+	}
+	if req.Role != "" {
+		updates["role"] = req.Role
+		user.Role = req.Role
+	}
+	if req.RoleLabel != "" {
+		updates["role_label"] = req.RoleLabel
+		user.RoleLabel = req.RoleLabel
+	}
+	if req.Status != "" {
+		updates["status"] = req.Status
+		user.Status = req.Status
+	}
+	if len(req.Permissions) > 0 {
+		updates["permissions"] = toJSON(req.Permissions)
+		user.Permissions = toJSON(req.Permissions)
+	}
+
+	if err := s.repo.UpdateAccessUser(user); err != nil {
+		return nil, err
+	}
+
+	return toAccessUserResponse(user), nil
+}
+
+func (s *Service) DeleteAccessUser(id uint) error {
+	return s.repo.DeleteAccessUser(id)
+}
+
+func (s *Service) UpdatePermissions(id uint, permissions []string) error {
+	return s.repo.UpdateAccessUserPermissions(id, toJSON(permissions))
+}
+
+func (s *Service) LoginAccessUser(email, password string, providerID uint) (*AccessUserResponse, error) {
+	user, err := s.repo.GetAccessUserByEmail(email, providerID)
+	if err != nil {
+		return nil, errors.New("invalid credentials")
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
+		return nil, errors.New("invalid credentials")
+	}
+
+	user.LastActive = time.Now()
+
+	return toAccessUserResponse(user), nil
 }

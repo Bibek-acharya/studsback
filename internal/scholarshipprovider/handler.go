@@ -12,6 +12,7 @@ import (
 	"studsphere/backend/internal/shared/utils"
 
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 	"gorm.io/gorm"
 )
 
@@ -488,6 +489,25 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 	})
 }
 
+func (h *Handler) ChangePassword(c *gin.Context) {
+	providerID := getProviderID(c)
+
+	var req ChangePasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err := h.service.ChangePassword(providerID, req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Password changed successfully", ChangePasswordResponse{
+		Message: "Password changed successfully",
+	})
+}
+
 func (h *Handler) GetSettings(c *gin.Context) {
 	providerID := getProviderID(c)
 
@@ -646,6 +666,23 @@ func toScholarshipResponse(s *ProviderScholarship) ScholarshipResponse {
 		PartnerGroups:            unmarshalJSONB(s.PartnerGroups),
 		ExamCenters:              unmarshalJSONB(s.ExamCenters),
 		Downloads:                unmarshalJSONB(s.Downloads),
+
+		// New fields from prototype
+		ProviderName:          s.ProviderName,
+		FundingTypeOther:     s.FundingTypeOther,
+		ScholarshipTypeOther: s.ScholarshipTypeOther,
+		EducationLevel:       s.EducationLevel,
+		EducationLevelOther:  s.EducationLevelOther,
+		ApplyLink:            s.ApplyLink,
+
+		// Contact Details
+		CoverageArea:    s.CoverageArea,
+		ContactEmail:    s.ContactEmail,
+		PrimaryPhone:    s.PrimaryPhone,
+		SecondaryPhone:  s.SecondaryPhone,
+		WebsiteUrl:      s.WebsiteUrl,
+		OfficeAddress:   s.OfficeAddress,
+		MapUrl:          s.MapUrl,
 	}
 }
 
@@ -1632,4 +1669,179 @@ func (h *Handler) GetPublicEventByID(c *gin.Context) {
 	}
 
 	response.Success(c, http.StatusOK, "Event retrieved successfully", toEventResponse(event))
+}
+
+func generateToken(userID, providerID uint) (string, error) {
+	claims := jwt.MapClaims{
+		"user_id":     userID,
+		"provider_id": providerID,
+		"exp":         time.Now().Add(time.Hour * 24).Unix(),
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString([]byte("your-secret-key"))
+}
+
+func (h *Handler) CreateAccessUser(c *gin.Context) {
+	providerIDVal, ok := c.Get("provider_id")
+	var providerID uint
+	if ok {
+		providerID = providerIDVal.(uint)
+	} else {
+		providerID = getProviderID(c)
+	}
+
+	var req CreateAccessUserRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	user, err := h.service.CreateAccessUser(req, providerID)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to create access user")
+		return
+	}
+
+	response.Success(c, http.StatusCreated, "Access user created successfully", user)
+}
+
+func (h *Handler) GetAccessUsers(c *gin.Context) {
+	providerIDVal, ok := c.Get("provider_id")
+	var providerID uint
+	if ok {
+		providerID = providerIDVal.(uint)
+	} else {
+		providerID = getProviderID(c)
+	}
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+
+	users, err := h.service.GetAccessUsers(providerID, page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch access users")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Access users retrieved successfully", users)
+}
+
+func (h *Handler) GetAccessUser(c *gin.Context) {
+	idStr := c.Param("id")
+
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid access user ID")
+		return
+	}
+
+	user, err := h.service.GetAccessUser(uint(id))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Access user not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Access user retrieved successfully", user)
+}
+
+func (h *Handler) UpdateAccessUser(c *gin.Context) {
+	idStr := c.Param("id")
+
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid access user ID")
+		return
+	}
+
+	var req UpdateAccessUserRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	user, err := h.service.UpdateAccessUser(uint(id), req)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Access user not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Access user updated successfully", user)
+}
+
+func (h *Handler) DeleteAccessUser(c *gin.Context) {
+	idStr := c.Param("id")
+
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid access user ID")
+		return
+	}
+
+	if err := h.service.DeleteAccessUser(uint(id)); err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to delete access user")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Access user deleted successfully", nil)
+}
+
+func (h *Handler) UpdatePermissions(c *gin.Context) {
+	idStr := c.Param("id")
+
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid access user ID")
+		return
+	}
+
+	var req struct {
+		Permissions []string `json:"permissions" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err := h.service.UpdatePermissions(uint(id), req.Permissions); err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to update permissions")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Permissions updated successfully", nil)
+}
+
+func (h *Handler) LoginAccessUser(c *gin.Context) {
+	var req struct {
+		Email    string `json:"email" binding:"required,email"`
+		Password string `json:"password" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	providerIDVal, ok := c.Get("provider_id")
+	var providerID uint
+	if ok {
+		providerID = providerIDVal.(uint)
+	} else {
+		providerID = getProviderID(c)
+	}
+
+	user, err := h.service.LoginAccessUser(req.Email, req.Password, providerID)
+	if err != nil {
+		response.Error(c, http.StatusUnauthorized, "Invalid credentials")
+		return
+	}
+
+	token, err := generateToken(user.ID, user.ProviderID)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to generate token")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Login successful", gin.H{
+		"user":  user,
+		"token": token,
+	})
 }
