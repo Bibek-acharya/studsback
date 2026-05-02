@@ -141,7 +141,9 @@ func (s *Service) CreateScholarship(providerID uint, req CreateScholarshipReques
 		ScholarshipDescription1:  req.ScholarshipDescription1,
 		ScholarshipDescription2:  req.ScholarshipDescription2,
 		ScholarshipTypes:         toJSON(req.ScholarshipTypes),
+		ScholarshipTypesNew:      toJSON(req.ScholarshipTypesNew),
 		SelectionRubric:          toJSON(req.SelectionRubric),
+		SelectionRubricNew:       toJSON(req.SelectionRubricNew),
 		EligibilitySectionTitle:  req.EligibilitySectionTitle,
 		EligibilitySubtitle:      req.EligibilitySubtitle,
 		BasicEligibilityCriteria: toJSON(req.BasicEligibilityCriteria),
@@ -150,10 +152,29 @@ func (s *Service) CreateScholarship(providerID uint, req CreateScholarshipReques
 		SelectionProcessSteps:    toJSON(req.SelectionProcessSteps),
 		RequiredDocuments:        toJSON(req.RequiredDocuments),
 		FAQs:                     toJSON(req.FAQs),
+		FAQsNew:                  toJSON(req.FAQsNew),
 		GalleryImages:            toJSON(req.GalleryImages),
+		GalleryImagesNew:         toJSON(req.GalleryImagesNew),
 		PartnerGroups:            toJSON(req.PartnerGroups),
 		ExamCenters:              toJSON(req.ExamCenters),
+		ExamCentersNew:           toJSON(req.ExamCentersNew),
 		Downloads:                toJSON(req.Downloads),
+
+		// New fields from prototype
+		ProviderName:          req.ProviderName,
+		FundingTypeOther:     req.FundingTypeOther,
+		ScholarshipTypeOther: req.ScholarshipTypeOther,
+		EducationLevel:       req.EducationLevel,
+		EducationLevelOther:  req.EducationLevelOther,
+		ApplyLink:            req.ApplyLink,
+		CoverageArea:         req.CoverageArea,
+		ContactEmail:         req.ContactEmail,
+		PrimaryPhone:         req.PrimaryPhone,
+		SecondaryPhone:       req.SecondaryPhone,
+		WebsiteUrl:           req.WebsiteUrl,
+		OfficeAddress:        req.OfficeAddress,
+		MapUrl:               req.MapUrl,
+		PaymentConfig:        toJSON(req.PaymentConfig),
 	}
 
 	if req.ApplicationStartDate != "" {
@@ -418,6 +439,67 @@ func (s *Service) UpdateScholarship(providerID, id uint, req CreateScholarshipRe
 		updates["deadline"] = parsed
 	} else if req.ApplicationEndDate != "" {
 		return nil, errors.New("invalid application end date")
+	}
+
+	// New fields from prototype
+	if req.ProviderName != "" {
+		updates["provider_name"] = req.ProviderName
+	}
+	if req.FundingTypeOther != "" {
+		updates["funding_type_other"] = req.FundingTypeOther
+	}
+	if req.ScholarshipTypeOther != "" {
+		updates["scholarship_type_other"] = req.ScholarshipTypeOther
+	}
+	if req.EducationLevel != "" {
+		updates["education_level"] = req.EducationLevel
+	}
+	if req.EducationLevelOther != "" {
+		updates["education_level_other"] = req.EducationLevelOther
+	}
+	if req.ApplyLink != "" {
+		updates["apply_link"] = req.ApplyLink
+	}
+	if req.CoverageArea != "" {
+		updates["coverage_area"] = req.CoverageArea
+	}
+	if req.ContactEmail != "" {
+		updates["contact_email"] = req.ContactEmail
+	}
+	if req.PrimaryPhone != "" {
+		updates["primary_phone"] = req.PrimaryPhone
+	}
+	if req.SecondaryPhone != "" {
+		updates["secondary_phone"] = req.SecondaryPhone
+	}
+	if req.WebsiteUrl != "" {
+		updates["website_url"] = req.WebsiteUrl
+	}
+	if req.OfficeAddress != "" {
+		updates["office_address"] = req.OfficeAddress
+	}
+	if req.MapUrl != "" {
+		updates["map_url"] = req.MapUrl
+	}
+	if req.PaymentConfig != nil {
+		updates["payment_config"] = toJSON(req.PaymentConfig)
+	}
+
+	// JSON fields
+	if len(req.ScholarshipTypesNew) > 0 {
+		updates["scholarship_types_new"] = toJSON(req.ScholarshipTypesNew)
+	}
+	if len(req.SelectionRubricNew) > 0 {
+		updates["selection_rubric_new"] = toJSON(req.SelectionRubricNew)
+	}
+	if len(req.FAQsNew) > 0 {
+		updates["faqs_new"] = toJSON(req.FAQsNew)
+	}
+	if len(req.GalleryImagesNew) > 0 {
+		updates["gallery_images_new"] = toJSON(req.GalleryImagesNew)
+	}
+	if len(req.ExamCentersNew) > 0 {
+		updates["exam_centers_new"] = toJSON(req.ExamCentersNew)
 	}
 
 	if len(updates) == 0 {

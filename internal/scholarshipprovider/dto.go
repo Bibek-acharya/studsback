@@ -68,6 +68,28 @@ type DownloadItem struct {
 	Description string `json:"description"`
 }
 
+type BankDetails struct {
+	BankName      string `json:"bank_name"`
+	AccountName   string `json:"account_name"`
+	AccountNumber string `json:"account_number"`
+	Branch        string `json:"branch"`
+}
+
+type PaymentConfig struct {
+	Enabled     bool         `json:"enabled"`
+	FeeAmount   int          `json:"fee_amount"`
+	Methods     []string     `json:"methods"`
+	BankDetails *BankDetails `json:"bank_details,omitempty"`
+	QRCode      string       `json:"qr_code,omitempty"`
+}
+
+type ScholarshipTypeWithEligibility struct {
+	Type       string `json:"type"`
+	Seats      string `json:"seats"`
+	Coverage   string `json:"coverage"`
+	Eligibility string `json:"eligibility"`
+}
+
 type CreateScholarshipRequest struct {
 	Title                 string          `json:"title"`
 	Description           string          `json:"description"`
@@ -87,6 +109,23 @@ type CreateScholarshipRequest struct {
 	FieldOfStudy          []string        `json:"field_of_study"`
 	Status                string          `json:"status"`
 
+	// New fields from prototype
+	ProviderName       string `json:"provider_name"`
+	FundingTypeOther  string `json:"funding_type_other"`
+	ScholarshipTypeOther string `json:"scholarship_type_other"`
+	EducationLevel    string `json:"education_level"`
+	EducationLevelOther string `json:"education_level_other"`
+	ApplyLink          string `json:"apply_link"`
+
+	// Contact Details
+	CoverageArea    string `json:"coverage_area"`
+	ContactEmail    string `json:"contact_email"`
+	PrimaryPhone    string `json:"primary_phone"`
+	SecondaryPhone  string `json:"secondary_phone"`
+	WebsiteUrl      string `json:"website_url"`
+	OfficeAddress   string `json:"office_address"`
+	MapUrl          string `json:"map_url"`
+
 	BannerBackgroundImageURL string                     `json:"banner_background_image_url"`
 	AboutParagraph1          string                     `json:"about_paragraph_1"`
 	AboutParagraph2          string                     `json:"about_paragraph_2"`
@@ -97,7 +136,9 @@ type CreateScholarshipRequest struct {
 	ScholarshipDescription1  string                     `json:"scholarship_description_1"`
 	ScholarshipDescription2  string                     `json:"scholarship_description_2"`
 	ScholarshipTypes         []ScholarshipTypeItem      `json:"scholarship_types"`
+	ScholarshipTypesNew      []ScholarshipTypeWithEligibility `json:"scholarship_types_new"`
 	SelectionRubric          []SelectionRubricItem      `json:"selection_rubric"`
+	SelectionRubricNew       []SelectionRubricItem      `json:"selection_rubric_new"`
 	EligibilitySectionTitle  string                     `json:"eligibility_section_title"`
 	EligibilitySubtitle      string                     `json:"eligibility_subtitle"`
 	BasicEligibilityCriteria []string                   `json:"basic_eligibility_criteria"`
@@ -106,10 +147,16 @@ type CreateScholarshipRequest struct {
 	SelectionProcessSteps    []SelectionProcessStepItem `json:"selection_process_steps"`
 	RequiredDocuments        []string                   `json:"required_documents"`
 	FAQs                     []FAQItem                  `json:"faqs"`
+	FAQsNew                  []FAQItem                  `json:"faqs_new"`
 	GalleryImages            []GalleryImageItem         `json:"gallery_images"`
+	GalleryImagesNew         []GalleryImageItem         `json:"gallery_images_new"`
 	PartnerGroups            []PartnerGroup             `json:"partner_groups"`
 	ExamCenters              []ExamCenterItem           `json:"exam_centers"`
+	ExamCentersNew           []ExamCenterItem           `json:"exam_centers_new"`
 	Downloads                []DownloadItem             `json:"downloads"`
+
+	// Payment Configuration
+	PaymentConfig *PaymentConfig `json:"payment_config"`
 }
 
 type ScholarshipResponse struct {
@@ -138,6 +185,23 @@ type ScholarshipResponse struct {
 	Status                string      `json:"status"`
 	ApplicationsCount     int         `json:"applications_count"`
 
+	// New fields from prototype
+	ProviderName           string      `json:"provider_name"`
+	FundingTypeOther      string      `json:"funding_type_other"`
+	ScholarshipTypeOther  string      `json:"scholarship_type_other"`
+	EducationLevel        string      `json:"education_level"`
+	EducationLevelOther   string      `json:"education_level_other"`
+	ApplyLink             string      `json:"apply_link"`
+
+	// Contact Details
+	CoverageArea    string      `json:"coverage_area"`
+	ContactEmail    string      `json:"contact_email"`
+	PrimaryPhone    string      `json:"primary_phone"`
+	SecondaryPhone  string      `json:"secondary_phone"`
+	WebsiteUrl      string      `json:"website_url"`
+	OfficeAddress   string      `json:"office_address"`
+	MapUrl          string      `json:"map_url"`
+
 	BannerBackgroundImageURL *string     `json:"banner_background_image_url"`
 	AboutParagraph1          string      `json:"about_paragraph_1"`
 	AboutParagraph2          string      `json:"about_paragraph_2"`
@@ -148,7 +212,9 @@ type ScholarshipResponse struct {
 	ScholarshipDescription1  string      `json:"scholarship_description_1"`
 	ScholarshipDescription2  string      `json:"scholarship_description_2"`
 	ScholarshipTypes         interface{} `json:"scholarship_types"`
+	ScholarshipTypesNew      interface{} `json:"scholarship_types_new"`
 	SelectionRubric          interface{} `json:"selection_rubric"`
+	SelectionRubricNew       interface{} `json:"selection_rubric_new"`
 	EligibilitySectionTitle  string      `json:"eligibility_section_title"`
 	EligibilitySubtitle      string      `json:"eligibility_subtitle"`
 	BasicEligibilityCriteria interface{} `json:"basic_eligibility_criteria"`
@@ -156,10 +222,16 @@ type ScholarshipResponse struct {
 	PartiallyFundedCriteria  interface{} `json:"partially_funded_criteria"`
 	SelectionProcessSteps    interface{} `json:"selection_process_steps"`
 	FAQs                     interface{} `json:"faqs"`
+	FAQsNew                  interface{} `json:"faqs_new"`
 	GalleryImages            interface{} `json:"gallery_images"`
+	GalleryImagesNew         interface{} `json:"gallery_images_new"`
 	PartnerGroups            interface{} `json:"partner_groups"`
 	ExamCenters              interface{} `json:"exam_centers"`
+	ExamCentersNew           interface{} `json:"exam_centers_new"`
 	Downloads                interface{} `json:"downloads"`
+
+	// Payment Configuration
+	PaymentConfig *PaymentConfig `json:"payment_config"`
 }
 
 type ScholarshipListResponse struct {

@@ -38,7 +38,9 @@ type ProviderScholarship struct {
 	ScholarshipDescription1  string    `gorm:"type:text;column:scholarship_description1" json:"scholarship_description_1"`
 	ScholarshipDescription2  string    `gorm:"type:text;column:scholarship_description2" json:"scholarship_description_2"`
 	ScholarshipTypes         []byte    `gorm:"type:jsonb;column:scholarship_types" json:"scholarship_types"`
+	ScholarshipTypesNew      []byte    `gorm:"type:jsonb;column:scholarship_types_new" json:"scholarship_types_new"`
 	SelectionRubric          []byte    `gorm:"type:jsonb;column:selection_rubric" json:"selection_rubric"`
+	SelectionRubricNew       []byte    `gorm:"type:jsonb;column:selection_rubric_new" json:"selection_rubric_new"`
 	EligibilitySectionTitle  string    `gorm:"column:eligibility_section_title" json:"eligibility_section_title"`
 	EligibilitySubtitle      string    `gorm:"column:eligibility_subtitle" json:"eligibility_subtitle"`
 	BasicEligibilityCriteria []byte    `gorm:"type:jsonb;column:basic_eligibility_criteria" json:"basic_eligibility_criteria"`
@@ -46,10 +48,33 @@ type ProviderScholarship struct {
 	PartiallyFundedCriteria  []byte    `gorm:"type:jsonb;column:partially_funded_criteria" json:"partially_funded_criteria"`
 	SelectionProcessSteps    []byte    `gorm:"type:jsonb;column:selection_process_steps" json:"selection_process_steps"`
 	FAQs                     []byte    `gorm:"type:jsonb;column:fa_qs" json:"faqs"`
+	FAQsNew                  []byte    `gorm:"type:jsonb;column:faqs_new" json:"faqs_new"`
 	GalleryImages            []byte    `gorm:"type:jsonb;column:gallery_images" json:"gallery_images"`
+	GalleryImagesNew         []byte    `gorm:"type:jsonb;column:gallery_images_new" json:"gallery_images_new"`
 	PartnerGroups            []byte    `gorm:"type:jsonb;column:partner_groups" json:"partner_groups"`
 	ExamCenters              []byte    `gorm:"type:jsonb;column:exam_centers" json:"exam_centers"`
+	ExamCentersNew           []byte    `gorm:"type:jsonb;column:exam_centers_new" json:"exam_centers_new"`
 	Downloads                []byte    `gorm:"type:jsonb;column:downloads" json:"downloads"`
+
+	// New fields from prototype
+	ProviderName          string    `gorm:"column:provider_name" json:"provider_name"`
+	FundingTypeOther     string    `gorm:"column:funding_type_other" json:"funding_type_other"`
+	ScholarshipTypeOther string    `gorm:"column:scholarship_type_other" json:"scholarship_type_other"`
+	EducationLevel       string    `gorm:"column:education_level" json:"education_level"`
+	EducationLevelOther  string    `gorm:"column:education_level_other" json:"education_level_other"`
+	ApplyLink            string    `gorm:"column:apply_link" json:"apply_link"`
+
+	// Contact Details
+	CoverageArea   string `gorm:"column:coverage_area" json:"coverage_area"`
+	ContactEmail   string `gorm:"column:contact_email" json:"contact_email"`
+	PrimaryPhone   string `gorm:"column:primary_phone" json:"primary_phone"`
+	SecondaryPhone string `gorm:"column:secondary_phone" json:"secondary_phone"`
+	WebsiteUrl     string `gorm:"column:website_url" json:"website_url"`
+	OfficeAddress  string `gorm:"column:office_address" json:"office_address"`
+	MapUrl         string `gorm:"column:map_url" json:"map_url"`
+
+	// Payment Configuration
+	PaymentConfig []byte `gorm:"type:jsonb;column:payment_config" json:"payment_config"`
 	TotalSeats               int       `json:"total_seats"`
 	AmountPerStudent         float64   `json:"amount_per_student"`
 	PaymentConfig            []byte    `gorm:"type:jsonb;column:payment_config" json:"payment_config"`
