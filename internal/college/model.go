@@ -3,7 +3,6 @@ package college
 import (
 	"time"
 
-	"github.com/pgvector/pgvector-go"
 	"gorm.io/gorm"
 )
 
@@ -55,5 +54,4 @@ type College struct {
 	CareerFitScore   int            `gorm:"default:5" json:"career_fit_score"`
 	BalancedFitScore int            `gorm:"default:5" json:"balanced_fit_score"`
 	ProfileTags      []byte           `gorm:"type:jsonb" json:"profile_tags,omitempty"`
-	Embedding        *pgvector.Vector  `gorm:"type:vector(1536)" json:"-"`
 }

@@ -3,7 +3,6 @@ package scholarship
 import (
 	"time"
 
-	"github.com/pgvector/pgvector-go"
 	"gorm.io/gorm"
 )
 
@@ -83,7 +82,6 @@ type Scholarship struct {
 	ExamCentersNew           []byte `gorm:"type:jsonb;column:exam_centers_new" json:"exam_centers_new"`
 	Downloads                []byte `gorm:"type:jsonb;column:downloads" json:"downloads"`
 
-	Embedding *pgvector.Vector `gorm:"type:vector(1536)" json:"-"`
 }
 
 type ScholarshipApplication struct {

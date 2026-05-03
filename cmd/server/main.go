@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -49,8 +48,6 @@ func main() {
 	config.ConnectDatabase()
 
 	db := config.GetDB()
-
-	config.EnsurePgvectorExtension()
 
 	logger.Info("Running database migrations...")
 	if err := db.AutoMigrate(
@@ -117,88 +114,7 @@ func main() {
 		&system.CarouselSlide{},
 		&system.PublicNotification{},
 	); err != nil {
-		if strings.Contains(err.Error(), "type \"vector\" does not exist") {
-			logger.Warn("pgvector type not available. Run as DB superuser:")
-			logger.Warn("  CREATE EXTENSION vector;")
-			logger.Warn("Then restart. Falling back to keyword-only search.")
-			// pgvector missing - re-run migration without college.College (has vector column)
-			// so all other tables still get created
-			logger.Info("Re-running migrations without vector-dependent models...")
-			if err2 := db.AutoMigrate(
-				&auth.User{},
-				&auth.InstitutionUser{},
-				&auth.ScholarshipProviderUser{},
-				&auth.EducationEntry{},
-				&university.University{},
-				&counselling.CounsellingBooking{},
-				&scholarship.Scholarship{},
-				&scholarship.ScholarshipApplication{},
-				&scholarship.Payment{},
-				&education.Exam{},
-				&education.Course{},
-				&education.CollegeUniversityCourse{},
-				&education.News{},
-				&education.Event{},
-				&education.Blog{},
-				&forum.ForumPost{},
-				&forum.ForumCommunity{},
-				&forum.ForumCommunityMember{},
-				&forum.ForumComment{},
-				&forum.ForumVote{},
-				&forum.ForumSave{},
-				&forum.ForumPollVote{},
-				&admission.Admission{},
-				&scholarshipprovider.ProviderScholarship{},
-				&scholarshipprovider.ProviderApplication{},
-				&scholarshipprovider.ProviderInterview{},
-				&scholarshipprovider.ProviderMessage{},
-				&scholarshipprovider.ProviderSettings{},
-				&scholarshipprovider.ProviderNotification{},
-				&scholarshipprovider.ProviderNews{},
-				&scholarshipprovider.ProviderEvent{},
-				&scholarshipprovider.ProviderBlog{},
-				&scholarshipprovider.ProviderCalendarEvent{},
-				&scholarshipprovider.ProviderResult{},
-				&scholarshipprovider.ProviderAccess{},
-				&scholarshipprovider.ProviderAccessUser{},
-				&studentdashboard.Message{},
-				&studentdashboard.CalendarEvent{},
-				&studentdashboard.SphereInvite{},
-				&studentdashboard.Bookmark{},
-				&studentdashboard.Notification{},
-				&institution.InstitutionProgram{},
-				&institution.InstitutionMedia{},
-				&institution.InstitutionCounsellingSession{},
-				&institution.InstitutionCounsellingBooking{},
-				&institution.InstitutionEntrance{},
-				&institution.InstitutionEntranceApplicant{},
-				&institution.InstitutionEvent{},
-				&institution.InstitutionNews{},
-				&institution.InstitutionQMS{},
-				&institution.InstitutionMessage{},
-				&institution.InstitutionSettings{},
-				&review.Review{},
-				&review.ReviewHelpful{},
-				&review.ReviewReport{},
-				&projectshiksha.ShikshaApplication{},
-				&projectshiksha.ShikshaPayment{},
-				&system.ContactInquiry{},
-				&system.Ad{},
-				&system.CarouselSlide{},
-				&system.PublicNotification{},
-			); err2 != nil {
-				logger.Fatal("Failed to migrate database (fallback)", "error", err2)
-			}
-			if err := allowAnonymousScholarshipApplications(db); err != nil {
-				logger.Fatal("Failed to update scholarship application user_id nullability", "error", err)
-			}
-			if err := fixMissingColumns(db); err != nil {
-				logger.Fatal("Failed to fix missing columns", "error", err)
-			}
-			logger.Info("Database migrations completed (without vector models)")
-		} else {
-			logger.Fatal("Failed to migrate database", "error", err)
-		}
+		logger.Fatal("Failed to migrate database", "error", err)
 	} else {
 		if err := allowAnonymousScholarshipApplications(db); err != nil {
 			logger.Fatal("Failed to update scholarship application user_id nullability", "error", err)
@@ -207,7 +123,6 @@ func main() {
 			logger.Fatal("Failed to fix missing columns", "error", err)
 		}
 		logger.Info("Database migrations completed successfully")
-		config.CreateVectorIndexes()
 	}
 
 	logger.Info("Seeding super admin account...")
