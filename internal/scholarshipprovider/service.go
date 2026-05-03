@@ -1747,3 +1747,11 @@ func (s *Service) LoginAccessUser(email, password string, providerID uint) (*Acc
 
 	return toAccessUserResponse(user), nil
 }
+
+func (s *Service) ResetAccessUserPassword(userID uint, newPassword string) error {
+	hashed, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	return s.repo.UpdateAccessUserField(userID, "password", string(hashed))
+}

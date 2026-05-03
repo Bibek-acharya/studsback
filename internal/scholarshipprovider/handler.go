@@ -1973,6 +1973,29 @@ func (h *Handler) UpdatePermissions(c *gin.Context) {
 	response.Success(c, http.StatusOK, "Permissions updated successfully", nil)
 }
 
+func (h *Handler) ResetAccessUserPassword(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid access user ID")
+		return
+	}
+
+	var req struct {
+		NewPassword string `json:"new_password" binding:"required,min=6"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err := h.service.ResetAccessUserPassword(uint(id), req.NewPassword); err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to reset password")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Password reset successfully", nil)
+}
+
 func (h *Handler) LoginAccessUser(c *gin.Context) {
 	var req struct {
 		Email    string `json:"email" binding:"required,email"`

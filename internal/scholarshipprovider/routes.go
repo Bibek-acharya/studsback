@@ -116,6 +116,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 				auth.PUT("/access-users/:id", h.UpdateAccessUser)
 				auth.DELETE("/access-users/:id", h.DeleteAccessUser)
 				auth.PUT("/access-users/:id/permissions", h.UpdatePermissions)
+				auth.PUT("/access-users/:id/reset-password", h.ResetAccessUserPassword)
 			}
 		}
 	}

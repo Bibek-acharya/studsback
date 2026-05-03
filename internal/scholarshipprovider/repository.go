@@ -777,3 +777,7 @@ func (r *Repository) UpdateProviderEmail(id uint, newEmail string) error {
 func (r *Repository) UpdateAccessUserEmail(id uint, newEmail string) error {
 	return r.db.Model(&ProviderAccessUser{}).Where("id = ?", id).Update("email", newEmail).Error
 }
+
+func (r *Repository) UpdateAccessUserField(id uint, field string, value interface{}) error {
+	return r.db.Model(&ProviderAccessUser{}).Where("id = ?", id).Update(field, value).Error
+}
