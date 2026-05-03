@@ -93,6 +93,24 @@ func (h *Handler) GetAnalytics(c *gin.Context) {
 	response.Success(c, http.StatusOK, "Analytics data retrieved successfully", analytics)
 }
 
+func (h *Handler) GetDetailedAnalytics(c *gin.Context) {
+	providerID := getProviderID(c)
+
+	var filters DetailedAnalyticsFilters
+	filters.Province = c.Query("province")
+	filters.District = c.Query("district")
+	filters.SchoolType = c.Query("school_type")
+	filters.ScholarshipStatus = c.Query("scholarship_status")
+
+	analytics, err := h.service.GetDetailedAnalytics(providerID, filters)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch detailed analytics")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Detailed analytics data retrieved successfully", analytics)
+}
+
 func (h *Handler) UploadImage(c *gin.Context) {
 	providerID := getProviderID(c)
 	_ = providerID

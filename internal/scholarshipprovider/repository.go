@@ -62,6 +62,34 @@ func (r *Repository) GetAnalytics(providerID uint) ([]ProviderApplication, []Pro
 	return applications, scholarships, nil
 }
 
+func (r *Repository) GetFilteredApplications(providerID uint, filters DetailedAnalyticsFilters) ([]ProviderApplication, error) {
+	var applications []ProviderApplication
+	query := r.db.Model(&ProviderApplication{}).
+		Joins("JOIN provider_scholarships ON provider_scholarships.id = provider_applications.scholarship_id").
+		Where("provider_scholarships.provider_id = ?", providerID)
+
+	if filters.Province != "" {
+		query = query.Where("provider_applications.province = ?", filters.Province)
+	}
+	if filters.District != "" {
+		query = query.Where("provider_applications.district = ?", filters.District)
+	}
+	if filters.SchoolType != "" {
+		query = query.Where("provider_applications.school_type = ?", filters.SchoolType)
+	}
+	switch filters.ScholarshipStatus {
+case "recipients":
+		query = query.Where("provider_applications.status = ?", "approved")
+	case "non-recipients":
+		query = query.Where("provider_applications.status != ?", "approved")
+	}
+
+	if err := query.Find(&applications).Error; err != nil {
+		return nil, err
+	}
+	return applications, nil
+}
+
 func (r *Repository) GetApplicationCountByScholarship(scholarshipID uint) (int64, error) {
 	var count int64
 	if err := r.db.Model(&ProviderApplication{}).Where("scholarship_id = ?", scholarshipID).Count(&count).Error; err != nil {

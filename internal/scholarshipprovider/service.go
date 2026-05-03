@@ -93,6 +93,100 @@ func (s *Service) GetAnalytics(providerID uint) (*AnalyticsResponse, error) {
 	}, nil
 }
 
+func (s *Service) GetDetailedAnalytics(providerID uint, filters DetailedAnalyticsFilters) (*DetailedAnalyticsResponse, error) {
+	apps, err := s.repo.GetFilteredApplications(providerID, filters)
+	if err != nil {
+		return nil, err
+	}
+
+	res := &DetailedAnalyticsResponse{
+		TotalApplicants: len(apps),
+		Gender:          []MetricCount{},
+		Ethnicity:       []MetricCount{},
+		GPABreakdown:    []MetricCount{},
+		SchoolType:      []MetricCount{},
+		Stream:          []MetricCount{},
+		Province:        []MetricCount{},
+		District:        []MetricCount{},
+		Status:          []MetricCount{},
+	}
+
+	genderMap := make(map[string]int)
+	ethnicityMap := make(map[string]int)
+	schoolTypeMap := make(map[string]int)
+	streamMap := make(map[string]int)
+	provinceMap := make(map[string]int)
+	districtMap := make(map[string]int)
+	statusMap := make(map[string]int)
+	gpaBins := map[string]int{
+		"0.0 - 1.0": 0,
+		"1.1 - 2.0": 0,
+		"2.1 - 3.0": 0,
+		"3.1 - 4.0": 0,
+	}
+
+	for _, app := range apps {
+		if app.Gender != "" {
+			genderMap[app.Gender]++
+		}
+		if app.Ethnicity != "" {
+			ethnicityMap[app.Ethnicity]++
+		}
+		if app.SchoolType != "" {
+			schoolTypeMap[app.SchoolType]++
+		}
+		if app.Stream != "" {
+			streamMap[app.Stream]++
+		}
+		if app.Province != "" {
+			provinceMap[app.Province]++
+		}
+		if app.District != "" {
+			districtMap[app.District]++
+		}
+		if app.Status != "" {
+			statusMap[app.Status]++
+		}
+
+		if app.GPA <= 1.0 {
+			gpaBins["0.0 - 1.0"]++
+		} else if app.GPA <= 2.0 {
+			gpaBins["1.1 - 2.0"]++
+		} else if app.GPA <= 3.0 {
+			gpaBins["2.1 - 3.0"]++
+		} else {
+			gpaBins["3.1 - 4.0"]++
+		}
+	}
+
+	res.Gender = mapToMetricCount(genderMap)
+	res.Ethnicity = mapToMetricCount(ethnicityMap)
+	res.SchoolType = mapToMetricCount(schoolTypeMap)
+	res.Stream = mapToMetricCount(streamMap)
+	res.Province = mapToMetricCount(provinceMap)
+	res.District = mapToMetricCount(districtMap)
+	res.Status = mapToMetricCount(statusMap)
+	res.GPABreakdown = []MetricCount{
+		{Label: "0.0 - 1.0", Count: gpaBins["0.0 - 1.0"]},
+		{Label: "1.1 - 2.0", Count: gpaBins["1.1 - 2.0"]},
+		{Label: "2.1 - 3.0", Count: gpaBins["2.1 - 3.0"]},
+		{Label: "3.1 - 4.0", Count: gpaBins["3.1 - 4.0"]},
+	}
+
+	return res, nil
+}
+
+func mapToMetricCount(m map[string]int) []MetricCount {
+	counts := make([]MetricCount, 0, len(m))
+	for label, count := range m {
+		if label == "" {
+			label = "Unknown"
+		}
+		counts = append(counts, MetricCount{Label: label, Count: count})
+	}
+	return counts
+}
+
 func parseTime(s string) (time.Time, error) {
 	formats := []string{time.RFC3339Nano, time.RFC3339, "2006-01-02T15:04:05Z", "2006-01-02"}
 	for _, f := range formats {

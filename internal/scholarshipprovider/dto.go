@@ -728,3 +728,27 @@ type ChangeEmailRequest struct {
 type ChangeEmailResponse struct {
 	Message string `json:"message"`
 }
+
+type DetailedAnalyticsFilters struct {
+	Province        string `json:"province"`
+	District        string `json:"district"`
+	SchoolType      string `json:"school_type"`
+	ScholarshipStatus string `json:"scholarship_status"`
+}
+
+type MetricCount struct {
+	Label string `json:"label"`
+	Count int    `json:"count"`
+}
+
+type DetailedAnalyticsResponse struct {
+	TotalApplicants int           `json:"total_applicants"`
+	Gender          []MetricCount `json:"gender"`
+	Ethnicity       []MetricCount `json:"ethnicity"`
+	GPABreakdown    []MetricCount `json:"gpa_breakdown"`
+	SchoolType      []MetricCount `json:"school_type"`
+	Stream          []MetricCount `json:"stream"`
+	Province        []MetricCount `json:"province"`
+	District        []MetricCount `json:"district"`
+	Status          []MetricCount `json:"status"`
+}

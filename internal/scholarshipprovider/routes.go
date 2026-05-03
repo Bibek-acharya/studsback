@@ -37,6 +37,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 		{
 			scholarshipProvider.GET("/dashboard", h.GetDashboard)
 			scholarshipProvider.GET("/analytics", h.GetAnalytics)
+			scholarshipProvider.GET("/analytics/detailed", h.GetDetailedAnalytics)
 
 			scholarshipProvider.POST("/scholarships", h.CreateScholarship)
 			scholarshipProvider.GET("/scholarships", h.GetScholarships)
