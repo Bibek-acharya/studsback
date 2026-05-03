@@ -122,6 +122,10 @@ func main() {
 		if err := fixMissingColumns(db); err != nil {
 			logger.Fatal("Failed to fix missing columns", "error", err)
 		}
+		// Cleanup dangling sub-users with provider_id = 0 from previous bug
+		if err := db.Exec("DELETE FROM provider_access_users WHERE provider_id = 0").Error; err != nil {
+			logger.Warn("Failed to cleanup dangling sub-users", "error", err)
+		}
 		logger.Info("Database migrations completed successfully")
 	}
 

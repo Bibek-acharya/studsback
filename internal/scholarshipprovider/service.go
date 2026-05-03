@@ -1598,6 +1598,9 @@ func (s *Service) CreateAccessUser(req CreateAccessUserRequest, providerID uint)
 	}
 
 	if err := s.repo.CreateAccessUser(user); err != nil {
+		if strings.Contains(err.Error(), "duplicate key") || strings.Contains(err.Error(), "unique constraint") {
+			return nil, errors.New("a user with this email already exists")
+		}
 		return nil, err
 	}
 
