@@ -16,13 +16,31 @@ import (
 	"studsphere/backend/internal/shared/config"
 	"studsphere/backend/internal/shared/middleware"
 	"studsphere/backend/internal/shared/response"
+	"studsphere/backend/internal/scholarshipprovider"
 
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 )
 
 // OAuthStateStore stores OAuth state with redirect URLs
+var spHandler *scholarshipprovider.Handler
+
+func SetScholarshipProviderHandler(h *scholarshipprovider.Handler) {
+	spHandler = h
+}
+
+func generateAccessUserToken(userID, providerID uint) (string, error) {
+	claims := jwt.MapClaims{
+		"user_id":     userID,
+		"provider_id": providerID,
+		"type":       "access_user",
+		"exp":        time.Now().Add(time.Hour * 24).Unix(),
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString([]byte("your-secret-key"))
+}
 type OAuthStateStore struct {
 	states map[string]struct {
 		redirectURL string
@@ -565,6 +583,21 @@ func (h *Handler) ScholarshipProviderLogin(c *gin.Context) {
 
 	result, err := h.service.ScholarshipProviderLogin(req)
 	if err != nil {
+		if strings.Contains(err.Error(), "record not found") {
+			if spHandler != nil {
+				user, spErr := spHandler.GetService().LoginAccessUser(req.Email, req.Password, 0)
+				if spErr == nil {
+					token, tokenErr := generateAccessUserToken(user.ID, user.ProviderID)
+					if tokenErr == nil {
+						response.Success(c, 200, "Login successful", gin.H{
+							"user": user,
+							"token": token,
+						})
+						return
+					}
+				}
+			}
+		}
 		response.Error(c, 401, err.Error())
 		return
 	}

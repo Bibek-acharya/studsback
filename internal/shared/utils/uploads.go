@@ -12,6 +12,14 @@ import (
 	"time"
 )
 
+var allowedDocumentTypes = map[string]bool{
+	"application/pdf":                       true,
+	"application/msword":                     true,
+	"application/vnd.openxmlformats-officedocument.wordprocessingml.document": true,
+	"application/vnd.ms-excel":              true,
+	"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":   true,
+}
+
 func sanitizeUploadFolder(folder string) (string, error) {
 	folder = strings.TrimSpace(folder)
 	if folder == "" {
@@ -62,6 +70,53 @@ func getContentTypeForFile(path string, data []byte) string {
 	}
 
 	return "application/octet-stream"
+}
+
+func SaveUploadedDocument(header *multipart.FileHeader, folder string) (string, error) {
+	if header == nil {
+		return "", fmt.Errorf("no file provided")
+	}
+
+	cleanFolder, err := sanitizeUploadFolder(folder)
+	if err != nil {
+		return "", err
+	}
+
+	contentType := strings.ToLower(strings.TrimSpace(header.Header.Get("Content-Type")))
+	if contentType == "" {
+		contentType = strings.ToLower(mime.TypeByExtension(filepath.Ext(header.Filename)))
+	}
+	if contentType != "" && !allowedDocumentTypes[contentType] && !strings.HasPrefix(contentType, "image/") {
+		return "", fmt.Errorf("only PDF, DOC, DOCX, XLS, XLSX files are allowed")
+	}
+
+	src, err := header.Open()
+	if err != nil {
+		return "", fmt.Errorf("failed to open uploaded file: %w", err)
+	}
+	defer src.Close()
+
+	uploadDir := filepath.Join("uploads", cleanFolder)
+	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create upload directory: %w", err)
+	}
+
+	ext := getFileExtension(header)
+	filename := fmt.Sprintf("%d%s", time.Now().UnixNano(), ext)
+	savePath := filepath.Join(uploadDir, filename)
+
+	dst, err := os.Create(savePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to create uploaded file: %w", err)
+	}
+	defer dst.Close()
+
+	_, err = io.Copy(dst, src)
+	if err != nil {
+		return "", fmt.Errorf("failed to save uploaded file: %w", err)
+	}
+
+	return "/uploads/" + cleanFolder + "/" + filename, nil
 }
 
 func SaveUploadedImage(header *multipart.FileHeader, folder string) (string, error) {

@@ -24,6 +24,10 @@ func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
 }
 
+func (h *Handler) GetService() *Service {
+	return h.service
+}
+
 func getProviderID(c *gin.Context) uint {
 	userID, _ := c.Get("user_id")
 	return userID.(uint)
@@ -45,6 +49,12 @@ func resolveProviderUploadFolder(folder string) (string, error) {
 		return "scholarship-provider/profile", nil
 	case "logos":
 		return "scholarship-provider/logos", nil
+	case "gallery":
+		return "scholarship-provider/gallery", nil
+	case "partners":
+		return "scholarship-provider/partners", nil
+	case "downloads":
+		return "scholarship-provider/downloads", nil
 	default:
 		return "", errors.New("invalid upload folder")
 	}
@@ -91,6 +101,31 @@ func (h *Handler) UploadImage(c *gin.Context) {
 	}
 
 	url, err := utils.SaveUploadedImage(header, folder)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "File uploaded successfully", gin.H{"url": url})
+}
+
+func (h *Handler) UploadDocument(c *gin.Context) {
+	providerID := getProviderID(c)
+	_ = providerID
+
+	folder, err := resolveProviderUploadFolder(c.Query("folder"))
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	header, err := c.FormFile("file")
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "No file provided")
+		return
+	}
+
+	url, err := utils.SaveUploadedDocument(header, folder)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
@@ -611,78 +646,85 @@ func formatTimeOrEmpty(t time.Time) string {
 	return t.Format(time.RFC3339)
 }
 
+func decodeJSONB[T any](data []byte) T {
+	var value T
+	if len(data) == 0 {
+		return value
+	}
+	_ = json.Unmarshal(data, &value)
+	return value
+}
+
 func toScholarshipResponse(s *ProviderScholarship) ScholarshipResponse {
 	return ScholarshipResponse{
-		ID:                    s.ID,
-		CreatedAt:             s.CreatedAt,
-		UpdatedAt:             s.UpdatedAt,
-		ProviderID:            s.ProviderID,
-		Title:                 s.Title,
-		Description:           s.Description,
-		ImageURL:              s.ImageURL,
-		Location:              s.Location,
-		Value:                 s.Value,
-		Deadline:              s.Deadline,
-		TotalSeats:            s.TotalSeats,
-		AmountPerStudent:      s.AmountPerStudent,
-		ApplicationStartDate:  formatTimeOrEmpty(s.ApplicationStartDate),
-		ApplicationEndDate:    formatTimeOrEmpty(s.Deadline),
-		ResultPublicationDate: formatTimeOrEmpty(s.ResultPublicationDate),
-		PaymentConfig: func() *PaymentConfig {
-		var pc *PaymentConfig
-		if s.PaymentConfig != nil {
-			json.Unmarshal(s.PaymentConfig, &pc)
-		}
-		return pc
-	}(),
-		DegreeLevel:           s.DegreeLevel,
-		FundingType:           s.FundingType,
-		ScholarshipType:       s.ScholarshipType,
-		FieldOfStudy:          unmarshalJSONB(s.FieldOfStudy),
-		EligibilityCriteria:   unmarshalJSONB(s.EligibilityCriteria),
-		RequiredDocuments:     unmarshalJSONB(s.RequiredDocuments),
-		Status:                s.Status,
-		ApplicationsCount:     s.ApplicationsCount,
-
+		ID:                       s.ID,
+		CreatedAt:                s.CreatedAt,
+		UpdatedAt:                s.UpdatedAt,
+		ProviderID:               s.ProviderID,
+		Title:                    s.Title,
+		Provider:                 s.Provider,
+		Description:              s.Description,
+		ProviderName:             s.ProviderName,
+		FundingTypeOther:         s.FundingTypeOther,
+		ScholarshipTypeOther:     s.ScholarshipTypeOther,
+		EducationLevel:           s.EducationLevel,
+		EducationLevelOther:      s.EducationLevelOther,
+		Location:                 s.Location,
+		Value:                    s.Value,
+		Deadline:                 formatTimeOrEmpty(s.Deadline),
+		DegreeLevel:              s.DegreeLevel,
+		FundingType:              s.FundingType,
+		ScholarshipType:          s.ScholarshipType,
+		FieldOfStudy:             decodeJSONB[[]string](s.FieldOfStudy),
+		Status:                   s.Status,
+		ApplicationStartDate:     formatTimeOrEmpty(s.ApplicationStartDate),
+		ApplicationEndDate:       formatTimeOrEmpty(s.ApplicationEndDate),
+		ApplyLink:                s.ApplyLink,
 		BannerBackgroundImageURL: s.BannerBackgroundImageURL,
+		CoverageArea:             s.CoverageArea,
+		ContactEmail:             s.ContactEmail,
+		PrimaryPhone:             s.PrimaryPhone,
+		SecondaryPhone:           s.SecondaryPhone,
+		WebsiteUrl:               s.WebsiteUrl,
+		OfficeAddress:            s.OfficeAddress,
+		MapUrl:                   s.MapUrl,
 		AboutParagraph1:          s.AboutParagraph1,
-		AboutParagraph2:          s.AboutParagraph2,
-		VideoTutorials:           unmarshalJSONB(s.VideoTutorials),
-		JourneyTimeline:          unmarshalJSONB(s.JourneyTimeline),
+		VideoTutorials:           decodeJSONB[[]VideoTutorial](s.VideoTutorials),
+		JourneyTimeline:          decodeJSONB[[]JourneyTimelineItem](s.JourneyTimeline),
+		Timeline:                 decodeJSONB[[]TimelineItem](s.Timeline),
 		ScholarshipSectionTitle:  s.ScholarshipSectionTitle,
 		ScholarshipSubtitle:      s.ScholarshipSubtitle,
 		ScholarshipDescription1:  s.ScholarshipDescription1,
 		ScholarshipDescription2:  s.ScholarshipDescription2,
-		ScholarshipTypes:         unmarshalJSONB(s.ScholarshipTypes),
-		SelectionRubric:          unmarshalJSONB(s.SelectionRubric),
+		ScholarshipTypes:         decodeJSONB[[]ScholarshipTypeItem](s.ScholarshipTypes),
+		ScholarshipTypesNew:      decodeJSONB[[]ScholarshipTypeItem](s.ScholarshipTypesNew),
+		SelectionRubric:          decodeJSONB[[]SelectionRubricItem](s.SelectionRubric),
+		SelectionRubricNew:       decodeJSONB[[]SelectionRubricItem](s.SelectionRubricNew),
 		EligibilitySectionTitle:  s.EligibilitySectionTitle,
 		EligibilitySubtitle:      s.EligibilitySubtitle,
-		BasicEligibilityCriteria: unmarshalJSONB(s.BasicEligibilityCriteria),
-		FullyFundedCriteria:      unmarshalJSONB(s.FullyFundedCriteria),
-		PartiallyFundedCriteria:  unmarshalJSONB(s.PartiallyFundedCriteria),
-		SelectionProcessSteps:    unmarshalJSONB(s.SelectionProcessSteps),
-		FAQs:                     unmarshalJSONB(s.FAQs),
-		GalleryImages:            unmarshalJSONB(s.GalleryImages),
-		PartnerGroups:            unmarshalJSONB(s.PartnerGroups),
-		ExamCenters:              unmarshalJSONB(s.ExamCenters),
-		Downloads:                unmarshalJSONB(s.Downloads),
-
-		// New fields from prototype
-		ProviderName:          s.ProviderName,
-		FundingTypeOther:     s.FundingTypeOther,
-		ScholarshipTypeOther: s.ScholarshipTypeOther,
-		EducationLevel:       s.EducationLevel,
-		EducationLevelOther:  s.EducationLevelOther,
-		ApplyLink:            s.ApplyLink,
-
-		// Contact Details
-		CoverageArea:    s.CoverageArea,
-		ContactEmail:    s.ContactEmail,
-		PrimaryPhone:    s.PrimaryPhone,
-		SecondaryPhone:  s.SecondaryPhone,
-		WebsiteUrl:      s.WebsiteUrl,
-		OfficeAddress:   s.OfficeAddress,
-		MapUrl:          s.MapUrl,
+		BasicEligibilityCriteria: decodeJSONB[[]string](s.BasicEligibilityCriteria),
+		FullyFundedCriteria:      decodeJSONB[[]string](s.FullyFundedCriteria),
+		PartiallyFundedCriteria:  decodeJSONB[[]string](s.PartiallyFundedCriteria),
+		SelectionProcessSteps:    decodeJSONB[[]SelectionProcessStepItem](s.SelectionProcessSteps),
+		RequiredDocuments:        decodeJSONB[[]string](s.RequiredDocuments),
+		FAQs:                     decodeJSONB[[]FAQItem](s.FAQs),
+		FAQsNew:                  decodeJSONB[[]FAQItem](s.FAQsNew),
+		GalleryImages:            decodeJSONB[[]GalleryImageItem](s.GalleryImages),
+		GalleryImagesNew:         decodeJSONB[[]GalleryImageItem](s.GalleryImagesNew),
+		PartnerGroups:            decodeJSONB[[]PartnerOrganization](s.PartnerGroups),
+		ExamCenters:              decodeJSONB[[]ExamCenterItem](s.ExamCenters),
+		ExamCentersNew:           decodeJSONB[[]ExamCenterItem](s.ExamCentersNew),
+		Downloads:                decodeJSONB[[]DownloadItem](s.Downloads),
+		PaymentConfig: func() *PaymentConfig {
+			if len(s.PaymentConfig) == 0 {
+				return nil
+			}
+			var paymentConfig PaymentConfig
+			if err := json.Unmarshal(s.PaymentConfig, &paymentConfig); err != nil {
+				return nil
+			}
+			return &paymentConfig
+		}(),
 	}
 }
 
@@ -913,7 +955,7 @@ func toResultResponse(r *ProviderResult) ResultResponse {
 		Title:         r.Title,
 		Status:        r.Status,
 		PublishedAt:   r.PublishedAt,
-		Results:       r.Results,
+		Results:       json.RawMessage(r.Results),
 	}
 }
 
@@ -1822,10 +1864,10 @@ func (h *Handler) LoginAccessUser(c *gin.Context) {
 
 	providerIDVal, ok := c.Get("provider_id")
 	var providerID uint
-	if ok {
-		providerID = providerIDVal.(uint)
-	} else {
+	if !ok {
 		providerID = getProviderID(c)
+	} else {
+		providerID = providerIDVal.(uint)
 	}
 
 	user, err := h.service.LoginAccessUser(req.Email, req.Password, providerID)
@@ -1840,8 +1882,51 @@ func (h *Handler) LoginAccessUser(c *gin.Context) {
 		return
 	}
 
+	var permissions []string
+	if user.Permissions != nil {
+		permissions = user.Permissions
+	}
+
 	response.Success(c, http.StatusOK, "Login successful", gin.H{
-		"user":  user,
-		"token": token,
+		"user":        user,
+		"token":       token,
+		"permissions": permissions,
+	})
+}
+
+func (h *Handler) LoginAccessUserPublic(c *gin.Context) {
+	log.Printf("[HANDLER] LoginAccessUserPublic called")
+	var req struct {
+		Email    string `json:"email" binding:"required,email"`
+		Password string `json:"password" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("[HANDLER] Bind error: %v", err)
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	log.Printf("[HANDLER] Calling service with email=%s", req.Email)
+	user, err := h.service.LoginAccessUser(req.Email, req.Password, 0)
+	if err != nil {
+		response.Error(c, http.StatusUnauthorized, "Invalid credentials")
+		return
+	}
+
+	token, err := generateToken(user.ID, user.ProviderID)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to generate token")
+		return
+	}
+
+	var permissions []string
+	if user.Permissions != nil {
+		permissions = user.Permissions
+	}
+
+	response.Success(c, http.StatusOK, "Login successful", gin.H{
+		"user":        user,
+		"token":       token,
+		"permissions": permissions,
 	})
 }

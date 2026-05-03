@@ -26,6 +26,11 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 
 	v1 := r.Group("/api/v1")
 	{
+		auth := v1.Group("/scholarship-providers/auth")
+		{
+			auth.POST("/access-login", h.LoginAccessUserPublic)
+		}
+
 		scholarshipProvider := v1.Group("/scholarship-providers")
 		scholarshipProvider.Use(authMW)
 		scholarshipProvider.Use(roleMW)
@@ -63,6 +68,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			scholarshipProvider.PUT("/notifications/read-all", h.MarkAllNotificationsRead)
 
 			scholarshipProvider.POST("/uploads", h.UploadImage)
+			scholarshipProvider.POST("/uploads/document", h.UploadDocument)
 
 			scholarshipProvider.POST("/news", h.CreateNews)
 			scholarshipProvider.GET("/news", h.GetNews)
@@ -100,7 +106,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			scholarshipProvider.PUT("/access/:id", h.UpdateAccess)
 			scholarshipProvider.DELETE("/access/:id", h.DeleteAccess)
 
-			auth := v1.Group("/auth")
+			auth := scholarshipProvider.Group("/auth")
 			{
 				auth.POST("/access-users", h.CreateAccessUser)
 				auth.GET("/access-users", h.GetAccessUsers)
@@ -108,7 +114,6 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 				auth.PUT("/access-users/:id", h.UpdateAccessUser)
 				auth.DELETE("/access-users/:id", h.DeleteAccessUser)
 				auth.PUT("/access-users/:id/permissions", h.UpdatePermissions)
-				auth.POST("/access-login", h.LoginAccessUser)
 			}
 		}
 	}

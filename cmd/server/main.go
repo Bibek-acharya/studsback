@@ -90,6 +90,7 @@ func main() {
 		&scholarshipprovider.ProviderCalendarEvent{},
 		&scholarshipprovider.ProviderResult{},
 		&scholarshipprovider.ProviderAccess{},
+		&scholarshipprovider.ProviderAccessUser{},
 		&studentdashboard.Message{},
 		&studentdashboard.CalendarEvent{},
 		&studentdashboard.SphereInvite{},
@@ -172,6 +173,8 @@ func main() {
 	scholarshipSvc := scholarship.NewService(scholarshipRepo, db)
 	scholarshipHandler := scholarship.NewHandler(scholarshipSvc, scholarship.NewPaymentService(db))
 	scholarshipPHandler := initModule(scholarshipprovider.NewRepository(db), scholarshipprovider.NewService, scholarshipprovider.NewHandler)
+
+	auth.SetScholarshipProviderHandler(scholarshipPHandler)
 	studentDashHandler := initModule(studentdashboard.NewRepository(db), studentdashboard.NewService, studentdashboard.NewHandler)
 	systemHandler := initModule(system.NewRepository(db), system.NewService, system.NewHandler)
 	toolsHandler := initModule(tools.NewRepository(db), tools.NewService, tools.NewHandler)

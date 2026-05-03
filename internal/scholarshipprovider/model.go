@@ -7,36 +7,45 @@ import (
 )
 
 type ProviderScholarship struct {
-	ID                  uint           `gorm:"primarykey" json:"id"`
-	CreatedAt           time.Time      `json:"created_at"`
-	UpdatedAt           time.Time      `json:"updated_at"`
-	DeletedAt           gorm.DeletedAt `gorm:"index" json:"-"`
-	ProviderID          uint           `gorm:"index;not null" json:"provider_id"`
-	Title               string         `gorm:"not null" json:"title"`
-	Description         string         `gorm:"type:text" json:"description"`
-	ImageURL            *string        `json:"image_url"`
-	Location            string         `json:"location"`
-	Value               string         `json:"value"`
-	Deadline            time.Time      `json:"deadline"`
-	DegreeLevel         string         `json:"degree_level"`
-	FundingType         string         `json:"funding_type"`
-	ScholarshipType     string         `json:"scholarship_type"`
-	FieldOfStudy        []byte         `gorm:"type:jsonb" json:"field_of_study"`
-	EligibilityCriteria []byte         `gorm:"type:jsonb" json:"eligibility_criteria"`
-	RequiredDocuments   []byte         `gorm:"type:jsonb" json:"required_documents"`
-	Status              string         `gorm:"default:'draft'" json:"status"`
-	ApplicationsCount   int            `gorm:"default:0" json:"applications_count"`
-
-	// Prototype extended fields
-	BannerBackgroundImageURL *string   `gorm:"type:text;column:banner_background_image_url" json:"banner_background_image_url"`
-	AboutParagraph1          string    `gorm:"type:text;column:about_paragraph1" json:"about_paragraph_1"`
-	AboutParagraph2          string    `gorm:"type:text;column:about_paragraph2" json:"about_paragraph_2"`
+	ID                       uint      `gorm:"primarykey" json:"id"`
+	CreatedAt                time.Time `json:"created_at"`
+	UpdatedAt                time.Time `json:"updated_at"`
+	ProviderID               uint      `gorm:"index;not null" json:"provider_id"`
+	Title                    string    `gorm:"not null" json:"title"`
+	Provider                 string    `gorm:"column:provider" json:"provider"`
+	Description              string    `gorm:"type:text" json:"description"`
+	ProviderName             string    `gorm:"column:provider_name" json:"provider_name"`
+	FundingTypeOther         string    `gorm:"column:funding_type_other" json:"funding_type_other"`
+	ScholarshipTypeOther     string    `gorm:"column:scholarship_type_other" json:"scholarship_type_other"`
+	EducationLevel           string    `gorm:"column:education_level" json:"education_level"`
+	EducationLevelOther      string    `gorm:"column:education_level_other" json:"education_level_other"`
+	Location                 string    `json:"location"`
+	Value                    string    `json:"value"`
+	Deadline                 time.Time `json:"deadline"`
+	DegreeLevel              string    `json:"degree_level"`
+	FundingType              string    `json:"funding_type"`
+	ScholarshipType          string    `json:"scholarship_type"`
+	FieldOfStudy             []byte    `gorm:"type:jsonb" json:"field_of_study"`
+	Status                   string    `gorm:"default:'draft'" json:"status"`
+	ApplicationStartDate     time.Time `json:"application_start_date"`
+	ApplicationEndDate       time.Time `json:"application_end_date"`
+	ApplyLink                string    `json:"apply_link"`
+	BannerBackgroundImageURL string    `gorm:"column:banner_background_image_url" json:"banner_background_image_url"`
+	CoverageArea             string    `json:"coverage_area"`
+	ContactEmail             string    `json:"contact_email"`
+	PrimaryPhone             string    `json:"primary_phone"`
+	SecondaryPhone           string    `json:"secondary_phone"`
+	WebsiteUrl               string    `json:"website_url"`
+	OfficeAddress            string    `json:"office_address"`
+	MapUrl                   string    `json:"map_url"`
+	AboutParagraph1          string    `gorm:"type:text;column:about_paragraph_1" json:"about_paragraph_1"`
 	VideoTutorials           []byte    `gorm:"type:jsonb;column:video_tutorials" json:"video_tutorials"`
 	JourneyTimeline          []byte    `gorm:"type:jsonb;column:journey_timeline" json:"journey_timeline"`
+	Timeline                 []byte    `gorm:"type:jsonb;column:timeline" json:"timeline"`
 	ScholarshipSectionTitle  string    `gorm:"column:scholarship_section_title" json:"scholarship_section_title"`
 	ScholarshipSubtitle      string    `gorm:"column:scholarship_subtitle" json:"scholarship_subtitle"`
-	ScholarshipDescription1  string    `gorm:"type:text;column:scholarship_description1" json:"scholarship_description_1"`
-	ScholarshipDescription2  string    `gorm:"type:text;column:scholarship_description2" json:"scholarship_description_2"`
+	ScholarshipDescription1  string    `gorm:"type:text;column:scholarship_description_1" json:"scholarship_description_1"`
+	ScholarshipDescription2  string    `gorm:"type:text;column:scholarship_description_2" json:"scholarship_description_2"`
 	ScholarshipTypes         []byte    `gorm:"type:jsonb;column:scholarship_types" json:"scholarship_types"`
 	ScholarshipTypesNew      []byte    `gorm:"type:jsonb;column:scholarship_types_new" json:"scholarship_types_new"`
 	SelectionRubric          []byte    `gorm:"type:jsonb;column:selection_rubric" json:"selection_rubric"`
@@ -47,7 +56,8 @@ type ProviderScholarship struct {
 	FullyFundedCriteria      []byte    `gorm:"type:jsonb;column:fully_funded_criteria" json:"fully_funded_criteria"`
 	PartiallyFundedCriteria  []byte    `gorm:"type:jsonb;column:partially_funded_criteria" json:"partially_funded_criteria"`
 	SelectionProcessSteps    []byte    `gorm:"type:jsonb;column:selection_process_steps" json:"selection_process_steps"`
-	FAQs                     []byte    `gorm:"type:jsonb;column:fa_qs" json:"faqs"`
+	RequiredDocuments        []byte    `gorm:"type:jsonb;column:required_documents" json:"required_documents"`
+	FAQs                     []byte    `gorm:"type:jsonb;column:faqs" json:"faqs"`
 	FAQsNew                  []byte    `gorm:"type:jsonb;column:faqs_new" json:"faqs_new"`
 	GalleryImages            []byte    `gorm:"type:jsonb;column:gallery_images" json:"gallery_images"`
 	GalleryImagesNew         []byte    `gorm:"type:jsonb;column:gallery_images_new" json:"gallery_images_new"`
@@ -55,40 +65,7 @@ type ProviderScholarship struct {
 	ExamCenters              []byte    `gorm:"type:jsonb;column:exam_centers" json:"exam_centers"`
 	ExamCentersNew           []byte    `gorm:"type:jsonb;column:exam_centers_new" json:"exam_centers_new"`
 	Downloads                []byte    `gorm:"type:jsonb;column:downloads" json:"downloads"`
-
-	// New fields from prototype
-	ProviderName          string    `gorm:"column:provider_name" json:"provider_name"`
-	FundingTypeOther     string    `gorm:"column:funding_type_other" json:"funding_type_other"`
-	ScholarshipTypeOther string    `gorm:"column:scholarship_type_other" json:"scholarship_type_other"`
-	EducationLevel       string    `gorm:"column:education_level" json:"education_level"`
-	EducationLevelOther  string    `gorm:"column:education_level_other" json:"education_level_other"`
-	ApplyLink            string    `gorm:"column:apply_link" json:"apply_link"`
-
-	// Contact Details
-	CoverageArea   string `gorm:"column:coverage_area" json:"coverage_area"`
-	ContactEmail   string `gorm:"column:contact_email" json:"contact_email"`
-	PrimaryPhone   string `gorm:"column:primary_phone" json:"primary_phone"`
-	SecondaryPhone string `gorm:"column:secondary_phone" json:"secondary_phone"`
-	WebsiteUrl     string `gorm:"column:website_url" json:"website_url"`
-	OfficeAddress  string `gorm:"column:office_address" json:"office_address"`
-	MapUrl         string `gorm:"column:map_url" json:"map_url"`
-
-	// Payment Configuration
-	PaymentConfig []byte `gorm:"type:jsonb;column:payment_config" json:"payment_config"`
-	TotalSeats               int       `json:"total_seats"`
-	AmountPerStudent         float64   `json:"amount_per_student"`
-	DisbursementType         string    `json:"disbursement_type"`
-	ApplicationStartDate     time.Time `json:"application_start_date"`
-	ResultPublicationDate    time.Time `json:"result_publication_date"`
-	MinGPA                   float64   `json:"min_gpa"`
-	EligibleProvinces        []byte    `gorm:"type:jsonb" json:"eligible_provinces"`
-	SelectionCriteria        []byte    `gorm:"type:jsonb" json:"selection_criteria"`
-	InterviewRounds          int       `json:"interview_rounds"`
-	Timeline                 []byte    `gorm:"type:jsonb" json:"timeline"`
-	Achievements             []byte    `gorm:"type:jsonb" json:"achievements"`
-	SocialLinks              []byte    `gorm:"type:jsonb" json:"social_links"`
-	MapEmbedURL              string    `json:"map_embed_url"`
-	GuidelinesURL            string    `json:"guidelines_url"`
+	PaymentConfig            []byte    `gorm:"type:jsonb;column:payment_config" json:"payment_config"`
 }
 
 type ProviderApplication struct {
@@ -137,6 +114,8 @@ type ProviderApplication struct {
 	FamilyMonthlyIncome   float64             `json:"family_monthly_income"`
 	FamilyMembersCount    int                 `json:"family_members_count"`
 	Status                string              `gorm:"default:'pending'" json:"status"`
+	EvaluationScore       int                 `gorm:"default:0" json:"evaluation_score"`
+	EvaluationPassed      bool                `gorm:"default:false" json:"evaluation_passed"`
 	EvaluationNotes       string              `gorm:"type:text" json:"evaluation_notes"`
 	Documents             []byte              `gorm:"type:jsonb" json:"documents"`
 	PersonalStatement     string              `gorm:"type:text" json:"personal_statement"`
@@ -258,9 +237,9 @@ type ProviderEvent struct {
 	StartDate          time.Time      `json:"start_date"`
 	EndDate            time.Time      `json:"end_date"`
 	Location           string         `json:"location"`
-	Tags               []byte          `gorm:"type:jsonb" json:"tags"`
+	Tags               []byte         `gorm:"type:jsonb" json:"tags"`
 	EnableRegistration bool           `gorm:"default:false" json:"enable_registration"`
-	Status             string          `gorm:"default:'upcoming'" json:"status"`
+	Status             string         `gorm:"default:'upcoming'" json:"status"`
 	Attendees          int            `gorm:"default:0" json:"attendees"`
 }
 

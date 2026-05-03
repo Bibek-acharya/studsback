@@ -144,14 +144,20 @@ func (r *Repository) UpdateScholarship(scholarship *ProviderScholarship, updates
 }
 
 func (r *Repository) DeleteScholarship(id uint, providerID uint) error {
-	result := r.db.Where("id = ? AND provider_id = ?", id, providerID).Delete(&ProviderScholarship{})
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
-	}
-	return nil
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Unscoped().Where("scholarship_id = ?", id).Delete(&ProviderApplication{}).Error; err != nil {
+			return err
+		}
+
+		result := tx.Where("id = ? AND provider_id = ?", id, providerID).Delete(&ProviderScholarship{})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return gorm.ErrRecordNotFound
+		}
+		return nil
+	})
 }
 
 func (r *Repository) GetApplicationsByProvider(providerID uint, page, limit int, status, scholarshipID string) ([]ProviderApplication, int64, error) {
@@ -192,8 +198,10 @@ func (r *Repository) GetApplicationByIDAndProvider(id uint, providerID uint) (*P
 	return &application, nil
 }
 
-func (r *Repository) EvaluateApplication(application *ProviderApplication, notes string) error {
+func (r *Repository) EvaluateApplication(application *ProviderApplication, score int, passing bool, notes string) error {
 	return r.db.Model(application).Updates(map[string]interface{}{
+		"evaluation_score": score,
+		"evaluation_passed": passing,
 		"evaluation_notes": notes,
 	}).Error
 }

@@ -107,42 +107,45 @@ func parseOptionalTime(value string) (time.Time, bool) {
 func (s *Service) CreateScholarship(providerID uint, req CreateScholarshipRequest) (*ProviderScholarship, error) {
 	status := normalizeScholarshipStatus(req.Status)
 
-	var imageURL *string
-	if req.ImageURL != "" {
-		imageURL = &req.ImageURL
-	}
-
-	var bannerBG *string
-	if req.BannerBackgroundImageURL != "" {
-		bannerBG = &req.BannerBackgroundImageURL
+	deadlineValue := req.Deadline
+	if deadlineValue == "" {
+		deadlineValue = req.ApplicationEndDate
 	}
 
 	scholarship := &ProviderScholarship{
 		ProviderID:               providerID,
 		Title:                    req.Title,
+		Provider:                 req.Provider,
 		Description:              req.Description,
-		ImageURL:                 imageURL,
+		ProviderName:             req.ProviderName,
+		FundingTypeOther:         req.FundingTypeOther,
+		ScholarshipTypeOther:     req.ScholarshipTypeOther,
+		EducationLevel:           req.EducationLevel,
+		EducationLevelOther:      req.EducationLevelOther,
 		Location:                 req.Location,
 		Value:                    req.Value,
-		TotalSeats:               req.TotalSeats,
-		AmountPerStudent:         req.AmountPerStudent,
 		DegreeLevel:              req.DegreeLevel,
 		FundingType:              req.FundingType,
 		ScholarshipType:          req.ScholarshipType,
 		FieldOfStudy:             toJSON(req.FieldOfStudy),
 		Status:                   status,
-		BannerBackgroundImageURL: bannerBG,
-		PaymentConfig:            toJSON(req.PaymentConfig),
-		ApplicationStartDate:     time.Time{},
-		ResultPublicationDate:    time.Time{},
+		ApplyLink:                req.ApplyLink,
+		BannerBackgroundImageURL: req.BannerBackgroundImageURL,
+		CoverageArea:             req.CoverageArea,
+		ContactEmail:             req.ContactEmail,
+		PrimaryPhone:             req.PrimaryPhone,
+		SecondaryPhone:           req.SecondaryPhone,
+		WebsiteUrl:               req.WebsiteUrl,
+		OfficeAddress:            req.OfficeAddress,
+		MapUrl:                   req.MapUrl,
 		AboutParagraph1:          req.AboutParagraph1,
-		AboutParagraph2:          req.AboutParagraph2,
+		ScholarshipDescription2:  req.ScholarshipDescription2,
 		VideoTutorials:           toJSON(req.VideoTutorials),
 		JourneyTimeline:          toJSON(req.JourneyTimeline),
+		Timeline:                 toJSON(req.Timeline),
 		ScholarshipSectionTitle:  req.ScholarshipSectionTitle,
 		ScholarshipSubtitle:      req.ScholarshipSubtitle,
 		ScholarshipDescription1:  req.ScholarshipDescription1,
-		ScholarshipDescription2:  req.ScholarshipDescription2,
 		ScholarshipTypes:         toJSON(req.ScholarshipTypes),
 		ScholarshipTypesNew:      toJSON(req.ScholarshipTypesNew),
 		SelectionRubric:          toJSON(req.SelectionRubric),
@@ -162,21 +165,7 @@ func (s *Service) CreateScholarship(providerID uint, req CreateScholarshipReques
 		ExamCenters:              toJSON(req.ExamCenters),
 		ExamCentersNew:           toJSON(req.ExamCentersNew),
 		Downloads:                toJSON(req.Downloads),
-
-		// New fields from prototype
-		ProviderName:          req.ProviderName,
-		FundingTypeOther:     req.FundingTypeOther,
-		ScholarshipTypeOther: req.ScholarshipTypeOther,
-		EducationLevel:       req.EducationLevel,
-		EducationLevelOther:  req.EducationLevelOther,
-		ApplyLink:            req.ApplyLink,
-		CoverageArea:         req.CoverageArea,
-		ContactEmail:         req.ContactEmail,
-		PrimaryPhone:         req.PrimaryPhone,
-		SecondaryPhone:       req.SecondaryPhone,
-		WebsiteUrl:           req.WebsiteUrl,
-		OfficeAddress:        req.OfficeAddress,
-		MapUrl:               req.MapUrl,
+		PaymentConfig:            toJSON(req.PaymentConfig),
 	}
 
 	if req.ApplicationStartDate != "" {
@@ -186,23 +175,13 @@ func (s *Service) CreateScholarship(providerID uint, req CreateScholarshipReques
 			return nil, errors.New("invalid application start date")
 		}
 	}
-	if req.ResultPublicationDate != "" {
-		if parsed, ok := parseOptionalTime(req.ResultPublicationDate); ok {
-			scholarship.ResultPublicationDate = parsed
-		} else {
-			return nil, errors.New("invalid result publication date")
-		}
-	}
-	if req.Deadline != "" {
-		if deadline, err := parseTime(req.Deadline); err == nil {
-			scholarship.Deadline = deadline
+	if deadlineValue != "" {
+		if parsed, ok := parseOptionalTime(deadlineValue); ok {
+			scholarship.Deadline = parsed
+			scholarship.ApplicationEndDate = parsed
 		} else {
 			return nil, errors.New("invalid application end date")
 		}
-	} else if parsed, ok := parseOptionalTime(req.ApplicationEndDate); ok {
-		scholarship.Deadline = parsed
-	} else if req.ApplicationEndDate != "" {
-		return nil, errors.New("invalid application end date")
 	}
 
 	if err := s.repo.CreateScholarship(scholarship); err != nil {
@@ -230,50 +209,42 @@ func (s *Service) syncPublicScholarship(providerID uint, scholarship *ProviderSc
 	}
 
 	publicScholarship := &publicscholarship.Scholarship{
-		Title:                 scholarship.Title,
-		Provider:              provider.ProviderName,
-		Location:              scholarship.Location,
-		Value:                 scholarship.Value,
-		Deadline:              scholarship.Deadline,
-		TotalSeats:            scholarship.TotalSeats,
-		AmountPerStudent:      scholarship.AmountPerStudent,
-		ApplicationStartDate:  scholarship.ApplicationStartDate,
-		ResultPublicationDate: scholarship.ResultPublicationDate,
-		DegreeLevel:           scholarship.DegreeLevel,
-		FundingType:           scholarship.FundingType,
-		ScholarshipType:       scholarship.ScholarshipType,
-		Description:           scholarship.Description,
-		ImageURL:              "",
-		FieldOfStudy:          scholarship.FieldOfStudy,
-		EligibilityCriteria:   scholarship.EligibilityCriteria,
-		RequiredDocuments:     scholarship.RequiredDocuments,
-		PaymentConfig:         scholarship.PaymentConfig,
-		ProviderScholarshipID: &scholarship.ID,
-	}
-	if scholarship.ImageURL != nil {
-		publicScholarship.ImageURL = *scholarship.ImageURL
+		Title:                    scholarship.Title,
+		Provider:                 provider.ProviderName,
+		Location:                 scholarship.Location,
+		Value:                    scholarship.Value,
+		Deadline:                 scholarship.Deadline,
+		DegreeLevel:              scholarship.DegreeLevel,
+		FundingType:              scholarship.FundingType,
+		ScholarshipType:          scholarship.ScholarshipType,
+		Description:              scholarship.Description,
+		BannerBackgroundImageURL: scholarship.BannerBackgroundImageURL,
+		FieldOfStudy:             scholarship.FieldOfStudy,
+		EligibilityCriteria:      scholarship.BasicEligibilityCriteria,
+		RequiredDocuments:        scholarship.RequiredDocuments,
+		PaymentConfig:            scholarship.PaymentConfig,
+		ProviderScholarshipID:    &scholarship.ID,
 	}
 
 	existing, err := s.repo.FindPublicScholarshipByProviderScholarshipID(scholarship.ID)
 	if err == nil && existing != nil {
 		updates := map[string]interface{}{
-			"title":                   publicScholarship.Title,
-			"provider":                publicScholarship.Provider,
-			"location":                publicScholarship.Location,
-			"value":                   publicScholarship.Value,
-			"deadline":                publicScholarship.Deadline,
-			"total_seats":             publicScholarship.TotalSeats,
-			"amount_per_student":      publicScholarship.AmountPerStudent,
-			"application_start_date":  publicScholarship.ApplicationStartDate,
-			"result_publication_date": publicScholarship.ResultPublicationDate,
-			"degree_level":            publicScholarship.DegreeLevel,
-			"funding_type":            publicScholarship.FundingType,
-			"scholarship_type":        publicScholarship.ScholarshipType,
-			"description":             publicScholarship.Description,
-			"image_url":               publicScholarship.ImageURL,
-			"field_of_study":          publicScholarship.FieldOfStudy,
-			"payment_config":          publicScholarship.PaymentConfig,
-			"provider_scholarship_id": scholarship.ID,
+			"title":                       publicScholarship.Title,
+			"provider":                    publicScholarship.Provider,
+			"location":                    publicScholarship.Location,
+			"value":                       publicScholarship.Value,
+			"deadline":                    publicScholarship.Deadline,
+			"application_start_date":      publicScholarship.ApplicationStartDate,
+			"degree_level":                publicScholarship.DegreeLevel,
+			"funding_type":                publicScholarship.FundingType,
+			"scholarship_type":            publicScholarship.ScholarshipType,
+			"description":                 publicScholarship.Description,
+			"banner_background_image_url": publicScholarship.BannerBackgroundImageURL,
+			"field_of_study":              publicScholarship.FieldOfStudy,
+			"eligibility_criteria":        publicScholarship.EligibilityCriteria,
+			"required_documents":          publicScholarship.RequiredDocuments,
+			"payment_config":              publicScholarship.PaymentConfig,
+			"provider_scholarship_id":     scholarship.ID,
 		}
 		return s.repo.UpdatePublicScholarship(existing.ID, updates)
 	}
@@ -305,228 +276,84 @@ func (s *Service) UpdateScholarship(providerID, id uint, req CreateScholarshipRe
 	log.Printf("scholarshipprovider: Service.UpdateScholarship - requestedProviderID=%d, scholarship.ProviderID=%d, scholarshipID=%d", providerID, scholarship.ProviderID, scholarship.ID)
 
 	updates := make(map[string]interface{})
-
-	// Only update fields that are provided (non-empty)
-	if req.Title != "" {
-		updates["title"] = req.Title
-	}
-	if req.Description != "" {
-		updates["description"] = req.Description
-	}
-	if req.Location != "" {
-		updates["location"] = req.Location
-	}
-	if req.Value != "" {
-		updates["value"] = req.Value
-	}
-	if req.DegreeLevel != "" {
-		updates["degree_level"] = req.DegreeLevel
-	}
-	if req.FundingType != "" {
-		updates["funding_type"] = req.FundingType
-	}
-	if req.ScholarshipType != "" {
-		updates["scholarship_type"] = req.ScholarshipType
-	}
-	if req.TotalSeats != 0 {
-		updates["total_seats"] = req.TotalSeats
-	}
-	if req.AmountPerStudent != 0 {
-		updates["amount_per_student"] = req.AmountPerStudent
-	}
-	if req.PaymentConfig != nil {
-		updates["payment_config"] = toJSON(req.PaymentConfig)
-	}
-	if len(req.FieldOfStudy) > 0 {
-		updates["field_of_study"] = toJSON(req.FieldOfStudy)
-	}
-	if req.Status != "" {
-		updates["status"] = normalizeScholarshipStatus(req.Status)
-	}
-	if req.AboutParagraph1 != "" {
-		updates["about_paragraph1"] = req.AboutParagraph1
-	}
-	if req.AboutParagraph2 != "" {
-		updates["about_paragraph2"] = req.AboutParagraph2
-	}
-	if len(req.VideoTutorials) > 0 {
-		updates["video_tutorials"] = toJSON(req.VideoTutorials)
-	}
-	if len(req.JourneyTimeline) > 0 {
-		updates["journey_timeline"] = toJSON(req.JourneyTimeline)
-	}
-	if req.ScholarshipSectionTitle != "" {
-		updates["scholarship_section_title"] = req.ScholarshipSectionTitle
-	}
-	if req.ScholarshipSubtitle != "" {
-		updates["scholarship_subtitle"] = req.ScholarshipSubtitle
-	}
-	if req.ScholarshipDescription1 != "" {
-		updates["scholarship_description1"] = req.ScholarshipDescription1
-	}
-	if req.ScholarshipDescription2 != "" {
-		updates["scholarship_description2"] = req.ScholarshipDescription2
-	}
-	if len(req.ScholarshipTypes) > 0 {
-		updates["scholarship_types"] = toJSON(req.ScholarshipTypes)
-	}
-	if len(req.SelectionRubric) > 0 {
-		updates["selection_rubric"] = toJSON(req.SelectionRubric)
-	}
-	if req.EligibilitySectionTitle != "" {
-		updates["eligibility_section_title"] = req.EligibilitySectionTitle
-	}
-	if req.EligibilitySubtitle != "" {
-		updates["eligibility_subtitle"] = req.EligibilitySubtitle
-	}
-	if len(req.BasicEligibilityCriteria) > 0 {
-		updates["basic_eligibility_criteria"] = toJSON(req.BasicEligibilityCriteria)
-	}
-	if len(req.FullyFundedCriteria) > 0 {
-		updates["fully_funded_criteria"] = toJSON(req.FullyFundedCriteria)
-	}
-	if len(req.PartiallyFundedCriteria) > 0 {
-		updates["partially_funded_criteria"] = toJSON(req.PartiallyFundedCriteria)
-	}
-	if len(req.SelectionProcessSteps) > 0 {
-		updates["selection_process_steps"] = toJSON(req.SelectionProcessSteps)
-	}
-	if len(req.RequiredDocuments) > 0 {
-		updates["required_documents"] = toJSON(req.RequiredDocuments)
-	}
-	if len(req.FAQs) > 0 {
-		updates["faqs"] = toJSON(req.FAQs)
-	}
-	if len(req.GalleryImages) > 0 {
-		updates["gallery_images"] = toJSON(req.GalleryImages)
-	}
-	if len(req.PartnerGroups) > 0 {
-		updates["partner_groups"] = toJSON(req.PartnerGroups)
-	}
-	if len(req.ExamCenters) > 0 {
-		updates["exam_centers"] = toJSON(req.ExamCenters)
-	}
-	if len(req.Downloads) > 0 {
-		updates["downloads"] = toJSON(req.Downloads)
+	deadlineValue := req.Deadline
+	if deadlineValue == "" {
+		deadlineValue = req.ApplicationEndDate
 	}
 
-	if req.ImageURL != "" {
-		updates["image_url"] = req.ImageURL
-	}
-	if req.BannerBackgroundImageURL != "" {
-		updates["banner_background_image_url"] = req.BannerBackgroundImageURL
-	}
+	updates["title"] = req.Title
+	updates["provider"] = req.Provider
+	updates["description"] = req.Description
+	updates["provider_name"] = req.ProviderName
+	updates["funding_type_other"] = req.FundingTypeOther
+	updates["scholarship_type_other"] = req.ScholarshipTypeOther
+	updates["education_level"] = req.EducationLevel
+	updates["education_level_other"] = req.EducationLevelOther
+	updates["location"] = req.Location
+	updates["value"] = req.Value
+	updates["degree_level"] = req.DegreeLevel
+	updates["funding_type"] = req.FundingType
+	updates["scholarship_type"] = req.ScholarshipType
+	updates["field_of_study"] = toJSON(req.FieldOfStudy)
+	updates["status"] = normalizeScholarshipStatus(req.Status)
+	updates["apply_link"] = req.ApplyLink
+	updates["banner_background_image_url"] = req.BannerBackgroundImageURL
+	updates["coverage_area"] = req.CoverageArea
+	updates["contact_email"] = req.ContactEmail
+	updates["primary_phone"] = req.PrimaryPhone
+	updates["secondary_phone"] = req.SecondaryPhone
+	updates["website_url"] = req.WebsiteUrl
+	updates["office_address"] = req.OfficeAddress
+	updates["map_url"] = req.MapUrl
+	updates["about_paragraph_1"] = req.AboutParagraph1
+	updates["scholarship_description_2"] = req.ScholarshipDescription2
+	updates["video_tutorials"] = toJSON(req.VideoTutorials)
+	updates["journey_timeline"] = toJSON(req.JourneyTimeline)
+	updates["timeline"] = toJSON(req.Timeline)
+	updates["scholarship_section_title"] = req.ScholarshipSectionTitle
+	updates["scholarship_subtitle"] = req.ScholarshipSubtitle
+	updates["scholarship_description_1"] = req.ScholarshipDescription1
+	updates["scholarship_types"] = toJSON(req.ScholarshipTypes)
+	updates["scholarship_types_new"] = toJSON(req.ScholarshipTypesNew)
+	updates["selection_rubric"] = toJSON(req.SelectionRubric)
+	updates["selection_rubric_new"] = toJSON(req.SelectionRubricNew)
+	updates["eligibility_section_title"] = req.EligibilitySectionTitle
+	updates["eligibility_subtitle"] = req.EligibilitySubtitle
+	updates["basic_eligibility_criteria"] = toJSON(req.BasicEligibilityCriteria)
+	updates["fully_funded_criteria"] = toJSON(req.FullyFundedCriteria)
+	updates["partially_funded_criteria"] = toJSON(req.PartiallyFundedCriteria)
+	updates["selection_process_steps"] = toJSON(req.SelectionProcessSteps)
+	updates["required_documents"] = toJSON(req.RequiredDocuments)
+	updates["faqs"] = toJSON(req.FAQs)
+	updates["faqs_new"] = toJSON(req.FAQsNew)
+	updates["gallery_images"] = toJSON(req.GalleryImages)
+	updates["gallery_images_new"] = toJSON(req.GalleryImagesNew)
+	updates["partner_groups"] = toJSON(req.PartnerGroups)
+	updates["exam_centers"] = toJSON(req.ExamCenters)
+	updates["exam_centers_new"] = toJSON(req.ExamCentersNew)
+	updates["downloads"] = toJSON(req.Downloads)
+	updates["payment_config"] = toJSON(req.PaymentConfig)
+
 	if req.ApplicationStartDate != "" {
 		if parsed, ok := parseOptionalTime(req.ApplicationStartDate); ok {
 			updates["application_start_date"] = parsed
 		} else {
 			return nil, errors.New("invalid application start date")
 		}
-	}
-	if req.ResultPublicationDate != "" {
-		if parsed, ok := parseOptionalTime(req.ResultPublicationDate); ok {
-			updates["result_publication_date"] = parsed
-		} else {
-			return nil, errors.New("invalid result publication date")
-		}
+	} else {
+		updates["application_start_date"] = time.Time{}
 	}
 
-	if req.Deadline != "" {
-		if parsed, err := parseTime(req.Deadline); err == nil {
+	if deadlineValue != "" {
+		if parsed, ok := parseOptionalTime(deadlineValue); ok {
 			updates["deadline"] = parsed
+			updates["application_end_date"] = parsed
 		} else {
 			return nil, errors.New("invalid application end date")
 		}
-	} else if parsed, ok := parseOptionalTime(req.ApplicationEndDate); ok {
-		updates["deadline"] = parsed
-	} else if req.ApplicationEndDate != "" {
-		return nil, errors.New("invalid application end date")
-	}
-
-	// New fields from prototype
-	if req.ProviderName != "" {
-		updates["provider_name"] = req.ProviderName
-	}
-	if req.FundingTypeOther != "" {
-		updates["funding_type_other"] = req.FundingTypeOther
-	}
-	if req.ScholarshipTypeOther != "" {
-		updates["scholarship_type_other"] = req.ScholarshipTypeOther
-	}
-	if req.EducationLevel != "" {
-		updates["education_level"] = req.EducationLevel
-	}
-	if req.EducationLevelOther != "" {
-		updates["education_level_other"] = req.EducationLevelOther
-	}
-	if req.ApplyLink != "" {
-		updates["apply_link"] = req.ApplyLink
-	}
-	if req.CoverageArea != "" {
-		updates["coverage_area"] = req.CoverageArea
-	}
-	if req.ContactEmail != "" {
-		updates["contact_email"] = req.ContactEmail
-	}
-	if req.PrimaryPhone != "" {
-		updates["primary_phone"] = req.PrimaryPhone
-	}
-	if req.SecondaryPhone != "" {
-		updates["secondary_phone"] = req.SecondaryPhone
-	}
-	if req.WebsiteUrl != "" {
-		updates["website_url"] = req.WebsiteUrl
-	}
-	if req.OfficeAddress != "" {
-		updates["office_address"] = req.OfficeAddress
-	}
-	if req.MapUrl != "" {
-		updates["map_url"] = req.MapUrl
-	}
-	if req.PaymentConfig != nil {
-		updates["payment_config"] = toJSON(req.PaymentConfig)
-	}
-
-	// JSON fields - always save (empty arrays allowed) to ensure all data is persisted
-	updates["scholarship_types_new"] = toJSON(req.ScholarshipTypesNew)
-	updates["selection_rubric_new"] = toJSON(req.SelectionRubricNew)
-	updates["faqs_new"] = toJSON(req.FAQsNew)
-	updates["gallery_images_new"] = toJSON(req.GalleryImagesNew)
-	updates["exam_centers_new"] = toJSON(req.ExamCentersNew)
-
-	// Additional JSON fields
-	if len(req.ScholarshipTypes) > 0 {
-		updates["scholarship_types"] = toJSON(req.ScholarshipTypes)
-	}
-	if len(req.SelectionRubric) > 0 {
-		updates["selection_rubric"] = toJSON(req.SelectionRubric)
-	}
-	if len(req.FieldOfStudy) > 0 {
-		updates["field_of_study"] = toJSON(req.FieldOfStudy)
-	}
-	if len(req.VideoTutorials) > 0 {
-		updates["video_tutorials"] = toJSON(req.VideoTutorials)
-	}
-	if len(req.JourneyTimeline) > 0 {
-		updates["journey_timeline"] = toJSON(req.JourneyTimeline)
-	}
-	if len(req.BasicEligibilityCriteria) > 0 {
-		updates["basic_eligibility_criteria"] = toJSON(req.BasicEligibilityCriteria)
-	}
-	if len(req.FullyFundedCriteria) > 0 {
-		updates["fully_funded_criteria"] = toJSON(req.FullyFundedCriteria)
-	}
-	if len(req.PartiallyFundedCriteria) > 0 {
-		updates["partially_funded_criteria"] = toJSON(req.PartiallyFundedCriteria)
-	}
-	if len(req.SelectionProcessSteps) > 0 {
-		updates["selection_process_steps"] = toJSON(req.SelectionProcessSteps)
-	}
-	if len(req.RequiredDocuments) > 0 {
-		updates["required_documents"] = toJSON(req.RequiredDocuments)
-	}
-	if len(req.Downloads) > 0 {
-		updates["downloads"] = toJSON(req.Downloads)
+	} else {
+		updates["deadline"] = time.Time{}
+		updates["application_end_date"] = time.Time{}
 	}
 
 	if len(updates) == 0 {
@@ -539,135 +366,77 @@ func (s *Service) UpdateScholarship(providerID, id uint, req CreateScholarshipRe
 	}
 
 	resolved := *scholarship
-	if req.Title != "" {
-		resolved.Title = req.Title
-	}
-	if req.Description != "" {
-		resolved.Description = req.Description
-	}
-	if req.Location != "" {
-		resolved.Location = req.Location
-	}
-	if req.Value != "" {
-		resolved.Value = req.Value
-	}
-	if req.DegreeLevel != "" {
-		resolved.DegreeLevel = req.DegreeLevel
-	}
-	if req.FundingType != "" {
-		resolved.FundingType = req.FundingType
-	}
-	if req.ScholarshipType != "" {
-		resolved.ScholarshipType = req.ScholarshipType
-	}
-	if req.TotalSeats != 0 {
-		resolved.TotalSeats = req.TotalSeats
-	}
-	if req.AmountPerStudent != 0 {
-		resolved.AmountPerStudent = req.AmountPerStudent
-	}
-	if req.PaymentConfig != nil {
-		resolved.PaymentConfig = toJSON(req.PaymentConfig)
-	}
-	if len(req.FieldOfStudy) > 0 {
-		resolved.FieldOfStudy = toJSON(req.FieldOfStudy)
-	}
-	if req.AboutParagraph1 != "" {
-		resolved.AboutParagraph1 = req.AboutParagraph1
-	}
-	if req.AboutParagraph2 != "" {
-		resolved.AboutParagraph2 = req.AboutParagraph2
-	}
-	if len(req.VideoTutorials) > 0 {
-		resolved.VideoTutorials = toJSON(req.VideoTutorials)
-	}
-	if len(req.JourneyTimeline) > 0 {
-		resolved.JourneyTimeline = toJSON(req.JourneyTimeline)
-	}
-	if req.ScholarshipSectionTitle != "" {
-		resolved.ScholarshipSectionTitle = req.ScholarshipSectionTitle
-	}
-	if req.ScholarshipSubtitle != "" {
-		resolved.ScholarshipSubtitle = req.ScholarshipSubtitle
-	}
-	if req.ScholarshipDescription1 != "" {
-		resolved.ScholarshipDescription1 = req.ScholarshipDescription1
-	}
-	if req.ScholarshipDescription2 != "" {
-		resolved.ScholarshipDescription2 = req.ScholarshipDescription2
-	}
-	if len(req.ScholarshipTypes) > 0 {
-		resolved.ScholarshipTypes = toJSON(req.ScholarshipTypes)
-	}
-	if len(req.SelectionRubric) > 0 {
-		resolved.SelectionRubric = toJSON(req.SelectionRubric)
-	}
-	if req.EligibilitySectionTitle != "" {
-		resolved.EligibilitySectionTitle = req.EligibilitySectionTitle
-	}
-	if req.EligibilitySubtitle != "" {
-		resolved.EligibilitySubtitle = req.EligibilitySubtitle
-	}
-	if len(req.BasicEligibilityCriteria) > 0 {
-		resolved.BasicEligibilityCriteria = toJSON(req.BasicEligibilityCriteria)
-	}
-	if len(req.FullyFundedCriteria) > 0 {
-		resolved.FullyFundedCriteria = toJSON(req.FullyFundedCriteria)
-	}
-	if len(req.PartiallyFundedCriteria) > 0 {
-		resolved.PartiallyFundedCriteria = toJSON(req.PartiallyFundedCriteria)
-	}
-	if len(req.SelectionProcessSteps) > 0 {
-		resolved.SelectionProcessSteps = toJSON(req.SelectionProcessSteps)
-	}
-	if len(req.RequiredDocuments) > 0 {
-		resolved.RequiredDocuments = toJSON(req.RequiredDocuments)
-	}
-	if len(req.FAQs) > 0 {
-		resolved.FAQs = toJSON(req.FAQs)
-	}
-	if len(req.GalleryImages) > 0 {
-		resolved.GalleryImages = toJSON(req.GalleryImages)
-	}
-	if len(req.PartnerGroups) > 0 {
-		resolved.PartnerGroups = toJSON(req.PartnerGroups)
-	}
-	if len(req.ExamCenters) > 0 {
-		resolved.ExamCenters = toJSON(req.ExamCenters)
-	}
-	if len(req.Downloads) > 0 {
-		resolved.Downloads = toJSON(req.Downloads)
-	}
-	if req.ImageURL != "" {
-		resolved.ImageURL = &req.ImageURL
-	}
-	if req.BannerBackgroundImageURL != "" {
-		resolved.BannerBackgroundImageURL = &req.BannerBackgroundImageURL
-	}
+	resolved.Title = req.Title
+	resolved.Provider = req.Provider
+	resolved.Description = req.Description
+	resolved.ProviderName = req.ProviderName
+	resolved.FundingTypeOther = req.FundingTypeOther
+	resolved.ScholarshipTypeOther = req.ScholarshipTypeOther
+	resolved.EducationLevel = req.EducationLevel
+	resolved.EducationLevelOther = req.EducationLevelOther
+	resolved.Location = req.Location
+	resolved.Value = req.Value
+	resolved.DegreeLevel = req.DegreeLevel
+	resolved.FundingType = req.FundingType
+	resolved.ScholarshipType = req.ScholarshipType
+	resolved.FieldOfStudy = toJSON(req.FieldOfStudy)
+	resolved.Status = normalizeScholarshipStatus(req.Status)
+	resolved.ApplyLink = req.ApplyLink
+	resolved.BannerBackgroundImageURL = req.BannerBackgroundImageURL
+	resolved.CoverageArea = req.CoverageArea
+	resolved.ContactEmail = req.ContactEmail
+	resolved.PrimaryPhone = req.PrimaryPhone
+	resolved.SecondaryPhone = req.SecondaryPhone
+	resolved.WebsiteUrl = req.WebsiteUrl
+	resolved.OfficeAddress = req.OfficeAddress
+	resolved.MapUrl = req.MapUrl
+	resolved.AboutParagraph1 = req.AboutParagraph1
+	resolved.ScholarshipDescription2 = req.ScholarshipDescription2
+	resolved.VideoTutorials = toJSON(req.VideoTutorials)
+	resolved.JourneyTimeline = toJSON(req.JourneyTimeline)
+	resolved.Timeline = toJSON(req.Timeline)
+	resolved.ScholarshipSectionTitle = req.ScholarshipSectionTitle
+	resolved.ScholarshipSubtitle = req.ScholarshipSubtitle
+	resolved.ScholarshipDescription1 = req.ScholarshipDescription1
+	resolved.ScholarshipTypes = toJSON(req.ScholarshipTypes)
+	resolved.ScholarshipTypesNew = toJSON(req.ScholarshipTypesNew)
+	resolved.SelectionRubric = toJSON(req.SelectionRubric)
+	resolved.SelectionRubricNew = toJSON(req.SelectionRubricNew)
+	resolved.EligibilitySectionTitle = req.EligibilitySectionTitle
+	resolved.EligibilitySubtitle = req.EligibilitySubtitle
+	resolved.BasicEligibilityCriteria = toJSON(req.BasicEligibilityCriteria)
+	resolved.FullyFundedCriteria = toJSON(req.FullyFundedCriteria)
+	resolved.PartiallyFundedCriteria = toJSON(req.PartiallyFundedCriteria)
+	resolved.SelectionProcessSteps = toJSON(req.SelectionProcessSteps)
+	resolved.RequiredDocuments = toJSON(req.RequiredDocuments)
+	resolved.FAQs = toJSON(req.FAQs)
+	resolved.FAQsNew = toJSON(req.FAQsNew)
+	resolved.GalleryImages = toJSON(req.GalleryImages)
+	resolved.GalleryImagesNew = toJSON(req.GalleryImagesNew)
+	resolved.PartnerGroups = toJSON(req.PartnerGroups)
+	resolved.ExamCenters = toJSON(req.ExamCenters)
+	resolved.ExamCentersNew = toJSON(req.ExamCentersNew)
+	resolved.Downloads = toJSON(req.Downloads)
+	resolved.PaymentConfig = toJSON(req.PaymentConfig)
 	if req.ApplicationStartDate != "" {
 		if parsed, ok := parseOptionalTime(req.ApplicationStartDate); ok {
 			resolved.ApplicationStartDate = parsed
 		} else {
 			return nil, errors.New("invalid application start date")
 		}
+	} else {
+		resolved.ApplicationStartDate = time.Time{}
 	}
-	if req.ResultPublicationDate != "" {
-		if parsed, ok := parseOptionalTime(req.ResultPublicationDate); ok {
-			resolved.ResultPublicationDate = parsed
-		} else {
-			return nil, errors.New("invalid result publication date")
-		}
-	}
-	if req.Deadline != "" {
-		if parsed, err := parseTime(req.Deadline); err == nil {
+	if deadlineValue != "" {
+		if parsed, ok := parseOptionalTime(deadlineValue); ok {
 			resolved.Deadline = parsed
+			resolved.ApplicationEndDate = parsed
 		} else {
 			return nil, errors.New("invalid application end date")
 		}
-	} else if parsed, ok := parseOptionalTime(req.ApplicationEndDate); ok {
-		resolved.Deadline = parsed
-	} else if req.ApplicationEndDate != "" {
-		return nil, errors.New("invalid application end date")
+	} else {
+		resolved.Deadline = time.Time{}
+		resolved.ApplicationEndDate = time.Time{}
 	}
 
 	statusToSync := normalizeScholarshipStatus(scholarship.Status)
@@ -687,12 +456,7 @@ func (s *Service) DeleteScholarship(providerID, id uint) error {
 		return err
 	}
 
-	provider, err := s.repo.GetProviderProfile(providerID)
-	if err != nil {
-		return err
-	}
-
-	_ = s.repo.DeletePublicScholarship(scholarship.Title, provider.ProviderName)
+	_ = s.repo.DeletePublicScholarshipByProviderScholarshipID(scholarship.ID)
 	return s.repo.DeleteScholarship(id, providerID)
 }
 
@@ -717,7 +481,7 @@ func (s *Service) EvaluateApplication(providerID, id uint, req EvaluateApplicati
 		return nil, err
 	}
 
-	if err := s.repo.EvaluateApplication(application, req.Notes); err != nil {
+	if err := s.repo.EvaluateApplication(application, req.Score, req.Passing, req.Notes); err != nil {
 		return nil, err
 	}
 
@@ -870,6 +634,15 @@ func (s *Service) UpdateProviderProfile(providerID uint, req UpdateProfileReques
 	}
 	if req.RegistrationNumber != "" {
 		updates["registration_number"] = req.RegistrationNumber
+	}
+	if req.ContactNumber != "" {
+		updates["contact_number"] = req.ContactNumber
+	}
+	if req.PANNumber != "" {
+		updates["pan_number"] = req.PANNumber
+	}
+	if req.WebsiteURL != "" {
+		updates["website_url"] = req.WebsiteURL
 	}
 
 	if err := s.repo.UpdateProviderProfile(provider, updates); err != nil {
@@ -1036,12 +809,12 @@ func (s *Service) UpdateNews(providerID, id uint, req CreateNewsRequest) (*Provi
 	}
 
 	updates := map[string]interface{}{
-		"title":           req.Title,
-		"short_desc":      req.ShortDesc,
-		"content":         req.Content,
-		"news_type":       req.NewsType,
-		"published_by":    req.PublishedBy,
-		"allow_comments":  req.AllowComments,
+		"title":          req.Title,
+		"short_desc":     req.ShortDesc,
+		"content":        req.Content,
+		"news_type":      req.NewsType,
+		"published_by":   req.PublishedBy,
+		"allow_comments": req.AllowComments,
 	}
 
 	if req.ImageURL != "" {
@@ -1153,18 +926,18 @@ func (s *Service) UpdateEvent(providerID, id uint, req CreateEventRequest) (*Pro
 	}
 
 	updates := map[string]interface{}{
-		"name":                 req.Name,
-		"short_desc":           req.ShortDesc,
-		"description":          req.Description,
-		"event_type":           req.EventType,
+		"name":                req.Name,
+		"short_desc":          req.ShortDesc,
+		"description":         req.Description,
+		"event_type":          req.EventType,
 		"category":            req.Category,
-		"max_participants":     req.MaxParticipants,
+		"max_participants":    req.MaxParticipants,
 		"online_link":         req.OnlineLink,
 		"organized_by":        req.OrganizedBy,
-		"contact_person":       req.ContactPerson,
+		"contact_person":      req.ContactPerson,
 		"contact_email":       req.ContactEmail,
 		"location":            req.Location,
-		"enable_registration":  req.EnableRegistration,
+		"enable_registration": req.EnableRegistration,
 	}
 
 	if req.ImageURL != "" {
@@ -1522,7 +1295,7 @@ func toAccessUserResponse(user *ProviderAccessUser) *AccessUserResponse {
 		ID:          user.ID,
 		CreatedAt:   user.CreatedAt,
 		UpdatedAt:   user.UpdatedAt,
-		ProviderID: user.ProviderID,
+		ProviderID:  user.ProviderID,
 		Name:        user.Name,
 		Email:       user.Email,
 		Role:        user.Role,
@@ -1558,7 +1331,7 @@ func (s *Service) CreateAccessUser(req CreateAccessUserRequest, providerID uint)
 		ProviderID:  providerID,
 		Name:        req.Name,
 		Email:       req.Email,
-		Password:   string(hashedPassword),
+		Password:    string(hashedPassword),
 		Role:        role,
 		RoleLabel:   roleLabel,
 		Status:      "Active",
@@ -1667,16 +1440,44 @@ func (s *Service) UpdatePermissions(id uint, permissions []string) error {
 }
 
 func (s *Service) LoginAccessUser(email, password string, providerID uint) (*AccessUserResponse, error) {
-	user, err := s.repo.GetAccessUserByEmail(email, providerID)
-	if err != nil {
+	log.Printf("[DEBUG] LoginAccessUser: email=%s, providerID=%d", email, providerID)
+	
+	users, _, err := s.repo.GetAccessUsers(providerID, 1, 1000)
+	if err != nil || len(users) == 0 {
+		log.Printf("[DEBUG] No users found with providerID=%d, trying 1", providerID)
+		users, _, err = s.repo.GetAccessUsers(1, 1, 1000)
+	}
+	if err != nil || len(users) == 0 {
+		log.Printf("[DEBUG] No users found at all")
 		return nil, errors.New("invalid credentials")
 	}
 
+	log.Printf("[DEBUG] Found %d users", len(users))
+
+	var user *ProviderAccessUser
+	for _, u := range users {
+		log.Printf("[DEBUG] Checking user: email=%s, providerID=%d", u.Email, u.ProviderID)
+		if u.Email == email && (providerID == 0 || u.ProviderID == providerID) {
+			user = &u
+			break
+		}
+	}
+	if user == nil {
+		log.Printf("[DEBUG] User not found")
+		return nil, errors.New("invalid credentials")
+	}
+
+	log.Printf("[DEBUG] Found user: %s, stored password len: %d", user.Name, len(user.Password))
+
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
+		log.Printf("[DEBUG] Password mismatch: %v", err)
 		return nil, errors.New("invalid credentials")
 	}
 
 	user.LastActive = time.Now()
+	if err := s.repo.UpdateAccessUser(user); err != nil {
+		return nil, err
+	}
 
 	return toAccessUserResponse(user), nil
 }
