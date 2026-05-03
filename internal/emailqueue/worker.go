@@ -1,7 +1,9 @@
 package emailqueue
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -158,6 +160,110 @@ func sendEmail(to, subject, htmlBody string) error {
 	logger.Info("Email sent successfully", "to", to, "subject", subject)
 	return nil
 }
+
+// SendAdmitCardEmail sends an email with a PDF admit card attached.
+// This bypasses the async queue since PDF bytes cannot be easily serialised.
+func SendAdmitCardEmail(to, candidateName, scholarshipTitle string, pdfBytes []byte) error {
+	cfg := config.AppConfig
+	if cfg == nil {
+		return fmt.Errorf("config not loaded")
+	}
+
+	smtpHost := cfg.SMTPHost
+	smtpPort := cfg.SMTPPort
+	smtpUser := cfg.SMTPUser
+	smtpPass := cfg.SMTPPass
+
+	if smtpHost == "" {
+		smtpHost = "smtp.gmail.com"
+	}
+	if smtpPort == "" {
+		smtpPort = "587"
+	}
+
+	fromName := "Project Shiksha"
+	subject := fmt.Sprintf("Admit Card - %s", scholarshipTitle)
+
+	boundary := "==MimeBoundary=="
+
+	htmlBody := `<!DOCTYPE html>
+<html>
+<body style="font-family: Poppins, Arial, sans-serif; background: #f8fafc; padding: 40px 0;">
+  <div style="max-width: 520px; margin: 0 auto; background: #fff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden;">
+    <div style="background: linear-gradient(135deg, #1d4ed8 0%, #7c3aed 100%); padding: 28px 32px; text-align: center;">
+      <h1 style="color: #fff; font-size: 22px; font-weight: 800; margin: 0;">Project Shiksha</h1>
+    </div>
+    <div style="padding: 32px;">
+      <h2 style="color: #1e293b; font-size: 18px; margin: 0 0 12px;">Dear ` + candidateName + `,</h2>
+      <p style="color: #475569; font-size: 15px; line-height: 1.6; margin: 0 0 16px;">
+        Congratulations! Your application for <strong>` + scholarshipTitle + `</strong> has been confirmed and your payment has been verified.
+      </p>
+      <p style="color: #475569; font-size: 15px; line-height: 1.6; margin: 0 0 16px;">
+        Please find your <strong>Admit Card</strong> attached to this email as a PDF. Print and bring it to the examination centre.
+      </p>
+      <p style="color: #94a3b8; font-size: 13px; margin: 24px 0 0;">Best regards,<br>Project Shiksha Team</p>
+    </div>
+    <div style="background: #f8fafc; padding: 16px 32px; border-top: 1px solid #e2e8f0; text-align: center;">
+      <p style="color: #94a3b8; font-size: 12px; margin: 0;">&copy; 2026 StudSphere. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>`
+
+	// Build multipart MIME message
+	var msgBuf bytes.Buffer
+	msgBuf.WriteString(fmt.Sprintf("From: %s <%s>\r\n", fromName, smtpUser))
+	msgBuf.WriteString(fmt.Sprintf("To: %s\r\n", to))
+	msgBuf.WriteString(fmt.Sprintf("Subject: %s\r\n", subject))
+	msgBuf.WriteString("MIME-Version: 1.0\r\n")
+	msgBuf.WriteString(fmt.Sprintf("Content-Type: multipart/mixed; boundary=\"%s\"\r\n", boundary))
+	msgBuf.WriteString("\r\n")
+
+	// HTML part
+	msgBuf.WriteString(fmt.Sprintf("--%s\r\n", boundary))
+	msgBuf.WriteString("Content-Type: text/html; charset=\"UTF-8\"\r\n")
+	msgBuf.WriteString("Content-Transfer-Encoding: 7bit\r\n")
+	msgBuf.WriteString("\r\n")
+	msgBuf.WriteString(htmlBody)
+	msgBuf.WriteString("\r\n")
+
+	// PDF attachment
+	msgBuf.WriteString(fmt.Sprintf("--%s\r\n", boundary))
+	msgBuf.WriteString("Content-Type: application/pdf\r\n")
+	msgBuf.WriteString(fmt.Sprintf("Content-Disposition: attachment; filename=\"Admit_Card_%s.pdf\"\r\n", strings.ReplaceAll(scholarshipTitle, " ", "_")))
+	msgBuf.WriteString("Content-Transfer-Encoding: base64\r\n")
+	msgBuf.WriteString("\r\n")
+
+	// Base64-encode the PDF in 76-char lines
+	encoded := base64.StdEncoding.EncodeToString(pdfBytes)
+	for i := 0; i < len(encoded); i += 76 {
+		end := i + 76
+		if end > len(encoded) {
+			end = len(encoded)
+		}
+		msgBuf.WriteString(encoded[i:end])
+		msgBuf.WriteString("\r\n")
+	}
+
+	msgBuf.WriteString(fmt.Sprintf("--%s--\r\n", boundary))
+
+	var auth smtp.Auth
+	if smtpUser != "" && smtpPass != "" {
+		auth = smtp.PlainAuth("", smtpUser, smtpPass, smtpHost)
+	}
+
+	addr := smtpHost + ":" + smtpPort
+	log.Printf("Sending admit card email to %s via %s", to, addr)
+
+	if err := smtp.SendMail(addr, auth, smtpUser, []string{to}, msgBuf.Bytes()); err != nil {
+		logger.Error("Failed to send admit card email", "to", to, "error", err)
+		return fmt.Errorf("failed to send admit card email: %w", err)
+	}
+
+	logger.Info("Admit card email sent", "to", to)
+	return nil
+}
+
 
 func renderOTPTemplate(otp string, expiresIn int) string {
 	if expiresIn == 0 {

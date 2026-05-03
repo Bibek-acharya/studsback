@@ -195,14 +195,27 @@ func (r *Repository) GetApplicationByIDAndProvider(id uint, providerID uint) (*P
 		First(&application).Error; err != nil {
 		return nil, err
 	}
+
+	var payment ProviderPayment
+	err := r.db.Table("scholarship_payments").
+		Select("scholarship_payments.*").
+		Joins("JOIN scholarships ON scholarships.id = scholarship_payments.scholarship_id").
+		Where("scholarship_payments.user_id = ? AND scholarships.provider_scholarship_id = ?", application.UserID, application.ScholarshipID).
+		Order("scholarship_payments.created_at desc").
+		First(&payment).Error
+	
+	if err == nil {
+		application.Payment = &payment
+	}
+
 	return &application, nil
 }
 
 func (r *Repository) EvaluateApplication(application *ProviderApplication, score int, passing bool, notes string) error {
 	return r.db.Model(application).Updates(map[string]interface{}{
-		"evaluation_score": score,
+		"evaluation_score":  score,
 		"evaluation_passed": passing,
-		"evaluation_notes": notes,
+		"evaluation_notes":  notes,
 	}).Error
 }
 
@@ -709,4 +722,19 @@ func (r *Repository) DeleteAccessUser(id uint) error {
 
 func (r *Repository) UpdateAccessUserPermissions(id uint, permissions []byte) error {
 	return r.db.Model(&ProviderAccessUser{}).Where("id = ?", id).Update("permissions", permissions).Error
+}
+
+func (r *Repository) GetDashboardDetails(providerID uint) ([]ScholarshipStat, error) {
+	var stats []ScholarshipStat
+
+	err := r.db.Model(&ProviderScholarship{}).
+		Select("id, title, status, (SELECT COUNT(*) FROM provider_applications WHERE provider_applications.scholarship_id = provider_scholarships.id) AS applications").
+		Where("provider_id = ?", providerID).
+		Scan(&stats).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return stats, nil
 }

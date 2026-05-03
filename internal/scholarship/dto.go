@@ -69,6 +69,9 @@ type ScholarshipApplicationRequest struct {
 
 	Stream     string `json:"stream" binding:"required"`
 	ExamCenter string `json:"exam_center" binding:"required"`
+
+	Documents         []DetailField `json:"documents"`
+	PersonalStatement string        `json:"personal_statement"`
 }
 
 type UpdateScholarshipApplicationRequest struct {
@@ -142,6 +145,7 @@ type ScholarshipResponse struct {
 	Timeline         []DetailField `json:"timeline,omitempty"`
 	Benefits         []DetailField `json:"benefits,omitempty"`
 	FAQs             []DetailField `json:"faqs,omitempty"`
+	PaymentConfig    interface{}   `json:"payment_config,omitempty"`
 }
 
 type ScholarshipApplicationResponse struct {
@@ -190,6 +194,9 @@ type ScholarshipApplicationResponse struct {
 	ExamCenter           string              `json:"exam_center"`
 	Status               string              `json:"status"`
 	Scholarship          *ScholarshipSummary `json:"scholarship,omitempty"`
+	PersonalStatement    string              `json:"personal_statement"`
+	Documents            []DetailField       `json:"documents"`
+	Payment              *PaymentResponse    `json:"payment,omitempty"`
 	User                 *UserSummary        `json:"user,omitempty"`
 }
 
@@ -231,13 +238,21 @@ type UserSummary struct {
 }
 
 type DetailField struct {
-	Title       string `json:"title,omitempty"`
-	Description string `json:"description,omitempty"`
-	Stage       string `json:"stage,omitempty"`
-	Criterion   string `json:"criterion,omitempty"`
-	Name        string `json:"name,omitempty"`
-	Date        string `json:"date,omitempty"`
-	Event       string `json:"event,omitempty"`
-	Question    string `json:"question,omitempty"`
-	Answer      string `json:"answer,omitempty"`
+	Title          string `json:"title,omitempty"`
+	Description    string `json:"description,omitempty"`
+	Stage          string `json:"stage,omitempty"`
+	Criterion      string `json:"criterion,omitempty"`
+	Name           string `json:"name,omitempty"`
+	CenterName     string `json:"centerName,omitempty"`
+	Province       string `json:"province,omitempty"`
+	Info           string `json:"info,omitempty"`
+	HeaderColor    string `json:"headerColor,omitempty"`
+	PhoneNumber    string `json:"phoneNumber,omitempty"`
+	ContactPerson  string `json:"contactPerson,omitempty"`
+	MapCoordinates string `json:"mapCoordinates,omitempty"`
+	Date           string `json:"date,omitempty"`
+	Event          string `json:"event,omitempty"`
+	Question       string `json:"question,omitempty"`
+	Answer         string `json:"answer,omitempty"`
 }
+

@@ -128,6 +128,9 @@ func main() {
 		if err := allowAnonymousScholarshipApplications(db); err != nil {
 			logger.Fatal("Failed to update scholarship application user_id nullability", "error", err)
 		}
+		if err := fixMissingColumns(db); err != nil {
+			logger.Fatal("Failed to fix missing columns", "error", err)
+		}
 		logger.Info("Database migrations completed successfully")
 		config.CreateVectorIndexes()
 	}
@@ -251,6 +254,13 @@ func allowAnonymousScholarshipApplications(db *gorm.DB) error {
 		return err
 	}
 	if err := db.Exec(`ALTER TABLE provider_applications ALTER COLUMN user_id DROP NOT NULL`).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
+func fixMissingColumns(db *gorm.DB) error {
+	if err := db.Exec(`ALTER TABLE provider_applications ADD COLUMN IF NOT EXISTS see_gpa TEXT`).Error; err != nil {
 		return err
 	}
 	return nil

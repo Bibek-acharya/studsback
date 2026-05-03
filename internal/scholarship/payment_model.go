@@ -8,7 +8,7 @@ type Payment struct {
 	ID              uint      `json:"id" gorm:"primaryKey"`
 	ApplicationID  uint      `json:"application_id" gorm:"not null"`
 	ScholarshipID  uint      `json:"scholarship_id" gorm:"not null"`
-	UserID         uint      `json:"user_id" gorm:"not null"`
+	UserID         *uint     `json:"user_id,omitempty" gorm:"index"`
 	Method         string    `json:"method" gorm:"not null"`
 	Amount         float64   `json:"amount" gorm:"not null"`
 	Status         string    `json:"status" gorm:"default:pending"`

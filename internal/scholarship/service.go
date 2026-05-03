@@ -268,6 +268,52 @@ func providerScholarshipToScholarship(ps *ProviderScholarship) *Scholarship {
 		ImageURL:                 imageURL,
 		BannerBackgroundImageURL: bannerURL,
 		Status:                   ps.Status,
+		FieldOfStudy:             ps.FieldOfStudy,
+		SelectionProcess:         ps.SelectionProcessSteps,
+		EligibilityCriteria:      ps.BasicEligibilityCriteria,
+		RequiredDocuments:        ps.RequiredDocuments,
+		Timeline:                 ps.Timeline,
+		Benefits:                 ps.Benefits,
+		FAQs:                     ps.FAQs,
+		PaymentConfig:            ps.PaymentConfig,
+		ExamCenters:              ps.ExamCenters,
+		ExamCentersNew:           ps.ExamCentersNew,
+
+		ProviderName:         ps.ProviderName,
+		FundingTypeOther:     ps.FundingTypeOther,
+		ScholarshipTypeOther: ps.ScholarshipTypeOther,
+		EducationLevel:       ps.EducationLevel,
+		EducationLevelOther:  ps.EducationLevelOther,
+		ApplyLink:            ps.ApplyLink,
+		CoverageArea:         ps.CoverageArea,
+		ContactEmail:         ps.ContactEmail,
+		PrimaryPhone:         ps.PrimaryPhone,
+		SecondaryPhone:       ps.SecondaryPhone,
+		WebsiteUrl:           ps.WebsiteUrl,
+		OfficeAddress:        ps.OfficeAddress,
+		MapUrl:               ps.MapUrl,
+		AboutParagraph1:      ps.AboutParagraph1,
+		VideoTutorials:       ps.VideoTutorials,
+		JourneyTimeline:      ps.JourneyTimeline,
+		ScholarshipSectionTitle: ps.ScholarshipSectionTitle,
+		ScholarshipSubtitle:     ps.ScholarshipSubtitle,
+		ScholarshipDescription1: ps.ScholarshipDescription1,
+		ScholarshipDescription2: ps.ScholarshipDescription2,
+		ScholarshipTypes:        ps.ScholarshipTypes,
+		ScholarshipTypesNew:     ps.ScholarshipTypesNew,
+		SelectionRubric:         ps.SelectionRubric,
+		SelectionRubricNew:      ps.SelectionRubricNew,
+		EligibilitySectionTitle: ps.EligibilitySectionTitle,
+		EligibilitySubtitle:     ps.EligibilitySubtitle,
+		BasicEligibilityCriteria: ps.BasicEligibilityCriteria,
+		FullyFundedCriteria:      ps.FullyFundedCriteria,
+		PartiallyFundedCriteria:  ps.PartiallyFundedCriteria,
+		SelectionProcessSteps:    ps.SelectionProcessSteps,
+		FAQsNew:                 ps.FAQsNew,
+		GalleryImages:           ps.GalleryImages,
+		GalleryImagesNew:        ps.GalleryImagesNew,
+		PartnerGroups:           ps.PartnerGroups,
+		Downloads:               ps.Downloads,
 	}
 }
 
@@ -339,6 +385,15 @@ func (s *Service) ApplyScholarship(scholarshipID uint, userID *uint, req Scholar
 
 		Stream:     req.Stream,
 		ExamCenter: req.ExamCenter,
+ 
+		PersonalStatement: req.PersonalStatement,
+		Documents: func() []byte {
+			if len(req.Documents) == 0 {
+				return []byte("[]")
+			}
+			data, _ := json.Marshal(req.Documents)
+			return data
+		}(),
 
 		Status: "pending",
 	}
@@ -375,6 +430,17 @@ func (s *Service) GetApplication(id uint, userID uint) (*ScholarshipApplication,
 
 func (s *Service) GetApplicationByUserAndScholarshipID(scholarshipID uint, userID uint) (*ScholarshipApplication, error) {
 	return s.repo.ApplicationFindByUserAndScholarshipID(scholarshipID, userID)
+}
+
+func (s *Service) GetApplicationForPayment(appID uint, scholarshipID uint) (*ScholarshipApplication, error) {
+	app, err := s.repo.ApplicationFindByID(appID)
+	if err != nil {
+		return nil, err
+	}
+	if app.ScholarshipID != scholarshipID {
+		return nil, errors.New("application does not belong to this scholarship")
+	}
+	return app, nil
 }
 
 func (s *Service) UpdateApplication(id uint, userID uint, req UpdateScholarshipApplicationRequest) (*ScholarshipApplication, error) {
@@ -640,7 +706,7 @@ func (s *Service) AdminDeleteScholarship(id uint) error {
 	return s.repo.Delete(id)
 }
 
-func (s *PaymentService) CreatePayment(appID uint, scholarshipID, userID uint, req PaymentRequest) (*Payment, error) {
+func (s *PaymentService) CreatePayment(appID uint, scholarshipID uint, userID *uint, req PaymentRequest) (*Payment, error) {
 	payment := &Payment{
 		ApplicationID: appID,
 		ScholarshipID: scholarshipID,
@@ -723,27 +789,59 @@ func (s *PaymentService) sendAdmitCard(payment *Payment) error {
 		return nil
 	}
 
-	subject := fmt.Sprintf("Admit Card - %s", scholarship.Title)
-	body := fmt.Sprintf(`
-Dear %s,
+	// Build admit card data from the application
+	dobStr := ""
+	if !app.DateOfBirthAD.IsZero() {
+		dobStr = app.DateOfBirthAD.Format("02-Jan-2006")
+	} else if app.DateOfBirthBS != "" {
+		dobStr = app.DateOfBirthBS
+	}
+
+	photoURL := app.PhotoURL
+	// Construct absolute photo URL if it's a relative path
+	if photoURL != "" && len(photoURL) > 0 && photoURL[0] == '/' {
+		baseURL := "http://localhost:8080"
+		if envURL := fmt.Sprintf("%s", scholarship.Provider); envURL != "" {
+			// use relative path as-is for local headless chrome
+		}
+		photoURL = baseURL + photoURL
+	}
+
+	cardData := AdmitCardData{
+		CandidateName:    app.FullName,
+		DateOfBirth:      dobStr,
+		Gender:           app.Gender,
+		ApplicationNo:    fmt.Sprintf("RD2083S%d", app.ID),
+		ExamCentre:       app.ExamCenter,
+		Stream:           app.Stream,
+		PhotoURL:         photoURL,
+		ScholarshipTitle: scholarship.Title,
+		Provider:         scholarship.Provider,
+	}
+
+	pdfBytes, err := GenerateAdmitCardPDF(cardData)
+	if err != nil {
+		// Fallback: send a plain email if PDF generation fails
+		fmt.Printf("Warning: PDF generation failed: %v — sending plain email\n", err)
+		subject := fmt.Sprintf("Admit Card - %s", scholarship.Title)
+		body := fmt.Sprintf(`Dear %s,
 
 Congratulations! Your application for %s has been confirmed.
 
-SCHOLARSHIP DETAILS:
-- Provider: %s
-- Amount: %s
-- Application ID: %d
-- Status: CONFIRMED
+Application ID: %d
+Status: CONFIRMED
 
 Please keep this email for your records.
 
 Best regards,
-%s Team
-	`, app.FullName, scholarship.Title, scholarship.Provider, scholarship.Value, app.ID, scholarship.Provider)
+%s Team`, app.FullName, scholarship.Title, app.ID, scholarship.Provider)
 
-	if emailqueue.Queue != nil {
-		return emailqueue.EnqueueGenericEmail(app.Email, subject, body)
+		if emailqueue.Queue != nil {
+			return emailqueue.EnqueueGenericEmail(app.Email, subject, body)
+		}
+		return nil
 	}
 
-	return nil
+	// Send with PDF attachment
+	return emailqueue.SendAdmitCardEmail(app.Email, app.FullName, scholarship.Title, pdfBytes)
 }

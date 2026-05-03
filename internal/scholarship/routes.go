@@ -17,6 +17,14 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			education.POST("/scholarships/:id/apply", h.ApplyScholarship)
 		}
 
+		public := v1.Group("")
+		{
+			public.POST("/scholarships/upload", h.UploadFile)
+			public.POST("/scholarships/:id/pay", h.ProcessPayment)
+			public.POST("/scholarships/pay/:id/confirm", h.ConfirmPayment)
+			public.POST("/scholarships/pay/:id/receipt", h.uploadBankReceipt)
+		}
+
 		protected := v1.Group("")
 		protected.Use(authMW)
 		{
@@ -24,10 +32,6 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			protected.GET("/scholarships/applications/:id", h.GetApplication)
 			protected.PUT("/scholarships/applications/:id", h.UpdateApplication)
 			protected.DELETE("/scholarships/applications/:id", h.DeleteApplication)
-
-			protected.POST("/scholarships/:id/pay", h.ProcessPayment)
-			protected.POST("/scholarships/pay/:id/confirm", h.ConfirmPayment)
-			protected.POST("/scholarships/pay/:id/receipt", h.uploadBankReceipt)
 		}
 
 		provider := v1.Group("/providers")

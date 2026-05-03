@@ -33,11 +33,12 @@ func getProviderID(c *gin.Context) uint {
 	return userID.(uint)
 }
 
+
 func resolveProviderUploadFolder(folder string) (string, error) {
 	switch folder {
 	case "", "general":
 		return "scholarship-provider/general", nil
-	case "scholarship-banners":
+	case "scholarship-banners", "scholarships":
 		return "scholarship-provider/scholarship-banners", nil
 	case "news":
 		return "scholarship-provider/news", nil
@@ -55,11 +56,12 @@ func resolveProviderUploadFolder(folder string) (string, error) {
 		return "scholarship-provider/partners", nil
 	case "downloads":
 		return "scholarship-provider/downloads", nil
+	case "payments":
+		return "scholarship-provider/payments", nil
 	default:
 		return "", errors.New("invalid upload folder")
 	}
 }
-
 func (h *Handler) GetDashboard(c *gin.Context) {
 	providerID := getProviderID(c)
 
@@ -680,7 +682,7 @@ func toScholarshipResponse(s *ProviderScholarship) ScholarshipResponse {
 		ApplicationStartDate:     formatTimeOrEmpty(s.ApplicationStartDate),
 		ApplicationEndDate:       formatTimeOrEmpty(s.ApplicationEndDate),
 		ApplyLink:                s.ApplyLink,
-		BannerBackgroundImageURL: s.BannerBackgroundImageURL,
+		Image:                    s.BannerBackgroundImageURL,
 		CoverageArea:             s.CoverageArea,
 		ContactEmail:             s.ContactEmail,
 		PrimaryPhone:             s.PrimaryPhone,
@@ -729,6 +731,21 @@ func toScholarshipResponse(s *ProviderScholarship) ScholarshipResponse {
 }
 
 func toApplicationResponse(a *ProviderApplication) ApplicationResponse {
+	var paymentResp *PaymentResponse
+	if a.Payment != nil {
+		paymentResp = &PaymentResponse{
+			ID:            a.Payment.ID,
+			Method:        a.Payment.Method,
+			Amount:        a.Payment.Amount,
+			Status:        a.Payment.Status,
+			ReceiptURL:    a.Payment.ReceiptURL,
+			TransactionID: a.Payment.TransactionID,
+		}
+		if a.Payment.PaidAt != nil {
+			paymentResp.PaidAt = a.Payment.PaidAt.Format(time.RFC3339)
+		}
+	}
+
 	resp := ApplicationResponse{
 		ID:                    a.ID,
 		CreatedAt:             a.CreatedAt,
@@ -782,6 +799,7 @@ func toApplicationResponse(a *ProviderApplication) ApplicationResponse {
 		GPA:                   a.GPA,
 		SchoolType:            a.SchoolType,
 		ExamCenter:            a.ExamCenter,
+		Payment:               paymentResp,
 	}
 
 	if a.Scholarship.ID != 0 {

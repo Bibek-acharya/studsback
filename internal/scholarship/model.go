@@ -43,14 +43,54 @@ type Scholarship struct {
 	BankName                 string           `json:"bank_name"`
 	BankBranch               string           `json:"bank_branch"`
 	ProviderScholarshipID    *uint            `gorm:"index" json:"-"`
-	Embedding                *pgvector.Vector `gorm:"type:vector(1536)" json:"-"`
+
+	// New fields from ProviderScholarship
+	ProviderName             string `gorm:"column:provider_name" json:"provider_name"`
+	FundingTypeOther         string `gorm:"column:funding_type_other" json:"funding_type_other"`
+	ScholarshipTypeOther     string `gorm:"column:scholarship_type_other" json:"scholarship_type_other"`
+	EducationLevel           string `gorm:"column:education_level" json:"education_level"`
+	EducationLevelOther      string `gorm:"column:education_level_other" json:"education_level_other"`
+	ApplyLink                string `json:"apply_link"`
+	CoverageArea             string `json:"coverage_area"`
+	ContactEmail             string `json:"contact_email"`
+	PrimaryPhone             string `json:"primary_phone"`
+	SecondaryPhone           string `json:"secondary_phone"`
+	WebsiteUrl               string `json:"website_url"`
+	OfficeAddress            string `json:"office_address"`
+	MapUrl                   string `json:"map_url"`
+	AboutParagraph1          string `gorm:"type:text;column:about_paragraph_1" json:"about_paragraph_1"`
+	VideoTutorials           []byte `gorm:"type:jsonb;column:video_tutorials" json:"video_tutorials"`
+	JourneyTimeline          []byte `gorm:"type:jsonb;column:journey_timeline" json:"journey_timeline"`
+	ScholarshipSectionTitle  string `gorm:"column:scholarship_section_title" json:"scholarship_section_title"`
+	ScholarshipSubtitle      string `gorm:"column:scholarship_subtitle" json:"scholarship_subtitle"`
+	ScholarshipDescription1  string `gorm:"type:text;column:scholarship_description_1" json:"scholarship_description_1"`
+	ScholarshipDescription2  string `gorm:"type:text;column:scholarship_description_2" json:"scholarship_description_2"`
+	ScholarshipTypes         []byte `gorm:"type:jsonb;column:scholarship_types" json:"scholarship_types"`
+	ScholarshipTypesNew      []byte `gorm:"type:jsonb;column:scholarship_types_new" json:"scholarship_types_new"`
+	SelectionRubric          []byte `gorm:"type:jsonb;column:selection_rubric" json:"selection_rubric"`
+	SelectionRubricNew       []byte `gorm:"type:jsonb;column:selection_rubric_new" json:"selection_rubric_new"`
+	EligibilitySectionTitle  string `gorm:"column:eligibility_section_title" json:"eligibility_section_title"`
+	EligibilitySubtitle      string `gorm:"column:eligibility_subtitle" json:"eligibility_subtitle"`
+	BasicEligibilityCriteria []byte `gorm:"type:jsonb;column:basic_eligibility_criteria" json:"basic_eligibility_criteria"`
+	FullyFundedCriteria      []byte `gorm:"type:jsonb;column:fully_funded_criteria" json:"fully_funded_criteria"`
+	PartiallyFundedCriteria  []byte `gorm:"type:jsonb;column:partially_funded_criteria" json:"partially_funded_criteria"`
+	SelectionProcessSteps    []byte `gorm:"type:jsonb;column:selection_process_steps" json:"selection_process_steps"`
+	FAQsNew                  []byte `gorm:"type:jsonb;column:faqs_new" json:"faqs_new"`
+	GalleryImages            []byte `gorm:"type:jsonb;column:gallery_images" json:"gallery_images"`
+	GalleryImagesNew         []byte `gorm:"type:jsonb;column:gallery_images_new" json:"gallery_images_new"`
+	PartnerGroups            []byte `gorm:"type:jsonb;column:partner_groups" json:"partner_groups"`
+	ExamCenters              []byte `gorm:"type:jsonb;column:exam_centers" json:"exam_centers"`
+	ExamCentersNew           []byte `gorm:"type:jsonb;column:exam_centers_new" json:"exam_centers_new"`
+	Downloads                []byte `gorm:"type:jsonb;column:downloads" json:"downloads"`
+
+	Embedding *pgvector.Vector `gorm:"type:vector(1536)" json:"-"`
 }
 
 type ScholarshipApplication struct {
 	ID            uint           `gorm:"primarykey" json:"id"`
-	CreatedAt     time.Time      `json:"created_at"`
-	UpdatedAt     time.Time      `json:"updated_at"`
-	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
+	CreatedAt     time.Time        `json:"created_at"`
+	UpdatedAt     time.Time        `json:"updated_at"`
+	DeletedAt     gorm.DeletedAt   `gorm:"index" json:"-"`
 	ScholarshipID uint           `gorm:"index" json:"scholarship_id"`
 	Scholarship   Scholarship    `gorm:"foreignKey:ScholarshipID" json:"scholarship,omitempty"`
 	UserID        *uint          `gorm:"index" json:"user_id,omitempty"`
@@ -102,7 +142,9 @@ type ScholarshipApplication struct {
 	Stream     string `json:"stream"`
 	ExamCenter string `json:"exam_center"`
 
+	PersonalStatement string `gorm:"type:text" json:"personal_statement"`
 	Status string `gorm:"default:'pending'" json:"status"`
+	Payment *Payment `gorm:"-"`
 }
 
 type User struct {

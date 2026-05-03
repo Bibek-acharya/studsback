@@ -2,8 +2,9 @@ package scholarship
 
 type PaymentRequest struct {
 	Method         string  `json:"method" binding:"required"`
-	Amount        float64 `json:"amount" binding:"required"`
-	TransactionID string  `json:"transaction_id"`
+	Amount         float64 `json:"amount" binding:"required"`
+	ApplicationID  uint    `json:"application_id"`
+	TransactionID  string  `json:"transaction_id"`
 }
 
 type PaymentResponse struct {

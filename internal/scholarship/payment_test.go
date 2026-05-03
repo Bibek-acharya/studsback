@@ -95,11 +95,12 @@ func TestPaymentStatus_Constants(t *testing.T) {
 
 func TestPayment_Timestamps(t *testing.T) {
 	now := time.Now()
+	uid := uint(1)
 	payment := Payment{
 		ID:             1,
 		ApplicationID: 10,
 		ScholarshipID: 5,
-		UserID:         1,
+		UserID:         &uid,
 		Method:         "esewa",
 		Amount:         250.0,
 		Status:         "pending",

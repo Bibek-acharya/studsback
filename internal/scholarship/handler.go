@@ -2,11 +2,14 @@ package scholarship
 
 import (
 	"encoding/json"
+	"errors"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
 	"studsphere/backend/internal/shared/response"
+	"studsphere/backend/internal/shared/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -359,10 +362,48 @@ func toScholarshipDetailResponse(s Scholarship) gin.H {
 		"selection_process":    parseDetailFieldArray(s.SelectionProcess),
 		"eligibility_criteria": parseDetailFieldArray(s.EligibilityCriteria),
 		"excluded_regions":     parseStringArray(s.ExcludedRegions),
-		"required_documents":   parseDetailFieldArray(s.RequiredDocuments),
+		"required_documents":   parseStringArray(s.RequiredDocuments),
 		"timeline":             parseDetailFieldArray(s.Timeline),
 		"benefits":             parseDetailFieldArray(s.Benefits),
 		"faqs":                 parseDetailFieldArray(s.FAQs),
+		"provider_name":        s.ProviderName,
+		"funding_type_other":   s.FundingTypeOther,
+		"scholarship_type_other": s.ScholarshipTypeOther,
+		"education_level":       s.EducationLevel,
+		"education_level_other": s.EducationLevelOther,
+		"apply_link":           s.ApplyLink,
+		"coverage_area":        s.CoverageArea,
+		"contact_email":        s.ContactEmail,
+		"primary_phone":        s.PrimaryPhone,
+		"secondary_phone":      s.SecondaryPhone,
+		"website_url":          s.WebsiteUrl,
+		"office_address":       s.OfficeAddress,
+		"map_url":              s.MapUrl,
+		"about_paragraph_1":    s.AboutParagraph1,
+		"video_tutorials":      parseDetailFieldArray(s.VideoTutorials),
+		"journey_timeline":     parseDetailFieldArray(s.JourneyTimeline),
+		"scholarship_section_title": s.ScholarshipSectionTitle,
+		"scholarship_subtitle":      s.ScholarshipSubtitle,
+		"scholarship_description_1": s.ScholarshipDescription1,
+		"scholarship_description_2": s.ScholarshipDescription2,
+		"scholarship_types":         parseDetailFieldArray(s.ScholarshipTypes),
+		"scholarship_types_new":     parseDetailFieldArray(s.ScholarshipTypesNew),
+		"selection_rubric":          parseDetailFieldArray(s.SelectionRubric),
+		"selection_rubric_new":       parseDetailFieldArray(s.SelectionRubricNew),
+		"eligibility_section_title": s.EligibilitySectionTitle,
+		"eligibility_subtitle":      s.EligibilitySubtitle,
+		"basic_eligibility_criteria": parseStringArray(s.BasicEligibilityCriteria),
+		"fully_funded_criteria":      parseStringArray(s.FullyFundedCriteria),
+		"partially_funded_criteria":  parseStringArray(s.PartiallyFundedCriteria),
+		"selection_process_steps":    parseDetailFieldArray(s.SelectionProcessSteps),
+		"faqs_new":                  parseDetailFieldArray(s.FAQsNew),
+		"gallery_images":            parseDetailFieldArray(s.GalleryImages),
+		"gallery_images_new":         parseDetailFieldArray(s.GalleryImagesNew),
+		"partner_groups":            parseDetailFieldArray(s.PartnerGroups),
+		"exam_centers":              parseDetailFieldArray(s.ExamCenters),
+		"exam_centers_new":           parseDetailFieldArray(s.ExamCentersNew),
+		"downloads":                parseDetailFieldArray(s.Downloads),
+		"payment_config":           parseJSON(s.PaymentConfig),
 	}
 }
 
@@ -386,6 +427,26 @@ func toApplicationResponse(a ScholarshipApplication) ScholarshipApplicationRespo
 	dobAD := ""
 	if !a.DateOfBirthAD.IsZero() {
 		dobAD = a.DateOfBirthAD.Format("2006-01-02")
+	}
+
+	var docs []DetailField
+	if len(a.Documents) > 0 {
+		json.Unmarshal(a.Documents, &docs)
+	}
+
+	var paymentResp *PaymentResponse
+	if a.Payment != nil {
+		paymentResp = &PaymentResponse{
+			ID:             a.Payment.ID,
+			Method:         a.Payment.Method,
+			Amount:         a.Payment.Amount,
+			Status:         a.Payment.Status,
+			ReceiptURL:     a.Payment.ReceiptURL,
+			TransactionID: a.Payment.TransactionID,
+		}
+		if a.Payment.PaidAt != nil {
+			paymentResp.PaidAt = a.Payment.PaidAt.Format(time.RFC3339)
+		}
 	}
 
 	resp := ScholarshipApplicationResponse{
@@ -433,6 +494,9 @@ func toApplicationResponse(a ScholarshipApplication) ScholarshipApplicationRespo
 		Stream:                a.Stream,
 		ExamCenter:            a.ExamCenter,
 		Status:                a.Status,
+		PersonalStatement:    a.PersonalStatement,
+		Documents:            docs,
+		Payment:              paymentResp,
 	}
 
 	if a.Scholarship.ID != 0 {
@@ -638,15 +702,31 @@ func (h *Handler) ProcessPayment(c *gin.Context) {
 	}
 
 	userID, _ := c.Get("user_id")
-	uid := userID.(uint)
+	var uid uint
+	if userID != nil {
+		uid = userID.(uint)
+	}
 
-	app, err := h.service.GetApplicationByUserAndScholarshipID(scholarshipID, uid)
+	var app *ScholarshipApplication
+	if req.ApplicationID != 0 {
+		app, err = h.service.GetApplicationForPayment(req.ApplicationID, scholarshipID)
+	} else if uid != 0 {
+		app, err = h.service.GetApplicationByUserAndScholarshipID(scholarshipID, uid)
+	} else {
+		err = errors.New("application id is required for unauthenticated users")
+	}
+
 	if err != nil {
 		response.Error(c, 404, "No application found")
 		return
 	}
 
-	payment, err := h.paymentService.CreatePayment(app.ID, scholarshipID, uid, req)
+	var uidPtr *uint
+	if uid != 0 {
+		uidPtr = &uid
+	}
+	
+	payment, err := h.paymentService.CreatePayment(app.ID, scholarshipID, uidPtr, req)
 	if err != nil {
 		response.Error(c, 500, "Failed to process payment")
 		return
@@ -720,3 +800,41 @@ func (h *Handler) ApprovePayment(c *gin.Context) {
 
 	response.Success(c, 200, "Payment processed", nil)
 }
+func (h *Handler) UploadFile(c *gin.Context) {
+	folder := c.Query("folder")
+	if folder == "" {
+		folder = "applications"
+	}
+	uploadPath := "scholarship/" + folder
+
+	header, err := c.FormFile("file")
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "No file provided")
+		return
+	}
+
+	var url string
+	// Check if it's an image or document based on extension
+	ext := strings.ToLower(header.Filename[strings.LastIndex(header.Filename, ".")+1:])
+	isImage := false
+	for _, imgExt := range []string{"jpg", "jpeg", "png", "gif", "webp"} {
+		if ext == imgExt {
+			isImage = true
+			break
+		}
+	}
+
+	if isImage {
+		url, err = utils.SaveUploadedImage(header, uploadPath)
+	} else {
+		url, err = utils.SaveUploadedDocument(header, uploadPath)
+	}
+
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "File uploaded successfully", gin.H{"url": url})
+}
+func parseJSON(data []byte) interface{} { if len(data) == 0 { return nil }; var out interface{}; if err := json.Unmarshal(data, &out); err != nil { return nil }; return out }

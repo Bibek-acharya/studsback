@@ -239,6 +239,7 @@ type ScholarshipResponse struct {
 	ExamCentersNew           []ExamCenterItem           `json:"exam_centers_new"`
 	Downloads                []DownloadItem             `json:"downloads"`
 	PaymentConfig            *PaymentConfig             `json:"payment_config"`
+	Image                    string                     `json:"image"` // Add Image field for banner image
 }
 
 type ScholarshipListResponse struct {
@@ -302,6 +303,17 @@ type ApplicationResponse struct {
 	GPA                   float64              `json:"gpa"`
 	SchoolType            string               `json:"school_type"`
 	ExamCenter            string               `json:"exam_center"`
+	Payment               *PaymentResponse     `json:"payment,omitempty"`
+}
+
+type PaymentResponse struct {
+	ID             uint    `json:"id"`
+	Method         string  `json:"method"`
+	Amount         float64 `json:"amount"`
+	Status         string  `json:"status"`
+	ReceiptURL     string  `json:"receipt_url"`
+	TransactionID  string  `json:"transaction_id"`
+	PaidAt         string  `json:"paid_at,omitempty"`
 }
 
 type ApplicationListResponse struct {
@@ -435,11 +447,12 @@ type NotificationListResponse struct {
 }
 
 type DashboardResponse struct {
-	TotalScholarships   int64 `json:"total_scholarships"`
-	TotalApplications   int64 `json:"total_applications"`
-	PendingApplications int64 `json:"pending_applications"`
-	TotalInterviews     int64 `json:"total_interviews"`
-	UnreadMessages      int64 `json:"unread_messages"`
+	TotalScholarships   int64             `json:"total_scholarships"`
+	TotalApplications   int64             `json:"total_applications"`
+	PendingApplications int64             `json:"pending_applications"`
+	TotalInterviews     int64             `json:"total_interviews"`
+	UnreadMessages      int64             `json:"unread_messages"`
+	ScholarshipStats    []ScholarshipStat `json:"scholarship_stats"` // Add detailed scholarship stats
 }
 
 type ScholarshipStat struct {

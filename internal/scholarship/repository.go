@@ -94,12 +94,54 @@ type ProviderScholarship struct {
 	FundingType              string
 	ScholarshipType          string
 	Status                   string
+	FieldOfStudy             []byte `gorm:"type:jsonb"`
+	SelectionProcessSteps    []byte `gorm:"type:jsonb"`
+	BasicEligibilityCriteria []byte `gorm:"type:jsonb"`
+	RequiredDocuments        []byte `gorm:"type:jsonb"`
+	Timeline                 []byte `gorm:"type:jsonb"`
+	Benefits                 []byte `gorm:"type:jsonb"`
+	FAQs                     []byte `gorm:"type:jsonb"`
+	PaymentConfig            []byte `gorm:"type:jsonb"`
+	ExamCenters              []byte `gorm:"type:jsonb"`
+	ExamCentersNew           []byte `gorm:"type:jsonb"`
+	ProviderName             string
+	FundingTypeOther         string
+	ScholarshipTypeOther     string
+	EducationLevel           string
+	EducationLevelOther      string
+	ApplyLink                string
+	CoverageArea             string
+	ContactEmail             string
+	PrimaryPhone             string
+	SecondaryPhone           string
+	WebsiteUrl               string
+	OfficeAddress            string
+	MapUrl                   string
+	AboutParagraph1          string
+	VideoTutorials           []byte `gorm:"type:jsonb"`
+	JourneyTimeline          []byte `gorm:"type:jsonb"`
+	ScholarshipSectionTitle  string
+	ScholarshipSubtitle      string
+	ScholarshipDescription1  string
+	ScholarshipDescription2  string
+	ScholarshipTypes         []byte `gorm:"type:jsonb"`
+	ScholarshipTypesNew      []byte `gorm:"type:jsonb"`
+	SelectionRubric          []byte `gorm:"type:jsonb"`
+	SelectionRubricNew       []byte `gorm:"type:jsonb"`
+	EligibilitySectionTitle  string
+	EligibilitySubtitle      string
+	FullyFundedCriteria      []byte `gorm:"type:jsonb"`
+	PartiallyFundedCriteria  []byte `gorm:"type:jsonb"`
+	FAQsNew                  []byte `gorm:"type:jsonb"`
+	GalleryImages            []byte `gorm:"type:jsonb"`
+	GalleryImagesNew         []byte `gorm:"type:jsonb"`
+	PartnerGroups            []byte `gorm:"type:jsonb"`
+	Downloads                []byte `gorm:"type:jsonb"`
 }
 
 func (r *Repository) FindPublishedProviderScholarships() ([]ProviderScholarship, error) {
 	var scholarships []ProviderScholarship
 	err := r.db.Table("provider_scholarships").
-		Select("id", "provider_id", "title", "description", "image_url", "banner_background_image_url", "location", "value", "deadline", "total_seats", "amount_per_student", "application_start_date", "result_publication_date", "degree_level", "funding_type", "scholarship_type", "status").
 		Where("status IN ?", []string{"published", "active"}).
 		Find(&scholarships).Error
 	return scholarships, err
@@ -108,7 +150,6 @@ func (r *Repository) FindPublishedProviderScholarships() ([]ProviderScholarship,
 func (r *Repository) FindProviderScholarshipByID(id uint) (*ProviderScholarship, error) {
 	var scholarship ProviderScholarship
 	err := r.db.Table("provider_scholarships").
-		Select("id", "provider_id", "title", "description", "image_url", "banner_background_image_url", "location", "value", "deadline", "total_seats", "amount_per_student", "application_start_date", "result_publication_date", "degree_level", "funding_type", "scholarship_type", "status").
 		Where("id = ?", id).
 		First(&scholarship).Error
 	if err != nil {
@@ -288,7 +329,7 @@ func (r *Repository) CreateProviderApplication(providerScholarshipID uint, app *
 		"status":                  "pending",
 		"stream":                  app.Stream,
 		"exam_center":             app.ExamCenter,
-		"personal_statement":      "",
+		"personal_statement":      app.PersonalStatement,
 		"documents":               app.Documents,
 		"created_at":              now,
 		"updated_at":              now,

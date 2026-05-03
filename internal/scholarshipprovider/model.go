@@ -30,6 +30,7 @@ type ProviderScholarship struct {
 	ApplicationStartDate     time.Time `json:"application_start_date"`
 	ApplicationEndDate       time.Time `json:"application_end_date"`
 	ApplyLink                string    `json:"apply_link"`
+	ImageURL                 string    `json:"image_url"`
 	BannerBackgroundImageURL string    `gorm:"column:banner_background_image_url" json:"banner_background_image_url"`
 	CoverageArea             string    `json:"coverage_area"`
 	ContactEmail             string    `json:"contact_email"`
@@ -125,6 +126,17 @@ type ProviderApplication struct {
 	GPA                   float64             `json:"gpa"`
 	SchoolType            string              `json:"school_type"`
 	ExamCenter            string              `json:"exam_center"`
+	Payment               *ProviderPayment    `gorm:"-" json:"payment,omitempty"`
+}
+
+type ProviderPayment struct {
+	ID             uint       `json:"id"`
+	Method         string     `json:"method"`
+	Amount         float64    `json:"amount"`
+	Status         string     `json:"status"`
+	ReceiptURL     string     `json:"receipt_url"`
+	TransactionID  string     `json:"transaction_id"`
+	PaidAt         *time.Time `json:"paid_at"`
 }
 
 type ProviderInterview struct {
