@@ -3,7 +3,6 @@ package scholarshipprovider
 import (
 	"studsphere/backend/internal/scholarship"
 
-	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
@@ -664,13 +663,6 @@ func (r *Repository) GetPublishedEventByID(id uint) (*ProviderEvent, error) {
 }
 
 func (r *Repository) CreateAccessUser(user *ProviderAccessUser) error {
-	if user.Password != "" {
-		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
-		if err != nil {
-			return err
-		}
-		user.Password = string(hashedPassword)
-	}
 	return r.db.Create(user).Error
 }
 
@@ -715,13 +707,6 @@ func (r *Repository) GetAccessUsers(providerID uint, page, limit int) ([]Provide
 }
 
 func (r *Repository) UpdateAccessUser(user *ProviderAccessUser) error {
-	if user.Password != "" {
-		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
-		if err != nil {
-			return err
-		}
-		user.Password = string(hashedPassword)
-	}
 	return r.db.Save(user).Error
 }
 

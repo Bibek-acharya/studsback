@@ -1859,7 +1859,7 @@ func (h *Handler) CreateAccessUser(c *gin.Context) {
 
 	user, err := h.service.CreateAccessUser(req, providerID)
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "Failed to create access user")
+		response.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -1966,7 +1966,7 @@ func (h *Handler) UpdatePermissions(c *gin.Context) {
 	}
 
 	if err := h.service.UpdatePermissions(uint(id), req.Permissions); err != nil {
-		response.Error(c, http.StatusInternalServerError, "Failed to update permissions")
+		response.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
