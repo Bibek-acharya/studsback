@@ -578,6 +578,8 @@ func (h *Handler) GetProfile(c *gin.Context) {
 		RegistrationNumber: provider.RegistrationNumber,
 		Email:              provider.Email,
 		Role:               provider.Role,
+		IsSubUser:          false,
+		ProviderID:         provider.ID,
 	})
 }
 
