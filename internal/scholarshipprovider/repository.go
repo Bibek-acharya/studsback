@@ -348,6 +348,14 @@ func (r *Repository) CreateNotification(notification *ProviderNotification) erro
 	return r.db.Create(notification).Error
 }
 
+func (r *Repository) CheckNotificationExists(providerID uint, title string) (bool, error) {
+	var count int64
+	err := r.db.Model(&ProviderNotification{}).
+		Where("provider_id = ? AND title = ?", providerID, title).
+		Count(&count).Error
+	return count > 0, err
+}
+
 func (r *Repository) CreateNews(news *ProviderNews) error {
 	return r.db.Create(news).Error
 }
@@ -682,6 +690,14 @@ func (r *Repository) GetAccessUserByEmail(email string, providerID uint) (*Provi
 	return &user, nil
 }
 
+func (r *Repository) GetAccessUserByEmailOnly(email string) (*ProviderAccessUser, error) {
+	var user ProviderAccessUser
+	if err := r.db.Where("email = ?", email).First(&user).Error; err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
 func (r *Repository) GetAccessUsers(providerID uint, page, limit int) ([]ProviderAccessUser, int64, error) {
 	var total int64
 	if err := r.db.Model(&ProviderAccessUser{}).Where("provider_id = ?", providerID).Count(&total).Error; err != nil {
@@ -737,4 +753,27 @@ func (r *Repository) GetDashboardDetails(providerID uint) ([]ScholarshipStat, er
 	}
 
 	return stats, nil
+}
+func (r *Repository) IsEmailTaken(email string) (bool, error) {
+	var count int64
+	// Check in main providers
+	if err := r.db.Model(&ScholarshipProviderUser{}).Where("email = ?", email).Count(&count).Error; err != nil {
+		return false, err
+	}
+	if count > 0 {
+		return true, nil
+	}
+	// Check in sub users
+	if err := r.db.Model(&ProviderAccessUser{}).Where("email = ?", email).Count(&count).Error; err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+func (r *Repository) UpdateProviderEmail(id uint, newEmail string) error {
+	return r.db.Model(&ScholarshipProviderUser{}).Where("id = ?", id).Update("email", newEmail).Error
+}
+
+func (r *Repository) UpdateAccessUserEmail(id uint, newEmail string) error {
+	return r.db.Model(&ProviderAccessUser{}).Where("id = ?", id).Update("email", newEmail).Error
 }

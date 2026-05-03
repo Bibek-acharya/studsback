@@ -406,6 +406,22 @@ func (s *Service) ApplyScholarship(scholarshipID uint, userID *uint, req Scholar
 		if err := s.repo.CreateProviderApplication(*scholarship.ProviderScholarshipID, application); err != nil {
 			return nil, errors.New("failed to submit application")
 		}
+
+		// Create notification for provider
+		ps, _ := s.repo.FindProviderScholarshipByID(*scholarship.ProviderScholarshipID)
+		if ps != nil {
+			now := time.Now()
+			s.providerDB.Table("provider_notifications").Create(map[string]interface{}{
+				"provider_id": ps.ProviderID,
+				"title":       "New Application Received",
+				"message":     fmt.Sprintf("%s submitted an application for your scholarship: %s", application.FullName, ps.Title),
+				"type":        "application",
+				"link":        "applications",
+				"read":        false,
+				"created_at":  now,
+				"updated_at":  now,
+			})
+		}
 	}
 
 	return application, nil

@@ -85,7 +85,7 @@ func (s *Service) Login(req LoginRequest) (*LoginResponse, error) {
 		return nil, errors.New("Invalid email or password")
 	}
 
-	token, err := utils.GenerateToken(user.ID, user.Email, user.Role)
+	token, err := utils.GenerateToken(user.ID, user.Email, user.Role, 0)
 	if err != nil {
 		return nil, errors.New("Failed to generate token")
 	}
@@ -170,7 +170,7 @@ func (s *Service) VerifyOTP(email, otp string) (*LoginResponse, error) {
 		return nil, errors.New("Failed to create user")
 	}
 
-	token, err := utils.GenerateToken(user.ID, user.Email, user.Role)
+	token, err := utils.GenerateToken(user.ID, user.Email, user.Role, 0)
 	if err != nil {
 		return nil, errors.New("Failed to generate token")
 	}
@@ -207,7 +207,7 @@ func (s *Service) GoogleLoginOrRegister(googleID, email, givenName, familyName s
 		}
 	}
 
-	token, err := utils.GenerateToken(user.ID, user.Email, user.Role)
+	token, err := utils.GenerateToken(user.ID, user.Email, user.Role, 0)
 	if err != nil {
 		return "", errors.New("Failed to generate token")
 	}
@@ -344,7 +344,7 @@ func (s *Service) InstitutionRegister(req InstitutionRegisterRequest) (*LoginRes
 		return nil, errors.New("Failed to create institution account")
 	}
 
-	token, err := utils.GenerateToken(institutionUser.ID, institutionUser.Email, institutionUser.Role)
+	token, err := utils.GenerateToken(institutionUser.ID, institutionUser.Email, institutionUser.Role, 0)
 	if err != nil {
 		return nil, errors.New("Failed to generate token")
 	}
@@ -365,7 +365,7 @@ func (s *Service) InstitutionLogin(req InstitutionLoginRequest) (*LoginResponse,
 		return nil, errors.New("Invalid email or password")
 	}
 
-	token, err := utils.GenerateToken(institutionUser.ID, institutionUser.Email, institutionUser.Role)
+	token, err := utils.GenerateToken(institutionUser.ID, institutionUser.Email, institutionUser.Role, 0)
 	if err != nil {
 		return nil, errors.New("Failed to generate token")
 	}
@@ -405,7 +405,7 @@ func (s *Service) InstitutionGoogleLoginOrRegister(googleID, email, name string)
 		}
 	}
 
-	token, err := utils.GenerateToken(instUser.ID, instUser.Email, instUser.Role)
+	token, err := utils.GenerateToken(instUser.ID, instUser.Email, instUser.Role, 0)
 	if err != nil {
 		return nil, "", errors.New("Failed to generate token")
 	}
@@ -521,7 +521,7 @@ func (s *Service) ScholarshipProviderLogin(req ScholarshipProviderLoginRequest) 
 		return nil, errors.New("Invalid email or password")
 	}
 
-	token, err := utils.GenerateToken(providerUser.ID, providerUser.Email, providerUser.Role)
+	token, err := utils.GenerateToken(providerUser.ID, providerUser.Email, providerUser.Role, providerUser.ID)
 	if err != nil {
 		return nil, errors.New("Failed to generate token")
 	}
@@ -561,7 +561,7 @@ func (s *Service) ScholarshipProviderGoogleLoginOrRegister(googleID, email, name
 		}
 	}
 
-	token, err := utils.GenerateToken(providerUser.ID, providerUser.Email, providerUser.Role)
+	token, err := utils.GenerateToken(providerUser.ID, providerUser.Email, providerUser.Role, providerUser.ID)
 	if err != nil {
 		return nil, "", errors.New("Failed to generate token")
 	}
@@ -595,7 +595,7 @@ func (s *Service) SuperadminRegister(req SuperadminRegisterRequest) (*LoginRespo
 		return nil, errors.New("Failed to create superadmin account")
 	}
 
-	token, err := utils.GenerateToken(user.ID, user.Email, user.Role)
+	token, err := utils.GenerateToken(user.ID, user.Email, user.Role, 0)
 	if err != nil {
 		return nil, errors.New("Failed to generate secure token")
 	}
@@ -620,7 +620,7 @@ func (s *Service) SuperadminLogin(req SuperadminLoginRequest) (*LoginResponse, e
 		return nil, errors.New("Invalid administrative credentials")
 	}
 
-	token, err := utils.GenerateToken(user.ID, user.Email, user.Role)
+	token, err := utils.GenerateToken(user.ID, user.Email, user.Role, 0)
 	if err != nil {
 		return nil, errors.New("Failed to generate secure token")
 	}

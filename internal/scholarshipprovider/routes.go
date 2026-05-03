@@ -45,6 +45,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			scholarshipProvider.DELETE("/scholarships/:id", h.DeleteScholarship)
 
 			scholarshipProvider.GET("/applications", h.GetApplications)
+			scholarshipProvider.GET("/applications/export", h.ExportApplications)
 			scholarshipProvider.GET("/applications/:id", h.GetApplicationByID)
 			scholarshipProvider.PUT("/applications/:id/evaluate", h.EvaluateApplication)
 			scholarshipProvider.PUT("/applications/:id/status", h.UpdateApplicationStatus)
@@ -60,6 +61,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			scholarshipProvider.GET("/profile", h.GetProfile)
 			scholarshipProvider.PUT("/profile", h.UpdateProfile)
 			scholarshipProvider.PUT("/change-password", h.ChangePassword)
+			scholarshipProvider.PUT("/change-email", h.ChangeEmail)
 			scholarshipProvider.GET("/settings", h.GetSettings)
 			scholarshipProvider.PUT("/settings", h.UpdateSettings)
 

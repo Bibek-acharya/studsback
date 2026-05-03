@@ -317,7 +317,7 @@ type ProviderAccessUser struct {
 	ProviderID  uint           `gorm:"index;not null" json:"provider_id"`
 	Name        string         `gorm:"not null" json:"name"`
 	Email       string         `gorm:"uniqueIndex;not null" json:"email"`
-	Password    string         `gorm:"-" json:"-"`
+	Password    string         `json:"-"`
 	Role        string         `gorm:"default:'user'" json:"role"`
 	RoleLabel   string         `gorm:"default:'User'" json:"role_label"`
 	Status      string         `gorm:"default:'Active'" json:"status"`

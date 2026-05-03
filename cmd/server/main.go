@@ -202,7 +202,7 @@ func main() {
 	})
 
 	authMW := middleware.Auth()
-	roleMW := middleware.RequireRole("admin", "super_admin", "scholarship_provider", "institution")
+	roleMW := middleware.RequireRole("admin", "super_admin", "scholarship_provider", "scholarship-provider", "Scholarship Provider", "scholarship_provider_subuser", "institution")
 
 	admission.RegisterRoutes(router, authMW, roleMW, admissionHandler)
 	auth.RegisterRoutes(router, authMW, roleMW, authHandler)

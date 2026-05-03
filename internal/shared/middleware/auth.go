@@ -57,6 +57,10 @@ func Auth() gin.HandlerFunc {
 		}
 
 		if token == "" {
+			token = c.Query("token")
+		}
+
+		if token == "" {
 			response.Error(c, 401, "Authentication required")
 			c.Abort()
 			return
@@ -70,6 +74,7 @@ func Auth() gin.HandlerFunc {
 		}
 
 		c.Set("user_id", claims.UserID)
+		c.Set("provider_id", claims.ProviderID)
 		c.Set("user_email", claims.Email)
 		c.Set("user_role", claims.Role)
 
@@ -98,15 +103,15 @@ func RequireRole(allowedRoles ...string) gin.HandlerFunc {
 			return
 		}
 
-		role := userRole.(string)
+		role := strings.ToLower(strings.TrimSpace(userRole.(string)))
 		for _, allowedRole := range allowedRoles {
-			if role == allowedRole {
+			if role == strings.ToLower(strings.TrimSpace(allowedRole)) {
 				c.Next()
 				return
 			}
 		}
 
-		response.Error(c, 403, "Insufficient permissions")
+		response.Error(c, 403, "Insufficient permissions. Role: " + role)
 		c.Abort()
 	}
 }

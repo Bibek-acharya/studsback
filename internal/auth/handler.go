@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -16,10 +17,10 @@ import (
 	"studsphere/backend/internal/shared/config"
 	"studsphere/backend/internal/shared/middleware"
 	"studsphere/backend/internal/shared/response"
+	"studsphere/backend/internal/shared/utils"
 	"studsphere/backend/internal/scholarshipprovider"
 
 	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 )
@@ -31,16 +32,6 @@ func SetScholarshipProviderHandler(h *scholarshipprovider.Handler) {
 	spHandler = h
 }
 
-func generateAccessUserToken(userID, providerID uint) (string, error) {
-	claims := jwt.MapClaims{
-		"user_id":     userID,
-		"provider_id": providerID,
-		"type":       "access_user",
-		"exp":        time.Now().Add(time.Hour * 24).Unix(),
-	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte("your-secret-key"))
-}
 type OAuthStateStore struct {
 	states map[string]struct {
 		redirectURL string
@@ -345,14 +336,21 @@ func (h *Handler) GoogleCallback(c *gin.Context) {
 	}
 
 	middleware.SetAuthCookie(c, jwtToken)
+	
+	// Construct the callback URL with the token to sync with frontend localStorage
+	frontendCallback := fmt.Sprintf("%s/auth/google-callback?token=%s", 
+		strings.TrimRight(config.AppConfig.FrontendURL, "/"), 
+		jwtToken)
 
-	// Use the redirect URL from state (original destination) instead of fixed callback
+	// Use the redirect URL from state (original destination)
 	finalRedirectURL := redirectURL
 	if finalRedirectURL == "" {
-		finalRedirectURL = resolveOAuthRedirectURL(config.AppConfig.FrontendURL, "")
+		finalRedirectURL = "/"
 	}
+	
+	frontendCallback = fmt.Sprintf("%s&redirect=%s", frontendCallback, url.QueryEscape(finalRedirectURL))
 
-	c.Redirect(http.StatusTemporaryRedirect, finalRedirectURL)
+	c.Redirect(http.StatusTemporaryRedirect, frontendCallback)
 }
 
 func (h *Handler) GetProfile(c *gin.Context) {
@@ -531,7 +529,7 @@ func (h *Handler) InstitutionGoogleCallback(c *gin.Context) {
 		return
 	}
 
-	instUser, jwtToken, err := h.service.InstitutionGoogleLoginOrRegister(googleUser.ID, googleUser.Email, googleUser.Name)
+	_, jwtToken, err := h.service.InstitutionGoogleLoginOrRegister(googleUser.ID, googleUser.Email, googleUser.Name)
 	if err != nil {
 		response.Error(c, 500, err.Error())
 		return
@@ -539,23 +537,19 @@ func (h *Handler) InstitutionGoogleCallback(c *gin.Context) {
 
 	middleware.SetAuthCookie(c, jwtToken)
 
+	// Construct the callback URL with the token to sync with frontend localStorage
+	frontendCallback := fmt.Sprintf("%s/auth/google-callback?token=%s&role=institution", 
+		strings.TrimRight(config.AppConfig.FrontendURL, "/"), 
+		jwtToken)
+
 	// Use redirect URL from state (original destination)
 	if redirectURL == "" {
 		redirectURL = "/institutions/dashboard"
 	}
 
-	// If redirect contains query params, preserve user data
-	if strings.Contains(redirectURL, "?") {
-		userData, _ := json.Marshal(gin.H{
-			"id":               instUser.ID,
-			"institution_name": instUser.InstitutionName,
-			"email":            instUser.Email,
-			"role":             instUser.Role,
-		})
-		redirectURL += "&user=" + url.QueryEscape(string(userData))
-	}
+	frontendCallback = fmt.Sprintf("%s&redirect=%s", frontendCallback, url.QueryEscape(redirectURL))
 
-	c.Redirect(302, redirectURL)
+	c.Redirect(http.StatusTemporaryRedirect, frontendCallback)
 }
 
 func (h *Handler) ScholarshipProviderRegister(c *gin.Context) {
@@ -583,14 +577,33 @@ func (h *Handler) ScholarshipProviderLogin(c *gin.Context) {
 
 	result, err := h.service.ScholarshipProviderLogin(req)
 	if err != nil {
-		if strings.Contains(err.Error(), "record not found") {
+		if strings.Contains(err.Error(), "record not found") || strings.Contains(err.Error(), "Invalid email or password") {
 			if spHandler != nil {
 				user, spErr := spHandler.GetService().LoginAccessUser(req.Email, req.Password, 0)
 				if spErr == nil {
-					token, tokenErr := generateAccessUserToken(user.ID, user.ProviderID)
+					token, tokenErr := utils.GenerateToken(user.ID, user.Email, "scholarship_provider_subuser", user.ProviderID)
 					if tokenErr == nil {
+						middleware.SetAuthCookie(c, token)
+						
+						spHandler.GetService().CreateNotification(
+							user.ProviderID,
+							"New Login",
+							fmt.Sprintf("Access user %s logged in.", user.Name),
+							"system",
+							"assign-access",
+						)
+
 						response.Success(c, 200, "Login successful", gin.H{
-							"user": user,
+							"user": gin.H{
+								"id":          user.ID,
+								"email":       user.Email,
+								"first_name":  user.Name,
+								"last_name":   "",
+								"role":        "scholarship_provider_subuser",
+								"provider_id": user.ProviderID,
+								"permissions": user.Permissions,
+								"is_sub_user": true,
+							},
 							"token": token,
 						})
 						return
@@ -603,6 +616,27 @@ func (h *Handler) ScholarshipProviderLogin(c *gin.Context) {
 	}
 
 	middleware.SetAuthCookie(c, result.Token)
+
+	if spHandler != nil {
+		if providerUser, ok := result.User.(*ScholarshipProviderUser); ok {
+			spHandler.GetService().CreateNotification(
+				providerUser.ID,
+				"New Login",
+				"You have successfully logged in.",
+				"system",
+				"sec-dashboard",
+			)
+		} else if providerUser, ok := result.User.(ScholarshipProviderUser); ok {
+			spHandler.GetService().CreateNotification(
+				providerUser.ID,
+				"New Login",
+				"You have successfully logged in.",
+				"system",
+				"sec-dashboard",
+			)
+		}
+	}
+
 	response.Success(c, 200, "Scholarship provider login successful", result)
 }
 
@@ -703,25 +737,31 @@ func (h *Handler) ScholarshipProviderGoogleCallback(c *gin.Context) {
 		return
 	}
 
+	if spHandler != nil && providerUser != nil {
+		spHandler.GetService().CreateNotification(
+			providerUser.ID,
+			"New Login",
+			"You have successfully logged in via Google.",
+			"system",
+			"sec-dashboard",
+		)
+	}
+
 	middleware.SetAuthCookie(c, jwtToken)
+
+	// Construct the callback URL with the token to sync with frontend localStorage
+	frontendCallback := fmt.Sprintf("%s/auth/google-callback?token=%s&role=scholarship_provider", 
+		strings.TrimRight(config.AppConfig.FrontendURL, "/"), 
+		jwtToken)
 
 	// Use redirect URL from state (original destination)
 	if redirectURL == "" {
 		redirectURL = "/scholarship-provider/dashboard"
 	}
 
-	// If redirect contains query params, preserve user data
-	if strings.Contains(redirectURL, "?") {
-		userData, _ := json.Marshal(gin.H{
-			"id":            providerUser.ID,
-			"provider_name": providerUser.ProviderName,
-			"email":         providerUser.Email,
-			"role":          providerUser.Role,
-		})
-		redirectURL += "&user=" + url.QueryEscape(string(userData))
-	}
+	frontendCallback = fmt.Sprintf("%s&redirect=%s", frontendCallback, url.QueryEscape(redirectURL))
 
-	c.Redirect(302, redirectURL)
+	c.Redirect(http.StatusTemporaryRedirect, frontendCallback)
 }
 
 func (h *Handler) SuperadminRegister(c *gin.Context) {

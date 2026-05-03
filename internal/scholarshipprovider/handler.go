@@ -3,10 +3,13 @@ package scholarshipprovider
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/xuri/excelize/v2"
 
 	"studsphere/backend/internal/shared/response"
 	"studsphere/backend/internal/shared/utils"
@@ -29,6 +32,10 @@ func (h *Handler) GetService() *Service {
 }
 
 func getProviderID(c *gin.Context) uint {
+	providerID, ok := c.Get("provider_id")
+	if ok && providerID.(uint) > 0 {
+		return providerID.(uint)
+	}
 	userID, _ := c.Get("user_id")
 	return userID.(uint)
 }
@@ -284,6 +291,58 @@ func (h *Handler) GetApplications(c *gin.Context) {
 	})
 }
 
+func (h *Handler) ExportApplications(c *gin.Context) {
+	providerID := getProviderID(c)
+
+	applications, _, err := h.service.GetApplications(providerID, 1, 10000, "", "")
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch applications for export")
+		return
+	}
+
+	f := excelize.NewFile()
+	defer f.Close()
+
+	sheetName := "Applications"
+	index, _ := f.NewSheet(sheetName)
+	f.SetActiveSheet(index)
+
+	headers := []string{"ID", "Scholarship", "Full Name", "Email", "Phone", "Status", "Score", "Province", "District", "Created At"}
+	for col, header := range headers {
+		cell, _ := excelize.CoordinatesToCellName(col+1, 1)
+		f.SetCellValue(sheetName, cell, header)
+	}
+
+	for i, a := range applications {
+		row := i + 2
+		scholarshipTitle := ""
+		if a.Scholarship.ID != 0 {
+			scholarshipTitle = a.Scholarship.Title
+		}
+
+		f.SetCellValue(sheetName, fmt.Sprintf("A%d", row), a.ID)
+		f.SetCellValue(sheetName, fmt.Sprintf("B%d", row), scholarshipTitle)
+		f.SetCellValue(sheetName, fmt.Sprintf("C%d", row), a.FirstName+" "+a.LastName)
+		f.SetCellValue(sheetName, fmt.Sprintf("D%d", row), a.Email)
+		f.SetCellValue(sheetName, fmt.Sprintf("E%d", row), a.PhoneNumber)
+		f.SetCellValue(sheetName, fmt.Sprintf("F%d", row), a.Status)
+		f.SetCellValue(sheetName, fmt.Sprintf("G%d", row), a.EvaluationScore)
+		f.SetCellValue(sheetName, fmt.Sprintf("H%d", row), a.Province)
+		f.SetCellValue(sheetName, fmt.Sprintf("I%d", row), a.District)
+		f.SetCellValue(sheetName, fmt.Sprintf("J%d", row), a.CreatedAt.Format("2006-01-02 15:04:05"))
+	}
+
+	f.DeleteSheet("Sheet1") // Remove default sheet
+
+	c.Header("Content-Disposition", "attachment; filename=applications.xlsx")
+	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	c.Header("Content-Transfer-Encoding", "binary")
+	
+	if err := f.Write(c.Writer); err != nil {
+		log.Printf("Failed to write excel file: %v", err)
+	}
+}
+
 func (h *Handler) GetApplicationByID(c *gin.Context) {
 	providerID := getProviderID(c)
 	idStr := c.Param("id")
@@ -486,8 +545,27 @@ func (h *Handler) GetMessageByID(c *gin.Context) {
 }
 
 func (h *Handler) GetProfile(c *gin.Context) {
-	providerID := getProviderID(c)
+	userID, _ := c.Get("user_id")
+	role, _ := c.Get("user_role")
 
+	if role == "scholarship_provider_subuser" {
+		user, err := h.service.GetAccessUser(userID.(uint))
+		if err == nil {
+			response.Success(c, http.StatusOK, "Profile retrieved successfully", ProfileResponse{
+				ID:                 user.ID,
+				ProviderName:       user.Name,
+				RegistrationNumber: "SUBUSER",
+				Email:              user.Email,
+				Role:               user.Role,
+				IsSubUser:          true,
+				Permissions:        user.Permissions,
+				ProviderID:         user.ProviderID,
+			})
+			return
+		}
+	}
+
+	providerID := getProviderID(c)
 	provider, err := h.service.GetProviderProfile(providerID)
 	if err != nil {
 		response.Error(c, http.StatusNotFound, "Provider not found")
@@ -542,6 +620,27 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 
 	response.Success(c, http.StatusOK, "Password changed successfully", ChangePasswordResponse{
 		Message: "Password changed successfully",
+	})
+}
+
+func (h *Handler) ChangeEmail(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+	userRole, _ := c.Get("user_role")
+	isSubUser := userRole == "scholarship_provider_subuser"
+
+	var req ChangeEmailRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err := h.service.ChangeEmail(userID.(uint), isSubUser, req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Email changed successfully", ChangeEmailResponse{
+		Message: "Email changed successfully",
 	})
 }
 
@@ -1837,7 +1936,9 @@ func (h *Handler) DeleteAccessUser(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.DeleteAccessUser(uint(id)); err != nil {
+	providerID := getProviderID(c)
+
+	if err := h.service.DeleteAccessUser(uint(id), providerID); err != nil {
 		response.Error(c, http.StatusInternalServerError, "Failed to delete access user")
 		return
 	}

@@ -398,14 +398,17 @@ type UpdateProfileRequest struct {
 }
 
 type ProfileResponse struct {
-	ID                 uint   `json:"id"`
-	ProviderName       string `json:"provider_name"`
-	RegistrationNumber string `json:"registration_number"`
-	Email              string `json:"email"`
-	ContactNumber      string `json:"contact_number"`
-	PANNumber          string `json:"pan_number"`
-	WebsiteURL         string `json:"website_url"`
-	Role               string `json:"role"`
+	ID                 uint     `json:"id"`
+	ProviderName       string   `json:"provider_name"`
+	RegistrationNumber string   `json:"registration_number"`
+	Email              string   `json:"email"`
+	ContactNumber      string   `json:"contact_number"`
+	PANNumber          string   `json:"pan_number"`
+	WebsiteURL         string   `json:"website_url"`
+	Role               string   `json:"role"`
+	IsSubUser          bool     `json:"is_sub_user"`
+	Permissions        []string `json:"permissions"`
+	ProviderID         uint     `json:"provider_id"`
 }
 
 type UpdateSettingsRequest struct {
@@ -714,5 +717,14 @@ type ChangePasswordRequest struct {
 }
 
 type ChangePasswordResponse struct {
+	Message string `json:"message"`
+}
+
+type ChangeEmailRequest struct {
+	NewEmail string `json:"new_email" binding:"required,email"`
+	Password string `json:"password" binding:"required"`
+}
+
+type ChangeEmailResponse struct {
 	Message string `json:"message"`
 }

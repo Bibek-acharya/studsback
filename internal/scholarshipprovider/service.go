@@ -32,6 +32,25 @@ func (s *Service) GetDashboard(providerID uint) (*DashboardResponse, error) {
 		return nil, err
 	}
 
+	// Proactive profile completeness check
+	profile, err := s.repo.GetProviderProfile(providerID)
+	if err == nil {
+		isIncomplete := profile.ContactNumber == "" || profile.PANNumber == "" || profile.WebsiteURL == ""
+		if isIncomplete {
+			// Check if notification already exists
+			exists, _ := s.repo.CheckNotificationExists(providerID, "Profile Incomplete")
+			if !exists {
+				s.repo.CreateNotification(&ProviderNotification{
+					ProviderID: providerID,
+					Title:      "Profile Incomplete",
+					Message:    "Your profile is incomplete—please complete it to continue.",
+					Type:       "system",
+					Link:       "org-profile",
+				})
+			}
+		}
+	}
+
 	return &DashboardResponse{
 		TotalScholarships:   totalScholarships,
 		TotalApplications:   totalApplications,
@@ -198,6 +217,14 @@ func (s *Service) CreateScholarship(providerID uint, req CreateScholarshipReques
 	if err := s.syncPublicScholarship(providerID, scholarship, status, false); err != nil {
 		return nil, err
 	}
+
+	s.repo.CreateNotification(&ProviderNotification{
+		ProviderID: providerID,
+		Title:      "Scholarship Created",
+		Message:    "Your scholarship has been created successfully.",
+		Type:       "scholarship",
+		Link:       "manage-scholarships",
+	})
 
 	return scholarship, nil
 }
@@ -535,6 +562,21 @@ func (s *Service) UpdateScholarship(providerID, id uint, req CreateScholarshipRe
 		log.Printf("scholarshipprovider: UpdateScholarship syncPublicScholarship error: %v", err)
 	}
 
+	message := "Your scholarship draft has been updated."
+	title := "Scholarship Updated"
+	if statusToSync == "published" || statusToSync == "active" {
+		message = "Your scholarship is now live and visible in the directory."
+		title = "Scholarship Published"
+	}
+
+	s.repo.CreateNotification(&ProviderNotification{
+		ProviderID: providerID,
+		Title:      title,
+		Message:    message,
+		Type:       "scholarship",
+		Link:       "manage-scholarships",
+	})
+
 	return scholarship, nil
 }
 
@@ -594,6 +636,21 @@ func (s *Service) UpdateApplicationStatus(providerID, id uint, req UpdateApplica
 		return nil, err
 	}
 
+	message := fmt.Sprintf("You have %s an application.", req.Status)
+	if req.Status == "shortlisted" {
+		message = "You have shortlisted an application."
+	} else if req.Status == "rejected" {
+		message = "You have rejected an application."
+	}
+
+	s.repo.CreateNotification(&ProviderNotification{
+		ProviderID: providerID,
+		Title:      "Application Status Updated",
+		Message:    message,
+		Type:       "application",
+		Link:       "applications",
+	})
+
 	return application, nil
 }
 
@@ -622,6 +679,14 @@ func (s *Service) CreateInterview(providerID uint, req CreateInterviewRequest) (
 	if err := s.repo.CreateInterview(interview); err != nil {
 		return nil, err
 	}
+
+	s.repo.CreateNotification(&ProviderNotification{
+		ProviderID: providerID,
+		Title:      "Interview Scheduled",
+		Message:    "An interview has been scheduled.",
+		Type:       "interview",
+		Link:       "interviews",
+	})
 
 	return interview, nil
 }
@@ -737,6 +802,14 @@ func (s *Service) UpdateProviderProfile(providerID uint, req UpdateProfileReques
 		return nil, err
 	}
 
+	s.repo.CreateNotification(&ProviderNotification{
+		ProviderID: providerID,
+		Title:      "Profile Updated",
+		Message:    "Your profile has been updated successfully.",
+		Type:       "system",
+		Link:       "org-profile",
+	})
+
 	return provider, nil
 }
 
@@ -767,7 +840,71 @@ func (s *Service) ChangePassword(providerID uint, req ChangePasswordRequest) err
 		return err
 	}
 
+	s.repo.CreateNotification(&ProviderNotification{
+		ProviderID: providerID,
+		Title:      "Password Changed",
+		Message:    "Your password has been changed successfully.",
+		Type:       "system",
+		Link:       "settings",
+	})
+
 	return nil
+}
+
+func (s *Service) ChangeEmail(userID uint, isSubUser bool, req ChangeEmailRequest) error {
+	var currentPassword string
+
+	if isSubUser {
+		user, err := s.repo.GetAccessUserByID(userID)
+		if err != nil {
+			return err
+		}
+		currentPassword = user.Password
+	} else {
+		provider, err := s.repo.GetProviderProfile(userID)
+		if err != nil {
+			return err
+		}
+		if provider.Password == nil {
+			return errors.New("password not set for this account")
+		}
+		currentPassword = *provider.Password
+	}
+
+	if currentPassword == "" {
+		return errors.New("password not set for this account")
+	}
+
+	// Verify password
+	if err := bcrypt.CompareHashAndPassword([]byte(currentPassword), []byte(req.Password)); err != nil {
+		return errors.New("invalid password")
+	}
+
+	// Check if new email is taken
+	taken, err := s.repo.IsEmailTaken(req.NewEmail)
+	if err != nil {
+		return err
+	}
+	if taken {
+		return errors.New("email already in use")
+	}
+
+	if isSubUser {
+		err = s.repo.UpdateAccessUserEmail(userID, req.NewEmail)
+	} else {
+		err = s.repo.UpdateProviderEmail(userID, req.NewEmail)
+	}
+
+	if err == nil {
+		s.repo.CreateNotification(&ProviderNotification{
+			ProviderID: userID,
+			Title:      "Email Updated",
+			Message:    "Your email address has been updated successfully.",
+			Type:       "system",
+			Link:       "settings",
+		})
+	}
+	return err
 }
 
 func (s *Service) GetProviderSettings(providerID uint) (*ProviderSettings, error) {
@@ -871,6 +1008,14 @@ func (s *Service) CreateNews(providerID uint, req CreateNewsRequest) (*ProviderN
 	if err := s.repo.CreateNews(news); err != nil {
 		return nil, err
 	}
+
+	s.repo.CreateNotification(&ProviderNotification{
+		ProviderID: providerID,
+		Title:      "News Created",
+		Message:    "A new news item has been created.",
+		Type:       "news",
+		Link:       "news-directory",
+	})
 
 	return news, nil
 }
@@ -989,6 +1134,14 @@ func (s *Service) CreateEvent(providerID uint, req CreateEventRequest) (*Provide
 		return nil, err
 	}
 
+	s.repo.CreateNotification(&ProviderNotification{
+		ProviderID: providerID,
+		Title:      "Event Created",
+		Message:    "A new event has been created.",
+		Type:       "event",
+		Link:       "events-directory",
+	})
+
 	return event, nil
 }
 
@@ -1091,6 +1244,14 @@ func (s *Service) CreateBlog(providerID uint, req CreateBlogRequest) (*ProviderB
 		return nil, err
 	}
 
+	s.repo.CreateNotification(&ProviderNotification{
+		ProviderID: providerID,
+		Title:      "Blog Created",
+		Message:    "A new blog post has been created.",
+		Type:       "blog",
+		Link:       "blog-directory",
+	})
+
 	return blog, nil
 }
 
@@ -1169,6 +1330,14 @@ func (s *Service) CreateCalendarEvent(providerID uint, req CreateCalendarEventRe
 	if err := s.repo.CreateCalendarEvent(event); err != nil {
 		return nil, err
 	}
+
+	s.repo.CreateNotification(&ProviderNotification{
+		ProviderID: providerID,
+		Title:      "Calendar Task Added",
+		Message:    "A new task has been added to your calendar.",
+		Type:       "calendar",
+		Link:       "calendar",
+	})
 
 	return event, nil
 }
@@ -1432,6 +1601,14 @@ func (s *Service) CreateAccessUser(req CreateAccessUserRequest, providerID uint)
 		return nil, err
 	}
 
+	s.repo.CreateNotification(&ProviderNotification{
+		ProviderID: providerID,
+		Title:      "Access Granted",
+		Message:    fmt.Sprintf("Access has been granted to %s.", user.Email),
+		Type:       "system",
+		Link:       "assign-access",
+	})
+
 	return toAccessUserResponse(user), nil
 }
 
@@ -1519,7 +1696,17 @@ func (s *Service) UpdateAccessUser(id uint, req UpdateAccessUserRequest) (*Acces
 	return toAccessUserResponse(user), nil
 }
 
-func (s *Service) DeleteAccessUser(id uint) error {
+func (s *Service) DeleteAccessUser(id uint, providerID uint) error {
+	user, err := s.repo.GetAccessUserByID(id)
+	if err == nil {
+		s.repo.CreateNotification(&ProviderNotification{
+			ProviderID: providerID,
+			Title:      "Access Removed",
+			Message:    fmt.Sprintf("Access has been removed from %s.", user.Email),
+			Type:       "system",
+			Link:       "assign-access",
+		})
+	}
 	return s.repo.DeleteAccessUser(id)
 }
 
@@ -1530,28 +1717,17 @@ func (s *Service) UpdatePermissions(id uint, permissions []string) error {
 func (s *Service) LoginAccessUser(email, password string, providerID uint) (*AccessUserResponse, error) {
 	log.Printf("[DEBUG] LoginAccessUser: email=%s, providerID=%d", email, providerID)
 
-	users, _, err := s.repo.GetAccessUsers(providerID, 1, 1000)
-	if err != nil || len(users) == 0 {
-		log.Printf("[DEBUG] No users found with providerID=%d, trying 1", providerID)
-		users, _, err = s.repo.GetAccessUsers(1, 1, 1000)
-	}
-	if err != nil || len(users) == 0 {
-		log.Printf("[DEBUG] No users found at all")
-		return nil, errors.New("invalid credentials")
-	}
-
-	log.Printf("[DEBUG] Found %d users", len(users))
-
 	var user *ProviderAccessUser
-	for _, u := range users {
-		log.Printf("[DEBUG] Checking user: email=%s, providerID=%d", u.Email, u.ProviderID)
-		if u.Email == email && (providerID == 0 || u.ProviderID == providerID) {
-			user = &u
-			break
-		}
+	var err error
+
+	if providerID > 0 {
+		user, err = s.repo.GetAccessUserByEmail(email, providerID)
+	} else {
+		user, err = s.repo.GetAccessUserByEmailOnly(email)
 	}
-	if user == nil {
-		log.Printf("[DEBUG] User not found")
+
+	if err != nil {
+		log.Printf("[DEBUG] User not found: %v", err)
 		return nil, errors.New("invalid credentials")
 	}
 
@@ -1563,6 +1739,8 @@ func (s *Service) LoginAccessUser(email, password string, providerID uint) (*Acc
 	}
 
 	user.LastActive = time.Now()
+	// Clear password to avoid re-hashing in UpdateAccessUser if not careful
+	// But UpdateAccessUser in repo handles it based on empty string
 	if err := s.repo.UpdateAccessUser(user); err != nil {
 		return nil, err
 	}
