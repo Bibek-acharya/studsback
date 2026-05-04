@@ -863,3 +863,209 @@ func (r *Repository) FindScholarshipByID(id uint) (*scholarship.Scholarship, err
 	}
 	return &s, nil
 }
+
+// ─── Provider Profile (Public) ───────────────────────────────────
+func (r *Repository) GetProviderByID(id uint) (*ScholarshipProviderUser, error) {
+	var provider ScholarshipProviderUser
+	if err := r.db.First(&provider, id).Error; err != nil {
+		return nil, err
+	}
+	return &provider, nil
+}
+
+func (r *Repository) CountProviderContent(providerID uint) (scholarships, news, events, blogs int64, err error) {
+	r.db.Model(&ProviderScholarship{}).Where("provider_id = ?", providerID).Count(&scholarships)
+	r.db.Model(&ProviderNews{}).Where("provider_id = ?", providerID).Count(&news)
+	r.db.Model(&ProviderEvent{}).Where("provider_id = ?", providerID).Count(&events)
+	r.db.Model(&ProviderBlog{}).Where("provider_id = ?", providerID).Count(&blogs)
+	return
+}
+
+// ─── Services ────────────────────────────────────────────────────
+func (r *Repository) GetServicesByProvider(providerID uint) ([]ProviderService, error) {
+	var items []ProviderService
+	if err := r.db.Where("provider_id = ?", providerID).Order("sort_order asc").Find(&items).Error; err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+func (r *Repository) GetServiceByIDAndProvider(id, providerID uint) (*ProviderService, error) {
+	var item ProviderService
+	if err := r.db.Where("id = ? AND provider_id = ?", id, providerID).First(&item).Error; err != nil {
+		return nil, err
+	}
+	return &item, nil
+}
+
+func (r *Repository) CreateService(item *ProviderService) error {
+	return r.db.Create(item).Error
+}
+
+func (r *Repository) UpdateService(item *ProviderService, updates map[string]interface{}) error {
+	return r.db.Model(item).Updates(updates).Error
+}
+
+func (r *Repository) DeleteService(id, providerID uint) error {
+	result := r.db.Where("id = ? AND provider_id = ?", id, providerID).Delete(&ProviderService{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+// ─── Sectors ─────────────────────────────────────────────────────
+func (r *Repository) GetSectorsByProvider(providerID uint) ([]ProviderSector, error) {
+	var items []ProviderSector
+	if err := r.db.Where("provider_id = ?", providerID).Order("sort_order asc").Find(&items).Error; err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+func (r *Repository) GetSectorByIDAndProvider(id, providerID uint) (*ProviderSector, error) {
+	var item ProviderSector
+	if err := r.db.Where("id = ? AND provider_id = ?", id, providerID).First(&item).Error; err != nil {
+		return nil, err
+	}
+	return &item, nil
+}
+
+func (r *Repository) CreateSector(item *ProviderSector) error {
+	return r.db.Create(item).Error
+}
+
+func (r *Repository) UpdateSector(item *ProviderSector, updates map[string]interface{}) error {
+	return r.db.Model(item).Updates(updates).Error
+}
+
+func (r *Repository) DeleteSector(id, providerID uint) error {
+	result := r.db.Where("id = ? AND provider_id = ?", id, providerID).Delete(&ProviderSector{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+// ─── Projects ────────────────────────────────────────────────────
+func (r *Repository) GetProjectsByProvider(providerID uint) ([]ProviderProject, error) {
+	var items []ProviderProject
+	if err := r.db.Where("provider_id = ?", providerID).Order("sort_order asc").Find(&items).Error; err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+func (r *Repository) GetProjectByIDAndProvider(id, providerID uint) (*ProviderProject, error) {
+	var item ProviderProject
+	if err := r.db.Where("id = ? AND provider_id = ?", id, providerID).First(&item).Error; err != nil {
+		return nil, err
+	}
+	return &item, nil
+}
+
+func (r *Repository) CreateProject(item *ProviderProject) error {
+	return r.db.Create(item).Error
+}
+
+func (r *Repository) UpdateProject(item *ProviderProject, updates map[string]interface{}) error {
+	return r.db.Model(item).Updates(updates).Error
+}
+
+func (r *Repository) DeleteProject(id, providerID uint) error {
+	result := r.db.Where("id = ? AND provider_id = ?", id, providerID).Delete(&ProviderProject{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+// ─── Gallery Images ──────────────────────────────────────────────
+func (r *Repository) GetGalleryImagesByProvider(providerID uint) ([]ProviderGalleryImage, error) {
+	var items []ProviderGalleryImage
+	if err := r.db.Where("provider_id = ?", providerID).Order("sort_order asc").Find(&items).Error; err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+func (r *Repository) GetGalleryImageByIDAndProvider(id, providerID uint) (*ProviderGalleryImage, error) {
+	var item ProviderGalleryImage
+	if err := r.db.Where("id = ? AND provider_id = ?", id, providerID).First(&item).Error; err != nil {
+		return nil, err
+	}
+	return &item, nil
+}
+
+func (r *Repository) CreateGalleryImage(item *ProviderGalleryImage) error {
+	return r.db.Create(item).Error
+}
+
+func (r *Repository) UpdateGalleryImage(item *ProviderGalleryImage, updates map[string]interface{}) error {
+	return r.db.Model(item).Updates(updates).Error
+}
+
+func (r *Repository) DeleteGalleryImage(id, providerID uint) error {
+	result := r.db.Where("id = ? AND provider_id = ?", id, providerID).Delete(&ProviderGalleryImage{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+// ─── Reviews ─────────────────────────────────────────────────────
+func (r *Repository) GetReviewsByProvider(providerID uint) ([]ProviderReview, error) {
+	var items []ProviderReview
+	if err := r.db.Where("provider_id = ?", providerID).Order("created_at desc").Find(&items).Error; err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+func (r *Repository) GetReviewByIDAndProvider(id, providerID uint) (*ProviderReview, error) {
+	var item ProviderReview
+	if err := r.db.Where("id = ? AND provider_id = ?", id, providerID).First(&item).Error; err != nil {
+		return nil, err
+	}
+	return &item, nil
+}
+
+func (r *Repository) CreateReview(item *ProviderReview) error {
+	return r.db.Create(item).Error
+}
+
+func (r *Repository) UpdateReview(item *ProviderReview, updates map[string]interface{}) error {
+	return r.db.Model(item).Updates(updates).Error
+}
+
+func (r *Repository) DeleteReview(id, providerID uint) error {
+	result := r.db.Where("id = ? AND provider_id = ?", id, providerID).Delete(&ProviderReview{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *Repository) GetPublishedReviews(providerID uint) ([]ProviderReview, error) {
+	var reviews []ProviderReview
+	if err := r.db.Where("provider_id = ? AND status = ?", providerID, "published").
+		Order("created_at desc").Find(&reviews).Error; err != nil {
+		return nil, err
+	}
+	return reviews, nil
+}

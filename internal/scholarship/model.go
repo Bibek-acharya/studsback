@@ -42,6 +42,7 @@ type Scholarship struct {
 	BankName                 string           `json:"bank_name"`
 	BankBranch               string           `json:"bank_branch"`
 	ProviderScholarshipID    *uint            `gorm:"index" json:"-"`
+	ProviderID               uint             `gorm:"-" json:"provider_id"`
 
 	// New fields from ProviderScholarship
 	ProviderName             string `gorm:"column:provider_name" json:"provider_name"`
@@ -78,6 +79,7 @@ type Scholarship struct {
 	GalleryImages            []byte `gorm:"type:jsonb;column:gallery_images" json:"gallery_images"`
 	GalleryImagesNew         []byte `gorm:"type:jsonb;column:gallery_images_new" json:"gallery_images_new"`
 	PartnerGroups            []byte `gorm:"type:jsonb;column:partner_groups" json:"partner_groups"`
+	PartnerMessages          []byte `gorm:"type:jsonb;column:partner_messages" json:"partner_messages"`
 	ExamCenters              []byte `gorm:"type:jsonb;column:exam_centers" json:"exam_centers"`
 	ExamCentersNew           []byte `gorm:"type:jsonb;column:exam_centers_new" json:"exam_centers_new"`
 	Downloads                []byte `gorm:"type:jsonb;column:downloads" json:"downloads"`

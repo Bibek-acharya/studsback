@@ -63,6 +63,7 @@ type ProviderScholarship struct {
 	GalleryImages            []byte    `gorm:"type:jsonb;column:gallery_images" json:"gallery_images"`
 	GalleryImagesNew         []byte    `gorm:"type:jsonb;column:gallery_images_new" json:"gallery_images_new"`
 	PartnerGroups            []byte    `gorm:"type:jsonb;column:partner_groups" json:"partner_groups"`
+	PartnerMessages          []byte    `gorm:"type:jsonb;column:partner_messages" json:"partner_messages"`
 	ExamCenters              []byte    `gorm:"type:jsonb;column:exam_centers" json:"exam_centers"`
 	ExamCentersNew           []byte    `gorm:"type:jsonb;column:exam_centers_new" json:"exam_centers_new"`
 	Downloads                []byte    `gorm:"type:jsonb;column:downloads" json:"downloads"`
@@ -205,6 +206,11 @@ type ScholarshipProviderUser struct {
 	ContactNumber      string         `json:"contact_number"`
 	PANNumber          string         `json:"pan_number"`
 	WebsiteURL         string         `json:"website_url"`
+	LogoURL            *string        `gorm:"default:null" json:"logo_url"`
+	Address            string         `gorm:"default:''" json:"address"`
+	AboutText          string         `gorm:"type:text;default:''" json:"about_text"`
+	Mission            string         `gorm:"type:text;default:''" json:"mission"`
+	Values             string         `gorm:"type:text;default:''" json:"values"`
 	GoogleID           *string        `gorm:"uniqueIndex;default:null" json:"google_id"`
 	Password           *string        `json:"-"`
 	Status             string         `gorm:"default:'pending'" json:"status"`
@@ -308,6 +314,68 @@ type ProviderAccess struct {
 	Email      string         `gorm:"not null" json:"email"`
 	Role       string         `gorm:"default:'viewer'" json:"role"`
 	Status     string         `gorm:"default:'pending'" json:"status"`
+}
+
+type ProviderService struct {
+	ID          uint      `gorm:"primarykey" json:"id"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+	ProviderID  uint      `gorm:"index;not null" json:"provider_id"`
+	Icon        string    `gorm:"default:''" json:"icon"`
+	Title       string    `gorm:"not null" json:"title"`
+	Description string    `gorm:"type:text" json:"description"`
+	SortOrder   int       `gorm:"default:0" json:"sort_order"`
+}
+
+type ProviderSector struct {
+	ID          uint      `gorm:"primarykey" json:"id"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+	ProviderID  uint      `gorm:"index;not null" json:"provider_id"`
+	Name        string    `gorm:"not null" json:"name"`
+	Description string    `gorm:"type:text" json:"description"`
+	Color       string    `gorm:"default:'#2563eb'" json:"color"`
+	ImageURL    string    `gorm:"default:''" json:"image_url"`
+	Icon        string    `gorm:"default:''" json:"icon"`
+	SortOrder   int       `gorm:"default:0" json:"sort_order"`
+}
+
+type ProviderProject struct {
+	ID          uint      `gorm:"primarykey" json:"id"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+	ProviderID  uint      `gorm:"index;not null" json:"provider_id"`
+	Title       string    `gorm:"not null" json:"title"`
+	Description string    `gorm:"type:text" json:"description"`
+	ImageURL    string    `gorm:"default:''" json:"image_url"`
+	Category    string    `gorm:"default:''" json:"category"`
+	Date        time.Time `json:"date"`
+	SortOrder   int       `gorm:"default:0" json:"sort_order"`
+}
+
+type ProviderGalleryImage struct {
+	ID         uint      `gorm:"primarykey" json:"id"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
+	ProviderID uint      `gorm:"index;not null" json:"provider_id"`
+	ImageURL   string    `gorm:"not null" json:"image_url"`
+	Caption    string    `gorm:"default:''" json:"caption"`
+	SortOrder  int       `gorm:"default:0" json:"sort_order"`
+}
+
+type ProviderReview struct {
+	ID         uint      `gorm:"primarykey" json:"id"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
+	ProviderID uint      `gorm:"index;not null" json:"provider_id"`
+	AuthorName string    `gorm:"not null" json:"author_name"`
+	AvatarURL  string    `gorm:"default:''" json:"avatar_url"`
+	Rating     int       `gorm:"default:5" json:"rating"`
+	Title      string    `gorm:"default:''" json:"title"`
+	Content    string    `gorm:"type:text" json:"content"`
+	Pros       string    `gorm:"type:text" json:"pros"`
+	Cons       string    `gorm:"type:text" json:"cons"`
+	Status     string    `gorm:"default:'published'" json:"status"`
 }
 
 type ProviderAccessUser struct {

@@ -624,11 +624,23 @@ func (h *Handler) GetProfile(c *gin.Context) {
 		return
 	}
 
+	logoURL := ""
+	if provider.LogoURL != nil {
+		logoURL = *provider.LogoURL
+	}
+
 	response.Success(c, http.StatusOK, "Profile retrieved successfully", ProfileResponse{
 		ID:                 provider.ID,
 		ProviderName:       provider.ProviderName,
 		RegistrationNumber: provider.RegistrationNumber,
 		Email:              provider.Email,
+		ContactNumber:      provider.ContactNumber,
+		WebsiteURL:         provider.WebsiteURL,
+		LogoURL:            logoURL,
+		Address:            provider.Address,
+		AboutText:          provider.AboutText,
+		Mission:            provider.Mission,
+		Values:             provider.Values,
 		Role:               provider.Role,
 		IsSubUser:          false,
 		ProviderID:         provider.ID,
@@ -650,11 +662,21 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 		return
 	}
 
+	logoURL := ""
+	if provider.LogoURL != nil {
+		logoURL = *provider.LogoURL
+	}
+
 	response.Success(c, http.StatusOK, "Profile updated successfully", ProfileResponse{
 		ID:                 provider.ID,
 		ProviderName:       provider.ProviderName,
 		RegistrationNumber: provider.RegistrationNumber,
 		Email:              provider.Email,
+		LogoURL:            logoURL,
+		Address:            provider.Address,
+		AboutText:          provider.AboutText,
+		Mission:            provider.Mission,
+		Values:             provider.Values,
 	})
 }
 
@@ -2168,4 +2190,397 @@ func (h *Handler) LoginAccessUserPublic(c *gin.Context) {
 		"token":       token,
 		"permissions": permissions,
 	})
+}
+
+// ─── Public Provider Profile ────────────────────────────────────
+func (h *Handler) GetPublicProviderProfile(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid provider ID")
+		return
+	}
+
+	profile, err := h.service.GetPublicProviderProfile(uint(id))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Provider not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Profile retrieved successfully", profile)
+}
+
+// ─── Services CRUD ──────────────────────────────────────────────
+func (h *Handler) CreateService(c *gin.Context) {
+	providerID := getProviderID(c)
+	var req CreateServiceRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	item, err := h.service.CreateService(providerID, req)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to create service")
+		return
+	}
+	response.Success(c, http.StatusCreated, "Service created successfully", item)
+}
+
+func (h *Handler) GetServices(c *gin.Context) {
+	providerID := getProviderID(c)
+	items, err := h.service.GetServices(providerID)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch services")
+		return
+	}
+	response.Success(c, http.StatusOK, "Services retrieved successfully", items)
+}
+
+func (h *Handler) GetServiceByID(c *gin.Context) {
+	providerID := getProviderID(c)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid service ID")
+		return
+	}
+	item, err := h.service.GetServiceByID(providerID, uint(id))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Service not found")
+		return
+	}
+	response.Success(c, http.StatusOK, "Service retrieved successfully", item)
+}
+
+func (h *Handler) UpdateService(c *gin.Context) {
+	providerID := getProviderID(c)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid service ID")
+		return
+	}
+	var req CreateServiceRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	item, err := h.service.UpdateService(providerID, uint(id), req)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Service not found")
+		return
+	}
+	response.Success(c, http.StatusOK, "Service updated successfully", item)
+}
+
+func (h *Handler) DeleteService(c *gin.Context) {
+	providerID := getProviderID(c)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid service ID")
+		return
+	}
+	if err := h.service.DeleteService(providerID, uint(id)); err != nil {
+		response.Error(c, http.StatusNotFound, "Service not found")
+		return
+	}
+	response.Success(c, http.StatusOK, "Service deleted successfully", nil)
+}
+
+// ─── Sectors CRUD ───────────────────────────────────────────────
+func (h *Handler) CreateSector(c *gin.Context) {
+	providerID := getProviderID(c)
+	var req CreateSectorRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	item, err := h.service.CreateSector(providerID, req)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to create sector")
+		return
+	}
+	response.Success(c, http.StatusCreated, "Sector created successfully", item)
+}
+
+func (h *Handler) GetSectors(c *gin.Context) {
+	providerID := getProviderID(c)
+	items, err := h.service.GetSectors(providerID)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch sectors")
+		return
+	}
+	response.Success(c, http.StatusOK, "Sectors retrieved successfully", items)
+}
+
+func (h *Handler) GetSectorByID(c *gin.Context) {
+	providerID := getProviderID(c)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid sector ID")
+		return
+	}
+	item, err := h.service.GetSectorByID(providerID, uint(id))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Sector not found")
+		return
+	}
+	response.Success(c, http.StatusOK, "Sector retrieved successfully", item)
+}
+
+func (h *Handler) UpdateSector(c *gin.Context) {
+	providerID := getProviderID(c)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid sector ID")
+		return
+	}
+	var req CreateSectorRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	item, err := h.service.UpdateSector(providerID, uint(id), req)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Sector not found")
+		return
+	}
+	response.Success(c, http.StatusOK, "Sector updated successfully", item)
+}
+
+func (h *Handler) DeleteSector(c *gin.Context) {
+	providerID := getProviderID(c)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid sector ID")
+		return
+	}
+	if err := h.service.DeleteSector(providerID, uint(id)); err != nil {
+		response.Error(c, http.StatusNotFound, "Sector not found")
+		return
+	}
+	response.Success(c, http.StatusOK, "Sector deleted successfully", nil)
+}
+
+// ─── Projects CRUD ──────────────────────────────────────────────
+func (h *Handler) CreateProject(c *gin.Context) {
+	providerID := getProviderID(c)
+	var req CreateProjectRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	item, err := h.service.CreateProject(providerID, req)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to create project")
+		return
+	}
+	response.Success(c, http.StatusCreated, "Project created successfully", item)
+}
+
+func (h *Handler) GetProjects(c *gin.Context) {
+	providerID := getProviderID(c)
+	items, err := h.service.GetProjects(providerID)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch projects")
+		return
+	}
+	response.Success(c, http.StatusOK, "Projects retrieved successfully", items)
+}
+
+func (h *Handler) GetProjectByID(c *gin.Context) {
+	providerID := getProviderID(c)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid project ID")
+		return
+	}
+	item, err := h.service.GetProjectByID(providerID, uint(id))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Project not found")
+		return
+	}
+	response.Success(c, http.StatusOK, "Project retrieved successfully", item)
+}
+
+func (h *Handler) UpdateProject(c *gin.Context) {
+	providerID := getProviderID(c)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid project ID")
+		return
+	}
+	var req CreateProjectRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	item, err := h.service.UpdateProject(providerID, uint(id), req)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Project not found")
+		return
+	}
+	response.Success(c, http.StatusOK, "Project updated successfully", item)
+}
+
+func (h *Handler) DeleteProject(c *gin.Context) {
+	providerID := getProviderID(c)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid project ID")
+		return
+	}
+	if err := h.service.DeleteProject(providerID, uint(id)); err != nil {
+		response.Error(c, http.StatusNotFound, "Project not found")
+		return
+	}
+	response.Success(c, http.StatusOK, "Project deleted successfully", nil)
+}
+
+// ─── Gallery Images CRUD ────────────────────────────────────────
+func (h *Handler) CreateGalleryImage(c *gin.Context) {
+	providerID := getProviderID(c)
+	var req CreateGalleryImageRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	item, err := h.service.CreateGalleryImage(providerID, req)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to create gallery image")
+		return
+	}
+	response.Success(c, http.StatusCreated, "Gallery image created successfully", item)
+}
+
+func (h *Handler) GetGalleryImages(c *gin.Context) {
+	providerID := getProviderID(c)
+	items, err := h.service.GetGalleryImages(providerID)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch gallery images")
+		return
+	}
+	response.Success(c, http.StatusOK, "Gallery images retrieved successfully", items)
+}
+
+func (h *Handler) GetGalleryImageByID(c *gin.Context) {
+	providerID := getProviderID(c)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid gallery image ID")
+		return
+	}
+	item, err := h.service.GetGalleryImageByID(providerID, uint(id))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Gallery image not found")
+		return
+	}
+	response.Success(c, http.StatusOK, "Gallery image retrieved successfully", item)
+}
+
+func (h *Handler) UpdateGalleryImage(c *gin.Context) {
+	providerID := getProviderID(c)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid gallery image ID")
+		return
+	}
+	var req CreateGalleryImageRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	item, err := h.service.UpdateGalleryImage(providerID, uint(id), req)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Gallery image not found")
+		return
+	}
+	response.Success(c, http.StatusOK, "Gallery image updated successfully", item)
+}
+
+func (h *Handler) DeleteGalleryImage(c *gin.Context) {
+	providerID := getProviderID(c)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid gallery image ID")
+		return
+	}
+	if err := h.service.DeleteGalleryImage(providerID, uint(id)); err != nil {
+		response.Error(c, http.StatusNotFound, "Gallery image not found")
+		return
+	}
+	response.Success(c, http.StatusOK, "Gallery image deleted successfully", nil)
+}
+
+// ─── Reviews CRUD ───────────────────────────────────────────────
+func (h *Handler) CreateReview(c *gin.Context) {
+	providerID := getProviderID(c)
+	var req CreateReviewRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	item, err := h.service.CreateReview(providerID, req)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to create review")
+		return
+	}
+	response.Success(c, http.StatusCreated, "Review created successfully", item)
+}
+
+func (h *Handler) GetReviews(c *gin.Context) {
+	providerID := getProviderID(c)
+	items, err := h.service.GetReviews(providerID)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch reviews")
+		return
+	}
+	response.Success(c, http.StatusOK, "Reviews retrieved successfully", items)
+}
+
+func (h *Handler) GetReviewByID(c *gin.Context) {
+	providerID := getProviderID(c)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid review ID")
+		return
+	}
+	item, err := h.service.GetReviewByID(providerID, uint(id))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Review not found")
+		return
+	}
+	response.Success(c, http.StatusOK, "Review retrieved successfully", item)
+}
+
+func (h *Handler) UpdateReview(c *gin.Context) {
+	providerID := getProviderID(c)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid review ID")
+		return
+	}
+	var req CreateReviewRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	item, err := h.service.UpdateReview(providerID, uint(id), req)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Review not found")
+		return
+	}
+	response.Success(c, http.StatusOK, "Review updated successfully", item)
+}
+
+func (h *Handler) DeleteReview(c *gin.Context) {
+	providerID := getProviderID(c)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid review ID")
+		return
+	}
+	if err := h.service.DeleteReview(providerID, uint(id)); err != nil {
+		response.Error(c, http.StatusNotFound, "Review not found")
+		return
+	}
+	response.Success(c, http.StatusOK, "Review deleted successfully", nil)
 }

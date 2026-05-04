@@ -254,6 +254,7 @@ func providerScholarshipToScholarship(ps *ProviderScholarship) *Scholarship {
 	return &Scholarship{
 		Title:                    ps.Title,
 		Provider:                 providerName,
+		ProviderID:               ps.ProviderID,
 		Location:                 ps.Location,
 		Value:                    ps.Value,
 		Deadline:                 ps.Deadline,
@@ -313,6 +314,7 @@ func providerScholarshipToScholarship(ps *ProviderScholarship) *Scholarship {
 		GalleryImages:           ps.GalleryImages,
 		GalleryImagesNew:        ps.GalleryImagesNew,
 		PartnerGroups:           ps.PartnerGroups,
+		PartnerMessages:         ps.PartnerMessages,
 		Downloads:               ps.Downloads,
 	}
 }

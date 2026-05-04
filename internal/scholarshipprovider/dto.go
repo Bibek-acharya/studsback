@@ -83,6 +83,13 @@ type PartnerOrganization struct {
 	Logo         string `json:"logo"`
 }
 
+type PartnerMessage struct {
+	Name    string `json:"name"`
+	Label   string `json:"label"`
+	Message string `json:"message"`
+	Logo    string `json:"logo"`
+}
+
 type ExamCenterItem struct {
 	Province       string `json:"province"`
 	HeaderColor    string `json:"headerColor"`
@@ -173,6 +180,7 @@ type CreateScholarshipRequest struct {
 	GalleryImages            []GalleryImageItem         `json:"gallery_images"`
 	GalleryImagesNew         []GalleryImageItem         `json:"gallery_images_new"`
 	PartnerGroups            []PartnerOrganization      `json:"partner_groups"`
+	PartnerMessages          []PartnerMessage           `json:"partner_messages"`
 	ExamCenters              []ExamCenterItem           `json:"exam_centers"`
 	ExamCentersNew           []ExamCenterItem           `json:"exam_centers_new"`
 	Downloads                []DownloadItem             `json:"downloads"`
@@ -235,6 +243,7 @@ type ScholarshipResponse struct {
 	GalleryImages            []GalleryImageItem         `json:"gallery_images"`
 	GalleryImagesNew         []GalleryImageItem         `json:"gallery_images_new"`
 	PartnerGroups            []PartnerOrganization      `json:"partner_groups"`
+	PartnerMessages          []PartnerMessage           `json:"partner_messages"`
 	ExamCenters              []ExamCenterItem           `json:"exam_centers"`
 	ExamCentersNew           []ExamCenterItem           `json:"exam_centers_new"`
 	Downloads                []DownloadItem             `json:"downloads"`
@@ -395,6 +404,11 @@ type UpdateProfileRequest struct {
 	ContactNumber      string `json:"contact_number"`
 	PANNumber          string `json:"pan_number"`
 	WebsiteURL         string `json:"website_url"`
+	LogoURL            string `json:"logo_url"`
+	Address            string `json:"address"`
+	AboutText          string `json:"about_text"`
+	Mission            string `json:"mission"`
+	Values             string `json:"values"`
 }
 
 type ProfileResponse struct {
@@ -405,6 +419,11 @@ type ProfileResponse struct {
 	ContactNumber      string   `json:"contact_number"`
 	PANNumber          string   `json:"pan_number"`
 	WebsiteURL         string   `json:"website_url"`
+	LogoURL            string   `json:"logo_url,omitempty"`
+	Address            string   `json:"address,omitempty"`
+	AboutText          string   `json:"about_text,omitempty"`
+	Mission            string   `json:"mission,omitempty"`
+	Values             string   `json:"values,omitempty"`
 	Role               string   `json:"role"`
 	IsSubUser          bool     `json:"is_sub_user"`
 	Permissions        []string `json:"permissions"`
@@ -751,4 +770,117 @@ type DetailedAnalyticsResponse struct {
 	Province        []MetricCount `json:"province"`
 	District        []MetricCount `json:"district"`
 	Status          []MetricCount `json:"status"`
+}
+
+// ─── Provider Profile (Public) ───────────────────────────────────
+type PublicProviderProfileResponse struct {
+	ID                 uint                 `json:"id"`
+	ProviderName       string               `json:"provider_name"`
+	RegistrationNumber string               `json:"registration_number,omitempty"`
+	Email              string               `json:"email,omitempty"`
+	ContactNumber      string               `json:"contact_number,omitempty"`
+	WebsiteURL         string               `json:"website_url,omitempty"`
+	LogoURL            string               `json:"logo_url,omitempty"`
+	Address            string               `json:"address,omitempty"`
+	AboutText          string               `json:"about_text,omitempty"`
+	Mission            string               `json:"mission,omitempty"`
+	Values             string               `json:"values,omitempty"`
+	Services           []ServiceResponse    `json:"services,omitempty"`
+	Sectors            []SectorResponse     `json:"sectors,omitempty"`
+	Projects           []ProjectResponse    `json:"projects,omitempty"`
+	Gallery            []GalleryImageResponse `json:"gallery,omitempty"`
+	Reviews            []ReviewResponse     `json:"reviews,omitempty"`
+	ScholarshipCount   int64                `json:"scholarship_count"`
+	NewsCount          int64                `json:"news_count"`
+	EventCount         int64                `json:"event_count"`
+	BlogCount          int64                `json:"blog_count"`
+}
+
+type ServiceResponse struct {
+	ID          uint   `json:"id"`
+	Icon        string `json:"icon"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	SortOrder   int    `json:"sort_order"`
+}
+
+type SectorResponse struct {
+	ID          uint   `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Color       string `json:"color"`
+	ImageURL    string `json:"image_url"`
+	Icon        string `json:"icon"`
+	SortOrder   int    `json:"sort_order"`
+}
+
+type ProjectResponse struct {
+	ID          uint   `json:"id"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	ImageURL    string `json:"image_url"`
+	Category    string `json:"category"`
+	Date        string `json:"date"`
+	SortOrder   int    `json:"sort_order"`
+}
+
+type GalleryImageResponse struct {
+	ID        uint   `json:"id"`
+	ImageURL  string `json:"image_url"`
+	Caption   string `json:"caption"`
+	SortOrder int    `json:"sort_order"`
+}
+
+type ReviewResponse struct {
+	ID         uint   `json:"id"`
+	AuthorName string `json:"author_name"`
+	AvatarURL  string `json:"avatar_url"`
+	Rating     int    `json:"rating"`
+	Title      string `json:"title"`
+	Content    string `json:"content"`
+	Pros       string `json:"pros"`
+	Cons       string `json:"cons"`
+	CreatedAt  string `json:"created_at"`
+}
+
+type CreateServiceRequest struct {
+	Icon        string `json:"icon"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	SortOrder   int    `json:"sort_order"`
+}
+
+type CreateSectorRequest struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Color       string `json:"color"`
+	ImageURL    string `json:"image_url"`
+	Icon        string `json:"icon"`
+	SortOrder   int    `json:"sort_order"`
+}
+
+type CreateProjectRequest struct {
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	ImageURL    string `json:"image_url"`
+	Category    string `json:"category"`
+	Date        string `json:"date"`
+	SortOrder   int    `json:"sort_order"`
+}
+
+type CreateGalleryImageRequest struct {
+	ImageURL  string `json:"image_url"`
+	Caption   string `json:"caption"`
+	SortOrder int    `json:"sort_order"`
+}
+
+type CreateReviewRequest struct {
+	AuthorName string `json:"author_name"`
+	AvatarURL  string `json:"avatar_url"`
+	Rating     int    `json:"rating"`
+	Title      string `json:"title"`
+	Content    string `json:"content"`
+	Pros       string `json:"pros"`
+	Cons       string `json:"cons"`
+	Status     string `json:"status"`
 }

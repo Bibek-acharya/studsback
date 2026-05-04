@@ -17,6 +17,7 @@ func RegisterPublicRoutes(r *gin.Engine, h *Handler) {
 			public.GET("/events/:id", h.GetPublicEventByID)
 			public.GET("/blogs", h.GetPublicBlogs)
 			public.GET("/blogs/:id", h.GetPublicBlogByID)
+			public.GET("/providers/:id", h.GetPublicProviderProfile)
 		}
 	}
 }
@@ -93,6 +94,36 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			scholarshipProvider.GET("/blogs/:id", h.GetBlogByID)
 			scholarshipProvider.PUT("/blogs/:id", h.UpdateBlog)
 			scholarshipProvider.DELETE("/blogs/:id", h.DeleteBlog)
+
+			scholarshipProvider.POST("/services", h.CreateService)
+			scholarshipProvider.GET("/services", h.GetServices)
+			scholarshipProvider.GET("/services/:id", h.GetServiceByID)
+			scholarshipProvider.PUT("/services/:id", h.UpdateService)
+			scholarshipProvider.DELETE("/services/:id", h.DeleteService)
+
+			scholarshipProvider.POST("/sectors", h.CreateSector)
+			scholarshipProvider.GET("/sectors", h.GetSectors)
+			scholarshipProvider.GET("/sectors/:id", h.GetSectorByID)
+			scholarshipProvider.PUT("/sectors/:id", h.UpdateSector)
+			scholarshipProvider.DELETE("/sectors/:id", h.DeleteSector)
+
+			scholarshipProvider.POST("/projects", h.CreateProject)
+			scholarshipProvider.GET("/projects", h.GetProjects)
+			scholarshipProvider.GET("/projects/:id", h.GetProjectByID)
+			scholarshipProvider.PUT("/projects/:id", h.UpdateProject)
+			scholarshipProvider.DELETE("/projects/:id", h.DeleteProject)
+
+			scholarshipProvider.POST("/gallery", h.CreateGalleryImage)
+			scholarshipProvider.GET("/gallery", h.GetGalleryImages)
+			scholarshipProvider.GET("/gallery/:id", h.GetGalleryImageByID)
+			scholarshipProvider.PUT("/gallery/:id", h.UpdateGalleryImage)
+			scholarshipProvider.DELETE("/gallery/:id", h.DeleteGalleryImage)
+
+			scholarshipProvider.POST("/reviews", h.CreateReview)
+			scholarshipProvider.GET("/reviews", h.GetReviews)
+			scholarshipProvider.GET("/reviews/:id", h.GetReviewByID)
+			scholarshipProvider.PUT("/reviews/:id", h.UpdateReview)
+			scholarshipProvider.DELETE("/reviews/:id", h.DeleteReview)
 
 			scholarshipProvider.POST("/calendar-events", h.CreateCalendarEvent)
 			scholarshipProvider.GET("/calendar-events", h.GetCalendarEvents)

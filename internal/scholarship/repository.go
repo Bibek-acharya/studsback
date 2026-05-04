@@ -136,6 +136,7 @@ type ProviderScholarship struct {
 	GalleryImages            []byte `gorm:"type:jsonb"`
 	GalleryImagesNew         []byte `gorm:"type:jsonb"`
 	PartnerGroups            []byte `gorm:"type:jsonb"`
+	PartnerMessages          []byte `gorm:"type:jsonb"`
 	Downloads                []byte `gorm:"type:jsonb"`
 }
 

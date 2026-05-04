@@ -283,26 +283,11 @@ func (s *Service) CreateScholarship(providerID uint, req CreateScholarshipReques
 		GalleryImages:            toJSON(req.GalleryImages),
 		GalleryImagesNew:         toJSON(req.GalleryImagesNew),
 		PartnerGroups:            toJSON(req.PartnerGroups),
+		PartnerMessages:          toJSON(req.PartnerMessages),
 		ExamCenters:              toJSON(req.ExamCenters),
 		ExamCentersNew:           toJSON(req.ExamCentersNew),
 		Downloads:                toJSON(req.Downloads),
 		PaymentConfig:            toJSON(req.PaymentConfig),
-	}
-
-	if req.ApplicationStartDate != "" {
-		if parsed, ok := parseOptionalTime(req.ApplicationStartDate); ok {
-			scholarship.ApplicationStartDate = parsed
-		} else {
-			return nil, errors.New("invalid application start date")
-		}
-	}
-	if deadlineValue != "" {
-		if parsed, ok := parseOptionalTime(deadlineValue); ok {
-			scholarship.Deadline = parsed
-			scholarship.ApplicationEndDate = parsed
-		} else {
-			return nil, errors.New("invalid application end date")
-		}
 	}
 
 	if err := s.repo.CreateScholarship(scholarship); err != nil {
@@ -389,6 +374,7 @@ func (s *Service) syncPublicScholarship(providerID uint, scholarship *ProviderSc
 		GalleryImages:            scholarship.GalleryImages,
 		GalleryImagesNew:         scholarship.GalleryImagesNew,
 		PartnerGroups:            scholarship.PartnerGroups,
+		PartnerMessages:          scholarship.PartnerMessages,
 		ExamCenters:              scholarship.ExamCenters,
 		ExamCentersNew:           scholarship.ExamCentersNew,
 		Downloads:                scholarship.Downloads,
@@ -450,6 +436,7 @@ func (s *Service) syncPublicScholarship(providerID uint, scholarship *ProviderSc
 			"gallery_images":            publicScholarship.GalleryImages,
 			"gallery_images_new":         publicScholarship.GalleryImagesNew,
 			"partner_groups":            publicScholarship.PartnerGroups,
+			"partner_messages":          publicScholarship.PartnerMessages,
 			"exam_centers":              publicScholarship.ExamCenters,
 			"exam_centers_new":           publicScholarship.ExamCentersNew,
 			"downloads":                publicScholarship.Downloads,
@@ -539,6 +526,7 @@ func (s *Service) UpdateScholarship(providerID, id uint, req CreateScholarshipRe
 	updates["gallery_images"] = toJSON(req.GalleryImages)
 	updates["gallery_images_new"] = toJSON(req.GalleryImagesNew)
 	updates["partner_groups"] = toJSON(req.PartnerGroups)
+	updates["partner_messages"] = toJSON(req.PartnerMessages)
 	updates["exam_centers"] = toJSON(req.ExamCenters)
 	updates["exam_centers_new"] = toJSON(req.ExamCentersNew)
 	updates["downloads"] = toJSON(req.Downloads)
@@ -624,6 +612,7 @@ func (s *Service) UpdateScholarship(providerID, id uint, req CreateScholarshipRe
 	resolved.GalleryImages = toJSON(req.GalleryImages)
 	resolved.GalleryImagesNew = toJSON(req.GalleryImagesNew)
 	resolved.PartnerGroups = toJSON(req.PartnerGroups)
+	resolved.PartnerMessages = toJSON(req.PartnerMessages)
 	resolved.ExamCenters = toJSON(req.ExamCenters)
 	resolved.ExamCentersNew = toJSON(req.ExamCentersNew)
 	resolved.Downloads = toJSON(req.Downloads)
@@ -970,6 +959,21 @@ func (s *Service) UpdateProviderProfile(providerID uint, req UpdateProfileReques
 	}
 	if req.WebsiteURL != "" {
 		updates["website_url"] = req.WebsiteURL
+	}
+	if req.LogoURL != "" {
+		updates["logo_url"] = req.LogoURL
+	}
+	if req.Address != "" {
+		updates["address"] = req.Address
+	}
+	if req.AboutText != "" {
+		updates["about_text"] = req.AboutText
+	}
+	if req.Mission != "" {
+		updates["mission"] = req.Mission
+	}
+	if req.Values != "" {
+		updates["values"] = req.Values
 	}
 
 	if err := s.repo.UpdateProviderProfile(provider, updates); err != nil {
@@ -1731,6 +1735,330 @@ func (s *Service) GetPublishedBlogs(page, limit int) ([]ProviderBlog, int64, err
 
 func (s *Service) GetPublishedBlogByID(id uint) (*ProviderBlog, error) {
 	return s.repo.GetPublishedBlogByID(id)
+}
+
+// ─── Public Provider Profile ────────────────────────────────────
+func (s *Service) GetPublicProviderProfile(id uint) (*PublicProviderProfileResponse, error) {
+	provider, err := s.repo.GetProviderByID(id)
+	if err != nil {
+		return nil, err
+	}
+
+	logoURL := ""
+	if provider.LogoURL != nil {
+		logoURL = *provider.LogoURL
+	}
+
+	services, _ := s.repo.GetServicesByProvider(id)
+	sectors, _ := s.repo.GetSectorsByProvider(id)
+	projects, _ := s.repo.GetProjectsByProvider(id)
+	gallery, _ := s.repo.GetGalleryImagesByProvider(id)
+	reviews, _ := s.repo.GetPublishedReviews(id)
+	schCount, newsCount, eventCount, blogCount, _ := s.repo.CountProviderContent(id)
+
+	serviceResponses := make([]ServiceResponse, len(services))
+	for i, svc := range services {
+		serviceResponses[i] = ServiceResponse{
+			ID: svc.ID, Icon: svc.Icon, Title: svc.Title,
+			Description: svc.Description, SortOrder: svc.SortOrder,
+		}
+	}
+
+	sectorResponses := make([]SectorResponse, len(sectors))
+	for i, sec := range sectors {
+		sectorResponses[i] = SectorResponse{
+			ID: sec.ID, Name: sec.Name, Description: sec.Description,
+			Color: sec.Color, ImageURL: sec.ImageURL, Icon: sec.Icon, SortOrder: sec.SortOrder,
+		}
+	}
+
+	projectResponses := make([]ProjectResponse, len(projects))
+	for i, proj := range projects {
+		dateStr := ""
+		if !proj.Date.IsZero() {
+			dateStr = proj.Date.Format("2006-01-02")
+		}
+		projectResponses[i] = ProjectResponse{
+			ID: proj.ID, Title: proj.Title, Description: proj.Description,
+			ImageURL: proj.ImageURL, Category: proj.Category, Date: dateStr, SortOrder: proj.SortOrder,
+		}
+	}
+
+	galleryResponses := make([]GalleryImageResponse, len(gallery))
+	for i, img := range gallery {
+		galleryResponses[i] = GalleryImageResponse{
+			ID: img.ID, ImageURL: img.ImageURL, Caption: img.Caption, SortOrder: img.SortOrder,
+		}
+	}
+
+	reviewResponses := make([]ReviewResponse, len(reviews))
+	for i, rev := range reviews {
+		reviewResponses[i] = ReviewResponse{
+			ID: rev.ID, AuthorName: rev.AuthorName, AvatarURL: rev.AvatarURL,
+			Rating: rev.Rating, Title: rev.Title, Content: rev.Content,
+			Pros: rev.Pros, Cons: rev.Cons, CreatedAt: rev.CreatedAt.Format(time.RFC3339),
+		}
+	}
+
+	return &PublicProviderProfileResponse{
+		ID:               provider.ID,
+		ProviderName:     provider.ProviderName,
+		Email:            provider.Email,
+		ContactNumber:    provider.ContactNumber,
+		WebsiteURL:       provider.WebsiteURL,
+		LogoURL:          logoURL,
+		Address:          provider.Address,
+		AboutText:        provider.AboutText,
+		Mission:          provider.Mission,
+		Values:           provider.Values,
+		Services:         serviceResponses,
+		Sectors:          sectorResponses,
+		Projects:         projectResponses,
+		Gallery:          galleryResponses,
+		Reviews:          reviewResponses,
+		ScholarshipCount: schCount,
+		NewsCount:        newsCount,
+		EventCount:       eventCount,
+		BlogCount:        blogCount,
+	}, nil
+}
+
+// ─── Services CRUD ────────────────────────────────────────────
+func (s *Service) CreateService(providerID uint, req CreateServiceRequest) (*ProviderService, error) {
+	item := &ProviderService{
+		ProviderID:  providerID,
+		Icon:        req.Icon,
+		Title:       req.Title,
+		Description: req.Description,
+		SortOrder:   req.SortOrder,
+	}
+	if err := s.repo.CreateService(item); err != nil {
+		return nil, err
+	}
+	return item, nil
+}
+
+func (s *Service) GetServices(providerID uint) ([]ProviderService, error) {
+	return s.repo.GetServicesByProvider(providerID)
+}
+
+func (s *Service) GetServiceByID(providerID, id uint) (*ProviderService, error) {
+	return s.repo.GetServiceByIDAndProvider(id, providerID)
+}
+
+func (s *Service) UpdateService(providerID, id uint, req CreateServiceRequest) (*ProviderService, error) {
+	item, err := s.repo.GetServiceByIDAndProvider(id, providerID)
+	if err != nil {
+		return nil, err
+	}
+	updates := map[string]interface{}{
+		"icon": req.Icon, "title": req.Title,
+		"description": req.Description, "sort_order": req.SortOrder,
+	}
+	if err := s.repo.UpdateService(item, updates); err != nil {
+		return nil, err
+	}
+	return item, nil
+}
+
+func (s *Service) DeleteService(providerID, id uint) error {
+	return s.repo.DeleteService(id, providerID)
+}
+
+// ─── Sectors CRUD ─────────────────────────────────────────────
+func (s *Service) CreateSector(providerID uint, req CreateSectorRequest) (*ProviderSector, error) {
+	date := time.Time{}
+	item := &ProviderSector{
+		ProviderID:  providerID,
+		Name:        req.Name,
+		Description: req.Description,
+		Color:       req.Color,
+		ImageURL:    req.ImageURL,
+		Icon:        req.Icon,
+		SortOrder:   req.SortOrder,
+	}
+	if err := s.repo.CreateSector(item); err != nil {
+		return nil, err
+	}
+	_ = date
+	return item, nil
+}
+
+func (s *Service) GetSectors(providerID uint) ([]ProviderSector, error) {
+	return s.repo.GetSectorsByProvider(providerID)
+}
+
+func (s *Service) GetSectorByID(providerID, id uint) (*ProviderSector, error) {
+	return s.repo.GetSectorByIDAndProvider(id, providerID)
+}
+
+func (s *Service) UpdateSector(providerID, id uint, req CreateSectorRequest) (*ProviderSector, error) {
+	item, err := s.repo.GetSectorByIDAndProvider(id, providerID)
+	if err != nil {
+		return nil, err
+	}
+	updates := map[string]interface{}{
+		"name": req.Name, "description": req.Description,
+		"color": req.Color, "image_url": req.ImageURL,
+		"icon": req.Icon, "sort_order": req.SortOrder,
+	}
+	if err := s.repo.UpdateSector(item, updates); err != nil {
+		return nil, err
+	}
+	return item, nil
+}
+
+func (s *Service) DeleteSector(providerID, id uint) error {
+	return s.repo.DeleteSector(id, providerID)
+}
+
+// ─── Projects CRUD ────────────────────────────────────────────
+func (s *Service) CreateProject(providerID uint, req CreateProjectRequest) (*ProviderProject, error) {
+	date := time.Time{}
+	if req.Date != "" {
+		if t, err := time.Parse("2006-01-02", req.Date); err == nil {
+			date = t
+		}
+	}
+	item := &ProviderProject{
+		ProviderID:  providerID,
+		Title:       req.Title,
+		Description: req.Description,
+		ImageURL:    req.ImageURL,
+		Category:    req.Category,
+		Date:        date,
+		SortOrder:   req.SortOrder,
+	}
+	if err := s.repo.CreateProject(item); err != nil {
+		return nil, err
+	}
+	return item, nil
+}
+
+func (s *Service) GetProjects(providerID uint) ([]ProviderProject, error) {
+	return s.repo.GetProjectsByProvider(providerID)
+}
+
+func (s *Service) GetProjectByID(providerID, id uint) (*ProviderProject, error) {
+	return s.repo.GetProjectByIDAndProvider(id, providerID)
+}
+
+func (s *Service) UpdateProject(providerID, id uint, req CreateProjectRequest) (*ProviderProject, error) {
+	item, err := s.repo.GetProjectByIDAndProvider(id, providerID)
+	if err != nil {
+		return nil, err
+	}
+	updates := map[string]interface{}{
+		"title": req.Title, "description": req.Description,
+		"image_url": req.ImageURL, "category": req.Category,
+		"sort_order": req.SortOrder,
+	}
+	if req.Date != "" {
+		if t, err := time.Parse("2006-01-02", req.Date); err == nil {
+			updates["date"] = t
+		}
+	}
+	if err := s.repo.UpdateProject(item, updates); err != nil {
+		return nil, err
+	}
+	return item, nil
+}
+
+func (s *Service) DeleteProject(providerID, id uint) error {
+	return s.repo.DeleteProject(id, providerID)
+}
+
+// ─── Gallery Images CRUD ──────────────────────────────────────
+func (s *Service) CreateGalleryImage(providerID uint, req CreateGalleryImageRequest) (*ProviderGalleryImage, error) {
+	item := &ProviderGalleryImage{
+		ProviderID: providerID,
+		ImageURL:   req.ImageURL,
+		Caption:    req.Caption,
+		SortOrder:  req.SortOrder,
+	}
+	if err := s.repo.CreateGalleryImage(item); err != nil {
+		return nil, err
+	}
+	return item, nil
+}
+
+func (s *Service) GetGalleryImages(providerID uint) ([]ProviderGalleryImage, error) {
+	return s.repo.GetGalleryImagesByProvider(providerID)
+}
+
+func (s *Service) GetGalleryImageByID(providerID, id uint) (*ProviderGalleryImage, error) {
+	return s.repo.GetGalleryImageByIDAndProvider(id, providerID)
+}
+
+func (s *Service) UpdateGalleryImage(providerID, id uint, req CreateGalleryImageRequest) (*ProviderGalleryImage, error) {
+	item, err := s.repo.GetGalleryImageByIDAndProvider(id, providerID)
+	if err != nil {
+		return nil, err
+	}
+	updates := map[string]interface{}{
+		"image_url": req.ImageURL, "caption": req.Caption,
+		"sort_order": req.SortOrder,
+	}
+	if err := s.repo.UpdateGalleryImage(item, updates); err != nil {
+		return nil, err
+	}
+	return item, nil
+}
+
+func (s *Service) DeleteGalleryImage(providerID, id uint) error {
+	return s.repo.DeleteGalleryImage(id, providerID)
+}
+
+// ─── Reviews CRUD ─────────────────────────────────────────────
+func (s *Service) CreateReview(providerID uint, req CreateReviewRequest) (*ProviderReview, error) {
+	status := req.Status
+	if status == "" {
+		status = "published"
+	}
+	item := &ProviderReview{
+		ProviderID: providerID,
+		AuthorName: req.AuthorName,
+		AvatarURL:  req.AvatarURL,
+		Rating:     req.Rating,
+		Title:      req.Title,
+		Content:    req.Content,
+		Pros:       req.Pros,
+		Cons:       req.Cons,
+		Status:     status,
+	}
+	if err := s.repo.CreateReview(item); err != nil {
+		return nil, err
+	}
+	return item, nil
+}
+
+func (s *Service) GetReviews(providerID uint) ([]ProviderReview, error) {
+	return s.repo.GetReviewsByProvider(providerID)
+}
+
+func (s *Service) GetReviewByID(providerID, id uint) (*ProviderReview, error) {
+	return s.repo.GetReviewByIDAndProvider(id, providerID)
+}
+
+func (s *Service) UpdateReview(providerID, id uint, req CreateReviewRequest) (*ProviderReview, error) {
+	item, err := s.repo.GetReviewByIDAndProvider(id, providerID)
+	if err != nil {
+		return nil, err
+	}
+	updates := map[string]interface{}{
+		"author_name": req.AuthorName, "avatar_url": req.AvatarURL,
+		"rating": req.Rating, "title": req.Title,
+		"content": req.Content, "pros": req.Pros,
+		"cons": req.Cons, "status": req.Status,
+	}
+	if err := s.repo.UpdateReview(item, updates); err != nil {
+		return nil, err
+	}
+	return item, nil
+}
+
+func (s *Service) DeleteReview(providerID, id uint) error {
+	return s.repo.DeleteReview(id, providerID)
 }
 
 func toAccessUserResponse(user *ProviderAccessUser) *AccessUserResponse {
