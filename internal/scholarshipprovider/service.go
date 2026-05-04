@@ -976,6 +976,38 @@ func (s *Service) UpdateProviderProfile(providerID uint, req UpdateProfileReques
 	if req.Values != "" {
 		updates["values"] = req.Values
 	}
+	if req.FounderName != "" {
+		updates["founder_name"] = req.FounderName
+	}
+	if req.FounderRole != "" {
+		updates["founder_role"] = req.FounderRole
+	}
+	if req.FounderMessage != "" {
+		updates["founder_message"] = req.FounderMessage
+	}
+	if req.FounderImageURL != "" {
+		updates["founder_image_url"] = req.FounderImageURL
+	}
+	if req.FacebookURL != "" {
+		updates["facebook_url"] = req.FacebookURL
+	}
+	if req.InstagramURL != "" {
+		updates["instagram_url"] = req.InstagramURL
+	}
+	if req.YoutubeURL != "" {
+		updates["youtube_url"] = req.YoutubeURL
+	}
+	if req.LinkedInURL != "" {
+		updates["linkedin_url"] = req.LinkedInURL
+	}
+	if req.MapURL != "" {
+		updates["map_url"] = req.MapURL
+	}
+	if req.BrochureURL != "" {
+		updates["brochure_url"] = req.BrochureURL
+	}
+
+
 
 	if err := s.repo.UpdateProviderProfile(provider, updates); err != nil {
 		return nil, err
@@ -1825,6 +1857,18 @@ func (s *Service) GetPublicProviderProfile(id uint) (*PublicProviderProfileRespo
 		AboutText:        provider.AboutText,
 		Mission:          provider.Mission,
 		Values:           provider.Values,
+		FounderName:      provider.FounderName,
+		FounderRole:      provider.FounderRole,
+		FounderMessage:   provider.FounderMessage,
+		FounderImageURL:  provider.FounderImageURL,
+		FacebookURL:      provider.FacebookURL,
+		InstagramURL:     provider.InstagramURL,
+		YoutubeURL:       provider.YoutubeURL,
+		LinkedInURL:      provider.LinkedInURL,
+		MapURL:           provider.MapURL,
+		BrochureURL:      provider.BrochureURL,
+
+
 		Services:         serviceResponses,
 		Sectors:          sectorResponses,
 		Projects:         projectResponses,

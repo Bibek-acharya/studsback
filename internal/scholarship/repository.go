@@ -174,6 +174,14 @@ func (r *Repository) FindByID(id uint) (*Scholarship, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	if scholarship.ProviderScholarshipID != nil {
+		var ps ProviderScholarship
+		if err := r.db.Select("provider_id").Where("id = ?", *scholarship.ProviderScholarshipID).First(&ps).Error; err == nil {
+			scholarship.ProviderID = ps.ProviderID
+		}
+	}
+
 	return &scholarship, nil
 }
 

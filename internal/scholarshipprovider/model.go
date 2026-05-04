@@ -215,7 +215,20 @@ type ScholarshipProviderUser struct {
 	Password           *string        `json:"-"`
 	Status             string         `gorm:"default:'pending'" json:"status"`
 	Role               string         `gorm:"default:'scholarship_provider'" json:"role"`
+	FounderName        string         `gorm:"column:founder_name;default:''" json:"founder_name"`
+	FounderRole        string         `gorm:"column:founder_role;default:''" json:"founder_role"`
+	FounderMessage     string         `gorm:"column:founder_message;type:text;default:''" json:"founder_message"`
+	FounderImageURL    string         `gorm:"column:founder_image_url;default:''" json:"founder_image_url"`
+	FacebookURL        string         `gorm:"column:facebook_url;default:''" json:"facebook_url"`
+	InstagramURL       string         `gorm:"column:instagram_url;default:''" json:"instagram_url"`
+	YoutubeURL         string         `gorm:"column:youtube_url;default:''" json:"youtube_url"`
+	LinkedInURL        string         `gorm:"column:linkedin_url;default:''" json:"linkedin_url"`
+	MapURL             string         `gorm:"column:map_url;type:text;default:''" json:"map_url"`
+	BrochureURL        string         `gorm:"column:brochure_url;default:''" json:"brochure_url"`
 }
+
+
+
 
 type ProviderNews struct {
 	ID            uint           `gorm:"primarykey" json:"id"`

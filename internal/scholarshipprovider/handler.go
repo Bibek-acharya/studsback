@@ -71,6 +71,11 @@ func resolveProviderUploadFolder(folder string) (string, error) {
 		return "scholarship-provider/sectors", nil
 	case "projects":
 		return "scholarship-provider/projects", nil
+	case "founders":
+		return "scholarship-provider/founders", nil
+	case "brochures":
+		return "scholarship-provider/brochures", nil
+
 	default:
 		return "", errors.New("invalid upload folder")
 	}
@@ -683,7 +688,18 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 		AboutText:          provider.AboutText,
 		Mission:            provider.Mission,
 		Values:             provider.Values,
+		FounderName:        provider.FounderName,
+		FounderRole:        provider.FounderRole,
+		FounderMessage:     provider.FounderMessage,
+		FounderImageURL:    provider.FounderImageURL,
+		FacebookURL:        provider.FacebookURL,
+		InstagramURL:       provider.InstagramURL,
+		YoutubeURL:         provider.YoutubeURL,
+		LinkedInURL:        provider.LinkedInURL,
+		MapURL:             provider.MapURL,
+		BrochureURL:        provider.BrochureURL,
 	})
+
 }
 
 func (h *Handler) ChangePassword(c *gin.Context) {

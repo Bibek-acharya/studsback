@@ -409,6 +409,18 @@ type UpdateProfileRequest struct {
 	AboutText          string `json:"about_text"`
 	Mission            string `json:"mission"`
 	Values             string `json:"values"`
+	FounderName        string `json:"founder_name"`
+	FounderRole        string `json:"founder_role"`
+	FounderMessage     string `json:"founder_message"`
+	FounderImageURL    string `json:"founder_image_url"`
+	FacebookURL        string `json:"facebook_url"`
+	InstagramURL       string `json:"instagram_url"`
+	YoutubeURL         string `json:"youtube_url"`
+	LinkedInURL        string `json:"linkedin_url"`
+	MapURL             string `json:"map_url"`
+	BrochureURL        string `json:"brochure_url"`
+
+
 }
 
 type ProfileResponse struct {
@@ -424,6 +436,16 @@ type ProfileResponse struct {
 	AboutText          string   `json:"about_text,omitempty"`
 	Mission            string   `json:"mission,omitempty"`
 	Values             string   `json:"values,omitempty"`
+	FounderName        string   `json:"founder_name,omitempty"`
+	FounderRole        string   `json:"founder_role,omitempty"`
+	FounderMessage     string   `json:"founder_message,omitempty"`
+	FounderImageURL    string   `json:"founder_image_url,omitempty"`
+	FacebookURL        string   `json:"facebook_url,omitempty"`
+	InstagramURL       string   `json:"instagram_url,omitempty"`
+	YoutubeURL         string   `json:"youtube_url,omitempty"`
+	LinkedInURL        string   `json:"linkedin_url,omitempty"`
+	MapURL             string   `json:"map_url,omitempty"`
+	BrochureURL        string   `json:"brochure_url,omitempty"`
 	Role               string   `json:"role"`
 	IsSubUser          bool     `json:"is_sub_user"`
 	Permissions        []string `json:"permissions"`
@@ -785,7 +807,19 @@ type PublicProviderProfileResponse struct {
 	AboutText          string               `json:"about_text,omitempty"`
 	Mission            string               `json:"mission,omitempty"`
 	Values             string               `json:"values,omitempty"`
+	FounderName        string               `json:"founder_name,omitempty"`
+	FounderRole        string               `json:"founder_role,omitempty"`
+	FounderMessage     string               `json:"founder_message,omitempty"`
+	FounderImageURL    string               `json:"founder_image_url,omitempty"`
+	FacebookURL        string               `json:"facebook_url,omitempty"`
+	InstagramURL       string               `json:"instagram_url,omitempty"`
+	YoutubeURL         string               `json:"youtube_url,omitempty"`
+	LinkedInURL        string               `json:"linkedin_url,omitempty"`
+	MapURL             string               `json:"map_url,omitempty"`
+	BrochureURL        string               `json:"brochure_url,omitempty"`
 	Services           []ServiceResponse    `json:"services,omitempty"`
+
+
 	Sectors            []SectorResponse     `json:"sectors,omitempty"`
 	Projects           []ProjectResponse    `json:"projects,omitempty"`
 	Gallery            []GalleryImageResponse `json:"gallery,omitempty"`
