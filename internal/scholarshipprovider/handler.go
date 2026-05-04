@@ -1866,6 +1866,49 @@ func (h *Handler) GetPublicEvents(c *gin.Context) {
 	})
 }
 
+func (h *Handler) GetPublicBlogs(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "12"))
+
+	blogs, total, err := h.service.GetPublishedBlogs(page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch blogs")
+		return
+	}
+
+	responses := make([]BlogResponse, len(blogs))
+	for i, b := range blogs {
+		responses[i] = toBlogResponse(&b)
+	}
+
+	response.Success(c, http.StatusOK, "Blogs retrieved successfully", BlogListResponse{
+		Blogs: responses,
+		Meta: PaginationMeta{
+			Total: total,
+			Page:  page,
+			Limit: limit,
+		},
+	})
+}
+
+func (h *Handler) GetPublicBlogByID(c *gin.Context) {
+	idStr := c.Param("id")
+
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid blog ID")
+		return
+	}
+
+	blog, err := h.service.GetPublishedBlogByID(uint(id))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Blog not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Blog retrieved successfully", toBlogResponse(blog))
+}
+
 func (h *Handler) GetPublicEventByID(c *gin.Context) {
 	idStr := c.Param("id")
 

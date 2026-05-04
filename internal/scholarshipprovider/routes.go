@@ -15,6 +15,8 @@ func RegisterPublicRoutes(r *gin.Engine, h *Handler) {
 			public.GET("/news/:id", h.GetPublicNewsByID)
 			public.GET("/events", h.GetPublicEvents)
 			public.GET("/events/:id", h.GetPublicEventByID)
+			public.GET("/blogs", h.GetPublicBlogs)
+			public.GET("/blogs/:id", h.GetPublicBlogByID)
 		}
 	}
 }

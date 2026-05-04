@@ -1719,6 +1719,20 @@ func (s *Service) GetPublishedEventByID(id uint) (*ProviderEvent, error) {
 	return s.repo.GetPublishedEventByID(id)
 }
 
+func (s *Service) GetPublishedBlogs(page, limit int) ([]ProviderBlog, int64, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50 {
+		limit = 12
+	}
+	return s.repo.GetPublishedBlogs(page, limit)
+}
+
+func (s *Service) GetPublishedBlogByID(id uint) (*ProviderBlog, error) {
+	return s.repo.GetPublishedBlogByID(id)
+}
+
 func toAccessUserResponse(user *ProviderAccessUser) *AccessUserResponse {
 	var perms []string
 	json.Unmarshal(user.Permissions, &perms)

@@ -703,6 +703,34 @@ func (r *Repository) GetPublishedEventByID(id uint) (*ProviderEvent, error) {
 	return &event, nil
 }
 
+func (r *Repository) GetPublishedBlogs(page, limit int) ([]ProviderBlog, int64, error) {
+	var blogs []ProviderBlog
+	var total int64
+
+	offset := (page - 1) * limit
+
+	if err := r.db.Model(&ProviderBlog{}).Where("status = ?", "published").Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	if err := r.db.Where("status = ?", "published").
+		Order("created_at desc").
+		Offset(offset).Limit(limit).
+		Find(&blogs).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return blogs, total, nil
+}
+
+func (r *Repository) GetPublishedBlogByID(id uint) (*ProviderBlog, error) {
+	var blog ProviderBlog
+	if err := r.db.Where("id = ? AND status = ?", id, "published").First(&blog).Error; err != nil {
+		return nil, err
+	}
+	return &blog, nil
+}
+
 func (r *Repository) CreateAccessUser(user *ProviderAccessUser) error {
 	return r.db.Create(user).Error
 }
