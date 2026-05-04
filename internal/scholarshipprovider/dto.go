@@ -790,6 +790,8 @@ type PublicProviderProfileResponse struct {
 	Projects           []ProjectResponse    `json:"projects,omitempty"`
 	Gallery            []GalleryImageResponse `json:"gallery,omitempty"`
 	Reviews            []ReviewResponse     `json:"reviews,omitempty"`
+	Scholarships       []ScholarshipResponse `json:"scholarships,omitempty"`
+	News               []NewsResponse        `json:"news,omitempty"`
 	ScholarshipCount   int64                `json:"scholarship_count"`
 	NewsCount          int64                `json:"news_count"`
 	EventCount         int64                `json:"event_count"`

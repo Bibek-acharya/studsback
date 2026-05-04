@@ -822,94 +822,7 @@ func unmarshalJSONB(data []byte) interface{} {
 	return v
 }
 
-func formatTimeOrEmpty(t time.Time) string {
-	if t.IsZero() {
-		return ""
-	}
-	return t.Format(time.RFC3339)
-}
 
-func decodeJSONB[T any](data []byte) T {
-	var value T
-	if len(data) == 0 {
-		return value
-	}
-	_ = json.Unmarshal(data, &value)
-	return value
-}
-
-func toScholarshipResponse(s *ProviderScholarship) ScholarshipResponse {
-	return ScholarshipResponse{
-		ID:                       s.ID,
-		CreatedAt:                s.CreatedAt,
-		UpdatedAt:                s.UpdatedAt,
-		ProviderID:               s.ProviderID,
-		Title:                    s.Title,
-		Provider:                 s.Provider,
-		Description:              s.Description,
-		ProviderName:             s.ProviderName,
-		FundingTypeOther:         s.FundingTypeOther,
-		ScholarshipTypeOther:     s.ScholarshipTypeOther,
-		EducationLevel:           s.EducationLevel,
-		EducationLevelOther:      s.EducationLevelOther,
-		Location:                 s.Location,
-		Value:                    s.Value,
-		Deadline:                 formatTimeOrEmpty(s.Deadline),
-		DegreeLevel:              s.DegreeLevel,
-		FundingType:              s.FundingType,
-		ScholarshipType:          s.ScholarshipType,
-		FieldOfStudy:             decodeJSONB[[]string](s.FieldOfStudy),
-		Status:                   s.Status,
-		ApplicationStartDate:     formatTimeOrEmpty(s.ApplicationStartDate),
-		ApplicationEndDate:       formatTimeOrEmpty(s.ApplicationEndDate),
-		ApplyLink:                s.ApplyLink,
-		Image:                    s.BannerBackgroundImageURL,
-		CoverageArea:             s.CoverageArea,
-		ContactEmail:             s.ContactEmail,
-		PrimaryPhone:             s.PrimaryPhone,
-		SecondaryPhone:           s.SecondaryPhone,
-		WebsiteUrl:               s.WebsiteUrl,
-		OfficeAddress:            s.OfficeAddress,
-		MapUrl:                   s.MapUrl,
-		AboutParagraph1:          s.AboutParagraph1,
-		VideoTutorials:           decodeJSONB[[]VideoTutorial](s.VideoTutorials),
-		JourneyTimeline:          decodeJSONB[[]JourneyTimelineItem](s.JourneyTimeline),
-		Timeline:                 decodeJSONB[[]TimelineItem](s.Timeline),
-		ScholarshipSectionTitle:  s.ScholarshipSectionTitle,
-		ScholarshipSubtitle:      s.ScholarshipSubtitle,
-		ScholarshipDescription1:  s.ScholarshipDescription1,
-		ScholarshipDescription2:  s.ScholarshipDescription2,
-		ScholarshipTypes:         decodeJSONB[[]ScholarshipTypeItem](s.ScholarshipTypes),
-		ScholarshipTypesNew:      decodeJSONB[[]ScholarshipTypeItem](s.ScholarshipTypesNew),
-		SelectionRubric:          decodeJSONB[[]SelectionRubricItem](s.SelectionRubric),
-		SelectionRubricNew:       decodeJSONB[[]SelectionRubricItem](s.SelectionRubricNew),
-		EligibilitySectionTitle:  s.EligibilitySectionTitle,
-		EligibilitySubtitle:      s.EligibilitySubtitle,
-		BasicEligibilityCriteria: decodeJSONB[[]string](s.BasicEligibilityCriteria),
-		FullyFundedCriteria:      decodeJSONB[[]string](s.FullyFundedCriteria),
-		PartiallyFundedCriteria:  decodeJSONB[[]string](s.PartiallyFundedCriteria),
-		SelectionProcessSteps:    decodeJSONB[[]SelectionProcessStepItem](s.SelectionProcessSteps),
-		RequiredDocuments:        decodeJSONB[[]string](s.RequiredDocuments),
-		FAQs:                     decodeJSONB[[]FAQItem](s.FAQs),
-		FAQsNew:                  decodeJSONB[[]FAQItem](s.FAQsNew),
-		GalleryImages:            decodeJSONB[[]GalleryImageItem](s.GalleryImages),
-		GalleryImagesNew:         decodeJSONB[[]GalleryImageItem](s.GalleryImagesNew),
-		PartnerGroups:            decodeJSONB[[]PartnerOrganization](s.PartnerGroups),
-		ExamCenters:              decodeJSONB[[]ExamCenterItem](s.ExamCenters),
-		ExamCentersNew:           decodeJSONB[[]ExamCenterItem](s.ExamCentersNew),
-		Downloads:                decodeJSONB[[]DownloadItem](s.Downloads),
-		PaymentConfig: func() *PaymentConfig {
-			if len(s.PaymentConfig) == 0 {
-				return nil
-			}
-			var paymentConfig PaymentConfig
-			if err := json.Unmarshal(s.PaymentConfig, &paymentConfig); err != nil {
-				return nil
-			}
-			return &paymentConfig
-		}(),
-	}
-}
 
 func toApplicationResponse(a *ProviderApplication) ApplicationResponse {
 	var paymentResp *PaymentResponse
@@ -1057,29 +970,7 @@ func toNotificationResponse(n *ProviderNotification) NotificationResponse {
 	}
 }
 
-func toNewsResponse(n *ProviderNews) NewsResponse {
-	var tags interface{}
-	if n.Tags != nil {
-		json.Unmarshal(n.Tags, &tags)
-	}
-	return NewsResponse{
-		ID:            n.ID,
-		CreatedAt:     n.CreatedAt,
-		UpdatedAt:     n.UpdatedAt,
-		ProviderID:    n.ProviderID,
-		Title:         n.Title,
-		ShortDesc:     n.ShortDesc,
-		Content:       n.Content,
-		ImageURL:      n.ImageURL,
-		NewsType:      n.NewsType,
-		PublishedBy:   n.PublishedBy,
-		PublishDate:   n.PublishDate,
-		Tags:          tags,
-		AllowComments: n.AllowComments,
-		Status:        n.Status,
-		PublishedAt:   n.PublishedAt,
-	}
-}
+
 
 func toEventResponse(e *ProviderEvent) EventResponse {
 	var tags interface{}

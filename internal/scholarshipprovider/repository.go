@@ -158,6 +158,23 @@ func (r *Repository) GetScholarshipsByProvider(providerID uint, page, limit int)
 	return scholarships, total, nil
 }
 
+func (r *Repository) GetPublishedScholarshipsByProvider(providerID uint, page, limit int) ([]ProviderScholarship, int64, error) {
+	var total int64
+	if err := r.db.Model(&ProviderScholarship{}).Where("provider_id = ? AND status = ?", providerID, "published").Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var scholarships []ProviderScholarship
+	offset := (page - 1) * limit
+	if err := r.db.Where("provider_id = ? AND status = ?", providerID, "published").
+		Order("created_at desc").Offset(offset).Limit(limit).Find(&scholarships).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return scholarships, total, nil
+}
+
+
 func (r *Repository) GetScholarshipByIDAndProvider(id uint, providerID uint) (*ProviderScholarship, error) {
 	var scholarship ProviderScholarship
 	if err := r.db.Where("id = ? AND provider_id = ?", id, providerID).First(&scholarship).Error; err != nil {
@@ -415,6 +432,23 @@ func (r *Repository) GetNewsByProvider(providerID uint, page, limit int) ([]Prov
 
 	return news, total, nil
 }
+
+func (r *Repository) GetPublishedNewsByProvider(providerID uint, page, limit int) ([]ProviderNews, int64, error) {
+	var total int64
+	if err := r.db.Model(&ProviderNews{}).Where("provider_id = ? AND status = ?", providerID, "published").Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var news []ProviderNews
+	offset := (page - 1) * limit
+	if err := r.db.Where("provider_id = ? AND status = ?", providerID, "published").
+		Order("created_at desc").Offset(offset).Limit(limit).Find(&news).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return news, total, nil
+}
+
 
 func (r *Repository) GetNewsByIDAndProvider(id uint, providerID uint) (*ProviderNews, error) {
 	var news ProviderNews
@@ -880,6 +914,15 @@ func (r *Repository) CountProviderContent(providerID uint) (scholarships, news, 
 	r.db.Model(&ProviderBlog{}).Where("provider_id = ?", providerID).Count(&blogs)
 	return
 }
+
+func (r *Repository) CountPublishedProviderContent(providerID uint) (scholarships, news, events, blogs int64, err error) {
+	r.db.Model(&ProviderScholarship{}).Where("provider_id = ? AND status = ?", providerID, "published").Count(&scholarships)
+	r.db.Model(&ProviderNews{}).Where("provider_id = ? AND status = ?", providerID, "published").Count(&news)
+	r.db.Model(&ProviderEvent{}).Where("provider_id = ? AND status = ?", providerID, "published").Count(&events)
+	r.db.Model(&ProviderBlog{}).Where("provider_id = ? AND status = ?", providerID, "published").Count(&blogs)
+	return
+}
+
 
 // ─── Services ────────────────────────────────────────────────────
 func (r *Repository) GetServicesByProvider(providerID uint) ([]ProviderService, error) {

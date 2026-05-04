@@ -1755,7 +1755,7 @@ func (s *Service) GetPublicProviderProfile(id uint) (*PublicProviderProfileRespo
 	projects, _ := s.repo.GetProjectsByProvider(id)
 	gallery, _ := s.repo.GetGalleryImagesByProvider(id)
 	reviews, _ := s.repo.GetPublishedReviews(id)
-	schCount, newsCount, eventCount, blogCount, _ := s.repo.CountProviderContent(id)
+	schCount, newsCount, eventCount, blogCount, _ := s.repo.CountPublishedProviderContent(id)
 
 	serviceResponses := make([]ServiceResponse, len(services))
 	for i, svc := range services {
@@ -1801,6 +1801,19 @@ func (s *Service) GetPublicProviderProfile(id uint) (*PublicProviderProfileRespo
 		}
 	}
 
+	schList, _, _ := s.repo.GetPublishedScholarshipsByProvider(id, 1, 100)
+	newsList, _, _ := s.repo.GetPublishedNewsByProvider(id, 1, 100)
+
+	scholarshipResponses := make([]ScholarshipResponse, len(schList))
+	for i, sch := range schList {
+		scholarshipResponses[i] = toScholarshipResponse(&sch)
+	}
+
+	newsResponses := make([]NewsResponse, len(newsList))
+	for i, n := range newsList {
+		newsResponses[i] = toNewsResponse(&n)
+	}
+
 	return &PublicProviderProfileResponse{
 		ID:               provider.ID,
 		ProviderName:     provider.ProviderName,
@@ -1817,6 +1830,8 @@ func (s *Service) GetPublicProviderProfile(id uint) (*PublicProviderProfileRespo
 		Projects:         projectResponses,
 		Gallery:          galleryResponses,
 		Reviews:          reviewResponses,
+		Scholarships:     scholarshipResponses,
+		News:             newsResponses,
 		ScholarshipCount: schCount,
 		NewsCount:        newsCount,
 		EventCount:       eventCount,
