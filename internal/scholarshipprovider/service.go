@@ -719,7 +719,10 @@ func (s *Service) ApproveApplicationPayment(providerID uint, applicationID uint,
 		return nil, errors.New("application not found")
 	}
 
-	payment, err := s.repo.FindPaymentByApplicationID(applicationID)
+	if application.ScholarshipApplicationID == nil {
+		return nil, errors.New("no linked scholarship application")
+	}
+	payment, err := s.repo.FindPaymentByApplicationID(*application.ScholarshipApplicationID)
 	if err != nil {
 		return nil, errors.New("payment not found")
 	}

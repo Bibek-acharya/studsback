@@ -227,11 +227,10 @@ func (r *Repository) findPaymentByApplication(app *ProviderApplication) *Provide
 		return nil
 	}
 	var payment ProviderPayment
-	err := r.db.Table("scholarship_payments").
+	if err := r.db.Table("scholarship_payments").
 		Where("application_id = ?", *app.ScholarshipApplicationID).
 		Order("created_at desc").
-		First(&payment).Error
-	if err != nil {
+		First(&payment).Error; err != nil {
 		return nil
 	}
 	return &payment
