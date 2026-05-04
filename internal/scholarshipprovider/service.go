@@ -800,9 +800,10 @@ func (s *Service) UpdateApplicationStatus(providerID, id uint, req UpdateApplica
 	}
 
 	message := fmt.Sprintf("You have %s an application.", req.Status)
-	if req.Status == "shortlisted" {
+	switch req.Status {
+	case "shortlisted":
 		message = "You have shortlisted an application."
-	} else if req.Status == "rejected" {
+	case "rejected":
 		message = "You have rejected an application."
 	}
 
@@ -1760,7 +1761,7 @@ func (s *Service) GetPublicProviderProfile(id uint) (*PublicProviderProfileRespo
 	for i, svc := range services {
 		serviceResponses[i] = ServiceResponse{
 			ID: svc.ID, Icon: svc.Icon, Title: svc.Title,
-			Description: svc.Description, SortOrder: svc.SortOrder,
+			Description: svc.Description, ExternalLink: svc.ExternalLink, SortOrder: svc.SortOrder,
 		}
 	}
 
@@ -1768,7 +1769,7 @@ func (s *Service) GetPublicProviderProfile(id uint) (*PublicProviderProfileRespo
 	for i, sec := range sectors {
 		sectorResponses[i] = SectorResponse{
 			ID: sec.ID, Name: sec.Name, Description: sec.Description,
-			Color: sec.Color, ImageURL: sec.ImageURL, Icon: sec.Icon, SortOrder: sec.SortOrder,
+			Color: sec.Color, ImageURL: sec.ImageURL, Icon: sec.Icon, ExternalLink: sec.ExternalLink, SortOrder: sec.SortOrder,
 		}
 	}
 
@@ -1780,14 +1781,14 @@ func (s *Service) GetPublicProviderProfile(id uint) (*PublicProviderProfileRespo
 		}
 		projectResponses[i] = ProjectResponse{
 			ID: proj.ID, Title: proj.Title, Description: proj.Description,
-			ImageURL: proj.ImageURL, Category: proj.Category, Date: dateStr, SortOrder: proj.SortOrder,
+			ImageURL: proj.ImageURL, Category: proj.Category, ExternalLink: proj.ExternalLink, Date: dateStr, SortOrder: proj.SortOrder,
 		}
 	}
 
 	galleryResponses := make([]GalleryImageResponse, len(gallery))
 	for i, img := range gallery {
 		galleryResponses[i] = GalleryImageResponse{
-			ID: img.ID, ImageURL: img.ImageURL, Caption: img.Caption, SortOrder: img.SortOrder,
+			ID: img.ID, Folder: img.Folder, ImageURL: img.ImageURL, Caption: img.Caption, SortOrder: img.SortOrder,
 		}
 	}
 
@@ -1828,9 +1829,10 @@ func (s *Service) CreateService(providerID uint, req CreateServiceRequest) (*Pro
 	item := &ProviderService{
 		ProviderID:  providerID,
 		Icon:        req.Icon,
-		Title:       req.Title,
-		Description: req.Description,
-		SortOrder:   req.SortOrder,
+		Title:        req.Title,
+		Description:  req.Description,
+		ExternalLink: req.ExternalLink,
+		SortOrder:    req.SortOrder,
 	}
 	if err := s.repo.CreateService(item); err != nil {
 		return nil, err
@@ -1853,7 +1855,8 @@ func (s *Service) UpdateService(providerID, id uint, req CreateServiceRequest) (
 	}
 	updates := map[string]interface{}{
 		"icon": req.Icon, "title": req.Title,
-		"description": req.Description, "sort_order": req.SortOrder,
+		"description": req.Description, "external_link": req.ExternalLink,
+		"sort_order": req.SortOrder,
 	}
 	if err := s.repo.UpdateService(item, updates); err != nil {
 		return nil, err
@@ -1873,9 +1876,10 @@ func (s *Service) CreateSector(providerID uint, req CreateSectorRequest) (*Provi
 		Name:        req.Name,
 		Description: req.Description,
 		Color:       req.Color,
-		ImageURL:    req.ImageURL,
-		Icon:        req.Icon,
-		SortOrder:   req.SortOrder,
+		ImageURL:     req.ImageURL,
+		Icon:         req.Icon,
+		ExternalLink: req.ExternalLink,
+		SortOrder:    req.SortOrder,
 	}
 	if err := s.repo.CreateSector(item); err != nil {
 		return nil, err
@@ -1900,7 +1904,8 @@ func (s *Service) UpdateSector(providerID, id uint, req CreateSectorRequest) (*P
 	updates := map[string]interface{}{
 		"name": req.Name, "description": req.Description,
 		"color": req.Color, "image_url": req.ImageURL,
-		"icon": req.Icon, "sort_order": req.SortOrder,
+		"icon": req.Icon, "external_link": req.ExternalLink,
+		"sort_order": req.SortOrder,
 	}
 	if err := s.repo.UpdateSector(item, updates); err != nil {
 		return nil, err
@@ -1924,10 +1929,11 @@ func (s *Service) CreateProject(providerID uint, req CreateProjectRequest) (*Pro
 		ProviderID:  providerID,
 		Title:       req.Title,
 		Description: req.Description,
-		ImageURL:    req.ImageURL,
-		Category:    req.Category,
-		Date:        date,
-		SortOrder:   req.SortOrder,
+		ImageURL:     req.ImageURL,
+		Category:     req.Category,
+		ExternalLink: req.ExternalLink,
+		Date:         date,
+		SortOrder:    req.SortOrder,
 	}
 	if err := s.repo.CreateProject(item); err != nil {
 		return nil, err
@@ -1951,6 +1957,7 @@ func (s *Service) UpdateProject(providerID, id uint, req CreateProjectRequest) (
 	updates := map[string]interface{}{
 		"title": req.Title, "description": req.Description,
 		"image_url": req.ImageURL, "category": req.Category,
+		"external_link": req.ExternalLink,
 		"sort_order": req.SortOrder,
 	}
 	if req.Date != "" {
@@ -1972,6 +1979,7 @@ func (s *Service) DeleteProject(providerID, id uint) error {
 func (s *Service) CreateGalleryImage(providerID uint, req CreateGalleryImageRequest) (*ProviderGalleryImage, error) {
 	item := &ProviderGalleryImage{
 		ProviderID: providerID,
+		Folder:     req.Folder,
 		ImageURL:   req.ImageURL,
 		Caption:    req.Caption,
 		SortOrder:  req.SortOrder,
@@ -1996,7 +2004,7 @@ func (s *Service) UpdateGalleryImage(providerID, id uint, req CreateGalleryImage
 		return nil, err
 	}
 	updates := map[string]interface{}{
-		"image_url": req.ImageURL, "caption": req.Caption,
+		"folder": req.Folder, "image_url": req.ImageURL, "caption": req.Caption,
 		"sort_order": req.SortOrder,
 	}
 	if err := s.repo.UpdateGalleryImage(item, updates); err != nil {

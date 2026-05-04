@@ -65,6 +65,12 @@ func resolveProviderUploadFolder(folder string) (string, error) {
 		return "scholarship-provider/downloads", nil
 	case "payments":
 		return "scholarship-provider/payments", nil
+	case "services":
+		return "scholarship-provider/services", nil
+	case "sectors":
+		return "scholarship-provider/sectors", nil
+	case "projects":
+		return "scholarship-provider/projects", nil
 	default:
 		return "", errors.New("invalid upload folder")
 	}

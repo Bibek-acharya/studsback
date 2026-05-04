@@ -323,8 +323,9 @@ type ProviderService struct {
 	ProviderID  uint      `gorm:"index;not null" json:"provider_id"`
 	Icon        string    `gorm:"default:''" json:"icon"`
 	Title       string    `gorm:"not null" json:"title"`
-	Description string    `gorm:"type:text" json:"description"`
-	SortOrder   int       `gorm:"default:0" json:"sort_order"`
+	Description  string    `gorm:"type:text" json:"description"`
+	ExternalLink string    `gorm:"default:''" json:"external_link"`
+	SortOrder    int       `gorm:"default:0" json:"sort_order"`
 }
 
 type ProviderSector struct {
@@ -335,9 +336,10 @@ type ProviderSector struct {
 	Name        string    `gorm:"not null" json:"name"`
 	Description string    `gorm:"type:text" json:"description"`
 	Color       string    `gorm:"default:'#2563eb'" json:"color"`
-	ImageURL    string    `gorm:"default:''" json:"image_url"`
-	Icon        string    `gorm:"default:''" json:"icon"`
-	SortOrder   int       `gorm:"default:0" json:"sort_order"`
+	ImageURL     string    `gorm:"default:''" json:"image_url"`
+	Icon         string    `gorm:"default:''" json:"icon"`
+	ExternalLink string    `gorm:"default:''" json:"external_link"`
+	SortOrder    int       `gorm:"default:0" json:"sort_order"`
 }
 
 type ProviderProject struct {
@@ -348,9 +350,10 @@ type ProviderProject struct {
 	Title       string    `gorm:"not null" json:"title"`
 	Description string    `gorm:"type:text" json:"description"`
 	ImageURL    string    `gorm:"default:''" json:"image_url"`
-	Category    string    `gorm:"default:''" json:"category"`
-	Date        time.Time `json:"date"`
-	SortOrder   int       `gorm:"default:0" json:"sort_order"`
+	Category     string    `gorm:"default:''" json:"category"`
+	ExternalLink string    `gorm:"default:''" json:"external_link"`
+	Date         time.Time `json:"date"`
+	SortOrder    int       `gorm:"default:0" json:"sort_order"`
 }
 
 type ProviderGalleryImage struct {
@@ -358,6 +361,7 @@ type ProviderGalleryImage struct {
 	CreatedAt  time.Time `json:"created_at"`
 	UpdatedAt  time.Time `json:"updated_at"`
 	ProviderID uint      `gorm:"index;not null" json:"provider_id"`
+	Folder     string    `gorm:"default:''" json:"folder"`
 	ImageURL   string    `gorm:"not null" json:"image_url"`
 	Caption    string    `gorm:"default:''" json:"caption"`
 	SortOrder  int       `gorm:"default:0" json:"sort_order"`

@@ -800,8 +800,9 @@ type ServiceResponse struct {
 	ID          uint   `json:"id"`
 	Icon        string `json:"icon"`
 	Title       string `json:"title"`
-	Description string `json:"description"`
-	SortOrder   int    `json:"sort_order"`
+	Description  string `json:"description"`
+	ExternalLink string `json:"external_link"`
+	SortOrder    int    `json:"sort_order"`
 }
 
 type SectorResponse struct {
@@ -809,9 +810,10 @@ type SectorResponse struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Color       string `json:"color"`
-	ImageURL    string `json:"image_url"`
-	Icon        string `json:"icon"`
-	SortOrder   int    `json:"sort_order"`
+	ImageURL     string `json:"image_url"`
+	Icon         string `json:"icon"`
+	ExternalLink string `json:"external_link"`
+	SortOrder    int    `json:"sort_order"`
 }
 
 type ProjectResponse struct {
@@ -819,13 +821,15 @@ type ProjectResponse struct {
 	Title       string `json:"title"`
 	Description string `json:"description"`
 	ImageURL    string `json:"image_url"`
-	Category    string `json:"category"`
-	Date        string `json:"date"`
-	SortOrder   int    `json:"sort_order"`
+	Category     string `json:"category"`
+	ExternalLink string `json:"external_link"`
+	Date         string `json:"date"`
+	SortOrder    int    `json:"sort_order"`
 }
 
 type GalleryImageResponse struct {
 	ID        uint   `json:"id"`
+	Folder    string `json:"folder"`
 	ImageURL  string `json:"image_url"`
 	Caption   string `json:"caption"`
 	SortOrder int    `json:"sort_order"`
@@ -846,29 +850,33 @@ type ReviewResponse struct {
 type CreateServiceRequest struct {
 	Icon        string `json:"icon"`
 	Title       string `json:"title"`
-	Description string `json:"description"`
-	SortOrder   int    `json:"sort_order"`
+	Description  string `json:"description"`
+	ExternalLink string `json:"external_link"`
+	SortOrder    int    `json:"sort_order"`
 }
 
 type CreateSectorRequest struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Color       string `json:"color"`
-	ImageURL    string `json:"image_url"`
-	Icon        string `json:"icon"`
-	SortOrder   int    `json:"sort_order"`
+	ImageURL     string `json:"image_url"`
+	Icon         string `json:"icon"`
+	ExternalLink string `json:"external_link"`
+	SortOrder    int    `json:"sort_order"`
 }
 
 type CreateProjectRequest struct {
 	Title       string `json:"title"`
 	Description string `json:"description"`
 	ImageURL    string `json:"image_url"`
-	Category    string `json:"category"`
-	Date        string `json:"date"`
-	SortOrder   int    `json:"sort_order"`
+	Category     string `json:"category"`
+	ExternalLink string `json:"external_link"`
+	Date         string `json:"date"`
+	SortOrder    int    `json:"sort_order"`
 }
 
 type CreateGalleryImageRequest struct {
+	Folder    string `json:"folder"`
 	ImageURL  string `json:"image_url"`
 	Caption   string `json:"caption"`
 	SortOrder int    `json:"sort_order"`

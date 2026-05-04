@@ -93,6 +93,11 @@ type ScholarshipProviderUser struct {
 	ContactNumber      string         `json:"contact_number"`
 	PANNumber          string         `json:"pan_number"`
 	WebsiteURL         string         `json:"website_url"`
+	LogoURL            *string        `gorm:"default:null" json:"logo_url"`
+	Address            string         `gorm:"default:''" json:"address"`
+	AboutText          string         `gorm:"type:text;default:''" json:"about_text"`
+	Mission            string         `gorm:"type:text;default:''" json:"mission"`
+	Values             string         `gorm:"type:text;default:''" json:"values"`
 	GoogleID           *string        `gorm:"uniqueIndex;default:null" json:"google_id"`
 	Password           *string        `json:"-"`
 	Status             string         `gorm:"default:'pending'" json:"status"`
