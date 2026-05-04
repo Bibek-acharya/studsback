@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"studsphere/backend/internal/emailqueue"
 	publicscholarship "studsphere/backend/internal/scholarship"
 
 	"golang.org/x/crypto/bcrypt"
@@ -710,6 +711,82 @@ func (s *Service) EvaluateApplication(providerID, id uint, req EvaluateApplicati
 	}
 
 	return application, nil
+}
+
+func (s *Service) ApproveApplicationPayment(providerID uint, applicationID uint, approve bool, reason string) (*ProviderApplication, error) {
+	application, err := s.repo.GetApplicationByIDAndProvider(applicationID, providerID)
+	if err != nil {
+		return nil, errors.New("application not found")
+	}
+
+	payment, err := s.repo.FindPaymentByApplicationID(applicationID)
+	if err != nil {
+		return nil, errors.New("payment not found")
+	}
+
+	if approve {
+		payment.Status = "completed"
+		now := time.Now()
+		payment.PaidAt = &now
+		payment.ApprovedBy = providerID
+
+		application.Status = "pending"
+
+		if err := s.repo.UpdatePayment(payment); err != nil {
+			return nil, errors.New("failed to update payment")
+		}
+
+		if _, err := s.repo.UpdateApplicationStatusOnly(application.ID, "pending"); err != nil {
+			return nil, errors.New("failed to update application status")
+		}
+
+		// Send admit card
+		go s.sendAdmitCard(application, payment)
+	} else {
+		payment.Status = "failed"
+		payment.RejectionReason = reason
+
+		if err := s.repo.UpdatePayment(payment); err != nil {
+			return nil, errors.New("failed to update payment")
+		}
+	}
+
+	return application, nil
+}
+
+func (s *Service) sendAdmitCard(application *ProviderApplication, payment *publicscholarship.Payment) {
+	scholarship, err := s.repo.FindScholarshipByID(payment.ScholarshipID)
+	if err != nil {
+		log.Printf("sendAdmitCard: scholarship not found: %v", err)
+		return
+	}
+
+	dobStr := ""
+	if !application.DateOfBirthAD.IsZero() {
+		dobStr = application.DateOfBirthAD.Format("02-Jan-2006")
+	} else if application.DateOfBirthBS != "" {
+		dobStr = application.DateOfBirthBS
+	}
+
+	cardData := publicscholarship.AdmitCardData{
+		CandidateName:    application.FullName,
+		DateOfBirth:      dobStr,
+		Gender:           application.Gender,
+		ApplicationNo:    fmt.Sprintf("RD2083S%d", application.ID),
+		ExamCentre:       application.ExamCenter,
+		Stream:           application.Stream,
+		PhotoURL:         publicscholarship.PhotoToBase64(application.PhotoURL),
+		ScholarshipTitle: scholarship.Title,
+		Provider:         scholarship.Provider,
+	}
+
+	pdfBytes, err := publicscholarship.GenerateAdmitCardPDF(cardData)
+	if err != nil {
+		_ = emailqueue.SendAdmitCardEmail(application.Email, application.FullName, scholarship.Title, nil)
+		return
+	}
+
+	_ = emailqueue.SendAdmitCardEmail(application.Email, application.FullName, scholarship.Title, pdfBytes)
 }
 
 func (s *Service) UpdateApplicationStatus(providerID, id uint, req UpdateApplicationStatusRequest) (*ProviderApplication, error) {

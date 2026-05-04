@@ -317,6 +317,29 @@ func providerScholarshipToScholarship(ps *ProviderScholarship) *Scholarship {
 	}
 }
 
+func (s *Service) CreateDraftApplication(scholarshipID uint, userID uint) (*ScholarshipApplication, error) {
+	scholarship, err := s.resolveScholarshipForApplication(scholarshipID)
+	if err != nil {
+		return nil, errors.New("scholarship not found")
+	}
+
+	application := &ScholarshipApplication{
+		ScholarshipID: scholarship.ID,
+		UserID:        &userID,
+		Status:        ApplicationStatusPendingPayment,
+	}
+
+	if err := s.repo.ApplicationCreate(application); err != nil {
+		return nil, errors.New("failed to create application")
+	}
+
+	if scholarship.ProviderScholarshipID != nil {
+		_ = s.repo.CreateProviderApplication(*scholarship.ProviderScholarshipID, application)
+	}
+
+	return application, nil
+}
+
 func (s *Service) ApplyScholarship(scholarshipID uint, userID *uint, req ScholarshipApplicationRequest) (*ScholarshipApplication, error) {
 	scholarship, err := s.resolveScholarshipForApplication(scholarshipID)
 	if err != nil {
@@ -395,7 +418,12 @@ func (s *Service) ApplyScholarship(scholarshipID uint, userID *uint, req Scholar
 			return data
 		}(),
 
-		Status: "pending",
+		Status: func() string {
+			if req.RequiresPayment {
+				return ApplicationStatusPendingPayment
+			}
+			return "pending"
+		}(),
 	}
 
 	if err := s.repo.ApplicationCreate(application); err != nil {
@@ -752,8 +780,8 @@ func (s *PaymentService) ProcessSuccessfulPayment(paymentID uint, transactionID 
 	}
 
 	app, _ := s.scholarshipRepo.ApplicationFindByID(payment.ApplicationID)
-	if app != nil {
-		app.Status = "confirmed"
+	if app != nil && app.Status != "confirmed" {
+		app.Status = "pending"
 		s.scholarshipRepo.ApplicationSave(app)
 	}
 
@@ -787,8 +815,8 @@ func (s *PaymentService) ApproveBankPayment(paymentID uint, approvedBy uint, rea
 		payment.ApprovedAt = &nowApproval
 
 		app, _ := s.scholarshipRepo.ApplicationFindByID(payment.ApplicationID)
-		if app != nil {
-			app.Status = "confirmed"
+		if app != nil && app.Status != "confirmed" {
+			app.Status = "pending"
 			s.scholarshipRepo.ApplicationSave(app)
 		}
 
@@ -813,16 +841,6 @@ func (s *PaymentService) sendAdmitCard(payment *Payment) error {
 		dobStr = app.DateOfBirthBS
 	}
 
-	photoURL := app.PhotoURL
-	// Construct absolute photo URL if it's a relative path
-	if photoURL != "" && len(photoURL) > 0 && photoURL[0] == '/' {
-		baseURL := "http://localhost:8080"
-		if envURL := fmt.Sprintf("%s", scholarship.Provider); envURL != "" {
-			// use relative path as-is for local headless chrome
-		}
-		photoURL = baseURL + photoURL
-	}
-
 	cardData := AdmitCardData{
 		CandidateName:    app.FullName,
 		DateOfBirth:      dobStr,
@@ -830,7 +848,7 @@ func (s *PaymentService) sendAdmitCard(payment *Payment) error {
 		ApplicationNo:    fmt.Sprintf("RD2083S%d", app.ID),
 		ExamCentre:       app.ExamCenter,
 		Stream:           app.Stream,
-		PhotoURL:         photoURL,
+		PhotoURL:         PhotoToBase64(app.PhotoURL),
 		ScholarshipTitle: scholarship.Title,
 		Provider:         scholarship.Provider,
 	}

@@ -194,6 +194,8 @@ func (r *Repository) GetApplicationsByProvider(providerID uint, page, limit int,
 
 	if status != "" {
 		query = query.Where("provider_applications.status = ?", status)
+	} else {
+		query = query.Where("provider_applications.status != ?", "pending_payment")
 	}
 	if scholarshipID != "" {
 		query = query.Where("provider_applications.scholarship_id = ?", scholarshipID)
@@ -210,7 +212,29 @@ func (r *Repository) GetApplicationsByProvider(providerID uint, page, limit int,
 		return nil, 0, err
 	}
 
+	// Fetch payment for each application
+	for i, app := range applications {
+		if payment := r.findPaymentByApplication(&app); payment != nil {
+			applications[i].Payment = payment
+		}
+	}
+
 	return applications, total, nil
+}
+
+func (r *Repository) findPaymentByApplication(app *ProviderApplication) *ProviderPayment {
+	if app.ScholarshipApplicationID == nil {
+		return nil
+	}
+	var payment ProviderPayment
+	err := r.db.Table("scholarship_payments").
+		Where("application_id = ?", *app.ScholarshipApplicationID).
+		Order("created_at desc").
+		First(&payment).Error
+	if err != nil {
+		return nil
+	}
+	return &payment
 }
 
 func (r *Repository) GetApplicationByIDAndProvider(id uint, providerID uint) (*ProviderApplication, error) {
@@ -223,17 +247,7 @@ func (r *Repository) GetApplicationByIDAndProvider(id uint, providerID uint) (*P
 		return nil, err
 	}
 
-	var payment ProviderPayment
-	err := r.db.Table("scholarship_payments").
-		Select("scholarship_payments.*").
-		Joins("JOIN scholarships ON scholarships.id = scholarship_payments.scholarship_id").
-		Where("scholarship_payments.user_id = ? AND scholarships.provider_scholarship_id = ?", application.UserID, application.ScholarshipID).
-		Order("scholarship_payments.created_at desc").
-		First(&payment).Error
-	
-	if err == nil {
-		application.Payment = &payment
-	}
+	application.Payment = r.findPaymentByApplication(&application)
 
 	return &application, nil
 }
@@ -793,4 +807,32 @@ func (r *Repository) UpdateAccessUserEmail(id uint, newEmail string) error {
 
 func (r *Repository) UpdateAccessUserField(id uint, field string, value interface{}) error {
 	return r.db.Model(&ProviderAccessUser{}).Where("id = ?", id).Update(field, value).Error
+}
+
+func (r *Repository) UpdateApplicationStatusOnly(id uint, status string) (*ProviderApplication, error) {
+	var app ProviderApplication
+	if err := r.db.Model(&app).Where("id = ?", id).Update("status", status).Error; err != nil {
+		return nil, err
+	}
+	return &app, nil
+}
+
+func (r *Repository) FindPaymentByApplicationID(applicationID uint) (*scholarship.Payment, error) {
+	var payment scholarship.Payment
+	if err := r.db.Where("application_id = ?", applicationID).Order("created_at desc").First(&payment).Error; err != nil {
+		return nil, err
+	}
+	return &payment, nil
+}
+
+func (r *Repository) UpdatePayment(payment *scholarship.Payment) error {
+	return r.db.Save(payment).Error
+}
+
+func (r *Repository) FindScholarshipByID(id uint) (*scholarship.Scholarship, error) {
+	var s scholarship.Scholarship
+	if err := r.db.First(&s, id).Error; err != nil {
+		return nil, err
+	}
+	return &s, nil
 }

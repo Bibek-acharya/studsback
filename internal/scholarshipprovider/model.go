@@ -126,7 +126,8 @@ type ProviderApplication struct {
 	GPA                   float64             `json:"gpa"`
 	SchoolType            string              `json:"school_type"`
 	ExamCenter            string              `json:"exam_center"`
-	Payment               *ProviderPayment    `gorm:"-" json:"payment,omitempty"`
+	ScholarshipApplicationID *uint             `gorm:"column:scholarship_application_id" json:"scholarship_application_id,omitempty"`
+	Payment                  *ProviderPayment  `gorm:"-" json:"payment,omitempty"`
 }
 
 type ProviderPayment struct {

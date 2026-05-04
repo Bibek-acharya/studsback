@@ -329,9 +329,10 @@ func (r *Repository) CreateProviderApplication(providerScholarshipID uint, app *
 		"status":                  "pending",
 		"stream":                  app.Stream,
 		"exam_center":             app.ExamCenter,
-		"personal_statement":      app.PersonalStatement,
-		"documents":               app.Documents,
-		"created_at":              now,
+		"personal_statement":       app.PersonalStatement,
+		"documents":                app.Documents,
+		"scholarship_application_id": app.ID,
+		"created_at":               now,
 		"updated_at":              now,
 	}).Error
 }

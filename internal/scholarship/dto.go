@@ -6,6 +6,7 @@ const (
 	ApplicationStatusApproved     = "approved"
 	ApplicationStatusRejected     = "rejected"
 	ApplicationStatusShortlisted  = "shortlisted"
+	ApplicationStatusPendingPayment = "pending_payment"
 )
 
 type CreateScholarshipRequest struct {
@@ -72,6 +73,7 @@ type ScholarshipApplicationRequest struct {
 
 	Documents         []DetailField `json:"documents"`
 	PersonalStatement string        `json:"personal_statement"`
+	RequiresPayment   bool          `json:"requires_payment"`
 }
 
 type UpdateScholarshipApplicationRequest struct {
@@ -243,6 +245,7 @@ type DetailField struct {
 	Stage          string `json:"stage,omitempty"`
 	Criterion      string `json:"criterion,omitempty"`
 	Name           string `json:"name,omitempty"`
+	URL            string `json:"url,omitempty"`
 	CenterName     string `json:"centerName,omitempty"`
 	Province       string `json:"province,omitempty"`
 	Info           string `json:"info,omitempty"`

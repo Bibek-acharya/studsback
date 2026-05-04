@@ -2,7 +2,6 @@ package scholarship
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -709,23 +708,24 @@ func (h *Handler) ProcessPayment(c *gin.Context) {
 
 	var app *ScholarshipApplication
 	if req.ApplicationID != 0 {
-		app, err = h.service.GetApplicationForPayment(req.ApplicationID, scholarshipID)
+		app, _ = h.service.GetApplicationForPayment(req.ApplicationID, scholarshipID)
 	} else if uid != 0 {
-		app, err = h.service.GetApplicationByUserAndScholarshipID(scholarshipID, uid)
-	} else {
-		err = errors.New("application id is required for unauthenticated users")
+		app, _ = h.service.GetApplicationByUserAndScholarshipID(scholarshipID, uid)
 	}
 
-	if err != nil {
-		response.Error(c, 404, "No application found")
-		return
+	if app == nil {
+		app, err = h.service.CreateDraftApplication(scholarshipID, uid)
+		if err != nil {
+			response.Error(c, 500, "Failed to create application")
+			return
+		}
 	}
 
 	var uidPtr *uint
 	if uid != 0 {
 		uidPtr = &uid
 	}
-	
+
 	payment, err := h.paymentService.CreatePayment(app.ID, scholarshipID, uidPtr, req)
 	if err != nil {
 		response.Error(c, 500, "Failed to process payment")

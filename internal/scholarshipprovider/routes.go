@@ -50,6 +50,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			scholarshipProvider.GET("/applications/:id", h.GetApplicationByID)
 			scholarshipProvider.PUT("/applications/:id/evaluate", h.EvaluateApplication)
 			scholarshipProvider.PUT("/applications/:id/status", h.UpdateApplicationStatus)
+			scholarshipProvider.PUT("/applications/:id/payment", h.ApproveApplicationPayment)
 
 			scholarshipProvider.GET("/interviews", h.GetInterviews)
 			scholarshipProvider.POST("/interviews", h.CreateInterview)

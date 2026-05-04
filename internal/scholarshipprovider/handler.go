@@ -434,6 +434,40 @@ func (h *Handler) UpdateApplicationStatus(c *gin.Context) {
 	response.Success(c, http.StatusOK, "Application status updated successfully", toApplicationResponse(application))
 }
 
+type ApprovePaymentRequest struct {
+	Approve bool   `json:"approve"`
+	Reason  string `json:"reason"`
+}
+
+func (h *Handler) ApproveApplicationPayment(c *gin.Context) {
+	providerID := getProviderID(c)
+	idStr := c.Param("id")
+
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid application ID")
+		return
+	}
+
+	var req ApprovePaymentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	_, err = h.service.ApproveApplicationPayment(providerID, uint(id), req.Approve, req.Reason)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	if req.Approve {
+		response.Success(c, http.StatusOK, "Payment approved and admit card sent", nil)
+	} else {
+		response.Success(c, http.StatusOK, "Payment rejected", nil)
+	}
+}
+
 func (h *Handler) GetInterviews(c *gin.Context) {
 	providerID := getProviderID(c)
 

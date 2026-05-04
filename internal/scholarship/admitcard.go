@@ -163,6 +163,34 @@ const admitCardHTMLTemplate = `<!DOCTYPE html>
 </body>
 </html>`
 
+// PhotoToBase64 reads an uploaded photo from the local filesystem and returns a base64 data URL.
+// The path should be a relative upload path like "/uploads/scholarship/photos/12345.jpg".
+func PhotoToBase64(photoPath string) string {
+	if photoPath == "" {
+		return ""
+	}
+	// Strip leading slash and use local path
+	localPath := photoPath
+	if localPath[0] == '/' {
+		localPath = "." + localPath
+	}
+	data, err := os.ReadFile(localPath)
+	if err != nil {
+		return ""
+	}
+	mimeType := "image/jpeg"
+	if len(data) > 4 {
+		if data[0] == 0x89 && data[1] == 'P' && data[2] == 'N' && data[3] == 'G' {
+			mimeType = "image/png"
+		} else if data[0] == 'G' && data[1] == 'I' && data[2] == 'F' {
+			mimeType = "image/gif"
+		} else if data[0] == 0x52 && data[1] == 0x49 && data[2] == 0x46 && data[3] == 0x46 {
+			mimeType = "image/webp"
+		}
+	}
+	return fmt.Sprintf("data:%s;base64,%s", mimeType, base64.StdEncoding.EncodeToString(data))
+}
+
 // GenerateAdmitCardPDF renders the admit card HTML with the given data and returns a PDF as bytes.
 func GenerateAdmitCardPDF(data AdmitCardData) ([]byte, error) {
 	if data.SubjectCode == "" {
