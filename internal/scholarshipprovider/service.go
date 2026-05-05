@@ -901,7 +901,42 @@ func (s *Service) GetMessages(providerID uint, page, limit int) ([]ProviderMessa
 		limit = 20
 	}
 
-	return s.repo.GetMessagesByProvider(providerID, page, limit)
+	messages, total, err := s.repo.GetMessagesByProvider(providerID, page, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	userIDs := make([]uint, 0, len(messages))
+	userIDSet := make(map[uint]bool)
+	for _, m := range messages {
+		if m.UserID > 0 && !userIDSet[m.UserID] {
+			userIDs = append(userIDs, m.UserID)
+			userIDSet[m.UserID] = true
+		}
+	}
+
+	if len(userIDs) > 0 {
+		type userInfo struct {
+			ID        uint
+			FirstName string
+			LastName  string
+			Email     string
+		}
+		var users []userInfo
+		s.repo.GetDB().Table("users").Select("id, first_name, last_name, email").Where("id IN ?", userIDs).Find(&users)
+		userMap := make(map[uint]userInfo)
+		for _, u := range users {
+			userMap[u.ID] = u
+		}
+		for i, m := range messages {
+			if u, ok := userMap[m.UserID]; ok {
+				messages[i].UserName = u.FirstName + " " + u.LastName
+				messages[i].UserEmail = u.Email
+			}
+		}
+	}
+
+	return messages, total, nil
 }
 
 func (s *Service) CreateMessage(providerID uint, req CreateMessageRequest) (*ProviderMessage, error) {
@@ -911,6 +946,22 @@ func (s *Service) CreateMessage(providerID uint, req CreateMessageRequest) (*Pro
 		Subject:    req.Subject,
 		Content:    req.Content,
 		Direction:  "outbound",
+	}
+
+	if err := s.repo.CreateMessage(message); err != nil {
+		return nil, err
+	}
+
+	return message, nil
+}
+
+func (s *Service) CreateMessageFromUser(userID uint, req CreateMessageFromUserRequest) (*ProviderMessage, error) {
+	message := &ProviderMessage{
+		ProviderID: req.ProviderID,
+		UserID:     userID,
+		Subject:    req.Subject,
+		Content:    req.Content,
+		Direction:  "incoming",
 	}
 
 	if err := s.repo.CreateMessage(message); err != nil {
@@ -933,6 +984,14 @@ func (s *Service) GetMessageByID(providerID, id uint) (*ProviderMessage, error) 
 	}
 
 	return message, nil
+}
+
+func (s *Service) MarkMessageRead(providerID, id uint) error {
+	message, err := s.repo.GetMessageByIDAndProvider(id, providerID)
+	if err != nil {
+		return err
+	}
+	return s.repo.MarkMessageRead(message)
 }
 
 func (s *Service) GetProviderProfile(providerID uint) (*ScholarshipProviderUser, error) {
@@ -1006,8 +1065,9 @@ func (s *Service) UpdateProviderProfile(providerID uint, req UpdateProfileReques
 	if req.BrochureURL != "" {
 		updates["brochure_url"] = req.BrochureURL
 	}
-
-
+	if req.BannerURL != "" {
+		updates["banner_url"] = req.BannerURL
+	}
 
 	if err := s.repo.UpdateProviderProfile(provider, updates); err != nil {
 		return nil, err
@@ -1596,6 +1656,141 @@ func (s *Service) DeleteCalendarEvent(providerID, id uint) error {
 	return s.repo.DeleteCalendarEvent(id, providerID)
 }
 
+func (s *Service) CreateWrittenExam(providerID uint, req CreateWrittenExamRequest) (*WrittenExam, error) {
+	status := "draft"
+	if req.Status != "" {
+		status = req.Status
+	}
+	exam := &WrittenExam{
+		ProviderID:    providerID,
+		ScholarshipID: req.ScholarshipID,
+		Title:         req.Title,
+		ExamDate:      req.ExamDate,
+		Duration:      req.Duration,
+		Location:      req.Location,
+		TotalMarks:    req.TotalMarks,
+		PassingMarks:  req.PassingMarks,
+		Status:        status,
+	}
+	if err := s.repo.CreateWrittenExam(exam); err != nil {
+		return nil, err
+	}
+	return exam, nil
+}
+
+func (s *Service) GetWrittenExams(providerID uint, page, limit int) ([]WrittenExam, int64, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50 {
+		limit = 10
+	}
+	return s.repo.GetWrittenExamsByProvider(providerID, page, limit)
+}
+
+func (s *Service) GetWrittenExamsByScholarship(providerID, scholarshipID uint) ([]WrittenExam, error) {
+	return s.repo.GetWrittenExamsByScholarship(providerID, scholarshipID)
+}
+
+func (s *Service) GetWrittenExamByID(providerID, id uint) (*WrittenExam, error) {
+	exam, err := s.repo.GetWrittenExamByIDAndProvider(id, providerID)
+	if err != nil {
+		return nil, err
+	}
+	results, err := s.repo.GetWrittenExamResults(exam.ID)
+	if err == nil {
+		exam.Results = results
+	}
+	return exam, nil
+}
+
+func (s *Service) UpdateWrittenExam(providerID, id uint, req UpdateWrittenExamRequest) (*WrittenExam, error) {
+	exam, err := s.repo.GetWrittenExamByIDAndProvider(id, providerID)
+	if err != nil {
+		return nil, err
+	}
+	updates := map[string]interface{}{}
+	if req.Title != "" {
+		updates["title"] = req.Title
+	}
+	if req.ExamDate != "" {
+		updates["exam_date"] = req.ExamDate
+	}
+	if req.Duration > 0 {
+		updates["duration"] = req.Duration
+	}
+	if req.Location != "" {
+		updates["location"] = req.Location
+	}
+	if req.TotalMarks > 0 {
+		updates["total_marks"] = req.TotalMarks
+	}
+	if req.PassingMarks > 0 {
+		updates["passing_marks"] = req.PassingMarks
+	}
+	if req.Status != "" {
+		updates["status"] = req.Status
+	}
+	if len(updates) > 0 {
+		if err := s.repo.UpdateWrittenExam(exam, updates); err != nil {
+			return nil, err
+		}
+	}
+	return exam, nil
+}
+
+func (s *Service) DeleteWrittenExam(providerID, id uint) error {
+	return s.repo.DeleteWrittenExam(id, providerID)
+}
+
+func (s *Service) AddWrittenExamResult(examID, providerID uint, req AddWrittenExamResultRequest) (*WrittenExam, error) {
+	exam, err := s.repo.GetWrittenExamByIDAndProvider(examID, providerID)
+	if err != nil {
+		return nil, err
+	}
+	result := &WrittenExamResult{
+		WrittenExamID: examID,
+		ApplicationID: req.ApplicationID,
+		MarksObtained: req.MarksObtained,
+		Remarks:       req.Remarks,
+	}
+	if err := s.repo.CreateWrittenExamResult(result); err != nil {
+		return nil, err
+	}
+	results, _ := s.repo.GetWrittenExamResults(examID)
+	exam.Results = results
+	return exam, nil
+}
+
+func (s *Service) UpdateWrittenExamResult(examID, resultID, providerID uint, req UpdateWrittenExamResultRequest) (*WrittenExam, error) {
+	if _, err := s.repo.GetWrittenExamByIDAndProvider(examID, providerID); err != nil {
+		return nil, err
+	}
+	result, err := s.repo.GetWrittenExamResultByID(resultID, examID)
+	if err != nil {
+		return nil, err
+	}
+	updates := map[string]interface{}{}
+	updates["marks_obtained"] = req.MarksObtained
+	if req.Remarks != "" {
+		updates["remarks"] = req.Remarks
+	}
+	if err := s.repo.UpdateWrittenExamResult(result, updates); err != nil {
+		return nil, err
+	}
+	exam, _ := s.repo.GetWrittenExamByIDAndProvider(examID, providerID)
+	results, _ := s.repo.GetWrittenExamResults(examID)
+	exam.Results = results
+	return exam, nil
+}
+
+func (s *Service) DeleteWrittenExamResult(examID, resultID, providerID uint) error {
+	if _, err := s.repo.GetWrittenExamByIDAndProvider(examID, providerID); err != nil {
+		return err
+	}
+	return s.repo.DeleteWrittenExamResult(resultID, examID)
+}
+
 func (s *Service) CreateResult(providerID uint, req CreateResultRequest) (*ProviderResult, error) {
 	status := "draft"
 	if req.Status != "" {
@@ -1867,7 +2062,7 @@ func (s *Service) GetPublicProviderProfile(id uint) (*PublicProviderProfileRespo
 		LinkedInURL:      provider.LinkedInURL,
 		MapURL:           provider.MapURL,
 		BrochureURL:      provider.BrochureURL,
-
+		BannerURL:        provider.BannerURL,
 
 		Services:         serviceResponses,
 		Sectors:          sectorResponses,
@@ -2332,6 +2527,24 @@ func (s *Service) LoginAccessUser(email, password string, providerID uint) (*Acc
 	}
 
 	return toAccessUserResponse(user), nil
+}
+
+func (s *Service) GetUserByID(userID uint) (*UserResponse, error) {
+	user, err := s.repo.GetUserByID(userID)
+	if err != nil {
+		return nil, err
+	}
+	return &UserResponse{
+		ID:        user.ID,
+		FirstName: user.FirstName,
+		LastName:  user.LastName,
+		Email:     user.Email,
+		Phone:     user.Phone,
+		Gender:    user.Gender,
+		Address:   user.Address,
+		Bio:       user.Bio,
+		Role:      user.Role,
+	}, nil
 }
 
 func (s *Service) ResetAccessUserPassword(userID uint, newPassword string) error {

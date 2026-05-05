@@ -116,7 +116,7 @@ type ProviderApplication struct {
 	FamilyMonthlyIncome   float64             `json:"family_monthly_income"`
 	FamilyMembersCount    int                 `json:"family_members_count"`
 	Status                string              `gorm:"default:'pending'" json:"status"`
-	EvaluationScore       int                 `gorm:"default:0" json:"evaluation_score"`
+	EvaluationScore       *int                `gorm:"default:null" json:"evaluation_score"`
 	EvaluationPassed      bool                `gorm:"default:false" json:"evaluation_passed"`
 	EvaluationNotes       string              `gorm:"type:text" json:"evaluation_notes"`
 	Documents             []byte              `gorm:"type:jsonb" json:"documents"`
@@ -168,6 +168,8 @@ type ProviderMessage struct {
 	Content    string         `gorm:"type:text" json:"content"`
 	Read       bool           `gorm:"default:false" json:"read"`
 	Direction  string         `json:"direction"`
+	UserName   string         `gorm:"-" json:"user_name"`
+	UserEmail  string         `gorm:"-" json:"user_email"`
 }
 
 type ProviderSettings struct {
@@ -225,6 +227,7 @@ type ScholarshipProviderUser struct {
 	LinkedInURL        string         `gorm:"column:linkedin_url;default:''" json:"linkedin_url"`
 	MapURL             string         `gorm:"column:map_url;type:text;default:''" json:"map_url"`
 	BrochureURL        string         `gorm:"column:brochure_url;default:''" json:"brochure_url"`
+	BannerURL          string         `gorm:"column:banner_url;default:''" json:"banner_url"`
 }
 
 
@@ -316,6 +319,34 @@ type ProviderResult struct {
 	Status        string         `gorm:"default:'draft'" json:"status"`
 	PublishedAt   *time.Time     `json:"published_at"`
 	Results       []byte         `gorm:"type:jsonb" json:"results"`
+}
+
+type WrittenExam struct {
+	ID            uint           `gorm:"primarykey" json:"id"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
+	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
+	ProviderID    uint           `gorm:"index;not null" json:"provider_id"`
+	ScholarshipID uint           `gorm:"index;not null" json:"scholarship_id"`
+	Title         string         `gorm:"not null" json:"title"`
+	ExamDate      string         `json:"exam_date"`
+	Duration      int            `json:"duration"`
+	Location      string         `json:"location"`
+	TotalMarks    int            `json:"total_marks"`
+	PassingMarks  int            `json:"passing_marks"`
+	Status        string         `gorm:"default:'draft'" json:"status"`
+	Results       []WrittenExamResult `gorm:"-" json:"results,omitempty"`
+}
+
+type WrittenExamResult struct {
+	ID            uint           `gorm:"primarykey" json:"id"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
+	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
+	WrittenExamID uint           `gorm:"index;not null" json:"written_exam_id"`
+	ApplicationID uint           `gorm:"index;not null" json:"application_id"`
+	MarksObtained int            `json:"marks_obtained"`
+	Remarks       string         `json:"remarks"`
 }
 
 type ProviderAccess struct {

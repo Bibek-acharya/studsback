@@ -75,6 +75,8 @@ func resolveProviderUploadFolder(folder string) (string, error) {
 		return "scholarship-provider/founders", nil
 	case "brochures":
 		return "scholarship-provider/brochures", nil
+	case "banners":
+		return "scholarship-provider/banners", nil
 
 	default:
 		return "", errors.New("invalid upload folder")
@@ -607,6 +609,42 @@ func (h *Handler) GetMessageByID(c *gin.Context) {
 	response.Success(c, http.StatusOK, "Message retrieved successfully", toMessageResponse(message))
 }
 
+func (h *Handler) MarkMessageRead(c *gin.Context) {
+	providerID := getProviderID(c)
+	idStr := c.Param("id")
+
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid message ID")
+		return
+	}
+
+	if err := h.service.MarkMessageRead(providerID, uint(id)); err != nil {
+		response.Error(c, http.StatusNotFound, "Message not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Message marked as read", nil)
+}
+
+func (h *Handler) SendMessageFromUser(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+
+	var req CreateMessageFromUserRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	message, err := h.service.CreateMessageFromUser(userID.(uint), req)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to send message")
+		return
+	}
+
+	response.Success(c, http.StatusCreated, "Message sent successfully", toMessageResponse(message))
+}
+
 func (h *Handler) GetProfile(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 	role, _ := c.Get("user_role")
@@ -652,6 +690,7 @@ func (h *Handler) GetProfile(c *gin.Context) {
 		AboutText:          provider.AboutText,
 		Mission:            provider.Mission,
 		Values:             provider.Values,
+		BannerURL:          provider.BannerURL,
 		Role:               provider.Role,
 		IsSubUser:          false,
 		ProviderID:         provider.ID,
@@ -698,6 +737,7 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 		LinkedInURL:        provider.LinkedInURL,
 		MapURL:             provider.MapURL,
 		BrochureURL:        provider.BrochureURL,
+		BannerURL:          provider.BannerURL,
 	})
 
 }
@@ -900,6 +940,8 @@ func toApplicationResponse(a *ProviderApplication) ApplicationResponse {
 		FamilyMonthlyIncome:   a.FamilyMonthlyIncome,
 		FamilyMembersCount:    a.FamilyMembersCount,
 		Status:                a.Status,
+		EvaluationScore:       a.EvaluationScore,
+		EvaluationPassed:      a.EvaluationPassed,
 		EvaluationNotes:       a.EvaluationNotes,
 		Documents:             a.Documents,
 		PersonalStatement:     a.PersonalStatement,
@@ -951,6 +993,8 @@ func toMessageResponse(m *ProviderMessage) MessageResponse {
 		UpdatedAt:  m.UpdatedAt,
 		ProviderID: m.ProviderID,
 		UserID:     m.UserID,
+		UserName:   m.UserName,
+		UserEmail:  m.UserEmail,
 		Subject:    m.Subject,
 		Content:    m.Content,
 		Read:       m.Read,
@@ -1049,6 +1093,42 @@ func toCalendarEventResponse(e *ProviderCalendarEvent) CalendarEventResponse {
 		Color:       e.Color,
 		IsAllDay:    e.IsAllDay,
 	}
+}
+
+func toWrittenExamResultResponse(r *WrittenExamResult) WrittenExamResultResponse {
+	return WrittenExamResultResponse{
+		ID:            r.ID,
+		CreatedAt:     r.CreatedAt,
+		WrittenExamID: r.WrittenExamID,
+		ApplicationID: r.ApplicationID,
+		MarksObtained: r.MarksObtained,
+		Remarks:       r.Remarks,
+	}
+}
+
+func toWrittenExamResponse(e *WrittenExam) WrittenExamResponse {
+	resp := WrittenExamResponse{
+		ID:            e.ID,
+		CreatedAt:     e.CreatedAt,
+		UpdatedAt:     e.UpdatedAt,
+		ProviderID:    e.ProviderID,
+		ScholarshipID: e.ScholarshipID,
+		Title:         e.Title,
+		ExamDate:      e.ExamDate,
+		Duration:      e.Duration,
+		Location:      e.Location,
+		TotalMarks:    e.TotalMarks,
+		PassingMarks:  e.PassingMarks,
+		Status:        e.Status,
+	}
+	if len(e.Results) > 0 {
+		results := make([]WrittenExamResultResponse, len(e.Results))
+		for i, r := range e.Results {
+			results[i] = toWrittenExamResultResponse(&r)
+		}
+		resp.Results = results
+	}
+	return resp
 }
 
 func toResultResponse(r *ProviderResult) ResultResponse {
@@ -1509,6 +1589,222 @@ func (h *Handler) DeleteCalendarEvent(c *gin.Context) {
 	}
 
 	response.Success(c, http.StatusOK, "Calendar event deleted successfully", nil)
+}
+
+func (h *Handler) CreateWrittenExam(c *gin.Context) {
+	providerID := getProviderID(c)
+	var req CreateWrittenExamRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	exam, err := h.service.CreateWrittenExam(providerID, req)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to create written exam")
+		return
+	}
+
+	response.Success(c, http.StatusCreated, "Written exam created successfully", toWrittenExamResponse(exam))
+}
+
+func (h *Handler) GetWrittenExams(c *gin.Context) {
+	providerID := getProviderID(c)
+
+	scholarshipID := c.Query("scholarship_id")
+	if scholarshipID != "" {
+		sid, err := strconv.ParseUint(scholarshipID, 10, 32)
+		if err == nil {
+			exams, err := h.service.GetWrittenExamsByScholarship(providerID, uint(sid))
+			if err != nil {
+				response.Error(c, http.StatusInternalServerError, "Failed to fetch written exams")
+				return
+			}
+			responses := make([]WrittenExamResponse, len(exams))
+			for i, e := range exams {
+				responses[i] = toWrittenExamResponse(&e)
+			}
+			response.Success(c, http.StatusOK, "Written exams retrieved successfully", WrittenExamListResponse{
+				Exams: responses,
+				Meta:  PaginationMeta{Total: int64(len(exams)), Page: 1, Limit: len(exams)},
+			})
+			return
+		}
+	}
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+
+	exams, total, err := h.service.GetWrittenExams(providerID, page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch written exams")
+		return
+	}
+
+	responses := make([]WrittenExamResponse, len(exams))
+	for i, e := range exams {
+		responses[i] = toWrittenExamResponse(&e)
+	}
+
+	response.Success(c, http.StatusOK, "Written exams retrieved successfully", WrittenExamListResponse{
+		Exams: responses,
+		Meta: PaginationMeta{
+			Total: total,
+			Page:  page,
+			Limit: limit,
+		},
+	})
+}
+
+func (h *Handler) GetWrittenExamByID(c *gin.Context) {
+	providerID := getProviderID(c)
+	idStr := c.Param("id")
+
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid written exam ID")
+		return
+	}
+
+	exam, err := h.service.GetWrittenExamByID(providerID, uint(id))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Written exam not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Written exam retrieved successfully", toWrittenExamResponse(exam))
+}
+
+func (h *Handler) UpdateWrittenExam(c *gin.Context) {
+	providerID := getProviderID(c)
+	idStr := c.Param("id")
+
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid written exam ID")
+		return
+	}
+
+	var req UpdateWrittenExamRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	exam, err := h.service.UpdateWrittenExam(providerID, uint(id), req)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Written exam not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Written exam updated successfully", toWrittenExamResponse(exam))
+}
+
+func (h *Handler) DeleteWrittenExam(c *gin.Context) {
+	providerID := getProviderID(c)
+	idStr := c.Param("id")
+
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid written exam ID")
+		return
+	}
+
+	if err := h.service.DeleteWrittenExam(providerID, uint(id)); err != nil {
+		if err.Error() == "record not found" {
+			response.Error(c, http.StatusNotFound, "Written exam not found")
+			return
+		}
+		response.Error(c, http.StatusInternalServerError, "Failed to delete written exam")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Written exam deleted successfully", nil)
+}
+
+func (h *Handler) AddWrittenExamResult(c *gin.Context) {
+	providerID := getProviderID(c)
+	examIDStr := c.Param("id")
+
+	examID, err := strconv.ParseUint(examIDStr, 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid exam ID")
+		return
+	}
+
+	var req AddWrittenExamResultRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	exam, err := h.service.AddWrittenExamResult(uint(examID), providerID, req)
+	if err != nil {
+		log.Printf("scholarshipprovider: AddWrittenExamResult error: %v", err)
+		response.Error(c, http.StatusInternalServerError, "Failed to add result")
+		return
+	}
+
+	response.Success(c, http.StatusCreated, "Result added successfully", toWrittenExamResponse(exam))
+}
+
+func (h *Handler) UpdateWrittenExamResult(c *gin.Context) {
+	providerID := getProviderID(c)
+	examIDStr := c.Param("id")
+	resultIDStr := c.Param("resultId")
+
+	examID, err := strconv.ParseUint(examIDStr, 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid exam ID")
+		return
+	}
+	resultID, err := strconv.ParseUint(resultIDStr, 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid result ID")
+		return
+	}
+
+	var req UpdateWrittenExamResultRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	exam, err := h.service.UpdateWrittenExamResult(uint(examID), uint(resultID), providerID, req)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Result not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Result updated successfully", toWrittenExamResponse(exam))
+}
+
+func (h *Handler) DeleteWrittenExamResult(c *gin.Context) {
+	providerID := getProviderID(c)
+	examIDStr := c.Param("id")
+	resultIDStr := c.Param("resultId")
+
+	examID, err := strconv.ParseUint(examIDStr, 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid exam ID")
+		return
+	}
+	resultID, err := strconv.ParseUint(resultIDStr, 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid result ID")
+		return
+	}
+
+	if err := h.service.DeleteWrittenExamResult(uint(examID), uint(resultID), providerID); err != nil {
+		if err.Error() == "record not found" {
+			response.Error(c, http.StatusNotFound, "Result not found")
+			return
+		}
+		response.Error(c, http.StatusInternalServerError, "Failed to delete result")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Result deleted successfully", nil)
 }
 
 func (h *Handler) CreateResult(c *gin.Context) {
@@ -2106,6 +2402,21 @@ func (h *Handler) LoginAccessUserPublic(c *gin.Context) {
 }
 
 // ─── Public Provider Profile ────────────────────────────────────
+func (h *Handler) GetUser(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid user ID")
+		return
+	}
+	user, err := h.service.GetUserByID(uint(id))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "User not found")
+		return
+	}
+	response.Success(c, http.StatusOK, "User retrieved successfully", user)
+}
+
 func (h *Handler) GetPublicProviderProfile(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)

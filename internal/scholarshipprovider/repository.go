@@ -268,7 +268,7 @@ func (r *Repository) GetApplicationByIDAndProvider(id uint, providerID uint) (*P
 	return &application, nil
 }
 
-func (r *Repository) EvaluateApplication(application *ProviderApplication, score int, passing bool, notes string) error {
+func (r *Repository) EvaluateApplication(application *ProviderApplication, score *int, passing bool, notes string) error {
 	return r.db.Model(application).Updates(map[string]interface{}{
 		"evaluation_score":  score,
 		"evaluation_passed": passing,
@@ -319,6 +319,10 @@ func (r *Repository) GetMessagesByProvider(providerID uint, page, limit int) ([]
 	}
 
 	return messages, total, nil
+}
+
+func (r *Repository) GetDB() *gorm.DB {
+	return r.db
 }
 
 func (r *Repository) CreateMessage(message *ProviderMessage) error {
@@ -637,6 +641,91 @@ func (r *Repository) DeleteResult(id uint, providerID uint) error {
 	}
 	return nil
 }
+
+func (r *Repository) CreateWrittenExam(exam *WrittenExam) error {
+	return r.db.Create(exam).Error
+}
+
+func (r *Repository) GetWrittenExamsByProvider(providerID uint, page, limit int) ([]WrittenExam, int64, error) {
+	var total int64
+	if err := r.db.Model(&WrittenExam{}).Where("provider_id = ?", providerID).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var exams []WrittenExam
+	offset := (page - 1) * limit
+	if err := r.db.Where("provider_id = ?", providerID).Order("created_at desc").Offset(offset).Limit(limit).Find(&exams).Error; err != nil {
+		return nil, 0, err
+	}
+	return exams, total, nil
+}
+
+func (r *Repository) GetWrittenExamsByScholarship(providerID, scholarshipID uint) ([]WrittenExam, error) {
+	var exams []WrittenExam
+	if err := r.db.Where("provider_id = ? AND scholarship_id = ?", providerID, scholarshipID).Order("created_at desc").Find(&exams).Error; err != nil {
+		return nil, err
+	}
+	return exams, nil
+}
+
+func (r *Repository) GetWrittenExamByIDAndProvider(id, providerID uint) (*WrittenExam, error) {
+	var exam WrittenExam
+	if err := r.db.Where("id = ? AND provider_id = ?", id, providerID).First(&exam).Error; err != nil {
+		return nil, err
+	}
+	return &exam, nil
+}
+
+func (r *Repository) UpdateWrittenExam(exam *WrittenExam, updates map[string]interface{}) error {
+	return r.db.Model(exam).Updates(updates).Error
+}
+
+func (r *Repository) DeleteWrittenExam(id, providerID uint) error {
+	r.db.Where("written_exam_id = ?", id).Delete(&WrittenExamResult{})
+	result := r.db.Where("id = ? AND provider_id = ?", id, providerID).Delete(&WrittenExam{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *Repository) GetWrittenExamResults(examID uint) ([]WrittenExamResult, error) {
+	var results []WrittenExamResult
+	if err := r.db.Where("written_exam_id = ?", examID).Order("id asc").Find(&results).Error; err != nil {
+		return nil, err
+	}
+	return results, nil
+}
+
+func (r *Repository) CreateWrittenExamResult(result *WrittenExamResult) error {
+	return r.db.Create(result).Error
+}
+
+func (r *Repository) GetWrittenExamResultByID(id, examID uint) (*WrittenExamResult, error) {
+	var result WrittenExamResult
+	if err := r.db.Where("id = ? AND written_exam_id = ?", id, examID).First(&result).Error; err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func (r *Repository) UpdateWrittenExamResult(result *WrittenExamResult, updates map[string]interface{}) error {
+	return r.db.Model(result).Updates(updates).Error
+}
+
+func (r *Repository) DeleteWrittenExamResult(id, examID uint) error {
+	result := r.db.Where("id = ? AND written_exam_id = ?", id, examID).Delete(&WrittenExamResult{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
 
 func (r *Repository) CreateAccess(access *ProviderAccess) error {
 	return r.db.Create(access).Error
@@ -1102,6 +1191,26 @@ func (r *Repository) DeleteReview(id, providerID uint) error {
 		return gorm.ErrRecordNotFound
 	}
 	return nil
+}
+
+type userRow struct {
+	ID        uint   `gorm:"column:id"`
+	FirstName string `gorm:"column:first_name"`
+	LastName  string `gorm:"column:last_name"`
+	Email     string `gorm:"column:email"`
+	Phone     string `gorm:"column:phone"`
+	Gender    string `gorm:"column:gender"`
+	Address   string `gorm:"column:address"`
+	Bio       string `gorm:"column:bio"`
+	Role      string `gorm:"column:role"`
+}
+
+func (r *Repository) GetUserByID(userID uint) (*userRow, error) {
+	var user userRow
+	if err := r.db.Table("users").First(&user, userID).Error; err != nil {
+		return nil, err
+	}
+	return &user, nil
 }
 
 func (r *Repository) GetPublishedReviews(providerID uint) ([]ProviderReview, error) {

@@ -301,7 +301,7 @@ type ApplicationResponse struct {
 	FamilyMonthlyIncome   float64              `json:"family_monthly_income"`
 	FamilyMembersCount    int                  `json:"family_members_count"`
 	Status                string               `json:"status"`
-	EvaluationScore       int                  `json:"evaluation_score"`
+	EvaluationScore       *int                 `json:"evaluation_score"`
 	EvaluationPassed      bool                 `json:"evaluation_passed"`
 	EvaluationNotes       string               `json:"evaluation_notes"`
 	Documents             json.RawMessage      `json:"documents"`
@@ -331,7 +331,7 @@ type ApplicationListResponse struct {
 }
 
 type EvaluateApplicationRequest struct {
-	Score   int    `json:"score"`
+	Score   *int   `json:"score"`
 	Notes   string `json:"notes"`
 	Passing bool   `json:"passing"`
 }
@@ -381,12 +381,20 @@ type CreateMessageRequest struct {
 	Content string `json:"content" binding:"required"`
 }
 
+type CreateMessageFromUserRequest struct {
+	ProviderID uint   `json:"provider_id" binding:"required"`
+	Subject    string `json:"subject" binding:"required"`
+	Content    string `json:"content" binding:"required"`
+}
+
 type MessageResponse struct {
 	ID         uint      `json:"id"`
 	CreatedAt  time.Time `json:"created_at"`
 	UpdatedAt  time.Time `json:"updated_at"`
 	ProviderID uint      `json:"provider_id"`
 	UserID     uint      `json:"user_id"`
+	UserName   string    `json:"user_name"`
+	UserEmail  string    `json:"user_email"`
 	Subject    string    `json:"subject"`
 	Content    string    `json:"content"`
 	Read       bool      `json:"read"`
@@ -419,6 +427,7 @@ type UpdateProfileRequest struct {
 	LinkedInURL        string `json:"linkedin_url"`
 	MapURL             string `json:"map_url"`
 	BrochureURL        string `json:"brochure_url"`
+	BannerURL          string `json:"banner_url"`
 
 
 }
@@ -446,6 +455,7 @@ type ProfileResponse struct {
 	LinkedInURL        string   `json:"linkedin_url,omitempty"`
 	MapURL             string   `json:"map_url,omitempty"`
 	BrochureURL        string   `json:"brochure_url,omitempty"`
+	BannerURL          string   `json:"banner_url,omitempty"`
 	Role               string   `json:"role"`
 	IsSubUser          bool     `json:"is_sub_user"`
 	Permissions        []string `json:"permissions"`
@@ -654,6 +664,72 @@ type CalendarEventResponse struct {
 	IsAllDay    bool      `json:"is_all_day"`
 }
 
+type CreateWrittenExamRequest struct {
+	ScholarshipID uint   `json:"scholarship_id" binding:"required"`
+	Title         string `json:"title" binding:"required"`
+	ExamDate      string `json:"exam_date"`
+	Duration      int    `json:"duration"`
+	Location      string `json:"location"`
+	TotalMarks    int    `json:"total_marks"`
+	PassingMarks  int    `json:"passing_marks"`
+	Status        string `json:"status"`
+}
+
+type UpdateWrittenExamRequest struct {
+	Title        string `json:"title"`
+	ExamDate     string `json:"exam_date"`
+	Duration     int    `json:"duration"`
+	Location     string `json:"location"`
+	TotalMarks   int    `json:"total_marks"`
+	PassingMarks int    `json:"passing_marks"`
+	Status       string `json:"status"`
+}
+
+type WrittenExamResponse struct {
+	ID            uint      `json:"id"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+	ProviderID    uint      `json:"provider_id"`
+	ScholarshipID uint      `json:"scholarship_id"`
+	Title         string    `json:"title"`
+	ExamDate      string    `json:"exam_date"`
+	Duration      int       `json:"duration"`
+	Location      string    `json:"location"`
+	TotalMarks    int       `json:"total_marks"`
+	PassingMarks  int       `json:"passing_marks"`
+	Status        string    `json:"status"`
+	Results       []WrittenExamResultResponse `json:"results,omitempty"`
+}
+
+type WrittenExamListResponse struct {
+	Exams []WrittenExamResponse `json:"exams"`
+	Meta  PaginationMeta        `json:"meta"`
+}
+
+type AddWrittenExamResultRequest struct {
+	ApplicationID uint   `json:"application_id" binding:"required"`
+	MarksObtained int    `json:"marks_obtained"`
+	Remarks       string `json:"remarks"`
+}
+
+type UpdateWrittenExamResultRequest struct {
+	MarksObtained int    `json:"marks_obtained"`
+	Remarks       string `json:"remarks"`
+}
+
+type WrittenExamResultResponse struct {
+	ID            uint      `json:"id"`
+	CreatedAt     time.Time `json:"created_at"`
+	WrittenExamID uint      `json:"written_exam_id"`
+	ApplicationID uint      `json:"application_id"`
+	MarksObtained int       `json:"marks_obtained"`
+	Remarks       string    `json:"remarks"`
+	StudentName   string    `json:"student_name,omitempty"`
+	Stream        string    `json:"stream,omitempty"`
+	ExamCenter    string    `json:"exam_center,omitempty"`
+	RollNo        string    `json:"roll_no,omitempty"`
+}
+
 type CreateResultRequest struct {
 	ScholarshipID uint            `json:"scholarship_id" binding:"required"`
 	Title         string          `json:"title" binding:"required"`
@@ -816,8 +892,9 @@ type PublicProviderProfileResponse struct {
 	YoutubeURL         string               `json:"youtube_url,omitempty"`
 	LinkedInURL        string               `json:"linkedin_url,omitempty"`
 	MapURL             string               `json:"map_url,omitempty"`
-	BrochureURL        string               `json:"brochure_url,omitempty"`
-	Services           []ServiceResponse    `json:"services,omitempty"`
+	BrochureURL        string                     `json:"brochure_url,omitempty"`
+	BannerURL          string                     `json:"banner_url,omitempty"`
+	Services           []ServiceResponse          `json:"services,omitempty"`
 
 
 	Sectors            []SectorResponse     `json:"sectors,omitempty"`
@@ -916,6 +993,18 @@ type CreateGalleryImageRequest struct {
 	ImageURL  string `json:"image_url"`
 	Caption   string `json:"caption"`
 	SortOrder int    `json:"sort_order"`
+}
+
+type UserResponse struct {
+	ID        uint   `json:"id"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+	Email     string `json:"email"`
+	Phone     string `json:"phone"`
+	Gender    string `json:"gender"`
+	Address   string `json:"address"`
+	Bio       string `json:"bio"`
+	Role      string `json:"role"`
 }
 
 type CreateReviewRequest struct {

@@ -22,6 +22,21 @@ func RegisterPublicRoutes(r *gin.Engine, h *Handler) {
 	}
 }
 
+func RegisterMessageRoutes(r *gin.Engine, authMW gin.HandlerFunc, h *Handler) {
+	if h == nil {
+		return
+	}
+
+	v1 := r.Group("/api/v1")
+	{
+		protected := v1.Group("/scholarship-providers")
+		protected.Use(authMW)
+		{
+			protected.POST("/messages/from-user", h.SendMessageFromUser)
+		}
+	}
+}
+
 func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 	if h == nil {
 		return
@@ -62,6 +77,8 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			scholarshipProvider.GET("/messages", h.GetMessages)
 			scholarshipProvider.POST("/messages", h.CreateMessage)
 			scholarshipProvider.GET("/messages/:id", h.GetMessageByID)
+			scholarshipProvider.PUT("/messages/:id/read", h.MarkMessageRead)
+			scholarshipProvider.GET("/users/:id", h.GetUser)
 
 			scholarshipProvider.GET("/profile", h.GetProfile)
 			scholarshipProvider.PUT("/profile", h.UpdateProfile)
@@ -136,6 +153,14 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			scholarshipProvider.GET("/results/:id", h.GetResultByID)
 			scholarshipProvider.PUT("/results/:id", h.UpdateResult)
 			scholarshipProvider.DELETE("/results/:id", h.DeleteResult)
+			scholarshipProvider.POST("/written-exams", h.CreateWrittenExam)
+			scholarshipProvider.GET("/written-exams", h.GetWrittenExams)
+			scholarshipProvider.GET("/written-exams/:id", h.GetWrittenExamByID)
+			scholarshipProvider.PUT("/written-exams/:id", h.UpdateWrittenExam)
+			scholarshipProvider.DELETE("/written-exams/:id", h.DeleteWrittenExam)
+			scholarshipProvider.POST("/written-exams/:id/results", h.AddWrittenExamResult)
+			scholarshipProvider.PUT("/written-exams/:id/results/:resultId", h.UpdateWrittenExamResult)
+			scholarshipProvider.DELETE("/written-exams/:id/results/:resultId", h.DeleteWrittenExamResult)
 
 			scholarshipProvider.POST("/access", h.CreateAccess)
 			scholarshipProvider.GET("/access", h.GetAccess)

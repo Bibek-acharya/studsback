@@ -86,6 +86,8 @@ func main() {
 		&scholarshipprovider.ProviderBlog{},
 		&scholarshipprovider.ProviderCalendarEvent{},
 		&scholarshipprovider.ProviderResult{},
+		&scholarshipprovider.WrittenExam{},
+		&scholarshipprovider.WrittenExamResult{},
 		&scholarshipprovider.ProviderAccess{},
 		&scholarshipprovider.ProviderAccessUser{},
 		&scholarshipprovider.ProviderService{},
@@ -215,6 +217,7 @@ func main() {
 	scholarship.RegisterRoutes(router, authMW, roleMW, scholarshipHandler)
 	scholarshipprovider.RegisterRoutes(router, authMW, roleMW, scholarshipPHandler)
 	scholarshipprovider.RegisterPublicRoutes(router, scholarshipPHandler)
+	scholarshipprovider.RegisterMessageRoutes(router, authMW, scholarshipPHandler)
 	studentdashboard.RegisterRoutes(router, authMW, roleMW, studentDashHandler)
 	system.RegisterRoutes(router, authMW, roleMW, systemHandler)
 	tools.RegisterRoutes(router, authMW, roleMW, toolsHandler)
