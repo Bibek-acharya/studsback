@@ -101,15 +101,21 @@ func (s *Service) GetDetailedAnalytics(providerID uint, filters DetailedAnalytic
 	}
 
 	res := &DetailedAnalyticsResponse{
-		TotalApplicants: len(apps),
-		Gender:          []MetricCount{},
-		Ethnicity:       []MetricCount{},
-		GPABreakdown:    []MetricCount{},
-		SchoolType:      []MetricCount{},
-		Stream:          []MetricCount{},
-		Province:        []MetricCount{},
-		District:        []MetricCount{},
-		Status:          []MetricCount{},
+		TotalApplicants:    len(apps),
+		Gender:             []MetricCount{},
+		Ethnicity:          []MetricCount{},
+		GPABreakdown:       []MetricCount{},
+		SchoolType:         []MetricCount{},
+		Stream:             []MetricCount{},
+		Province:           []MetricCount{},
+		District:           []MetricCount{},
+		Status:             []MetricCount{},
+		PaymentMethods:     []MetricCount{},
+		GPABySchoolType:    []MetricCount{},
+		GenderByProvince:   []CrossMetric{},
+		StreamByProvince:   []CrossMetric{},
+		SchoolTypeByProvince: []CrossMetric{},
+		ExamCenters:        []ExamCenterMetric{},
 	}
 
 	genderMap := make(map[string]int)
@@ -119,12 +125,24 @@ func (s *Service) GetDetailedAnalytics(providerID uint, filters DetailedAnalytic
 	provinceMap := make(map[string]int)
 	districtMap := make(map[string]int)
 	statusMap := make(map[string]int)
+	districtSet := make(map[string]bool)
+
 	gpaBins := map[string]int{
-		"0.0 - 1.0": 0,
-		"1.1 - 2.0": 0,
-		"2.1 - 3.0": 0,
-		"3.1 - 4.0": 0,
+		"1.6 - 2.0": 0,
+		"2.0 - 2.4": 0,
+		"2.4 - 2.8": 0,
+		"2.8 - 3.2": 0,
+		"3.2 - 3.6": 0,
+		"3.6 - 4.0": 0,
 	}
+
+	gpaBySchoolTypeSum := make(map[string]float64)
+	gpaBySchoolTypeCount := make(map[string]int)
+
+	genderByProvince := make(map[string]map[string]int)
+	streamByProvince := make(map[string]map[string]int)
+	schoolTypeByProvince := make(map[string]map[string]int)
+	examCenterMap := make(map[string]*ExamCenterMetric)
 
 	for _, app := range apps {
 		if app.Gender != "" {
@@ -144,19 +162,82 @@ func (s *Service) GetDetailedAnalytics(providerID uint, filters DetailedAnalytic
 		}
 		if app.District != "" {
 			districtMap[app.District]++
+			districtSet[app.District] = true
 		}
 		if app.Status != "" {
 			statusMap[app.Status]++
 		}
 
-		if app.GPA <= 1.0 {
-			gpaBins["0.0 - 1.0"]++
-		} else if app.GPA <= 2.0 {
-			gpaBins["1.1 - 2.0"]++
-		} else if app.GPA <= 3.0 {
-			gpaBins["2.1 - 3.0"]++
-		} else {
-			gpaBins["3.1 - 4.0"]++
+		if app.GPA > 0 {
+			switch {
+			case app.GPA <= 2.0:
+				gpaBins["1.6 - 2.0"]++
+			case app.GPA <= 2.4:
+				gpaBins["2.0 - 2.4"]++
+			case app.GPA <= 2.8:
+				gpaBins["2.4 - 2.8"]++
+			case app.GPA <= 3.2:
+				gpaBins["2.8 - 3.2"]++
+			case app.GPA <= 3.6:
+				gpaBins["3.2 - 3.6"]++
+			default:
+				gpaBins["3.6 - 4.0"]++
+			}
+		}
+
+		if app.SchoolType != "" {
+			gpaBySchoolTypeSum[app.SchoolType] += app.GPA
+			gpaBySchoolTypeCount[app.SchoolType]++
+		}
+
+		prov := app.Province
+		if prov == "" {
+			prov = "Unknown"
+		}
+
+		if app.Gender != "" {
+			if genderByProvince[prov] == nil {
+				genderByProvince[prov] = make(map[string]int)
+			}
+			genderByProvince[prov][app.Gender]++
+		}
+
+		if app.Stream != "" {
+			if streamByProvince[prov] == nil {
+				streamByProvince[prov] = make(map[string]int)
+			}
+			streamByProvince[prov][app.Stream]++
+		}
+
+		if app.SchoolType != "" {
+			if schoolTypeByProvince[prov] == nil {
+				schoolTypeByProvince[prov] = make(map[string]int)
+			}
+			schoolTypeByProvince[prov][app.SchoolType]++
+		}
+
+		if app.ExamCenter != "" {
+			stream := app.Stream
+			if existing, ok := examCenterMap[app.ExamCenter]; ok {
+				if stream == "Science" || stream == "science" {
+					existing.Science++
+				} else {
+					existing.Management++
+				}
+			} else {
+				m := 0
+				s := 0
+				if stream == "Science" || stream == "science" {
+					s = 1
+				} else {
+					m = 1
+				}
+				examCenterMap[app.ExamCenter] = &ExamCenterMetric{
+					Name:       app.ExamCenter,
+					Management: m,
+					Science:    s,
+				}
+			}
 		}
 	}
 
@@ -167,11 +248,94 @@ func (s *Service) GetDetailedAnalytics(providerID uint, filters DetailedAnalytic
 	res.Province = mapToMetricCount(provinceMap)
 	res.District = mapToMetricCount(districtMap)
 	res.Status = mapToMetricCount(statusMap)
+	res.DistrictCount = len(districtSet)
+
 	res.GPABreakdown = []MetricCount{
-		{Label: "0.0 - 1.0", Count: gpaBins["0.0 - 1.0"]},
-		{Label: "1.1 - 2.0", Count: gpaBins["1.1 - 2.0"]},
-		{Label: "2.1 - 3.0", Count: gpaBins["2.1 - 3.0"]},
-		{Label: "3.1 - 4.0", Count: gpaBins["3.1 - 4.0"]},
+		{Label: "1.6 - 2.0", Count: gpaBins["1.6 - 2.0"]},
+		{Label: "2.0 - 2.4", Count: gpaBins["2.0 - 2.4"]},
+		{Label: "2.4 - 2.8", Count: gpaBins["2.4 - 2.8"]},
+		{Label: "2.8 - 3.2", Count: gpaBins["2.8 - 3.2"]},
+		{Label: "3.2 - 3.6", Count: gpaBins["3.2 - 3.6"]},
+		{Label: "3.6 - 4.0", Count: gpaBins["3.6 - 4.0"]},
+	}
+
+	for schoolType, sum := range gpaBySchoolTypeSum {
+		if count := gpaBySchoolTypeCount[schoolType]; count > 0 {
+			avg := sum / float64(count)
+			res.GPABySchoolType = append(res.GPABySchoolType, MetricCount{
+				Label: schoolType,
+				Count: int(avg * 100),
+			})
+		}
+	}
+	if len(res.GPABySchoolType) == 0 {
+		res.GPABySchoolType = []MetricCount{}
+	}
+
+	for province, genderCounts := range genderByProvince {
+		cm := CrossMetric{Label: province, Values: []MetricCount{}}
+		for gender, count := range genderCounts {
+			cm.Values = append(cm.Values, MetricCount{Label: gender, Count: count})
+		}
+		res.GenderByProvince = append(res.GenderByProvince, cm)
+	}
+	if len(res.GenderByProvince) == 0 {
+		res.GenderByProvince = []CrossMetric{}
+	}
+
+	for province, streamCounts := range streamByProvince {
+		cm := CrossMetric{Label: province, Values: []MetricCount{}}
+		for stream, count := range streamCounts {
+			cm.Values = append(cm.Values, MetricCount{Label: stream, Count: count})
+		}
+		res.StreamByProvince = append(res.StreamByProvince, cm)
+	}
+	if len(res.StreamByProvince) == 0 {
+		res.StreamByProvince = []CrossMetric{}
+	}
+
+	for province, stCounts := range schoolTypeByProvince {
+		cm := CrossMetric{Label: province, Values: []MetricCount{}}
+		for st, count := range stCounts {
+			cm.Values = append(cm.Values, MetricCount{Label: st, Count: count})
+		}
+		res.SchoolTypeByProvince = append(res.SchoolTypeByProvince, cm)
+	}
+	if len(res.SchoolTypeByProvince) == 0 {
+		res.SchoolTypeByProvince = []CrossMetric{}
+	}
+
+	for _, ec := range examCenterMap {
+		res.ExamCenters = append(res.ExamCenters, *ec)
+	}
+	if len(res.ExamCenters) == 0 {
+		res.ExamCenters = []ExamCenterMetric{}
+	}
+
+	// Get payment data for admit cards and payment methods
+	scholarshipAppIDs := make([]uint, 0)
+	for _, app := range apps {
+		if app.ScholarshipApplicationID != nil {
+			scholarshipAppIDs = append(scholarshipAppIDs, *app.ScholarshipApplicationID)
+		}
+	}
+
+	if len(scholarshipAppIDs) > 0 {
+		payments, err := s.repo.GetPaymentsByApplicationIDs(scholarshipAppIDs)
+		if err == nil {
+			paymentMethods := make(map[string]int)
+			for _, p := range payments {
+				if p.Method != "" {
+					paymentMethods[p.Method]++
+				}
+				if p.Status == "completed" {
+					res.AdmitCardsSent++
+				} else {
+					res.AdmitCardsPending++
+				}
+			}
+			res.PaymentMethods = mapToMetricCount(paymentMethods)
+		}
 	}
 
 	return res, nil
@@ -189,7 +353,7 @@ func mapToMetricCount(m map[string]int) []MetricCount {
 }
 
 func parseTime(s string) (time.Time, error) {
-	formats := []string{time.RFC3339Nano, time.RFC3339, "2006-01-02T15:04:05Z", "2006-01-02"}
+	formats := []string{time.RFC3339Nano, time.RFC3339, "2006-01-02T15:04:05Z", "2006-01-02T15:04:05", "2006-01-02"}
 	for _, f := range formats {
 		if t, err := time.Parse(f, s); err == nil {
 			return t, nil

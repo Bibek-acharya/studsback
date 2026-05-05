@@ -114,6 +114,7 @@ func (h *Handler) GetDetailedAnalytics(c *gin.Context) {
 	filters.District = c.Query("district")
 	filters.SchoolType = c.Query("school_type")
 	filters.ScholarshipStatus = c.Query("scholarship_status")
+	filters.EthnicityProvince = c.Query("ethnicity_province")
 
 	analytics, err := h.service.GetDetailedAnalytics(providerID, filters)
 	if err != nil {

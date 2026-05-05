@@ -847,10 +847,22 @@ type ChangeEmailResponse struct {
 }
 
 type DetailedAnalyticsFilters struct {
-	Province        string `json:"province"`
-	District        string `json:"district"`
-	SchoolType      string `json:"school_type"`
+	Province          string `json:"province"`
+	District          string `json:"district"`
+	SchoolType        string `json:"school_type"`
 	ScholarshipStatus string `json:"scholarship_status"`
+	EthnicityProvince string `json:"ethnicity_province"`
+}
+
+type CrossMetric struct {
+	Label  string        `json:"label"`
+	Values []MetricCount `json:"values"`
+}
+
+type ExamCenterMetric struct {
+	Name       string `json:"name"`
+	Management int    `json:"management"`
+	Science    int    `json:"science"`
 }
 
 type MetricCount struct {
@@ -859,15 +871,24 @@ type MetricCount struct {
 }
 
 type DetailedAnalyticsResponse struct {
-	TotalApplicants int           `json:"total_applicants"`
-	Gender          []MetricCount `json:"gender"`
-	Ethnicity       []MetricCount `json:"ethnicity"`
-	GPABreakdown    []MetricCount `json:"gpa_breakdown"`
-	SchoolType      []MetricCount `json:"school_type"`
-	Stream          []MetricCount `json:"stream"`
-	Province        []MetricCount `json:"province"`
-	District        []MetricCount `json:"district"`
-	Status          []MetricCount `json:"status"`
+	TotalApplicants    int                `json:"total_applicants"`
+	Gender             []MetricCount      `json:"gender"`
+	Ethnicity          []MetricCount      `json:"ethnicity"`
+	GPABreakdown       []MetricCount      `json:"gpa_breakdown"`
+	SchoolType         []MetricCount      `json:"school_type"`
+	Stream             []MetricCount      `json:"stream"`
+	Province           []MetricCount      `json:"province"`
+	District           []MetricCount      `json:"district"`
+	Status             []MetricCount      `json:"status"`
+	AdmitCardsSent     int                `json:"admit_cards_sent"`
+	AdmitCardsPending  int                `json:"admit_cards_pending"`
+	PaymentMethods     []MetricCount      `json:"payment_methods"`
+	GPABySchoolType    []MetricCount      `json:"gpa_by_school_type"`
+	GenderByProvince   []CrossMetric      `json:"gender_by_province"`
+	StreamByProvince   []CrossMetric      `json:"stream_by_province"`
+	SchoolTypeByProvince []CrossMetric      `json:"school_type_by_province"`
+	ExamCenters        []ExamCenterMetric `json:"exam_centers"`
+	DistrictCount      int                `json:"district_count"`
 }
 
 // ─── Provider Profile (Public) ───────────────────────────────────

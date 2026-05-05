@@ -78,16 +78,30 @@ func (r *Repository) GetFilteredApplications(providerID uint, filters DetailedAn
 		query = query.Where("provider_applications.school_type = ?", filters.SchoolType)
 	}
 	switch filters.ScholarshipStatus {
-case "recipients":
+	case "recipients":
 		query = query.Where("provider_applications.status = ?", "approved")
 	case "non-recipients":
 		query = query.Where("provider_applications.status != ?", "approved")
+	}
+	if filters.EthnicityProvince != "" {
+		query = query.Where("provider_applications.province = ?", filters.EthnicityProvince)
 	}
 
 	if err := query.Find(&applications).Error; err != nil {
 		return nil, err
 	}
 	return applications, nil
+}
+
+func (r *Repository) GetPaymentsByApplicationIDs(applicationIDs []uint) ([]scholarship.Payment, error) {
+	if len(applicationIDs) == 0 {
+		return nil, nil
+	}
+	var payments []scholarship.Payment
+	if err := r.db.Where("application_id IN ?", applicationIDs).Find(&payments).Error; err != nil {
+		return nil, err
+	}
+	return payments, nil
 }
 
 func (r *Repository) GetApplicationCountByScholarship(scholarshipID uint) (int64, error) {
