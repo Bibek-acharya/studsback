@@ -309,12 +309,32 @@ func (s *Service) GetDashboardStats(userID uint) (*DashboardStats, error) {
 		return nil, err
 	}
 
-	savedColleges, err := s.repo.CountSavedColleges(userID)
+	savedColleges, err := s.repo.CountBookmarksByType(userID, "college")
+	if err != nil {
+		return nil, err
+	}
+
+	savedScholarships, err := s.repo.CountBookmarksByType(userID, "scholarship")
 	if err != nil {
 		return nil, err
 	}
 
 	scholarshipsApplied, err := s.repo.CountScholarshipApplications(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	activeInvites, err := s.repo.CountActiveInvites(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	unreadMessages, err := s.repo.CountUnreadMessages(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	upcomingDeadlines, err := s.repo.CountUpcomingEvents(userID)
 	if err != nil {
 		return nil, err
 	}
@@ -328,7 +348,11 @@ func (s *Service) GetDashboardStats(userID uint) (*DashboardStats, error) {
 	return &DashboardStats{
 		ApplicationsSubmitted: int(applicationsSubmitted),
 		SavedColleges:         int(savedColleges),
+		SavedScholarships:     int(savedScholarships),
 		ScholarshipsApplied:   int(scholarshipsApplied),
+		ActiveInvites:         int(activeInvites),
+		UnreadMessages:        int(unreadMessages),
+		UpcomingDeadlines:     int(upcomingDeadlines),
 		ProfileCompletion:     profileCompletion,
 	}, nil
 }

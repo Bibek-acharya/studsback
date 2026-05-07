@@ -84,6 +84,8 @@ type Scholarship struct {
 	ExamCentersNew           []byte `gorm:"type:jsonb;column:exam_centers_new" json:"exam_centers_new"`
 	Downloads                []byte `gorm:"type:jsonb;column:downloads" json:"downloads"`
 
+	ExamDate  string `gorm:"column:exam_date;default:''" json:"exam_date"`
+	ExamTime  string `gorm:"column:exam_time;default:''" json:"exam_time"`
 }
 
 type ScholarshipApplication struct {
@@ -143,6 +145,7 @@ type ScholarshipApplication struct {
 	ExamCenter string `json:"exam_center"`
 
 	PersonalStatement string `gorm:"type:text" json:"personal_statement"`
+	RollNumber        string `gorm:"size:20;default:''" json:"roll_number"`
 	Status string `gorm:"default:'pending'" json:"status"`
 	Payment *Payment `gorm:"-"`
 }

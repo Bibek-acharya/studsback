@@ -138,6 +138,8 @@ type ProviderScholarship struct {
 	PartnerGroups            []byte `gorm:"type:jsonb"`
 	PartnerMessages          []byte `gorm:"type:jsonb"`
 	Downloads                []byte `gorm:"type:jsonb"`
+	ExamDate                 string `gorm:"column:exam_date;default:''"`
+	ExamTime                 string `gorm:"column:exam_time;default:''"`
 }
 
 func (r *Repository) FindPublishedProviderScholarships() ([]ProviderScholarship, error) {
@@ -226,6 +228,10 @@ func (r *Repository) Delete(id uint) error {
 
 func (r *Repository) ApplicationCreate(app *ScholarshipApplication) error {
 	return r.db.Create(app).Error
+}
+
+func (r *Repository) UpdateApplicationRollNumber(id uint, rollNumber string) error {
+	return r.db.Model(&ScholarshipApplication{}).Where("id = ?", id).Update("roll_number", rollNumber).Error
 }
 
 func (r *Repository) ApplicationFindByUserID(userID uint) ([]ScholarshipApplication, error) {
@@ -338,6 +344,7 @@ func (r *Repository) CreateProviderApplication(providerScholarshipID uint, app *
 		"status":                  "pending",
 		"stream":                  app.Stream,
 		"exam_center":             app.ExamCenter,
+		"roll_number":             app.RollNumber,
 		"personal_statement":       app.PersonalStatement,
 		"documents":                app.Documents,
 		"scholarship_application_id": app.ID,

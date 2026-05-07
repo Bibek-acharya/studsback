@@ -4,6 +4,7 @@ import (
 	"studsphere/backend/internal/admission"
 	"studsphere/backend/internal/scholarship"
 	"studsphere/backend/internal/auth"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -280,6 +281,30 @@ func (r *Repository) GetRecentAdmissions(userID uint, limit int) ([]admission.Ad
 		return nil, err
 	}
 	return admissions, nil
+}
+
+func (r *Repository) CountBookmarksByType(userID uint, itemType string) (int64, error) {
+	var count int64
+	err := r.db.Model(&Bookmark{}).Where("user_id = ? AND item_type = ?", userID, itemType).Count(&count).Error
+	return count, err
+}
+
+func (r *Repository) CountActiveInvites(userID uint) (int64, error) {
+	var count int64
+	err := r.db.Model(&SphereInvite{}).Where("user_id = ? AND status = ?", userID, "pending").Count(&count).Error
+	return count, err
+}
+
+func (r *Repository) CountUnreadMessages(userID uint) (int64, error) {
+	var count int64
+	err := r.db.Model(&Message{}).Where("receiver_id = ? AND read = ?", userID, false).Count(&count).Error
+	return count, err
+}
+
+func (r *Repository) CountUpcomingEvents(userID uint) (int64, error) {
+	var count int64
+	err := r.db.Model(&CalendarEvent{}).Where("user_id = ? AND start_date > ?", userID, time.Now()).Count(&count).Error
+	return count, err
 }
 
 func (r *Repository) GetUserAdmissions(userID uint, page, limit int) ([]admission.Admission, int64, error) {

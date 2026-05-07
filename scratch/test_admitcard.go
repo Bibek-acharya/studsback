@@ -16,7 +16,6 @@ func main() {
 		CandidateName:    "Siddhartha Gautam",
 		DateOfBirth:      "14-Sep-2005",
 		Gender:           "Male",
-		ApplicationNo:    "RD2083S987",
 		RollNumber:       "PS-830456129",
 		ExamCentre:       "Kathmandu Model College, Bagbazar",
 		Stream:           "Science",
@@ -26,8 +25,7 @@ func main() {
 		ExamDate:         "25.01.2083",
 		ExamTime:         "09:00 A.M. To 11:30 A.M.",
 		Shift:            "1st",
-		SubjectCode:      "101",
-		SubjectName:      "Science Entrance Test",
+		SubjectName:      "Science",
 	}
 
 	pdfBytes, err := scholarship.GenerateAdmitCardPDF(data)

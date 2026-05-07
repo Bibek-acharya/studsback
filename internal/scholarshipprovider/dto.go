@@ -191,6 +191,9 @@ type CreateScholarshipRequest struct {
 	ExamCentersNew           []ExamCenterItem           `json:"exam_centers_new"`
 	Downloads                []DownloadItem             `json:"downloads"`
 	PaymentConfig            *PaymentConfig             `json:"payment_config"`
+
+	ExamDate string `json:"exam_date"`
+	ExamTime string `json:"exam_time"`
 }
 
 type ScholarshipResponse struct {
@@ -254,7 +257,9 @@ type ScholarshipResponse struct {
 	ExamCentersNew           []ExamCenterItem           `json:"exam_centers_new"`
 	Downloads                []DownloadItem             `json:"downloads"`
 	PaymentConfig            *PaymentConfig             `json:"payment_config"`
-	Image                    string                     `json:"image"` // Add Image field for banner image
+	Image                    string                     `json:"image"`
+	ExamDate                 string                     `json:"exam_date"`
+	ExamTime                 string                     `json:"exam_time"`
 }
 
 type ScholarshipListResponse struct {

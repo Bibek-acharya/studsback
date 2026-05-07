@@ -34,7 +34,11 @@ type ContactResponse struct {
 type DashboardStats struct {
 	ApplicationsSubmitted int `json:"applications_submitted"`
 	SavedColleges         int `json:"saved_colleges"`
+	SavedScholarships     int `json:"saved_scholarships"`
 	ScholarshipsApplied   int `json:"scholarships_applied"`
+	ActiveInvites         int `json:"active_invites"`
+	UnreadMessages        int `json:"unread_messages"`
+	UpcomingDeadlines     int `json:"upcoming_deadlines"`
 	ProfileCompletion     int `json:"profile_completion"`
 }
 

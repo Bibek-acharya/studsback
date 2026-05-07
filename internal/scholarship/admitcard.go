@@ -18,7 +18,6 @@ type AdmitCardData struct {
 	CandidateName    string
 	DateOfBirth      string
 	Gender           string
-	ApplicationNo    string
 	RollNumber       string
 	ExamCentre       string
 	Stream           string
@@ -28,7 +27,6 @@ type AdmitCardData struct {
 	ExamDate         string
 	ExamTime         string
 	Shift            string
-	SubjectCode      string
 	SubjectName      string
 }
 
@@ -84,7 +82,6 @@ const admitCardHTMLTemplate = `<!DOCTYPE html>
                 <div class="font-semibold">Candidate's Name</div><div>:</div><div class="font-semibold text-black text-[14px]">{{.CandidateName}}</div>
                 <div class="font-semibold">Date of Birth</div><div>:</div><div class="font-semibold text-black">{{.DateOfBirth}}</div>
                 <div class="font-semibold">Gender</div><div>:</div><div class="font-semibold text-black">{{.Gender}}</div>
-                <div class="font-semibold">Application No.</div><div>:</div><div class="font-semibold text-black">{{.ApplicationNo}}</div>
                 <div class="font-semibold">Roll Number</div><div>:</div><div class="font-semibold text-black">{{.RollNumber}}</div>
                 <div class="font-semibold">Exam Centre Name</div><div>:</div><div class="font-semibold text-black">{{.ExamCentre}}</div>
                 <div class="font-semibold">Stream</div><div>:</div><div class="font-semibold text-black">{{.Stream}}</div>
@@ -105,7 +102,6 @@ const admitCardHTMLTemplate = `<!DOCTYPE html>
             <table class="w-full border-collapse border border-gray-400 text-[11.5px] text-center">
                 <thead class="bg-tableHeader text-gray-800">
                     <tr>
-                        <th class="border border-gray-400 py-1.5 px-2 font-semibold">Subject Code</th>
                         <th class="border border-gray-400 py-1.5 px-2 font-semibold">Subject Name</th>
                         <th class="border border-gray-400 py-1.5 px-2 font-semibold">Exam Date</th>
                         <th class="border border-gray-400 py-1.5 px-2 font-semibold">Shift</th>
@@ -114,14 +110,12 @@ const admitCardHTMLTemplate = `<!DOCTYPE html>
                 </thead>
                 <tbody class="text-black font-medium">
                     <tr>
-                        <td class="border border-gray-400 py-3 px-2">{{.SubjectCode}}</td>
                         <td class="border border-gray-400 py-3 px-2 text-left pl-4 font-bold">{{.SubjectName}}</td>
                         <td class="border border-gray-400 py-3 px-2">{{.ExamDate}}</td>
                         <td class="border border-gray-400 py-3 px-2">{{.Shift}}</td>
                         <td class="border border-gray-400 py-3 px-2">{{.ExamTime}}</td>
                     </tr>
                     <tr>
-                        <td class="border border-gray-400 py-3 px-2"></td>
                         <td class="border border-gray-400 py-3 px-2"></td>
                         <td class="border border-gray-400 py-3 px-2"></td>
                         <td class="border border-gray-400 py-3 px-2"></td>
@@ -193,20 +187,8 @@ func PhotoToBase64(photoPath string) string {
 
 // GenerateAdmitCardPDF renders the admit card HTML with the given data and returns a PDF as bytes.
 func GenerateAdmitCardPDF(data AdmitCardData) ([]byte, error) {
-	if data.SubjectCode == "" {
-		data.SubjectCode = "101"
-	}
 	if data.SubjectName == "" {
-		data.SubjectName = fmt.Sprintf("%s Entrance Test", data.Stream)
-		if data.Stream == "" {
-			data.SubjectName = "Entrance Test"
-		}
-	}
-	if data.ExamDate == "" {
-		data.ExamDate = "25.01.2083"
-	}
-	if data.ExamTime == "" {
-		data.ExamTime = "09:00 A.M. To 11:30 A.M."
+		data.SubjectName = data.Stream
 	}
 	if data.Shift == "" {
 		data.Shift = "1st"

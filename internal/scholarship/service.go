@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/rand"
 	"strconv"
 	"strings"
 	"time"
@@ -316,6 +317,8 @@ func providerScholarshipToScholarship(ps *ProviderScholarship) *Scholarship {
 		PartnerGroups:           ps.PartnerGroups,
 		PartnerMessages:         ps.PartnerMessages,
 		Downloads:               ps.Downloads,
+		ExamDate:                ps.ExamDate,
+		ExamTime:                ps.ExamTime,
 	}
 }
 
@@ -432,12 +435,16 @@ func (s *Service) ApplyScholarship(scholarshipID uint, userID *uint, req Scholar
 		return nil, errors.New("failed to submit application")
 	}
 
+	rollNumber := fmt.Sprintf("PS-%d-%04d", application.ID, rand.Intn(9000)+1000)
+	if err := s.repo.UpdateApplicationRollNumber(application.ID, rollNumber); err == nil {
+		application.RollNumber = rollNumber
+	}
+
 	if scholarship.ProviderScholarshipID != nil {
 		if err := s.repo.CreateProviderApplication(*scholarship.ProviderScholarshipID, application); err != nil {
 			return nil, errors.New("failed to submit application")
 		}
 
-		// Create notification for provider
 		ps, _ := s.repo.FindProviderScholarshipByID(*scholarship.ProviderScholarshipID)
 		if ps != nil {
 			now := time.Now()
@@ -454,11 +461,63 @@ func (s *Service) ApplyScholarship(scholarshipID uint, userID *uint, req Scholar
 		}
 	}
 
+	if !req.RequiresPayment {
+		go s.sendAdmitCard(application, scholarship)
+	}
+
 	return application, nil
 }
 
 func (s *Service) GetMyApplications(userID uint) ([]ScholarshipApplication, error) {
 	return s.repo.ApplicationFindByUserID(userID)
+}
+
+func (s *Service) sendAdmitCard(app *ScholarshipApplication, scholarship *Scholarship) {
+	dobStr := ""
+	if !app.DateOfBirthAD.IsZero() {
+		dobStr = app.DateOfBirthAD.Format("02-Jan-2006")
+	} else if app.DateOfBirthBS != "" {
+		dobStr = app.DateOfBirthBS
+	}
+
+	cardData := AdmitCardData{
+		CandidateName:    app.FullName,
+		DateOfBirth:      dobStr,
+		Gender:           app.Gender,
+		RollNumber:       app.RollNumber,
+		ExamCentre:       app.ExamCenter,
+		Stream:           app.Stream,
+		PhotoURL:         PhotoToBase64(app.PhotoURL),
+		ScholarshipTitle: scholarship.Title,
+		Provider:         scholarship.Provider,
+		ExamDate:         scholarship.ExamDate,
+		ExamTime:         scholarship.ExamTime,
+		SubjectName:      scholarship.ScholarshipType,
+	}
+
+	pdfBytes, err := GenerateAdmitCardPDF(cardData)
+	if err != nil {
+		fmt.Printf("Warning: PDF generation failed: %v — sending plain email\n", err)
+		subject := fmt.Sprintf("Admit Card - %s", scholarship.Title)
+		body := fmt.Sprintf(`Dear %s,
+
+Congratulations! Your application for %s has been confirmed.
+
+Roll Number: %s
+Status: CONFIRMED
+
+Please keep this email for your records.
+
+Best regards,
+%s Team`, app.FullName, scholarship.Title, app.RollNumber, scholarship.Provider)
+
+		if emailqueue.Queue != nil {
+			_ = emailqueue.EnqueueGenericEmail(app.Email, subject, body)
+		}
+		return
+	}
+
+	_ = emailqueue.SendAdmitCardEmail(app.Email, app.FullName, scholarship.Title, pdfBytes)
 }
 
 func (s *Service) GetApplication(id uint, userID uint) (*ScholarshipApplication, error) {
@@ -847,12 +906,15 @@ func (s *PaymentService) sendAdmitCard(payment *Payment) error {
 		CandidateName:    app.FullName,
 		DateOfBirth:      dobStr,
 		Gender:           app.Gender,
-		ApplicationNo:    fmt.Sprintf("RD2083S%d", app.ID),
+		RollNumber:       app.RollNumber,
 		ExamCentre:       app.ExamCenter,
 		Stream:           app.Stream,
 		PhotoURL:         PhotoToBase64(app.PhotoURL),
 		ScholarshipTitle: scholarship.Title,
 		Provider:         scholarship.Provider,
+		ExamDate:         scholarship.ExamDate,
+		ExamTime:         scholarship.ExamTime,
+		SubjectName:      scholarship.ScholarshipType,
 	}
 
 	pdfBytes, err := GenerateAdmitCardPDF(cardData)
@@ -864,13 +926,13 @@ func (s *PaymentService) sendAdmitCard(payment *Payment) error {
 
 Congratulations! Your application for %s has been confirmed.
 
-Application ID: %d
+Roll Number: %s
 Status: CONFIRMED
 
 Please keep this email for your records.
 
 Best regards,
-%s Team`, app.FullName, scholarship.Title, app.ID, scholarship.Provider)
+%s Team`, app.FullName, scholarship.Title, app.RollNumber, scholarship.Provider)
 
 		if emailqueue.Queue != nil {
 			return emailqueue.EnqueueGenericEmail(app.Email, subject, body)

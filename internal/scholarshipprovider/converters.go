@@ -88,6 +88,10 @@ func toScholarshipResponse(s *ProviderScholarship) ScholarshipResponse {
 		ExamCenters:              decodeJSONB[[]ExamCenterItem](s.ExamCenters),
 		ExamCentersNew:           decodeJSONB[[]ExamCenterItem](s.ExamCentersNew),
 		Downloads:                decodeJSONB[[]DownloadItem](s.Downloads),
+		PaymentConfig:            decodeJSONB[*PaymentConfig](s.PaymentConfig),
+		Image:                    s.BannerBackgroundImageURL,
+		ExamDate:                 s.ExamDate,
+		ExamTime:                 s.ExamTime,
 	}
 }
 

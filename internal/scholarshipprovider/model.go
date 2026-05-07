@@ -68,6 +68,9 @@ type ProviderScholarship struct {
 	ExamCentersNew           []byte    `gorm:"type:jsonb;column:exam_centers_new" json:"exam_centers_new"`
 	Downloads                []byte    `gorm:"type:jsonb;column:downloads" json:"downloads"`
 	PaymentConfig            []byte    `gorm:"type:jsonb;column:payment_config" json:"payment_config"`
+
+	ExamDate string `gorm:"column:exam_date;default:''" json:"exam_date"`
+	ExamTime string `gorm:"column:exam_time;default:''" json:"exam_time"`
 }
 
 type ProviderApplication struct {
@@ -127,6 +130,7 @@ type ProviderApplication struct {
 	GPA                   float64             `json:"gpa"`
 	SchoolType            string              `json:"school_type"`
 	ExamCenter            string              `json:"exam_center"`
+	RollNumber            string              `gorm:"size:20" json:"roll_number"`
 	ScholarshipApplicationID *uint             `gorm:"column:scholarship_application_id" json:"scholarship_application_id,omitempty"`
 	Payment                  *ProviderPayment  `gorm:"-" json:"payment,omitempty"`
 }

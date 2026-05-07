@@ -35,7 +35,7 @@ type ScholarshipApplicationRequest struct {
 	DateOfBirthAD   string  `json:"date_of_birth_ad" binding:"required"`
 	Age             int     `json:"age"`
 	PhoneNumber     string  `json:"phone_number" binding:"required"`
-	Email           string  `json:"email"`
+	Email           string  `json:"email" binding:"required,email"`
 	PhotoURL        string  `json:"photo_url"`
 
 	SEEGPA             string `json:"see_gpa" binding:"required"`
@@ -148,6 +148,8 @@ type ScholarshipResponse struct {
 	Benefits         []DetailField `json:"benefits,omitempty"`
 	FAQs             []DetailField `json:"faqs,omitempty"`
 	PaymentConfig    interface{}   `json:"payment_config,omitempty"`
+	ExamDate         string        `json:"exam_date,omitempty"`
+	ExamTime         string        `json:"exam_time,omitempty"`
 }
 
 type ScholarshipApplicationResponse struct {

@@ -452,6 +452,8 @@ func (s *Service) CreateScholarship(providerID uint, req CreateScholarshipReques
 		ExamCentersNew:           toJSON(req.ExamCentersNew),
 		Downloads:                toJSON(req.Downloads),
 		PaymentConfig:            toJSON(req.PaymentConfig),
+		ExamDate:                 req.ExamDate,
+		ExamTime:                 req.ExamTime,
 	}
 
 	if err := s.repo.CreateScholarship(scholarship); err != nil {
@@ -542,6 +544,8 @@ func (s *Service) syncPublicScholarship(providerID uint, scholarship *ProviderSc
 		ExamCenters:              scholarship.ExamCenters,
 		ExamCentersNew:           scholarship.ExamCentersNew,
 		Downloads:                scholarship.Downloads,
+		ExamDate:                 scholarship.ExamDate,
+		ExamTime:                 scholarship.ExamTime,
 	}
 
 	log.Printf("scholarshipprovider: syncPublicScholarship - syncing providerScholarshipID=%d", scholarship.ID)
@@ -604,6 +608,8 @@ func (s *Service) syncPublicScholarship(providerID uint, scholarship *ProviderSc
 			"exam_centers":              publicScholarship.ExamCenters,
 			"exam_centers_new":           publicScholarship.ExamCentersNew,
 			"downloads":                publicScholarship.Downloads,
+			"exam_date":                publicScholarship.ExamDate,
+			"exam_time":                publicScholarship.ExamTime,
 		}
 		return s.repo.UpdatePublicScholarship(existing.ID, updates)
 	}
@@ -695,6 +701,8 @@ func (s *Service) UpdateScholarship(providerID, id uint, req CreateScholarshipRe
 	updates["exam_centers_new"] = toJSON(req.ExamCentersNew)
 	updates["downloads"] = toJSON(req.Downloads)
 	updates["payment_config"] = toJSON(req.PaymentConfig)
+	updates["exam_date"] = req.ExamDate
+	updates["exam_time"] = req.ExamTime
 
 	if req.ApplicationStartDate != "" {
 		if parsed, ok := parseOptionalTime(req.ApplicationStartDate); ok {
@@ -745,6 +753,7 @@ func (s *Service) UpdateScholarship(providerID, id uint, req CreateScholarshipRe
 	resolved.Status = normalizeScholarshipStatus(req.Status)
 	resolved.ApplyLink = req.ApplyLink
 	resolved.BannerBackgroundImageURL = req.BannerBackgroundImageURL
+	resolved.ImageURL = req.BannerBackgroundImageURL
 	resolved.CoverageArea = req.CoverageArea
 	resolved.ContactEmail = req.ContactEmail
 	resolved.PrimaryPhone = req.PrimaryPhone
@@ -781,6 +790,8 @@ func (s *Service) UpdateScholarship(providerID, id uint, req CreateScholarshipRe
 	resolved.ExamCentersNew = toJSON(req.ExamCentersNew)
 	resolved.Downloads = toJSON(req.Downloads)
 	resolved.PaymentConfig = toJSON(req.PaymentConfig)
+	resolved.ExamDate = req.ExamDate
+	resolved.ExamTime = req.ExamTime
 	if req.ApplicationStartDate != "" {
 		if parsed, ok := parseOptionalTime(req.ApplicationStartDate); ok {
 			resolved.ApplicationStartDate = parsed
@@ -825,7 +836,7 @@ func (s *Service) UpdateScholarship(providerID, id uint, req CreateScholarshipRe
 		Link:       "manage-scholarships",
 	})
 
-	return scholarship, nil
+	return &resolved, nil
 }
 
 func (s *Service) DeleteScholarship(providerID, id uint) error {
@@ -928,12 +939,15 @@ func (s *Service) sendAdmitCard(application *ProviderApplication, payment *publi
 		CandidateName:    application.FullName,
 		DateOfBirth:      dobStr,
 		Gender:           application.Gender,
-		ApplicationNo:    fmt.Sprintf("RD2083S%d", application.ID),
+		RollNumber:       application.RollNumber,
 		ExamCentre:       application.ExamCenter,
 		Stream:           application.Stream,
 		PhotoURL:         publicscholarship.PhotoToBase64(application.PhotoURL),
 		ScholarshipTitle: scholarship.Title,
 		Provider:         scholarship.Provider,
+		ExamDate:         scholarship.ExamDate,
+		ExamTime:         scholarship.ExamTime,
+		SubjectName:      scholarship.ScholarshipType,
 	}
 
 	pdfBytes, err := publicscholarship.GenerateAdmitCardPDF(cardData)
