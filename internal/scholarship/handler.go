@@ -399,7 +399,7 @@ func toScholarshipDetailResponse(s Scholarship) gin.H {
 		"faqs_new":                  parseDetailFieldArray(s.FAQsNew),
 		"gallery_images":            parseDetailFieldArray(s.GalleryImages),
 		"gallery_images_new":         parseDetailFieldArray(s.GalleryImagesNew),
-		"partner_groups":            parseDetailFieldArray(s.PartnerGroups),
+		"partner_groups":            parsePartnerGroups(s.PartnerGroups),
 		"partner_messages":          parseDetailFieldArray(s.PartnerMessages),
 		"exam_centers":              parseDetailFieldArray(s.ExamCenters),
 		"exam_centers_new":           parseDetailFieldArray(s.ExamCentersNew),
@@ -568,6 +568,17 @@ func parseDetailFieldArray(data []byte) []DetailField {
 	out := []DetailField{}
 	if err := json.Unmarshal(data, &out); err != nil {
 		return []DetailField{}
+	}
+	return out
+}
+
+func parsePartnerGroups(data []byte) []PartnerGroupResponse {
+	if len(data) == 0 {
+		return []PartnerGroupResponse{}
+	}
+	out := []PartnerGroupResponse{}
+	if err := json.Unmarshal(data, &out); err != nil {
+		return []PartnerGroupResponse{}
 	}
 	return out
 }

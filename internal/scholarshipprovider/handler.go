@@ -61,6 +61,8 @@ func resolveProviderUploadFolder(folder string) (string, error) {
 		return "scholarship-provider/gallery", nil
 	case "partners":
 		return "scholarship-provider/partners", nil
+	case "partner-messages":
+		return "scholarship-provider/partner-messages", nil
 	case "downloads":
 		return "scholarship-provider/downloads", nil
 	case "payments":
@@ -685,12 +687,23 @@ func (h *Handler) GetProfile(c *gin.Context) {
 		RegistrationNumber: provider.RegistrationNumber,
 		Email:              provider.Email,
 		ContactNumber:      provider.ContactNumber,
+		PANNumber:          provider.PANNumber,
 		WebsiteURL:         provider.WebsiteURL,
 		LogoURL:            logoURL,
 		Address:            provider.Address,
 		AboutText:          provider.AboutText,
 		Mission:            provider.Mission,
 		Values:             provider.Values,
+		FounderName:        provider.FounderName,
+		FounderRole:        provider.FounderRole,
+		FounderMessage:     provider.FounderMessage,
+		FounderImageURL:    provider.FounderImageURL,
+		FacebookURL:        provider.FacebookURL,
+		InstagramURL:       provider.InstagramURL,
+		YoutubeURL:         provider.YoutubeURL,
+		LinkedInURL:        provider.LinkedInURL,
+		MapURL:             provider.MapURL,
+		BrochureURL:        provider.BrochureURL,
 		BannerURL:          provider.BannerURL,
 		Role:               provider.Role,
 		IsSubUser:          false,
@@ -723,6 +736,9 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 		ProviderName:       provider.ProviderName,
 		RegistrationNumber: provider.RegistrationNumber,
 		Email:              provider.Email,
+		ContactNumber:      provider.ContactNumber,
+		PANNumber:          provider.PANNumber,
+		WebsiteURL:         provider.WebsiteURL,
 		LogoURL:            logoURL,
 		Address:            provider.Address,
 		AboutText:          provider.AboutText,

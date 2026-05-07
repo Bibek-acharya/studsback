@@ -65,7 +65,7 @@ func TestProviderScholarship_JSONRoundTrip(t *testing.T) {
 		]`),
 		FAQsNew:          []byte(`[{"question":"Q?","answer":"A."}]`),
 		GalleryImagesNew: []byte(`[{"title":"Campus","url":"https://example.com/image.png"}]`),
-		PartnerGroups:    []byte(`[{"groupHeading":"Academic Partners","name":"Partner One","website":"https://partner.example.com","logo":"https://partner.example.com/logo.png"}]`),
+		PartnerGroups:    []byte(`[{"groupHeading":"Academic Partners","partners":[{"name":"Partner One","website":"https://partner.example.com","logo":"https://partner.example.com/logo.png"}]}]`),
 		ExamCentersNew:   []byte(`[{"province":"Bagmati","headerColor":"#3B82F6","info":"Info","centerName":"Center One","contactPerson":"Contact","phoneNumber":"9842012345","mapCoordinates":"https://maps.example.com"}]`),
 		Downloads:        []byte(`[{"title":"Brochure","description":"Program brochure","url":"https://example.com/brochure.pdf"}]`),
 		PaymentConfig:    []byte(`{"enabled":true,"fee_amount":500,"methods":["bank"],"bank_details":{"bank_name":"NMB","account_name":"Scholarship","account_number":"123456","branch":"Kathmandu"},"qr_code":"https://example.com/qr.png"}`),

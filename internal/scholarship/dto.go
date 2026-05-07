@@ -240,11 +240,21 @@ type UserSummary struct {
 }
 
 type DetailField struct {
+	Year           string `json:"year,omitempty"`
 	Title          string `json:"title,omitempty"`
 	Description    string `json:"description,omitempty"`
+	Icon           string `json:"icon,omitempty"`
+	Folder         string `json:"folder,omitempty"`
 	Stage          string `json:"stage,omitempty"`
+	Step           int    `json:"step,omitempty"`
 	Criterion      string `json:"criterion,omitempty"`
+	Criteria       string `json:"criteria,omitempty"`
+	Weight         string `json:"weight,omitempty"`
 	Name           string `json:"name,omitempty"`
+	Type           string `json:"type,omitempty"`
+	Seats          string `json:"seats,omitempty"`
+	Coverage       string `json:"coverage,omitempty"`
+	Eligibility    string `json:"eligibility,omitempty"`
 	URL            string `json:"url,omitempty"`
 	CenterName     string `json:"centerName,omitempty"`
 	Province       string `json:"province,omitempty"`
@@ -257,5 +267,25 @@ type DetailField struct {
 	Event          string `json:"event,omitempty"`
 	Question       string `json:"question,omitempty"`
 	Answer         string `json:"answer,omitempty"`
+	GroupHeading   string `json:"groupHeading,omitempty"`
+	Website        string `json:"website,omitempty"`
+	Logo           string `json:"logo,omitempty"`
+	Label          string `json:"label,omitempty"`
+	Message        string `json:"message,omitempty"`
+	Tag            string `json:"tag,omitempty"`
+	Badge          string `json:"badge,omitempty"`
+	Tags           string `json:"tags,omitempty"`
+	Link           string `json:"link,omitempty"`
+}
+
+type PartnerGroupResponse struct {
+	GroupHeading string                `json:"groupHeading"`
+	Partners     []PartnerEntryResponse `json:"partners"`
+}
+
+type PartnerEntryResponse struct {
+	Name    string `json:"name"`
+	Website string `json:"website"`
+	Logo    string `json:"logo"`
 }
 

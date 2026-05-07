@@ -21,6 +21,7 @@ type TimelineItem struct {
 	Title       string `json:"title"`
 	Date        string `json:"date"`
 	Description string `json:"description"`
+	Icon        string `json:"icon"`
 }
 
 type ScholarshipTypeItem struct {
@@ -48,8 +49,9 @@ type FAQItem struct {
 }
 
 type GalleryImageItem struct {
-	Title string `json:"title"`
-	URL   string `json:"url"`
+	Folder string `json:"folder"`
+	Title  string `json:"title"`
+	URL    string `json:"url"`
 }
 
 func (g *GalleryImageItem) UnmarshalJSON(data []byte) error {
@@ -76,11 +78,15 @@ func (g *GalleryImageItem) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-type PartnerOrganization struct {
-	GroupHeading string `json:"groupHeading"`
-	Name         string `json:"name"`
-	Website      string `json:"website"`
-	Logo         string `json:"logo"`
+type PartnerGroup struct {
+	GroupHeading string         `json:"groupHeading"`
+	Partners     []PartnerEntry `json:"partners"`
+}
+
+type PartnerEntry struct {
+	Name    string `json:"name"`
+	Website string `json:"website"`
+	Logo    string `json:"logo"`
 }
 
 type PartnerMessage struct {
@@ -179,7 +185,7 @@ type CreateScholarshipRequest struct {
 	FAQsNew                  []FAQItem                  `json:"faqs_new"`
 	GalleryImages            []GalleryImageItem         `json:"gallery_images"`
 	GalleryImagesNew         []GalleryImageItem         `json:"gallery_images_new"`
-	PartnerGroups            []PartnerOrganization      `json:"partner_groups"`
+	PartnerGroups            []PartnerGroup             `json:"partner_groups"`
 	PartnerMessages          []PartnerMessage           `json:"partner_messages"`
 	ExamCenters              []ExamCenterItem           `json:"exam_centers"`
 	ExamCentersNew           []ExamCenterItem           `json:"exam_centers_new"`
@@ -242,7 +248,7 @@ type ScholarshipResponse struct {
 	FAQsNew                  []FAQItem                  `json:"faqs_new"`
 	GalleryImages            []GalleryImageItem         `json:"gallery_images"`
 	GalleryImagesNew         []GalleryImageItem         `json:"gallery_images_new"`
-	PartnerGroups            []PartnerOrganization      `json:"partner_groups"`
+	PartnerGroups            []PartnerGroup              `json:"partner_groups"`
 	PartnerMessages          []PartnerMessage           `json:"partner_messages"`
 	ExamCenters              []ExamCenterItem           `json:"exam_centers"`
 	ExamCentersNew           []ExamCenterItem           `json:"exam_centers_new"`

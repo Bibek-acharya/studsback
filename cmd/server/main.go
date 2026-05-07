@@ -282,6 +282,42 @@ func fixMissingColumns(db *gorm.DB) error {
 	if err := db.Exec(`ALTER TABLE scholarship_provider_users ADD COLUMN IF NOT EXISTS address TEXT DEFAULT ''`).Error; err != nil {
 		return err
 	}
+	if err := db.Exec(`ALTER TABLE scholarship_provider_users ADD COLUMN IF NOT EXISTS pan_number TEXT DEFAULT ''`).Error; err != nil {
+		return err
+	}
+	if err := db.Exec(`ALTER TABLE scholarship_provider_users ADD COLUMN IF NOT EXISTS founder_name TEXT DEFAULT ''`).Error; err != nil {
+		return err
+	}
+	if err := db.Exec(`ALTER TABLE scholarship_provider_users ADD COLUMN IF NOT EXISTS founder_role TEXT DEFAULT ''`).Error; err != nil {
+		return err
+	}
+	if err := db.Exec(`ALTER TABLE scholarship_provider_users ADD COLUMN IF NOT EXISTS founder_message TEXT DEFAULT ''`).Error; err != nil {
+		return err
+	}
+	if err := db.Exec(`ALTER TABLE scholarship_provider_users ADD COLUMN IF NOT EXISTS founder_image_url TEXT DEFAULT ''`).Error; err != nil {
+		return err
+	}
+	if err := db.Exec(`ALTER TABLE scholarship_provider_users ADD COLUMN IF NOT EXISTS facebook_url TEXT DEFAULT ''`).Error; err != nil {
+		return err
+	}
+	if err := db.Exec(`ALTER TABLE scholarship_provider_users ADD COLUMN IF NOT EXISTS instagram_url TEXT DEFAULT ''`).Error; err != nil {
+		return err
+	}
+	if err := db.Exec(`ALTER TABLE scholarship_provider_users ADD COLUMN IF NOT EXISTS youtube_url TEXT DEFAULT ''`).Error; err != nil {
+		return err
+	}
+	if err := db.Exec(`ALTER TABLE scholarship_provider_users ADD COLUMN IF NOT EXISTS linkedin_url TEXT DEFAULT ''`).Error; err != nil {
+		return err
+	}
+	if err := db.Exec(`ALTER TABLE scholarship_provider_users ADD COLUMN IF NOT EXISTS map_url TEXT DEFAULT ''`).Error; err != nil {
+		return err
+	}
+	if err := db.Exec(`ALTER TABLE scholarship_provider_users ADD COLUMN IF NOT EXISTS brochure_url TEXT DEFAULT ''`).Error; err != nil {
+		return err
+	}
+	if err := db.Exec(`ALTER TABLE scholarship_provider_users ADD COLUMN IF NOT EXISTS banner_url TEXT DEFAULT ''`).Error; err != nil {
+		return err
+	}
 	return nil
 }
 

@@ -1237,6 +1237,11 @@ func (s *Service) UpdateProviderProfile(providerID uint, req UpdateProfileReques
 		return nil, err
 	}
 
+	provider, err = s.repo.GetProviderProfile(providerID)
+	if err != nil {
+		return nil, err
+	}
+
 	s.repo.CreateNotification(&ProviderNotification{
 		ProviderID: providerID,
 		Title:      "Profile Updated",

@@ -112,6 +112,7 @@ type ScholarshipProviderUser struct {
 	LinkedInURL        string         `gorm:"column:linkedin_url;default:''" json:"linkedin_url"`
 	MapURL             string         `gorm:"column:map_url;type:text;default:''" json:"map_url"`
 	BrochureURL        string         `gorm:"column:brochure_url;default:''" json:"brochure_url"`
+	BannerURL          string         `gorm:"column:banner_url;default:''" json:"banner_url"`
 }
 
 
