@@ -55,6 +55,17 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			superadmin.GET("/pending-providers", h.ListPendingScholarshipProviders)
 			superadmin.GET("/providers", h.ListVerifiedScholarshipProviders)
 			superadmin.POST("/providers/approve", h.ApproveScholarshipProvider)
+			superadmin.GET("/pending-institutions", h.ListPendingInstitutions)
+			superadmin.GET("/institutions", h.ListVerifiedInstitutions)
+			superadmin.GET("/rejected-institutions", h.ListRejectedInstitutions)
+			superadmin.POST("/institutions/approve", h.ApproveInstitution)
+			superadmin.PUT("/institutions/:id/access", h.UpdateInstitutionProfileAccess)
+		}
+
+		institutionProtected := v1.Group("/institutions")
+		institutionProtected.Use(authMW)
+		{
+			institutionProtected.GET("/profile-access", h.GetMyProfileAccess)
 		}
 
 		protected := v1.Group("")

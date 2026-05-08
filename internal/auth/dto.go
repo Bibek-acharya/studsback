@@ -108,10 +108,25 @@ type PreferencesResponse struct {
 }
 
 type InstitutionRegisterRequest struct {
-	InstitutionName    string `json:"institution_name" binding:"required"`
-	RegistrationNumber string `json:"registration_number" binding:"required"`
-	Email              string `json:"email" binding:"required,email"`
-	Password           string `json:"password" binding:"required,min=6"`
+	InstitutionName          string `json:"institution_name" binding:"required"`
+	RegistrationNumber       string `json:"registration_number" binding:"required"`
+	Email                    string `json:"email" binding:"required,email"`
+	ContactNumber            string `json:"contact_number"`
+	Province                 string `json:"province"`
+	District                 string `json:"district"`
+	LocalBody                string `json:"local_body"`
+	OrganizationType         string `json:"organization_type"`
+	PANNumber                string `json:"pan_number"`
+	WebsiteURL               string `json:"website_url"`
+	ContactPerson            string `json:"contact_person"`
+	ContactPersonDesignation string `json:"contact_person_designation"`
+	ContactPersonPhone       string `json:"contact_person_phone"`
+}
+
+type InstitutionApprovalRequest struct {
+	InstitutionID  uint   `json:"institution_id" binding:"required"`
+	Action         string `json:"action" binding:"required"` // "approved" or "rejected"
+	RejectionReason string `json:"rejection_reason"`
 }
 
 type InstitutionLoginRequest struct {
@@ -149,4 +164,8 @@ type SuperadminRegisterRequest struct {
 type SuperadminLoginRequest struct {
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required"`
+}
+
+type UpdateProfileAccessRequest struct {
+	ProfileAccess map[string]bool `json:"profile_access" binding:"required"`
 }

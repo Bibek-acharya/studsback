@@ -418,7 +418,7 @@ func (h *Handler) InstitutionRegister(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, 201, "Institution account created successfully", result)
+	response.Success(c, 201, "Verification code sent to your email", result)
 }
 
 func (h *Handler) InstitutionLogin(c *gin.Context) {
@@ -848,6 +848,108 @@ func (h *Handler) ApproveScholarshipProvider(c *gin.Context) {
 	default:
 		response.Error(c, 400, "Invalid action. Use 'approved' or 'rejected'.")
 	}
+}
+
+func (h *Handler) ListPendingInstitutions(c *gin.Context) {
+	institutions, err := h.service.ListPendingInstitutions()
+	if err != nil {
+		response.Error(c, 500, err.Error())
+		return
+	}
+
+	if institutions == nil {
+		institutions = []InstitutionUser{}
+	}
+
+	response.Success(c, 200, "Pending institutions retrieved successfully", institutions)
+}
+
+func (h *Handler) ListVerifiedInstitutions(c *gin.Context) {
+	institutions, err := h.service.ListVerifiedInstitutions()
+	if err != nil {
+		response.Error(c, 500, err.Error())
+		return
+	}
+
+	if institutions == nil {
+		institutions = []InstitutionUser{}
+	}
+
+	response.Success(c, 200, "Verified institutions retrieved successfully", institutions)
+}
+
+func (h *Handler) ListRejectedInstitutions(c *gin.Context) {
+	institutions, err := h.service.ListRejectedInstitutions()
+	if err != nil {
+		response.Error(c, 500, err.Error())
+		return
+	}
+
+	if institutions == nil {
+		institutions = []InstitutionUser{}
+	}
+
+	response.Success(c, 200, "Rejected institutions retrieved successfully", institutions)
+}
+
+func (h *Handler) ApproveInstitution(c *gin.Context) {
+	var req InstitutionApprovalRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+
+	switch req.Action {
+	case "approved":
+		if err := h.service.ApproveInstitution(req.InstitutionID); err != nil {
+			response.Error(c, 500, err.Error())
+			return
+		}
+		response.Success(c, 200, "Institution approved successfully. Email sent with login credentials.", nil)
+	case "rejected":
+		if err := h.service.RejectInstitution(req.InstitutionID); err != nil {
+			response.Error(c, 500, err.Error())
+			return
+		}
+		response.Success(c, 200, "Institution rejected successfully. Rejection email sent.", nil)
+	default:
+		response.Error(c, 400, "Invalid action. Use 'approved' or 'rejected'.")
+	}
+}
+
+func (h *Handler) UpdateInstitutionProfileAccess(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		response.Error(c, 400, "Invalid institution ID")
+		return
+	}
+
+	var req UpdateProfileAccessRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+
+	if err := h.service.UpdateInstitutionProfileAccess(uint(id), req.ProfileAccess); err != nil {
+		response.Error(c, 500, err.Error())
+		return
+	}
+
+	response.Success(c, 200, "Profile access updated successfully", nil)
+}
+
+func (h *Handler) GetMyProfileAccess(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+	id := userID.(uint)
+
+	access, err := h.service.GetInstitutionProfileAccess(id)
+	if err != nil {
+		response.Error(c, 500, err.Error())
+		return
+	}
+
+	response.Success(c, 200, "Profile access retrieved successfully", access)
 }
 
 func (h *Handler) ChangePassword(c *gin.Context) {

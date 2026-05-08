@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"encoding/json"
 	"errors"
 	"log"
 	"time"
@@ -153,6 +154,20 @@ func (s *Service) VerifyOTP(email, otp string) (*LoginResponse, error) {
 
 		return &LoginResponse{
 			User:  providerUser,
+			Token: "",
+		}, nil
+	}
+
+	if institutionUser, ok := data.(InstitutionUser); ok {
+		if s.emailExistsAcrossTypes(institutionUser.Email) {
+			return nil, errors.New("An account with this email already exists")
+		}
+		if err := s.repo.CreateInstitutionUser(&institutionUser); err != nil {
+			return nil, errors.New("Failed to create institution account")
+		}
+
+		return &LoginResponse{
+			User:  institutionUser,
 			Token: "",
 		}, nil
 	}
@@ -319,7 +334,7 @@ func (s *Service) SavePreferences(userID uint, req SavePreferencesRequest) (*Pre
 	}, nil
 }
 
-func (s *Service) InstitutionRegister(req InstitutionRegisterRequest) (*LoginResponse, error) {
+func (s *Service) InstitutionRegister(req InstitutionRegisterRequest) (*RegisterResponse, error) {
 	if s.emailExistsAcrossTypes(req.Email) {
 		return nil, errors.New("An account with this email already exists")
 	}
@@ -330,28 +345,33 @@ func (s *Service) InstitutionRegister(req InstitutionRegisterRequest) (*LoginRes
 	}
 
 	institutionUser := InstitutionUser{
-		InstitutionName:    req.InstitutionName,
-		RegistrationNumber: req.RegistrationNumber,
-		Email:              req.Email,
-		Role:               "institution",
+		InstitutionName:          req.InstitutionName,
+		RegistrationNumber:       req.RegistrationNumber,
+		Email:                    req.Email,
+		ContactNumber:            req.ContactNumber,
+		Province:                 req.Province,
+		District:                 req.District,
+		LocalBody:                req.LocalBody,
+		OrganizationType:         req.OrganizationType,
+		PANNumber:                req.PANNumber,
+		WebsiteURL:               req.WebsiteURL,
+		ContactPerson:            req.ContactPerson,
+		ContactPersonDesignation: req.ContactPersonDesignation,
+		ContactPersonPhone:       req.ContactPersonPhone,
+		Role:                     "institution",
+		Status:                   "pending",
 	}
 
-	if err := institutionUser.HashPassword(req.Password); err != nil {
-		return nil, errors.New("Failed to hash password")
-	}
-
-	if err := s.repo.CreateInstitutionUser(&institutionUser); err != nil {
-		return nil, errors.New("Failed to create institution account")
-	}
-
-	token, err := utils.GenerateToken(institutionUser.ID, institutionUser.Email, institutionUser.Role, 0)
+	otp, err := utils.GenerateOTP()
 	if err != nil {
-		return nil, errors.New("Failed to generate token")
+		return nil, errors.New("Failed to generate OTP")
 	}
 
-	return &LoginResponse{
-		User:  institutionUser,
-		Token: token,
+	utils.StoreOTP(req.Email, otp, institutionUser)
+
+	return &RegisterResponse{
+		Email:       institutionUser.Email,
+		RequiresOTP: true,
 	}, nil
 }
 
@@ -359,6 +379,18 @@ func (s *Service) InstitutionLogin(req InstitutionLoginRequest) (*LoginResponse,
 	institutionUser, err := s.repo.FindInstitutionUserByEmail(req.Email)
 	if err != nil {
 		return nil, errors.New("Invalid email or password")
+	}
+
+	if institutionUser.Status == "pending" {
+		return nil, errors.New("Your account is still under review. Please wait for admin approval.")
+	}
+
+	if institutionUser.Status == "rejected" {
+		return nil, errors.New("Your registration has been rejected. Please contact support for more information.")
+	}
+
+	if institutionUser.Password == nil {
+		return nil, errors.New("Your account has not been fully set up. Please contact support.")
 	}
 
 	if err := institutionUser.CheckPassword(req.Password); err != nil {
@@ -497,6 +529,99 @@ func (s *Service) RejectScholarshipProvider(providerID uint) error {
 	}
 
 	return nil
+}
+
+func (s *Service) ListPendingInstitutions() ([]InstitutionUser, error) {
+	return s.repo.FindInstitutionUsersByStatus("pending")
+}
+
+func (s *Service) ListVerifiedInstitutions() ([]InstitutionUser, error) {
+	return s.repo.FindInstitutionUsersByStatus("approved")
+}
+
+func (s *Service) ListRejectedInstitutions() ([]InstitutionUser, error) {
+	return s.repo.FindInstitutionUsersByStatus("rejected")
+}
+
+func (s *Service) ApproveInstitution(institutionID uint) error {
+	institution, err := s.repo.FindInstitutionUserByID(institutionID)
+	if err != nil {
+		return errors.New("Institution not found")
+	}
+
+	password, err := utils.GenerateRandomPassword(12)
+	if err != nil {
+		return errors.New("Failed to generate password")
+	}
+
+	if err := institution.HashPassword(password); err != nil {
+		return errors.New("Failed to hash password")
+	}
+
+	institution.Status = "approved"
+	if err := s.repo.UpdateInstitutionUser(institution); err != nil {
+		return errors.New("Failed to update institution")
+	}
+
+	if emailErr := utils.SendApprovalEmail(institution.Email, institution.InstitutionName, password); emailErr != nil {
+		log.Printf("Warning: failed to send approval email to %s: %v", institution.Email, emailErr)
+	}
+
+	return nil
+}
+
+func (s *Service) RejectInstitution(institutionID uint) error {
+	institution, err := s.repo.FindInstitutionUserByID(institutionID)
+	if err != nil {
+		return errors.New("Institution not found")
+	}
+
+	institution.Status = "rejected"
+	if err := s.repo.UpdateInstitutionUser(institution); err != nil {
+		return errors.New("Failed to update institution")
+	}
+
+	if emailErr := utils.SendRejectionEmail(institution.Email, institution.InstitutionName); emailErr != nil {
+		log.Printf("Warning: failed to send rejection email to %s: %v", institution.Email, emailErr)
+	}
+
+	return nil
+}
+
+func (s *Service) UpdateInstitutionProfileAccess(institutionID uint, access map[string]bool) error {
+	institution, err := s.repo.FindInstitutionUserByID(institutionID)
+	if err != nil {
+		return errors.New("Institution not found")
+	}
+
+	data, err := json.Marshal(access)
+	if err != nil {
+		return errors.New("Failed to serialize profile access")
+	}
+
+	str := string(data)
+	institution.ProfileAccess = &str
+	if err := s.repo.UpdateInstitutionUser(institution); err != nil {
+		return errors.New("Failed to update profile access")
+	}
+
+	return nil
+}
+
+func (s *Service) GetInstitutionProfileAccess(institutionID uint) (map[string]bool, error) {
+	institution, err := s.repo.FindInstitutionUserByID(institutionID)
+	if err != nil {
+		return nil, errors.New("Institution not found")
+	}
+
+	access := make(map[string]bool)
+	if institution.ProfileAccess != nil && *institution.ProfileAccess != "" {
+		if err := json.Unmarshal([]byte(*institution.ProfileAccess), &access); err != nil {
+			return nil, errors.New("Failed to parse profile access")
+		}
+	}
+
+	return access, nil
 }
 
 func (s *Service) ScholarshipProviderLogin(req ScholarshipProviderLoginRequest) (*LoginResponse, error) {

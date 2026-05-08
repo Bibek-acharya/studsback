@@ -149,6 +149,30 @@ func (r *Repository) DeleteScholarshipProviderUser(id uint) error {
 	return nil
 }
 
+func (r *Repository) FindInstitutionUsersByStatus(status string) ([]InstitutionUser, error) {
+	var users []InstitutionUser
+	err := r.db.Where("status = ?", status).Find(&users).Error
+	if err != nil {
+		return nil, err
+	}
+	return users, nil
+}
+
+func (r *Repository) UpdateInstitutionUser(user *InstitutionUser) error {
+	return r.db.Save(user).Error
+}
+
+func (r *Repository) DeleteInstitutionUser(id uint) error {
+	result := r.db.Unscoped().Delete(&InstitutionUser{}, id)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return errors.New("institution not found")
+	}
+	return nil
+}
+
 func (r *Repository) FindEducationEntriesByUserID(userID uint) ([]EducationEntry, error) {
 	var entries []EducationEntry
 	result := r.db.Where("user_id = ?", userID).Order("created_at desc").Find(&entries)

@@ -53,16 +53,29 @@ func (u *User) CheckPassword(password string) error {
 }
 
 type InstitutionUser struct {
-	ID                 uint           `gorm:"primarykey" json:"id"`
-	CreatedAt          time.Time      `json:"created_at"`
-	UpdatedAt          time.Time      `json:"updated_at"`
-	DeletedAt          gorm.DeletedAt `gorm:"index" json:"-"`
-	InstitutionName    string         `gorm:"not null" json:"institution_name" binding:"required"`
-	RegistrationNumber string         `gorm:"uniqueIndex;not null" json:"registration_number" binding:"required"`
-	Email              string         `gorm:"uniqueIndex;not null" json:"email" binding:"required,email"`
-	GoogleID           *string        `gorm:"uniqueIndex;default:null" json:"google_id"`
-	Password           *string        `json:"-"`
-	Role               string         `gorm:"default:'institution'" json:"role"`
+	ID                       uint           `gorm:"primarykey" json:"id"`
+	CreatedAt                time.Time      `json:"created_at"`
+	UpdatedAt                time.Time      `json:"updated_at"`
+	DeletedAt                gorm.DeletedAt `gorm:"index" json:"-"`
+	InstitutionName          string         `gorm:"not null" json:"institution_name" binding:"required"`
+	RegistrationNumber       string         `gorm:"uniqueIndex;not null" json:"registration_number" binding:"required"`
+	Email                    string         `gorm:"uniqueIndex;not null" json:"email" binding:"required,email"`
+	GoogleID                 *string        `gorm:"uniqueIndex;default:null" json:"google_id"`
+	Password                 *string        `json:"-"`
+	Role                     string         `gorm:"default:'institution'" json:"role"`
+	Status                   string         `gorm:"default:'pending'" json:"status"`
+	ContactNumber            string         `gorm:"default:''" json:"contact_number"`
+	Province                 string         `gorm:"default:''" json:"province"`
+	District                 string         `gorm:"default:''" json:"district"`
+	LocalBody                string         `gorm:"default:''" json:"local_body"`
+	OrganizationType         string         `gorm:"default:''" json:"organization_type"`
+	PANNumber                string         `gorm:"default:''" json:"pan_number"`
+	WebsiteURL               string         `gorm:"default:''" json:"website_url"`
+	ContactPerson            string         `gorm:"default:''" json:"contact_person"`
+	ContactPersonDesignation string         `gorm:"default:''" json:"contact_person_designation"`
+	ContactPersonPhone       string         `gorm:"default:''" json:"contact_person_phone"`
+	RejectionReason          string         `gorm:"default:''" json:"rejection_reason"`
+	ProfileAccess           *string        `gorm:"type:jsonb;default:'{}'" json:"profile_access"`
 }
 
 func (u *InstitutionUser) HashPassword(password string) error {
