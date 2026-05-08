@@ -163,6 +163,15 @@ type InstitutionUser struct {
 	GoogleID           *string        `gorm:"uniqueIndex;default:null" json:"google_id"`
 	Password           *string        `json:"-"`
 	Role               string         `gorm:"default:'institution'" json:"role"`
+	Status             string         `gorm:"default:'pending'" json:"status"`
+	District           string         `gorm:"default:''" json:"district"`
+	WebsiteURL         string         `gorm:"default:''" json:"website_url"`
+	LogoURL            string         `gorm:"default:''" json:"logo_url"`
+	BannerURL          string         `gorm:"default:''" json:"banner_url"`
+	About              string         `gorm:"type:text" json:"about"`
+	Vision             string         `gorm:"type:text" json:"vision"`
+	Mission            string         `gorm:"type:text" json:"mission"`
+	ProfileData        *string        `gorm:"type:jsonb;default:'{}'" json:"profile_data"`
 }
 
 func (u *InstitutionUser) HashPassword(password string) error {

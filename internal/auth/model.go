@@ -76,6 +76,12 @@ type InstitutionUser struct {
 	ContactPersonPhone       string         `gorm:"default:''" json:"contact_person_phone"`
 	RejectionReason          string         `gorm:"default:''" json:"rejection_reason"`
 	ProfileAccess           *string        `gorm:"type:jsonb;default:'{}'" json:"profile_access"`
+	LogoURL                 string         `gorm:"default:''" json:"logo_url"`
+	BannerURL               string         `gorm:"default:''" json:"banner_url"`
+	About                   string         `gorm:"type:text" json:"about"`
+	Vision                  string         `gorm:"type:text" json:"vision"`
+	Mission                 string         `gorm:"type:text" json:"mission"`
+	ProfileData             *string        `gorm:"type:jsonb;default:'{}'" json:"profile_data"`
 }
 
 func (u *InstitutionUser) HashPassword(password string) error {

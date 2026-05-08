@@ -250,16 +250,48 @@ type SettingsResponse struct {
 }
 
 type UpdateProfileRequest struct {
-	InstitutionName    string `json:"institution_name"`
-	RegistrationNumber string `json:"registration_number"`
+	InstitutionName    string      `json:"institution_name"`
+	RegistrationNumber string      `json:"registration_number"`
+	Location           string      `json:"location"`
+	Website            string      `json:"website"`
+	LogoURL            string      `json:"logo_url"`
+	BannerURL          string      `json:"banner_url"`
+	About              string      `json:"about"`
+	Vision             string      `json:"vision"`
+	Mission            string      `json:"mission"`
+	Videos             interface{} `json:"videos"`
+	OverviewData       interface{} `json:"overview_data"`
+	LeadershipData     interface{} `json:"leadership_data"`
+	CoursesData        interface{} `json:"courses_data"`
+	ProgramsData       interface{} `json:"programs_data"`
+	FacilitiesData     interface{} `json:"facilities_data"`
+	AlumniData         interface{} `json:"alumni_data"`
+	GalleryData        interface{} `json:"gallery_data"`
+	DownloadsData      interface{} `json:"downloads_data"`
 }
 
 type ProfileResponse struct {
-	ID                 uint   `json:"id"`
-	InstitutionName    string `json:"institution_name"`
-	Email              string `json:"email"`
-	RegistrationNumber string `json:"registration_number"`
-	Role               string `json:"role"`
+	ID                 uint        `json:"id"`
+	InstitutionName    string      `json:"institution_name"`
+	Email              string      `json:"email"`
+	RegistrationNumber string      `json:"registration_number"`
+	Role               string      `json:"role"`
+	Location           string      `json:"location,omitempty"`
+	Website            string      `json:"website,omitempty"`
+	LogoURL            string      `json:"logo_url,omitempty"`
+	BannerURL          string      `json:"banner_url,omitempty"`
+	About              string      `json:"about,omitempty"`
+	Vision             string      `json:"vision,omitempty"`
+	Mission            string      `json:"mission,omitempty"`
+	Videos             interface{} `json:"videos,omitempty"`
+	OverviewData       interface{} `json:"overview_data,omitempty"`
+	LeadershipData     interface{} `json:"leadership_data,omitempty"`
+	CoursesData        interface{} `json:"courses_data,omitempty"`
+	ProgramsData       interface{} `json:"programs_data,omitempty"`
+	FacilitiesData     interface{} `json:"facilities_data,omitempty"`
+	AlumniData         interface{} `json:"alumni_data,omitempty"`
+	GalleryData        interface{} `json:"gallery_data,omitempty"`
+	DownloadsData      interface{} `json:"downloads_data,omitempty"`
 }
 
 type UpdatePasswordRequest struct {

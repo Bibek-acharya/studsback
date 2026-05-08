@@ -87,12 +87,44 @@ func (s *Service) GetProfile(instID uint) (*ProfileResponse, error) {
 		return nil, err
 	}
 
+	var videos, overviewData, leadershipData, coursesData, programsData, facilitiesData, alumniData, galleryData, downloadsData interface{}
+	if user.ProfileData != nil && *user.ProfileData != "" {
+		var data map[string]interface{}
+		if err := json.Unmarshal([]byte(*user.ProfileData), &data); err == nil {
+			if v, ok := data["videos"]; ok { videos = v }
+			if v, ok := data["overview_data"]; ok { overviewData = v }
+			if v, ok := data["leadership_data"]; ok { leadershipData = v }
+			if v, ok := data["courses_data"]; ok { coursesData = v }
+			if v, ok := data["programs_data"]; ok { programsData = v }
+			if v, ok := data["facilities_data"]; ok { facilitiesData = v }
+			if v, ok := data["alumni_data"]; ok { alumniData = v }
+			if v, ok := data["gallery_data"]; ok { galleryData = v }
+			if v, ok := data["downloads_data"]; ok { downloadsData = v }
+		}
+	}
+
 	return &ProfileResponse{
 		ID:                 user.ID,
 		InstitutionName:    user.InstitutionName,
 		Email:              user.Email,
 		RegistrationNumber: user.RegistrationNumber,
 		Role:               user.Role,
+		Location:           user.District,
+		Website:            user.WebsiteURL,
+		LogoURL:            user.LogoURL,
+		BannerURL:          user.BannerURL,
+		About:              user.About,
+		Vision:             user.Vision,
+		Mission:            user.Mission,
+		Videos:             videos,
+		OverviewData:       overviewData,
+		LeadershipData:     leadershipData,
+		CoursesData:        coursesData,
+		ProgramsData:       programsData,
+		FacilitiesData:     facilitiesData,
+		AlumniData:         alumniData,
+		GalleryData:        galleryData,
+		DownloadsData:      downloadsData,
 	}, nil
 }
 
@@ -108,6 +140,54 @@ func (s *Service) UpdateProfile(instID uint, req UpdateProfileRequest) (*Profile
 	if req.RegistrationNumber != "" {
 		user.RegistrationNumber = req.RegistrationNumber
 	}
+	if req.Location != "" {
+		user.District = req.Location
+	}
+	if req.Website != "" {
+		user.WebsiteURL = req.Website
+	}
+	if req.LogoURL != "" {
+		user.LogoURL = req.LogoURL
+	}
+	if req.BannerURL != "" {
+		user.BannerURL = req.BannerURL
+	}
+	if req.About != "" {
+		user.About = req.About
+	}
+	if req.Vision != "" {
+		user.Vision = req.Vision
+	}
+	if req.Mission != "" {
+		user.Mission = req.Mission
+	}
+	if req.Videos != nil || req.OverviewData != nil || req.LeadershipData != nil ||
+		req.CoursesData != nil || req.ProgramsData != nil || req.FacilitiesData != nil ||
+		req.AlumniData != nil || req.GalleryData != nil || req.DownloadsData != nil {
+
+		var existing map[string]interface{}
+		if user.ProfileData != nil && *user.ProfileData != "" {
+			json.Unmarshal([]byte(*user.ProfileData), &existing)
+		}
+		if existing == nil {
+			existing = make(map[string]interface{})
+		}
+
+		setField(&existing, "videos", req.Videos)
+		setField(&existing, "overview_data", req.OverviewData)
+		setField(&existing, "leadership_data", req.LeadershipData)
+		setField(&existing, "courses_data", req.CoursesData)
+		setField(&existing, "programs_data", req.ProgramsData)
+		setField(&existing, "facilities_data", req.FacilitiesData)
+		setField(&existing, "alumni_data", req.AlumniData)
+		setField(&existing, "gallery_data", req.GalleryData)
+		setField(&existing, "downloads_data", req.DownloadsData)
+
+		if data, err := json.Marshal(existing); err == nil {
+			str := string(data)
+			user.ProfileData = &str
+		}
+	}
 
 	if err := s.repo.SaveInstitutionUser(user); err != nil {
 		return nil, err
@@ -119,7 +199,27 @@ func (s *Service) UpdateProfile(instID uint, req UpdateProfileRequest) (*Profile
 		Email:              user.Email,
 		RegistrationNumber: user.RegistrationNumber,
 		Role:               user.Role,
+		Location:           user.District,
+		Website:            user.WebsiteURL,
+		LogoURL:            user.LogoURL,
+		BannerURL:          user.BannerURL,
+		About:              user.About,
+		Vision:             user.Vision,
+		Mission:            user.Mission,
 	}, nil
+}
+
+func setField(data *map[string]interface{}, key string, val interface{}) {
+	if val != nil {
+		switch v := val.(type) {
+		case string:
+			if v != "" {
+				(*data)[key] = v
+			}
+		default:
+			(*data)[key] = v
+		}
+	}
 }
 
 func (s *Service) UpdatePassword(instID uint, req UpdatePasswordRequest) error {
