@@ -1172,6 +1172,14 @@ func (s *Service) MarkMessageRead(providerID, id uint) error {
 	return s.repo.MarkMessageRead(message)
 }
 
+func (s *Service) GetProviderName(providerID uint) string {
+	var provider ScholarshipProviderUser
+	if err := s.repo.db.First(&provider, providerID).Error; err != nil {
+		return "Organization"
+	}
+	return provider.ProviderName
+}
+
 func (s *Service) GetProviderProfile(providerID uint) (*ScholarshipProviderUser, error) {
 	return s.repo.GetProviderProfile(providerID)
 }
@@ -2736,4 +2744,288 @@ func (s *Service) ResetAccessUserPassword(userID uint, newPassword string) error
 		return err
 	}
 	return s.repo.UpdateAccessUserField(userID, "password", string(hashed))
+}
+
+// ─── Volunteer Service ──────────────────────────────────────────────
+
+func (s *Service) CreateVolunteer(providerID uint, req *CreateVolunteerRequest) (*ProviderVolunteer, error) {
+	specificDates, _ := json.Marshal(req.SpecificDates)
+	districts, _ := json.Marshal(req.Districts)
+
+	v := &ProviderVolunteer{
+		ProviderID:          providerID,
+		Title:               req.Title,
+		BannerImage:         req.BannerImage,
+		Description:         req.Description,
+		VolunteerType:       req.VolunteerType,
+		VolunteerPayment:    req.VolunteerPayment,
+		DateMode:            req.DateMode,
+		RangeStart:          req.RangeStart,
+		RangeEnd:            req.RangeEnd,
+		SpecificDates:       specificDates,
+		ApplicationDeadline: req.ApplicationDeadline,
+		Districts:           districts,
+		Active:              req.Active,
+	}
+	if err := s.repo.CreateVolunteer(v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+func (s *Service) GetProviderVolunteers(providerID uint, page, limit int) (*VolunteerListResponse, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 20
+	}
+	volunteers, total, err := s.repo.GetVolunteersByProvider(providerID, page, limit)
+	if err != nil {
+		return nil, err
+	}
+	return &VolunteerListResponse{
+		Volunteers: toVolunteerResponses(volunteers, ""),
+		Meta:       PaginationMeta{Total: total, Page: page, Limit: limit},
+	}, nil
+}
+
+func (s *Service) GetProviderVolunteerByID(id, providerID uint) (*VolunteerResponse, error) {
+	_, err := s.repo.GetVolunteerByIDAndProvider(id, providerID)
+	if err != nil {
+		return nil, err
+	}
+	full, err := s.repo.GetVolunteerByID(id)
+	if err != nil {
+		return nil, err
+	}
+	resp := toVolunteerResponse(full, "")
+	return &resp, nil
+}
+
+func (s *Service) UpdateVolunteer(id, providerID uint, req *CreateVolunteerRequest) (*ProviderVolunteer, error) {
+	existing, err := s.repo.GetVolunteerByIDAndProvider(id, providerID)
+	if err != nil {
+		return nil, err
+	}
+	updates := map[string]interface{}{}
+	updates["title"] = req.Title
+	updates["banner_image"] = req.BannerImage
+	updates["description"] = req.Description
+	updates["volunteer_type"] = req.VolunteerType
+	updates["volunteer_payment"] = req.VolunteerPayment
+	updates["date_mode"] = req.DateMode
+	updates["range_start"] = req.RangeStart
+	updates["range_end"] = req.RangeEnd
+	updates["application_deadline"] = req.ApplicationDeadline
+	if req.SpecificDates != nil {
+		d, _ := json.Marshal(req.SpecificDates)
+		updates["specific_dates"] = d
+	}
+	if req.Districts != nil {
+		d, _ := json.Marshal(req.Districts)
+		updates["districts"] = d
+	}
+
+	if err := s.repo.UpdateVolunteer(existing, updates); err != nil {
+		return nil, err
+	}
+	return existing, nil
+}
+
+func (s *Service) DeleteVolunteer(id, providerID uint) error {
+	return s.repo.DeleteVolunteer(id, providerID)
+}
+
+func (s *Service) ToggleVolunteerActive(id, providerID uint) (*ProviderVolunteer, error) {
+	return s.repo.ToggleVolunteerActive(id, providerID)
+}
+
+func (s *Service) GetPublicVolunteers(page, limit int, search, volunteerType string) (*VolunteerListResponse, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 20
+	}
+	volunteers, total, err := s.repo.GetPublicVolunteers(page, limit, search, volunteerType)
+	if err != nil {
+		return nil, err
+	}
+	return &VolunteerListResponse{
+		Volunteers: toVolunteerResponses(volunteers, ""),
+		Meta:       PaginationMeta{Total: total, Page: page, Limit: limit},
+	}, nil
+}
+
+func (s *Service) GetPublicVolunteerByID(id uint) (*VolunteerResponse, error) {
+	v, err := s.repo.GetVolunteerByID(id)
+	if err != nil {
+		return nil, err
+	}
+	resp := toVolunteerResponse(v, "")
+	return &resp, nil
+}
+
+func (s *Service) ApplyVolunteer(volunteerID uint, req *ApplyVolunteerRequest) (*VolunteerApplication, error) {
+	v, err := s.repo.GetVolunteerByID(volunteerID)
+	if err != nil {
+		return nil, errors.New("volunteer opportunity not found")
+	}
+	if !v.Active {
+		return nil, errors.New("volunteer opportunity is not currently active")
+	}
+
+	availableDays, _ := json.Marshal(req.AvailableDays)
+	app := &VolunteerApplication{
+		VolunteerID:        volunteerID,
+		FullName:           req.FullName,
+		Gender:             req.Gender,
+		Phone:              req.Phone,
+		Email:              req.Email,
+		Designation:        req.Designation,
+		OtherDesignation:   req.OtherDesignation,
+		Province:           req.Province,
+		District:           req.District,
+		Municipality:       req.Municipality,
+		Ward:               req.Ward,
+		Tole:               req.Tole,
+		ParticipateDistrict: req.ParticipateDistrict,
+		AvailableDays:      availableDays,
+		VolunteeredBefore:  req.VolunteeredBefore,
+		VolunteerDetails:   req.VolunteerDetails,
+		Status:             "pending",
+	}
+	if err := s.repo.CreateVolunteerApplication(app); err != nil {
+		return nil, err
+	}
+	return app, nil
+}
+
+func (s *Service) GetVolunteerApplications(providerID uint, volunteerID *uint, page, limit int) (*VolunteerApplicationListResponse, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 20
+	}
+	apps, total, err := s.repo.GetVolunteerApplicationsByProvider(providerID, volunteerID, page, limit)
+	if err != nil {
+		return nil, err
+	}
+	return &VolunteerApplicationListResponse{
+		Applications: toVolunteerApplicationResponses(apps),
+		Meta:         PaginationMeta{Total: total, Page: page, Limit: limit},
+	}, nil
+}
+
+func (s *Service) ShortlistVolunteerApplication(id, providerID uint) error {
+	app, err := s.repo.GetVolunteerApplicationByID(id)
+	if err != nil {
+		return err
+	}
+	_, err = s.repo.GetVolunteerByIDAndProvider(app.VolunteerID, providerID)
+	if err != nil {
+		return errors.New("application not found or access denied")
+	}
+	if app.Status != "pending" {
+		return errors.New("can only shortlist pending applications")
+	}
+	return s.repo.UpdateVolunteerApplicationStatus(id, "shortlisted")
+}
+
+func (s *Service) RejectVolunteerApplication(id, providerID uint) error {
+	app, err := s.repo.GetVolunteerApplicationByID(id)
+	if err != nil {
+		return err
+	}
+	_, err = s.repo.GetVolunteerByIDAndProvider(app.VolunteerID, providerID)
+	if err != nil {
+		return errors.New("application not found or access denied")
+	}
+	if app.Status != "pending" && app.Status != "shortlisted" {
+		return errors.New("can only reject pending or shortlisted applications")
+	}
+	return s.repo.UpdateVolunteerApplicationStatus(id, "rejected")
+}
+
+// ─── Volunteer Helpers ──────────────────────────────────────────────
+
+func toVolunteerResponse(v *ProviderVolunteer, organizer string) VolunteerResponse {
+	var specificDates, districts []string
+	json.Unmarshal(v.SpecificDates, &specificDates)
+	json.Unmarshal(v.Districts, &districts)
+
+	loc := ""
+	if len(districts) > 0 {
+		loc = districts[0]
+		if len(districts) > 1 {
+			loc += " +" + fmt.Sprintf("%d", len(districts)-1)
+		}
+	}
+
+	return VolunteerResponse{
+		ID:                  v.ID,
+		CreatedAt:           v.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:           v.UpdatedAt.Format(time.RFC3339),
+		ProviderID:          v.ProviderID,
+		Title:               v.Title,
+		BannerImage:         v.BannerImage,
+		Description:         v.Description,
+		VolunteerType:       v.VolunteerType,
+		VolunteerPayment:    v.VolunteerPayment,
+		DateMode:            v.DateMode,
+		RangeStart:          v.RangeStart,
+		RangeEnd:            v.RangeEnd,
+		SpecificDates:       specificDates,
+		ApplicationDeadline: v.ApplicationDeadline,
+		Districts:           districts,
+		Active:              v.Active,
+		ApplicantCount:      v.ApplicantCount,
+		Organizer:           organizer,
+		Location:            loc,
+	}
+}
+
+func toVolunteerResponses(volunteers []ProviderVolunteer, organizer string) []VolunteerResponse {
+	res := make([]VolunteerResponse, len(volunteers))
+	for i, v := range volunteers {
+		res[i] = toVolunteerResponse(&v, organizer)
+	}
+	return res
+}
+
+func toVolunteerApplicationResponse(a *VolunteerApplication) VolunteerApplicationResponse {
+	var availableDays []string
+	json.Unmarshal(a.AvailableDays, &availableDays)
+
+	return VolunteerApplicationResponse{
+		ID:                 a.ID,
+		CreatedAt:          a.CreatedAt.Format(time.RFC3339),
+		VolunteerID:        a.VolunteerID,
+		FullName:           a.FullName,
+		Gender:             a.Gender,
+		Phone:              a.Phone,
+		Email:              a.Email,
+		Designation:        a.Designation,
+		OtherDesignation:   a.OtherDesignation,
+		Province:           a.Province,
+		District:           a.District,
+		Municipality:       a.Municipality,
+		Ward:               a.Ward,
+		Tole:               a.Tole,
+		ParticipateDistrict: a.ParticipateDistrict,
+		AvailableDays:      availableDays,
+		VolunteeredBefore:  a.VolunteeredBefore,
+		VolunteerDetails:   a.VolunteerDetails,
+		Status:             a.Status,
+	}
+}
+
+func toVolunteerApplicationResponses(apps []VolunteerApplication) []VolunteerApplicationResponse {
+	res := make([]VolunteerApplicationResponse, len(apps))
+	for i, a := range apps {
+		res[i] = toVolunteerApplicationResponse(&a)
+	}
+	return res
 }

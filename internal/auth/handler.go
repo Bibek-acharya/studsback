@@ -329,7 +329,7 @@ func (h *Handler) GoogleCallback(c *gin.Context) {
 		return
 	}
 
-	jwtToken, err := h.service.GoogleLoginOrRegister(googleUser.ID, googleUser.Email, googleUser.GivenName, googleUser.FamilyName)
+	jwtToken, err := h.service.GoogleLoginOrRegister(googleUser.ID, googleUser.Email, googleUser.GivenName, googleUser.FamilyName, googleUser.Picture)
 	if err != nil {
 		response.Error(c, 500, err.Error())
 		return
@@ -381,6 +381,35 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 	}
 
 	response.Success(c, 200, "Profile updated successfully", result)
+}
+
+func (h *Handler) UploadProfilePicture(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+
+	file, err := c.FormFile("file")
+	if err != nil {
+		response.Error(c, 400, "No file provided")
+		return
+	}
+
+	if !strings.HasPrefix(file.Header.Get("Content-Type"), "image/") {
+		response.Error(c, 400, "Only image files are allowed")
+		return
+	}
+
+	url, err := utils.SaveUploadedImage(file, "profiles")
+	if err != nil {
+		response.Error(c, 500, "Failed to upload image: "+err.Error())
+		return
+	}
+
+	result, err := h.service.UpdateProfile(userID.(uint), UpdateProfileRequest{ImageURL: url})
+	if err != nil {
+		response.Error(c, 500, err.Error())
+		return
+	}
+
+	response.Success(c, 200, "Profile picture uploaded successfully", result)
 }
 
 func (h *Handler) SavePreferences(c *gin.Context) {

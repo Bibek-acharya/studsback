@@ -1235,3 +1235,159 @@ func (r *Repository) GetPublishedReviews(providerID uint) ([]ProviderReview, err
 	}
 	return reviews, nil
 }
+
+// ─── Volunteer CRUD ─────────────────────────────────────────────────
+
+func (r *Repository) CreateVolunteer(v *ProviderVolunteer) error {
+	return r.db.Create(v).Error
+}
+
+func (r *Repository) GetVolunteersByProvider(providerID uint, page, limit int) ([]ProviderVolunteer, int64, error) {
+	var total int64
+	if err := r.db.Model(&ProviderVolunteer{}).Where("provider_id = ?", providerID).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var volunteers []ProviderVolunteer
+	offset := (page - 1) * limit
+	if err := r.db.Where("provider_id = ?", providerID).Order("created_at desc").Offset(offset).Limit(limit).Find(&volunteers).Error; err != nil {
+		return nil, 0, err
+	}
+	for i := range volunteers {
+		var count int64
+		if cnt := r.db.Model(&VolunteerApplication{}).Where("volunteer_id = ?", volunteers[i].ID).Count(&count); cnt.Error != nil {
+			count = 0
+		}
+		volunteers[i].ApplicantCount = count
+	}
+	return volunteers, total, nil
+}
+
+func (r *Repository) GetVolunteerByID(id uint) (*ProviderVolunteer, error) {
+	var v ProviderVolunteer
+	if err := r.db.First(&v, id).Error; err != nil {
+		return nil, err
+	}
+	var count int64
+	if cnt := r.db.Model(&VolunteerApplication{}).Where("volunteer_id = ?", v.ID).Count(&count); cnt.Error != nil {
+		count = 0
+	}
+	v.ApplicantCount = count
+	return &v, nil
+}
+
+func (r *Repository) GetVolunteerByIDAndProvider(id, providerID uint) (*ProviderVolunteer, error) {
+	var v ProviderVolunteer
+	if err := r.db.Where("id = ? AND provider_id = ?", id, providerID).First(&v).Error; err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r *Repository) UpdateVolunteer(v *ProviderVolunteer, updates map[string]interface{}) error {
+	return r.db.Model(v).Updates(updates).Error
+}
+
+func (r *Repository) DeleteVolunteer(id, providerID uint) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("volunteer_id = ?", id).Delete(&VolunteerApplication{}).Error; err != nil {
+			return err
+		}
+		result := tx.Where("id = ? AND provider_id = ?", id, providerID).Delete(&ProviderVolunteer{})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return gorm.ErrRecordNotFound
+		}
+		return nil
+	})
+}
+
+func (r *Repository) ToggleVolunteerActive(id, providerID uint) (*ProviderVolunteer, error) {
+	var v ProviderVolunteer
+	if err := r.db.Where("id = ? AND provider_id = ?", id, providerID).First(&v).Error; err != nil {
+		return nil, err
+	}
+	v.Active = !v.Active
+	if err := r.db.Model(&v).Update("active", v.Active).Error; err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r *Repository) GetPublicVolunteers(page, limit int, search, volunteerType string) ([]ProviderVolunteer, int64, error) {
+	var total int64
+	query := r.db.Model(&ProviderVolunteer{}).Where("active = ?", true)
+	if search != "" {
+		q := "%" + search + "%"
+		query = query.Where("title ILIKE ? OR description ILIKE ?", q, q)
+	}
+	if volunteerType != "" {
+		query = query.Where("volunteer_type = ?", volunteerType)
+	}
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var volunteers []ProviderVolunteer
+	offset := (page - 1) * limit
+	dataQuery := r.db.Where("active = ?", true)
+	if search != "" {
+		q := "%" + search + "%"
+		dataQuery = dataQuery.Where("title ILIKE ? OR description ILIKE ?", q, q)
+	}
+	if volunteerType != "" {
+		dataQuery = dataQuery.Where("volunteer_type = ?", volunteerType)
+	}
+	if err := dataQuery.Order("created_at desc").Offset(offset).Limit(limit).Find(&volunteers).Error; err != nil {
+		return nil, 0, err
+	}
+	for i := range volunteers {
+		var count int64
+		if cnt := r.db.Model(&VolunteerApplication{}).Where("volunteer_id = ?", volunteers[i].ID).Count(&count); cnt.Error != nil {
+			count = 0
+		}
+		volunteers[i].ApplicantCount = count
+	}
+	return volunteers, total, nil
+}
+
+// ─── Volunteer Application CRUD ─────────────────────────────────────
+
+func (r *Repository) CreateVolunteerApplication(a *VolunteerApplication) error {
+	return r.db.Create(a).Error
+}
+
+func (r *Repository) GetVolunteerApplicationsByProvider(providerID uint, volunteerID *uint, page, limit int) ([]VolunteerApplication, int64, error) {
+	query := r.db.Model(&VolunteerApplication{}).
+		Joins("JOIN provider_volunteers ON provider_volunteers.id = volunteer_applications.volunteer_id").
+		Where("provider_volunteers.provider_id = ?", providerID)
+
+	if volunteerID != nil && *volunteerID > 0 {
+		query = query.Where("volunteer_applications.volunteer_id = ?", *volunteerID)
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var apps []VolunteerApplication
+	offset := (page - 1) * limit
+	if err := query.Order("volunteer_applications.created_at desc").Offset(offset).Limit(limit).Find(&apps).Error; err != nil {
+		return nil, 0, err
+	}
+	return apps, total, nil
+}
+
+func (r *Repository) GetVolunteerApplicationByID(id uint) (*VolunteerApplication, error) {
+	var a VolunteerApplication
+	if err := r.db.First(&a, id).Error; err != nil {
+		return nil, err
+	}
+	return &a, nil
+}
+
+func (r *Repository) UpdateVolunteerApplicationStatus(id uint, status string) error {
+	return r.db.Model(&VolunteerApplication{}).Where("id = ?", id).Update("status", status).Error
+}

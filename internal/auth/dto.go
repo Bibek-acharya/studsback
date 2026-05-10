@@ -75,6 +75,7 @@ type UpdateProfileRequest struct {
 	Nationality string `json:"nationality"`
 	Address    string `json:"address"`
 	Bio        string `json:"bio"`
+	ImageURL   string `json:"image_url"`
 }
 
 type RegisterResponse struct {
@@ -100,6 +101,7 @@ type ProfileResponse struct {
 	Bio         string       `json:"bio"`
 	Role        string       `json:"role"`
 	GoogleID    *string      `json:"google_id"`
+	ImageURL    string       `json:"image_url"`
 	Preferences *Preferences `json:"preferences,omitempty"`
 }
 

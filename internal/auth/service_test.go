@@ -56,3 +56,38 @@ func TestRejectScholarshipProviderHardDeletesRecord(t *testing.T) {
 		t.Fatalf("ScholarshipProviderRegister() after rejection = %v", err)
 	}
 }
+
+func TestGoogleLoginOrRegisterWithPicture(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open sqlite db: %v", err)
+	}
+
+	if err := db.AutoMigrate(&User{}); err != nil {
+		t.Fatalf("auto migrate: %v", err)
+	}
+
+	repo := NewRepository(db)
+	service := NewService(repo)
+
+	pictureURL := "https://lh3.googleusercontent.com/a/test123"
+
+	token, err := service.GoogleLoginOrRegister("google-id-1", "test@example.com", "John", "Doe", pictureURL)
+	if err != nil {
+		t.Fatalf("GoogleLoginOrRegister() error = %v", err)
+	}
+	if token == "" {
+		t.Fatal("expected non-empty token")
+	}
+
+	user, err := repo.FindUserByEmail("test@example.com")
+	if err != nil {
+		t.Fatalf("FindUserByEmail() error = %v", err)
+	}
+	if user.ImageURL != pictureURL {
+		t.Fatalf("ImageURL = %q, want %q", user.ImageURL, pictureURL)
+	}
+	if user.FirstName != "John" {
+		t.Fatalf("FirstName = %q, want %q", user.FirstName, "John")
+	}
+}

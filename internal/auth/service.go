@@ -196,7 +196,7 @@ func (s *Service) VerifyOTP(email, otp string) (*LoginResponse, error) {
 	}, nil
 }
 
-func (s *Service) GoogleLoginOrRegister(googleID, email, givenName, familyName string) (string, error) {
+func (s *Service) GoogleLoginOrRegister(googleID, email, givenName, familyName, picture string) (string, error) {
 	user, err := s.repo.FindUserByEmail(email)
 	if err != nil {
 		_, instErr := s.repo.FindInstitutionUserByEmail(email)
@@ -210,6 +210,7 @@ func (s *Service) GoogleLoginOrRegister(googleID, email, givenName, familyName s
 			FirstName: givenName,
 			LastName:  familyName,
 			GoogleID:  &googleID,
+			ImageURL:  picture,
 			Role:      "student",
 		}
 		if err := s.repo.CreateUser(user); err != nil {
@@ -218,8 +219,11 @@ func (s *Service) GoogleLoginOrRegister(googleID, email, givenName, familyName s
 	} else {
 		if user.GoogleID == nil || *user.GoogleID == "" {
 			user.GoogleID = &googleID
-			s.repo.SaveUser(user)
 		}
+		if user.ImageURL == "" && picture != "" {
+			user.ImageURL = picture
+		}
+		s.repo.SaveUser(user)
 	}
 
 	token, err := utils.GenerateToken(user.ID, user.Email, user.Role, 0)
@@ -249,6 +253,7 @@ func (s *Service) GetProfile(userID uint) (*ProfileResponse, error) {
 		Bio:         user.Bio,
 		Role:        user.Role,
 		GoogleID:    user.GoogleID,
+		ImageURL:    user.ImageURL,
 		Preferences: user.Preferences,
 	}, nil
 }
@@ -283,6 +288,9 @@ func (s *Service) UpdateProfile(userID uint, req UpdateProfileRequest) (*Profile
 	if req.Bio != "" {
 		user.Bio = req.Bio
 	}
+	if req.ImageURL != "" {
+		user.ImageURL = req.ImageURL
+	}
 
 	if err := s.repo.SaveUser(user); err != nil {
 		return nil, errors.New("Failed to update profile")
@@ -301,6 +309,7 @@ func (s *Service) UpdateProfile(userID uint, req UpdateProfileRequest) (*Profile
 		Bio:         user.Bio,
 		Role:        user.Role,
 		GoogleID:    user.GoogleID,
+		ImageURL:    user.ImageURL,
 		Preferences: user.Preferences,
 	}, nil
 }

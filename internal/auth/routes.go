@@ -79,6 +79,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			protected.PUT("/profile/education/:id", h.UpdateEducationEntry)
 			protected.DELETE("/profile/education/:id", h.DeleteEducationEntry)
 			protected.POST("/preferences", h.SavePreferences)
+			protected.POST("/auth/profile/picture", h.UploadProfilePicture)
 		}
 	}
 }

@@ -134,6 +134,93 @@ type ScholarshipTypeWithEligibility struct {
 	Eligibility string `json:"eligibility"`
 }
 
+type CreateVolunteerRequest struct {
+	Title               string   `json:"title"`
+	BannerImage         string   `json:"banner_image"`
+	Description         string   `json:"description"`
+	VolunteerType       string   `json:"volunteer_type"`
+	VolunteerPayment    string   `json:"volunteer_payment"`
+	DateMode            string   `json:"date_mode"`
+	RangeStart          string   `json:"range_start"`
+	RangeEnd            string   `json:"range_end"`
+	SpecificDates       []string `json:"specific_dates"`
+	ApplicationDeadline string   `json:"application_deadline"`
+	Districts           []string `json:"districts"`
+	Active              bool     `json:"active"`
+}
+
+type VolunteerResponse struct {
+	ID                  uint     `json:"id"`
+	CreatedAt           string   `json:"created_at"`
+	UpdatedAt           string   `json:"updated_at"`
+	ProviderID          uint     `json:"provider_id"`
+	Title               string   `json:"title"`
+	BannerImage         string   `json:"banner_image"`
+	Description         string   `json:"description"`
+	VolunteerType       string   `json:"volunteer_type"`
+	VolunteerPayment    string   `json:"volunteer_payment"`
+	DateMode            string   `json:"date_mode"`
+	RangeStart          string   `json:"range_start"`
+	RangeEnd            string   `json:"range_end"`
+	SpecificDates       []string `json:"specific_dates"`
+	ApplicationDeadline string   `json:"application_deadline"`
+	Districts           []string `json:"districts"`
+	Active              bool     `json:"active"`
+	ApplicantCount      int64    `json:"applicant_count"`
+	Organizer           string   `json:"organizer"`
+	Location            string   `json:"location"`
+}
+
+type VolunteerListResponse struct {
+	Volunteers []VolunteerResponse `json:"volunteers"`
+	Meta       PaginationMeta      `json:"meta"`
+}
+
+type ApplyVolunteerRequest struct {
+	FullName           string   `json:"full_name"`
+	Gender             string   `json:"gender"`
+	Phone              string   `json:"phone"`
+	Email              string   `json:"email"`
+	Designation        string   `json:"designation"`
+	OtherDesignation   string   `json:"other_designation"`
+	Province           string   `json:"province"`
+	District           string   `json:"district"`
+	Municipality       string   `json:"municipality"`
+	Ward               string   `json:"ward"`
+	Tole               string   `json:"tole"`
+	ParticipateDistrict string  `json:"participate_district"`
+	AvailableDays      []string `json:"available_days"`
+	VolunteeredBefore  string   `json:"volunteered_before"`
+	VolunteerDetails   string   `json:"volunteer_details"`
+}
+
+type VolunteerApplicationResponse struct {
+	ID                 uint     `json:"id"`
+	CreatedAt          string   `json:"created_at"`
+	VolunteerID        uint     `json:"volunteer_id"`
+	FullName           string   `json:"full_name"`
+	Gender             string   `json:"gender"`
+	Phone              string   `json:"phone"`
+	Email              string   `json:"email"`
+	Designation        string   `json:"designation"`
+	OtherDesignation   string   `json:"other_designation"`
+	Province           string   `json:"province"`
+	District           string   `json:"district"`
+	Municipality       string   `json:"municipality"`
+	Ward               string   `json:"ward"`
+	Tole               string   `json:"tole"`
+	ParticipateDistrict string  `json:"participate_district"`
+	AvailableDays      []string `json:"available_days"`
+	VolunteeredBefore  string   `json:"volunteered_before"`
+	VolunteerDetails   string   `json:"volunteer_details"`
+	Status             string   `json:"status"`
+}
+
+type VolunteerApplicationListResponse struct {
+	Applications []VolunteerApplicationResponse `json:"applications"`
+	Meta         PaginationMeta                 `json:"meta"`
+}
+
 type CreateScholarshipRequest struct {
 	Title                    string                     `json:"title"`
 	Provider                 string                     `json:"provider"`

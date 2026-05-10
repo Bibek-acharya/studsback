@@ -18,6 +18,9 @@ func RegisterPublicRoutes(r *gin.Engine, h *Handler) {
 			public.GET("/blogs", h.GetPublicBlogs)
 			public.GET("/blogs/:id", h.GetPublicBlogByID)
 			public.GET("/providers/:id", h.GetPublicProviderProfile)
+			public.GET("/volunteers", h.GetPublicVolunteers)
+			public.GET("/volunteers/:id", h.GetPublicVolunteerByID)
+			public.POST("/volunteers/:id/apply", h.ApplyVolunteer)
 		}
 	}
 }
@@ -141,6 +144,17 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			scholarshipProvider.GET("/reviews/:id", h.GetReviewByID)
 			scholarshipProvider.PUT("/reviews/:id", h.UpdateReview)
 			scholarshipProvider.DELETE("/reviews/:id", h.DeleteReview)
+
+			scholarshipProvider.POST("/volunteers", h.CreateVolunteer)
+			scholarshipProvider.GET("/volunteers", h.GetVolunteers)
+			scholarshipProvider.GET("/volunteers/:id", h.GetVolunteerByID)
+			scholarshipProvider.PUT("/volunteers/:id", h.UpdateVolunteer)
+			scholarshipProvider.DELETE("/volunteers/:id", h.DeleteVolunteer)
+			scholarshipProvider.PUT("/volunteers/:id/toggle", h.ToggleVolunteerActive)
+			scholarshipProvider.GET("/volunteers/:id/applications", h.GetVolunteerApplications)
+			scholarshipProvider.GET("/volunteers/applications", h.GetAllVolunteerApplications)
+			scholarshipProvider.PUT("/volunteers/applications/:id/shortlist", h.ShortlistVolunteerApplication)
+			scholarshipProvider.PUT("/volunteers/applications/:id/reject", h.RejectVolunteerApplication)
 
 			scholarshipProvider.POST("/calendar-events", h.CreateCalendarEvent)
 			scholarshipProvider.GET("/calendar-events", h.GetCalendarEvents)

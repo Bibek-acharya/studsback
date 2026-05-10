@@ -430,6 +430,52 @@ type ProviderReview struct {
 	Status     string    `gorm:"default:'published'" json:"status"`
 }
 
+type ProviderVolunteer struct {
+	ID                 uint           `gorm:"primarykey" json:"id"`
+	CreatedAt          time.Time      `json:"created_at"`
+	UpdatedAt          time.Time      `json:"updated_at"`
+	DeletedAt          gorm.DeletedAt `gorm:"index" json:"-"`
+	ProviderID         uint           `gorm:"index;not null" json:"provider_id"`
+	Title              string         `gorm:"not null" json:"title"`
+	BannerImage        string         `json:"banner_image"`
+	Description        string         `gorm:"type:text" json:"description"`
+	VolunteerType      string         `gorm:"default:'free'" json:"volunteer_type"`
+	VolunteerPayment   string         `json:"volunteer_payment"`
+	DateMode           string         `gorm:"default:'range'" json:"date_mode"`
+	RangeStart         string         `json:"range_start"`
+	RangeEnd           string         `json:"range_end"`
+	SpecificDates      []byte         `gorm:"type:jsonb" json:"specific_dates"`
+	ApplicationDeadline string        `json:"application_deadline"`
+	Districts          []byte         `gorm:"type:jsonb" json:"districts"`
+	Active             bool           `gorm:"default:false" json:"active"`
+	ApplicantCount     int64          `gorm:"-" json:"applicant_count"`
+}
+
+type VolunteerApplication struct {
+	ID                 uint           `gorm:"primarykey" json:"id"`
+	CreatedAt          time.Time      `json:"created_at"`
+	UpdatedAt          time.Time      `json:"updated_at"`
+	DeletedAt          gorm.DeletedAt `gorm:"index" json:"-"`
+	VolunteerID        uint           `gorm:"index;not null" json:"volunteer_id"`
+	UserID             *uint          `gorm:"index" json:"user_id,omitempty"`
+	FullName           string         `gorm:"not null" json:"full_name"`
+	Gender             string         `json:"gender"`
+	Phone              string         `json:"phone"`
+	Email              string         `json:"email"`
+	Designation        string         `json:"designation"`
+	OtherDesignation   string         `json:"other_designation"`
+	Province           string         `json:"province"`
+	District           string         `json:"district"`
+	Municipality       string         `json:"municipality"`
+	Ward               string         `json:"ward"`
+	Tole               string         `json:"tole"`
+	ParticipateDistrict string        `json:"participate_district"`
+	AvailableDays      []byte         `gorm:"type:jsonb" json:"available_days"`
+	VolunteeredBefore  string         `json:"volunteered_before"`
+	VolunteerDetails   string         `gorm:"type:text" json:"volunteer_details"`
+	Status             string         `gorm:"default:'pending'" json:"status"`
+}
+
 type ProviderAccessUser struct {
 	ID          uint           `gorm:"primarykey" json:"id"`
 	CreatedAt   time.Time      `json:"created_at"`

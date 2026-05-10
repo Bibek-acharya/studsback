@@ -79,6 +79,8 @@ func resolveProviderUploadFolder(folder string) (string, error) {
 		return "scholarship-provider/brochures", nil
 	case "banners":
 		return "scholarship-provider/banners", nil
+	case "volunteer-banners":
+		return "scholarship-provider/volunteer-banners", nil
 
 	default:
 		return "", errors.New("invalid upload folder")
@@ -2824,4 +2826,216 @@ func (h *Handler) DeleteReview(c *gin.Context) {
 		return
 	}
 	response.Success(c, http.StatusOK, "Review deleted successfully", nil)
+}
+
+// ─── Volunteer Handlers ─────────────────────────────────────────────
+
+func (h *Handler) CreateVolunteer(c *gin.Context) {
+	providerID := getProviderID(c)
+	var req CreateVolunteerRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid request: "+err.Error())
+		return
+	}
+	v, err := h.service.CreateVolunteer(providerID, &req)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	response.Success(c, http.StatusCreated, "Volunteer opportunity created", v)
+}
+
+func (h *Handler) GetVolunteers(c *gin.Context) {
+	providerID := getProviderID(c)
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+
+	resp, err := h.service.GetProviderVolunteers(providerID, page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	response.Success(c, http.StatusOK, "Volunteers fetched", resp)
+}
+
+func (h *Handler) GetVolunteerByID(c *gin.Context) {
+	providerID := getProviderID(c)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid ID")
+		return
+	}
+	v, err := h.service.GetProviderVolunteerByID(uint(id), providerID)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, err.Error())
+		return
+	}
+	response.Success(c, http.StatusOK, "Volunteer fetched", v)
+}
+
+func (h *Handler) UpdateVolunteer(c *gin.Context) {
+	providerID := getProviderID(c)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid ID")
+		return
+	}
+	var req CreateVolunteerRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid request: "+err.Error())
+		return
+	}
+	v, err := h.service.UpdateVolunteer(uint(id), providerID, &req)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, err.Error())
+		return
+	}
+	response.Success(c, http.StatusOK, "Volunteer updated", v)
+}
+
+func (h *Handler) DeleteVolunteer(c *gin.Context) {
+	providerID := getProviderID(c)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid ID")
+		return
+	}
+	if err := h.service.DeleteVolunteer(uint(id), providerID); err != nil {
+		response.Error(c, http.StatusNotFound, err.Error())
+		return
+	}
+	response.Success(c, http.StatusOK, "Volunteer deleted", nil)
+}
+
+func (h *Handler) ToggleVolunteerActive(c *gin.Context) {
+	providerID := getProviderID(c)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid ID")
+		return
+	}
+	v, err := h.service.ToggleVolunteerActive(uint(id), providerID)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, err.Error())
+		return
+	}
+	response.Success(c, http.StatusOK, "Volunteer toggled", v)
+}
+
+func (h *Handler) GetVolunteerApplications(c *gin.Context) {
+	providerID := getProviderID(c)
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+
+	var volunteerID *uint
+	if vid := c.Param("id"); vid != "" {
+		id, err := strconv.ParseUint(vid, 10, 32)
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, "Invalid volunteer ID")
+			return
+		}
+		v := uint(id)
+		volunteerID = &v
+	}
+
+	resp, err := h.service.GetVolunteerApplications(providerID, volunteerID, page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	response.Success(c, http.StatusOK, "Applications fetched", resp)
+}
+
+func (h *Handler) GetAllVolunteerApplications(c *gin.Context) {
+	providerID := getProviderID(c)
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+
+	resp, err := h.service.GetVolunteerApplications(providerID, nil, page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	response.Success(c, http.StatusOK, "Applications fetched", resp)
+}
+
+func (h *Handler) ShortlistVolunteerApplication(c *gin.Context) {
+	providerID := getProviderID(c)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid ID")
+		return
+	}
+	if err := h.service.ShortlistVolunteerApplication(uint(id), providerID); err != nil {
+		response.Error(c, http.StatusNotFound, err.Error())
+		return
+	}
+	response.Success(c, http.StatusOK, "Application shortlisted", nil)
+}
+
+func (h *Handler) RejectVolunteerApplication(c *gin.Context) {
+	providerID := getProviderID(c)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid ID")
+		return
+	}
+	if err := h.service.RejectVolunteerApplication(uint(id), providerID); err != nil {
+		response.Error(c, http.StatusNotFound, err.Error())
+		return
+	}
+	response.Success(c, http.StatusOK, "Application rejected", nil)
+}
+
+// ─── Public Volunteer Handlers ──────────────────────────────────────
+
+func (h *Handler) GetPublicVolunteers(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	search := c.Query("search")
+	volunteerType := c.Query("type")
+
+	resp, err := h.service.GetPublicVolunteers(page, limit, search, volunteerType)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	for i, v := range resp.Volunteers {
+		resp.Volunteers[i].Organizer = h.service.GetProviderName(v.ProviderID)
+	}
+	response.Success(c, http.StatusOK, "Volunteers fetched", resp)
+}
+
+func (h *Handler) GetPublicVolunteerByID(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid ID")
+		return
+	}
+	resp, err := h.service.GetPublicVolunteerByID(uint(id))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Volunteer opportunity not found")
+		return
+	}
+	resp.Organizer = h.service.GetProviderName(resp.ProviderID)
+	response.Success(c, http.StatusOK, "Volunteer fetched", resp)
+}
+
+func (h *Handler) ApplyVolunteer(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid ID")
+		return
+	}
+	var req ApplyVolunteerRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid request: "+err.Error())
+		return
+	}
+	app, err := h.service.ApplyVolunteer(uint(id), &req)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	response.Success(c, http.StatusOK, "Application submitted successfully", app)
 }

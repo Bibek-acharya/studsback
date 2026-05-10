@@ -95,6 +95,8 @@ func main() {
 		&scholarshipprovider.ProviderProject{},
 		&scholarshipprovider.ProviderGalleryImage{},
 		&scholarshipprovider.ProviderReview{},
+		&scholarshipprovider.ProviderVolunteer{},
+		&scholarshipprovider.VolunteerApplication{},
 		&studentdashboard.Message{},
 		&studentdashboard.CalendarEvent{},
 		&studentdashboard.SphereInvite{},
