@@ -326,7 +326,6 @@ func GetStudSphereLogoURL() string {
 }
 
 func renderEmailWrapper(title, content string) string {
-	logoURL := GetStudSphereLogoURL()
 	return fmt.Sprintf(`
 <!DOCTYPE html>
 <html lang="en">
@@ -431,7 +430,7 @@ func renderEmailWrapper(title, content string) string {
     <div class="email-container">
         <div class="header">
             <div class="brand-logo">
-                <img src="%s" alt="Studsphere">
+                <img src="https://storage.studsphere.com/uploads/studsphere.png" alt="Studsphere">
             </div>
             <h1 class="welcome-title">%s</h1>
         </div>
@@ -460,5 +459,5 @@ func renderEmailWrapper(title, content string) string {
         </div>
     </div>
 </body>
-</html>`, logoURL, title, content)
+</html>`, title, content)
 }
