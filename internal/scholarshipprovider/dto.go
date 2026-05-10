@@ -147,6 +147,7 @@ type CreateVolunteerRequest struct {
 	ApplicationDeadline string   `json:"application_deadline"`
 	Districts           []string `json:"districts"`
 	Active              bool     `json:"active"`
+	Location            string   `json:"location"`
 }
 
 type VolunteerResponse struct {

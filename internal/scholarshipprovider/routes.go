@@ -154,6 +154,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			scholarshipProvider.GET("/volunteers/:id/applications", h.GetVolunteerApplications)
 			scholarshipProvider.GET("/volunteers/applications", h.GetAllVolunteerApplications)
 			scholarshipProvider.PUT("/volunteers/applications/:id/shortlist", h.ShortlistVolunteerApplication)
+			scholarshipProvider.PUT("/volunteers/applications/:id/unshortlist", h.UnshortlistVolunteerApplication)
 			scholarshipProvider.PUT("/volunteers/applications/:id/reject", h.RejectVolunteerApplication)
 
 			scholarshipProvider.POST("/calendar-events", h.CreateCalendarEvent)

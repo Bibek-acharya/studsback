@@ -449,6 +449,7 @@ type ProviderVolunteer struct {
 	Districts          []byte         `gorm:"type:jsonb" json:"districts"`
 	Active             bool           `gorm:"default:false" json:"active"`
 	ApplicantCount     int64          `gorm:"-" json:"applicant_count"`
+	Location           string         `gorm:"default:''" json:"location"`
 }
 
 type VolunteerApplication struct {

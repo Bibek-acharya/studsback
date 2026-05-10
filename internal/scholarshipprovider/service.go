@@ -2766,6 +2766,7 @@ func (s *Service) CreateVolunteer(providerID uint, req *CreateVolunteerRequest) 
 		ApplicationDeadline: req.ApplicationDeadline,
 		Districts:           districts,
 		Active:              req.Active,
+		Location:            req.Location,
 	}
 	if err := s.repo.CreateVolunteer(v); err != nil {
 		return nil, err
@@ -2814,6 +2815,7 @@ func (s *Service) UpdateVolunteer(id, providerID uint, req *CreateVolunteerReque
 	updates["description"] = req.Description
 	updates["volunteer_type"] = req.VolunteerType
 	updates["volunteer_payment"] = req.VolunteerPayment
+	updates["location"] = req.Location
 	updates["date_mode"] = req.DateMode
 	updates["range_start"] = req.RangeStart
 	updates["range_end"] = req.RangeEnd
@@ -2934,6 +2936,21 @@ func (s *Service) ShortlistVolunteerApplication(id, providerID uint) error {
 	return s.repo.UpdateVolunteerApplicationStatus(id, "shortlisted")
 }
 
+func (s *Service) UnshortlistVolunteerApplication(id, providerID uint) error {
+	app, err := s.repo.GetVolunteerApplicationByID(id)
+	if err != nil {
+		return err
+	}
+	_, err = s.repo.GetVolunteerByIDAndProvider(app.VolunteerID, providerID)
+	if err != nil {
+		return errors.New("application not found or access denied")
+	}
+	if app.Status != "shortlisted" {
+		return errors.New("can only unshortlist shortlisted applications")
+	}
+	return s.repo.UpdateVolunteerApplicationStatus(id, "pending")
+}
+
 func (s *Service) RejectVolunteerApplication(id, providerID uint) error {
 	app, err := s.repo.GetVolunteerApplicationByID(id)
 	if err != nil {
@@ -2956,8 +2973,8 @@ func toVolunteerResponse(v *ProviderVolunteer, organizer string) VolunteerRespon
 	json.Unmarshal(v.SpecificDates, &specificDates)
 	json.Unmarshal(v.Districts, &districts)
 
-	loc := ""
-	if len(districts) > 0 {
+	loc := v.Location
+	if loc == "" && len(districts) > 0 {
 		loc = districts[0]
 		if len(districts) > 1 {
 			loc += " +" + fmt.Sprintf("%d", len(districts)-1)

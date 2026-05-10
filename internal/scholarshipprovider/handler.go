@@ -2959,6 +2959,20 @@ func (h *Handler) GetAllVolunteerApplications(c *gin.Context) {
 	response.Success(c, http.StatusOK, "Applications fetched", resp)
 }
 
+func (h *Handler) UnshortlistVolunteerApplication(c *gin.Context) {
+	providerID := getProviderID(c)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid ID")
+		return
+	}
+	if err := h.service.UnshortlistVolunteerApplication(uint(id), providerID); err != nil {
+		response.Error(c, http.StatusNotFound, err.Error())
+		return
+	}
+	response.Success(c, http.StatusOK, "Application moved back to pending", nil)
+}
+
 func (h *Handler) ShortlistVolunteerApplication(c *gin.Context) {
 	providerID := getProviderID(c)
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
