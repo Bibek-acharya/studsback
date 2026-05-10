@@ -425,6 +425,38 @@ type UserDTO struct {
 	Email string `json:"email"`
 }
 
+type PublicInstitutionResponse struct {
+	ID              uint   `json:"id"`
+	InstitutionName string `json:"institution_name"`
+	LogoURL         string `json:"logo_url,omitempty"`
+	BannerURL       string `json:"banner_url,omitempty"`
+	About           string `json:"about,omitempty"`
+	District        string `json:"district,omitempty"`
+	WebsiteURL      string `json:"website_url,omitempty"`
+	Status          string `json:"status"`
+}
+
+type PublicInstitutionDetailResponse struct {
+	ID                 uint        `json:"id"`
+	InstitutionName    string      `json:"institution_name"`
+	LogoURL            string      `json:"logo_url,omitempty"`
+	BannerURL          string      `json:"banner_url,omitempty"`
+	About              string      `json:"about,omitempty"`
+	Vision             string      `json:"vision,omitempty"`
+	Mission            string      `json:"mission,omitempty"`
+	District           string      `json:"district,omitempty"`
+	WebsiteURL         string      `json:"website_url,omitempty"`
+	Videos             interface{} `json:"videos,omitempty"`
+	OverviewData       interface{} `json:"overview_data,omitempty"`
+	LeadershipData     interface{} `json:"leadership_data,omitempty"`
+	CoursesData        interface{} `json:"courses_data,omitempty"`
+	ProgramsData       interface{} `json:"programs_data,omitempty"`
+	FacilitiesData     interface{} `json:"facilities_data,omitempty"`
+	AlumniData         interface{} `json:"alumni_data,omitempty"`
+	GalleryData        interface{} `json:"gallery_data,omitempty"`
+	DownloadsData      interface{} `json:"downloads_data,omitempty"`
+}
+
 type PaginatedResponse struct {
 	Meta PaginationMeta `json:"meta"`
 }

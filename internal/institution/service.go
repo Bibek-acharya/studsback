@@ -947,3 +947,69 @@ func (s *Service) UpdateScholarshipApplicationStatus(instID, id uint, req Update
 
 	return application, nil
 }
+
+func (s *Service) ListPublicInstitutions(page, limit int, search, location string) ([]PublicInstitutionResponse, int64, error) {
+	users, total, err := s.repo.FindPublicInstitutions(page, limit, search, location)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	results := make([]PublicInstitutionResponse, len(users))
+	for i, u := range users {
+		results[i] = PublicInstitutionResponse{
+			ID:              u.ID,
+			InstitutionName: u.InstitutionName,
+			LogoURL:         u.LogoURL,
+			BannerURL:       u.BannerURL,
+			About:           u.About,
+			District:        u.District,
+			WebsiteURL:      u.WebsiteURL,
+			Status:          u.Status,
+		}
+	}
+	return results, total, nil
+}
+
+func (s *Service) GetPublicInstitution(id uint) (*PublicInstitutionDetailResponse, error) {
+	user, err := s.repo.FindPublicInstitutionByID(id)
+	if err != nil {
+		return nil, errors.New("institution not found or not public")
+	}
+
+	var videos, overviewData, leadershipData, coursesData, programsData, facilitiesData, alumniData, galleryData, downloadsData interface{}
+	if user.ProfileData != nil && *user.ProfileData != "" {
+		var data map[string]interface{}
+		if err := json.Unmarshal([]byte(*user.ProfileData), &data); err == nil {
+			if v, ok := data["videos"]; ok { videos = v }
+			if v, ok := data["overview_data"]; ok { overviewData = v }
+			if v, ok := data["leadership_data"]; ok { leadershipData = v }
+			if v, ok := data["courses_data"]; ok { coursesData = v }
+			if v, ok := data["programs_data"]; ok { programsData = v }
+			if v, ok := data["facilities_data"]; ok { facilitiesData = v }
+			if v, ok := data["alumni_data"]; ok { alumniData = v }
+			if v, ok := data["gallery_data"]; ok { galleryData = v }
+			if v, ok := data["downloads_data"]; ok { downloadsData = v }
+		}
+	}
+
+	return &PublicInstitutionDetailResponse{
+		ID:              user.ID,
+		InstitutionName: user.InstitutionName,
+		LogoURL:         user.LogoURL,
+		BannerURL:       user.BannerURL,
+		About:           user.About,
+		Vision:          user.Vision,
+		Mission:         user.Mission,
+		District:        user.District,
+		WebsiteURL:      user.WebsiteURL,
+		Videos:          videos,
+		OverviewData:    overviewData,
+		LeadershipData:  leadershipData,
+		CoursesData:     coursesData,
+		ProgramsData:    programsData,
+		FacilitiesData:  facilitiesData,
+		AlumniData:      alumniData,
+		GalleryData:     galleryData,
+		DownloadsData:   downloadsData,
+	}, nil
+}

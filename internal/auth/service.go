@@ -3,7 +3,13 @@ package auth
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"log"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"studsphere/backend/internal/shared/utils"
@@ -196,13 +202,38 @@ func (s *Service) VerifyOTP(email, otp string) (*LoginResponse, error) {
 	}, nil
 }
 
+func downloadAndSavePicture(url string) (string, error) {
+	if url == "" {
+		return "", nil
+	}
+	resp, err := http.Get(url)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	dir := filepath.Join("uploads", "profiles")
+	os.MkdirAll(dir, 0755)
+	filename := fmt.Sprintf("%d.jpg", time.Now().UnixNano())
+	path := filepath.Join(dir, filename)
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return "", err
+	}
+	return "/uploads/profiles/" + filename, nil
+}
+
 func (s *Service) GoogleLoginOrRegister(googleID, email, givenName, familyName, picture string) (string, error) {
 	user, err := s.repo.FindUserByEmail(email)
 	if err != nil {
 		_, instErr := s.repo.FindInstitutionUserByEmail(email)
 		_, provErr := s.repo.FindScholarshipProviderUserByEmail(email)
 		if instErr == nil || provErr == nil {
-			return "", errors.New("An account with this email already exists using a different login method")
+			return "", errors.New("This email is already registered for another account type.")
 		}
 
 		user = &User{
@@ -210,7 +241,6 @@ func (s *Service) GoogleLoginOrRegister(googleID, email, givenName, familyName, 
 			FirstName: givenName,
 			LastName:  familyName,
 			GoogleID:  &googleID,
-			ImageURL:  picture,
 			Role:      "student",
 		}
 		if err := s.repo.CreateUser(user); err != nil {
@@ -220,13 +250,25 @@ func (s *Service) GoogleLoginOrRegister(googleID, email, givenName, familyName, 
 		if user.GoogleID == nil || *user.GoogleID == "" {
 			user.GoogleID = &googleID
 		}
-		if user.ImageURL == "" && picture != "" {
-			user.ImageURL = picture
-		}
 		s.repo.SaveUser(user)
 	}
 
-	token, err := utils.GenerateToken(user.ID, user.Email, user.Role, 0)
+	if user.ImageURL == "" || !strings.HasPrefix(user.ImageURL, "/uploads/") {
+		localPic, _ := downloadAndSavePicture(picture)
+		if localPic != "" {
+			user.ImageURL = localPic
+			s.repo.SaveUser(user)
+		}
+	}
+
+	token, err := utils.GenerateTokenWithClaims(utils.TokenOptions{
+		UserID:    user.ID,
+		Email:     user.Email,
+		Role:      user.Role,
+		FirstName: user.FirstName,
+		LastName:  user.LastName,
+		ImageURL:  user.ImageURL,
+	})
 	if err != nil {
 		return "", errors.New("Failed to generate token")
 	}
@@ -423,7 +465,7 @@ func (s *Service) InstitutionGoogleLoginOrRegister(googleID, email, name string)
 		_, userErr := s.repo.FindUserByEmail(email)
 		_, provErr := s.repo.FindScholarshipProviderUserByEmail(email)
 		if userErr == nil || provErr == nil {
-			return nil, "", errors.New("An account with this email already exists using a different login method")
+			return nil, "", errors.New("This email is already registered for another account type.")
 		}
 	}
 
@@ -446,7 +488,12 @@ func (s *Service) InstitutionGoogleLoginOrRegister(googleID, email, name string)
 		}
 	}
 
-	token, err := utils.GenerateToken(instUser.ID, instUser.Email, instUser.Role, 0)
+	token, err := utils.GenerateTokenWithClaims(utils.TokenOptions{
+		UserID:    instUser.ID,
+		Email:     instUser.Email,
+		Role:      instUser.Role,
+		FirstName: name,
+	})
 	if err != nil {
 		return nil, "", errors.New("Failed to generate token")
 	}
@@ -672,7 +719,7 @@ func (s *Service) ScholarshipProviderGoogleLoginOrRegister(googleID, email, name
 		_, userErr := s.repo.FindUserByEmail(email)
 		_, instErr := s.repo.FindInstitutionUserByEmail(email)
 		if userErr == nil || instErr == nil {
-			return nil, "", errors.New("An account with this email already exists using a different login method")
+			return nil, "", errors.New("This email is already registered for another account type.")
 		}
 	}
 
@@ -695,7 +742,13 @@ func (s *Service) ScholarshipProviderGoogleLoginOrRegister(googleID, email, name
 		}
 	}
 
-	token, err := utils.GenerateToken(providerUser.ID, providerUser.Email, providerUser.Role, providerUser.ID)
+	token, err := utils.GenerateTokenWithClaims(utils.TokenOptions{
+		UserID:     providerUser.ID,
+		Email:      providerUser.Email,
+		Role:       providerUser.Role,
+		ProviderID: providerUser.ID,
+		FirstName:  name,
+	})
 	if err != nil {
 		return nil, "", errors.New("Failed to generate token")
 	}

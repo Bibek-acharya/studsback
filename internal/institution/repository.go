@@ -125,6 +125,50 @@ func (r *Repository) SaveInstitutionUser(user *InstitutionUser) error {
 	return r.db.Save(user).Error
 }
 
+func (r *Repository) FindPublicInstitutions(page, pageSize int, search, location string) ([]InstitutionUser, int64, error) {
+	var users []InstitutionUser
+	var total int64
+
+	query := r.db.Model(&InstitutionUser{}).
+		Joins("JOIN institution_settings ON institution_settings.institution_id = institution_users.id").
+		Where("institution_settings.public_profile = ?", true).
+		Where("institution_users.deleted_at IS NULL")
+
+	if search != "" {
+		like := "%" + search + "%"
+		query = query.Where("(institution_users.institution_name ILIKE ? OR institution_users.district ILIKE ?)", like, like)
+	}
+	if location != "" {
+		query = query.Where("institution_users.district ILIKE ?", "%"+location+"%")
+	}
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * pageSize
+	err := query.
+		Select("institution_users.*").
+		Order("institution_users.created_at desc").
+		Offset(offset).Limit(pageSize).
+		Find(&users).Error
+
+	return users, total, err
+}
+
+func (r *Repository) FindPublicInstitutionByID(id uint) (*InstitutionUser, error) {
+	var user InstitutionUser
+	err := r.db.Joins("JOIN institution_settings ON institution_settings.institution_id = institution_users.id").
+		Where("institution_users.id = ?", id).
+		Where("institution_settings.public_profile = ?", true).
+		Where("institution_users.deleted_at IS NULL").
+		First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
 func (r *Repository) FindMediaByInstitution(instID uint) ([]InstitutionMedia, error) {
 	var media []InstitutionMedia
 	err := r.db.Where("institution_id = ?", instID).Order("created_at desc").Find(&media).Error

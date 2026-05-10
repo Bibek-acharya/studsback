@@ -9,6 +9,10 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 
 	v1 := r.Group("/api/v1")
 	{
+		// Public institution routes (no auth)
+		v1.GET("/institutions/public", h.ListPublicInstitutions)
+		v1.GET("/institutions/public/:id", h.GetPublicInstitution)
+
 		institution := v1.Group("/institution")
 		institution.Use(authMW)
 		institution.Use(roleMW)
@@ -62,6 +66,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			institution.POST("/messages", h.CreateMessage)
 			institution.GET("/messages/students", h.GetMessageStudents)
 
+			institution.POST("/upload", h.UploadFile)
 			institution.GET("/settings", h.GetSettings)
 			institution.PUT("/settings", h.UpdateSettings)
 			institution.PUT("/settings/password", h.UpdatePassword)

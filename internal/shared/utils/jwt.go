@@ -14,20 +14,45 @@ type Claims struct {
 	ProviderID uint   `json:"provider_id,omitempty"`
 	Email      string `json:"email"`
 	Role       string `json:"role"`
+	FirstName  string `json:"first_name,omitempty"`
+	LastName   string `json:"last_name,omitempty"`
+	ImageURL   string `json:"image_url,omitempty"`
 	jwt.RegisteredClaims
 }
 
+type TokenOptions struct {
+	UserID     uint
+	Email      string
+	Role       string
+	ProviderID uint
+	FirstName  string
+	LastName   string
+	ImageURL   string
+}
+
 func GenerateToken(userID uint, email, role string, providerID uint) (string, error) {
+	return GenerateTokenWithClaims(TokenOptions{
+		UserID:     userID,
+		Email:      email,
+		Role:       role,
+		ProviderID: providerID,
+	})
+}
+
+func GenerateTokenWithClaims(opts TokenOptions) (string, error) {
 	expiryDuration, err := time.ParseDuration(config.AppConfig.JWTExpiry)
 	if err != nil {
 		expiryDuration = 24 * time.Hour
 	}
 
 	claims := &Claims{
-		UserID:     userID,
-		ProviderID: providerID,
-		Email:      email,
-		Role:       role,
+		UserID:     opts.UserID,
+		ProviderID: opts.ProviderID,
+		Email:      opts.Email,
+		Role:       opts.Role,
+		FirstName:  opts.FirstName,
+		LastName:   opts.LastName,
+		ImageURL:   opts.ImageURL,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(expiryDuration)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),

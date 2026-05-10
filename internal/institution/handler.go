@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"studsphere/backend/internal/shared/response"
+	"studsphere/backend/internal/shared/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -874,6 +875,29 @@ func (h *Handler) GetMessageStudents(c *gin.Context) {
 	response.Success(c, http.StatusOK, "Student contacts retrieved successfully", contacts)
 }
 
+func (h *Handler) UploadFile(c *gin.Context) {
+	file, err := c.FormFile("file")
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "File is required")
+		return
+	}
+
+	folder := c.DefaultQuery("folder", "institution")
+
+	url, err := utils.SaveUploadedImage(file, folder)
+	if err != nil {
+		url, err = utils.SaveUploadedDocument(file, folder)
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, "Failed to upload file: "+err.Error())
+			return
+		}
+	}
+
+	response.Success(c, http.StatusOK, "File uploaded successfully", gin.H{
+		"url": url,
+	})
+}
+
 func (h *Handler) GetSettings(c *gin.Context) {
 	instID := getInstID(c)
 
@@ -902,6 +926,51 @@ func (h *Handler) UpdateSettings(c *gin.Context) {
 	}
 
 	response.Success(c, http.StatusOK, "Settings updated successfully", settings)
+}
+
+func (h *Handler) ListPublicInstitutions(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "18"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50 {
+		limit = 18
+	}
+
+	search := c.Query("search")
+	location := c.Query("location")
+
+	results, total, err := h.service.ListPublicInstitutions(page, limit, search, location)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch institutions")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Institutions retrieved successfully", gin.H{
+		"institutions": results,
+		"meta": gin.H{
+			"total": total,
+			"page":  page,
+			"limit": limit,
+		},
+	})
+}
+
+func (h *Handler) GetPublicInstitution(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid institution ID")
+		return
+	}
+
+	result, err := h.service.GetPublicInstitution(uint(id))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Institution not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Institution retrieved successfully", result)
 }
 
 func (h *Handler) GetScholarships(c *gin.Context) {

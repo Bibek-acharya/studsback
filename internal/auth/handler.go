@@ -268,12 +268,17 @@ func (h *Handler) GoogleLogin(c *gin.Context) {
 	c.Redirect(http.StatusTemporaryRedirect, url)
 }
 
+func (h *Handler) redirectError(c *gin.Context, msg string) {
+	frontendURL := strings.TrimRight(config.AppConfig.FrontendURL, "/")
+	c.Redirect(http.StatusTemporaryRedirect, fmt.Sprintf("%s/login?error=%s", frontendURL, url.QueryEscape(msg)))
+}
+
 func (h *Handler) GoogleCallback(c *gin.Context) {
 	// Validate state parameter (CSRF protection)
 	state := c.Query("state")
 	redirectURL, valid := validateOAuthState(state)
 	if !valid {
-		response.Error(c, 400, "Invalid or expired state parameter")
+		h.redirectError(c, "Invalid or expired state parameter")
 		return
 	}
 
@@ -290,26 +295,26 @@ func (h *Handler) GoogleCallback(c *gin.Context) {
 
 	code := c.Query("code")
 	if code == "" {
-		response.Error(c, 400, "Code not found")
+		h.redirectError(c, "Code not found")
 		return
 	}
 
 	token, err := googleConfig.Exchange(context.Background(), code)
 	if err != nil {
-		response.Error(c, 500, "Failed to exchange token: "+err.Error())
+		h.redirectError(c, "Failed to exchange token: "+err.Error())
 		return
 	}
 
 	resp, err := http.Get("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + token.AccessToken)
 	if err != nil {
-		response.Error(c, 500, "Failed to get user info: "+err.Error())
+		h.redirectError(c, "Failed to get user info: "+err.Error())
 		return
 	}
 	defer resp.Body.Close()
 
 	contents, err := io.ReadAll(resp.Body)
 	if err != nil {
-		response.Error(c, 500, "Failed to read user info: "+err.Error())
+		h.redirectError(c, "Failed to read user info: "+err.Error())
 		return
 	}
 
@@ -325,20 +330,20 @@ func (h *Handler) GoogleCallback(c *gin.Context) {
 	}
 
 	if err := json.Unmarshal(contents, &googleUser); err != nil {
-		response.Error(c, 500, "Failed to parse user info: "+err.Error())
+		h.redirectError(c, "Failed to parse user info: "+err.Error())
 		return
 	}
 
 	jwtToken, err := h.service.GoogleLoginOrRegister(googleUser.ID, googleUser.Email, googleUser.GivenName, googleUser.FamilyName, googleUser.Picture)
 	if err != nil {
-		response.Error(c, 500, err.Error())
+		h.redirectError(c, err.Error())
 		return
 	}
 
 	middleware.SetAuthCookie(c, jwtToken)
 	
 	// Construct the callback URL with the token to sync with frontend localStorage
-	frontendCallback := fmt.Sprintf("%s/auth/google-callback?token=%s", 
+	frontendCallback := fmt.Sprintf("%s/login?token=%s", 
 		strings.TrimRight(config.AppConfig.FrontendURL, "/"), 
 		jwtToken)
 
@@ -504,11 +509,10 @@ func (h *Handler) InstitutionGoogleLogin(c *gin.Context) {
 }
 
 func (h *Handler) InstitutionGoogleCallback(c *gin.Context) {
-	// Validate state parameter (CSRF protection)
 	state := c.Query("state")
 	redirectURL, valid := validateOAuthState(state)
 	if !valid {
-		response.Error(c, 400, "Invalid or expired state parameter")
+		h.redirectError(c, "Invalid or expired state parameter")
 		return
 	}
 
@@ -525,26 +529,26 @@ func (h *Handler) InstitutionGoogleCallback(c *gin.Context) {
 
 	code := c.Query("code")
 	if code == "" {
-		response.Error(c, 400, "Code not found")
+		h.redirectError(c, "Code not found")
 		return
 	}
 
 	token, err := googleConfig.Exchange(c.Request.Context(), code)
 	if err != nil {
-		response.Error(c, 500, "Failed to exchange token: "+err.Error())
+		h.redirectError(c, "Failed to exchange token: "+err.Error())
 		return
 	}
 
 	resp, err := http.Get("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + token.AccessToken)
 	if err != nil {
-		response.Error(c, 500, "Failed to get user info: "+err.Error())
+		h.redirectError(c, "Failed to get user info: "+err.Error())
 		return
 	}
 	defer resp.Body.Close()
 
 	contents, err := io.ReadAll(resp.Body)
 	if err != nil {
-		response.Error(c, 500, "Failed to read user info: "+err.Error())
+		h.redirectError(c, "Failed to read user info: "+err.Error())
 		return
 	}
 
@@ -554,24 +558,22 @@ func (h *Handler) InstitutionGoogleCallback(c *gin.Context) {
 		Name  string `json:"name"`
 	}
 	if err := json.Unmarshal(contents, &googleUser); err != nil {
-		response.Error(c, 500, "Failed to parse user info: "+err.Error())
+		h.redirectError(c, "Failed to parse user info: "+err.Error())
 		return
 	}
 
 	_, jwtToken, err := h.service.InstitutionGoogleLoginOrRegister(googleUser.ID, googleUser.Email, googleUser.Name)
 	if err != nil {
-		response.Error(c, 500, err.Error())
+		h.redirectError(c, err.Error())
 		return
 	}
 
 	middleware.SetAuthCookie(c, jwtToken)
 
-	// Construct the callback URL with the token to sync with frontend localStorage
-	frontendCallback := fmt.Sprintf("%s/auth/google-callback?token=%s&role=institution", 
+	frontendCallback := fmt.Sprintf("%s/login?token=%s&role=institution", 
 		strings.TrimRight(config.AppConfig.FrontendURL, "/"), 
 		jwtToken)
 
-	// Use redirect URL from state (original destination)
 	if redirectURL == "" {
 		redirectURL = "/institutions/dashboard"
 	}
@@ -706,11 +708,10 @@ func (h *Handler) ScholarshipProviderGoogleLogin(c *gin.Context) {
 }
 
 func (h *Handler) ScholarshipProviderGoogleCallback(c *gin.Context) {
-	// Validate state parameter (CSRF protection)
 	state := c.Query("state")
 	redirectURL, valid := validateOAuthState(state)
 	if !valid {
-		response.Error(c, 400, "Invalid or expired state parameter")
+		h.redirectError(c, "Invalid or expired state parameter")
 		return
 	}
 
@@ -727,26 +728,26 @@ func (h *Handler) ScholarshipProviderGoogleCallback(c *gin.Context) {
 
 	code := c.Query("code")
 	if code == "" {
-		response.Error(c, 400, "Code not found")
+		h.redirectError(c, "Code not found")
 		return
 	}
 
 	token, err := googleConfig.Exchange(c.Request.Context(), code)
 	if err != nil {
-		response.Error(c, 500, "Failed to exchange token: "+err.Error())
+		h.redirectError(c, "Failed to exchange token: "+err.Error())
 		return
 	}
 
 	resp, err := http.Get("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + token.AccessToken)
 	if err != nil {
-		response.Error(c, 500, "Failed to get user info: "+err.Error())
+		h.redirectError(c, "Failed to get user info: "+err.Error())
 		return
 	}
 	defer resp.Body.Close()
 
 	contents, err := io.ReadAll(resp.Body)
 	if err != nil {
-		response.Error(c, 500, "Failed to read user info: "+err.Error())
+		h.redirectError(c, "Failed to read user info: "+err.Error())
 		return
 	}
 
@@ -756,13 +757,13 @@ func (h *Handler) ScholarshipProviderGoogleCallback(c *gin.Context) {
 		Name  string `json:"name"`
 	}
 	if err := json.Unmarshal(contents, &googleUser); err != nil {
-		response.Error(c, 500, "Failed to parse user info: "+err.Error())
+		h.redirectError(c, "Failed to parse user info: "+err.Error())
 		return
 	}
 
 	providerUser, jwtToken, err := h.service.ScholarshipProviderGoogleLoginOrRegister(googleUser.ID, googleUser.Email, googleUser.Name)
 	if err != nil {
-		response.Error(c, 500, err.Error())
+		h.redirectError(c, err.Error())
 		return
 	}
 
@@ -778,12 +779,10 @@ func (h *Handler) ScholarshipProviderGoogleCallback(c *gin.Context) {
 
 	middleware.SetAuthCookie(c, jwtToken)
 
-	// Construct the callback URL with the token to sync with frontend localStorage
-	frontendCallback := fmt.Sprintf("%s/auth/google-callback?token=%s&role=scholarship_provider", 
+	frontendCallback := fmt.Sprintf("%s/login?token=%s&role=scholarship_provider", 
 		strings.TrimRight(config.AppConfig.FrontendURL, "/"), 
 		jwtToken)
 
-	// Use redirect URL from state (original destination)
 	if redirectURL == "" {
 		redirectURL = "/scholarship-provider/dashboard"
 	}
