@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -24,6 +26,7 @@ import (
 	"studsphere/backend/internal/shared/logger"
 	"studsphere/backend/internal/shared/middleware"
 	"studsphere/backend/internal/shared/seeder"
+	"studsphere/backend/internal/shared/storage"
 	"studsphere/backend/internal/studentdashboard"
 	"studsphere/backend/internal/system"
 	"studsphere/backend/internal/tools"
@@ -43,6 +46,13 @@ func main() {
 	defer logger.Sync()
 
 	gin.SetMode(config.AppConfig.GinMode)
+
+	logger.Info("Initializing MinIO client...")
+	if err := storage.Init(); err != nil {
+		logger.Warn("MinIO not available, uploads will fail", "error", err)
+	} else {
+		logger.Info("MinIO client initialized successfully")
+	}
 
 	logger.Info("Initializing database connection...")
 	config.ConnectDatabase()
@@ -194,7 +204,27 @@ func main() {
 	router.Use(ginLogger())
 	router.Use(corsMiddleware())
 
-	router.Static("/uploads", "./uploads")
+	router.GET("/uploads/*filepath", func(c *gin.Context) {
+		filepath := c.Param("filepath")
+		if filepath == "" || filepath == "/" {
+			c.Status(http.StatusNotFound)
+			return
+		}
+		filepath = strings.TrimPrefix(filepath, "/")
+
+		reader, info, err := storage.Get(filepath)
+		if err != nil {
+			c.Status(http.StatusNotFound)
+			return
+		}
+
+		ct := info.ContentType
+		if ct == "" {
+			ct = "application/octet-stream"
+		}
+
+		c.DataFromReader(http.StatusOK, -1, ct, reader, nil)
+	})
 	router.Static("/docs", "./docs")
 	router.GET("/docs", func(c *gin.Context) {
 		c.Redirect(302, "/docs/index.html")

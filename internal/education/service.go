@@ -3,13 +3,12 @@ package education
 import (
 	"encoding/json"
 	"fmt"
-	"math/rand"
 	"mime/multipart"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
+
+	"studsphere/backend/internal/shared/utils"
 )
 
 type Service struct {
@@ -797,41 +796,17 @@ func (s *Service) FindBlogByID(id uint) (*Blog, error) {
 }
 
 func (s *Service) UploadBlogImage(file *multipart.FileHeader) ([]string, error) {
-	uploadDir := filepath.Join("uploads", "blogs")
-	if err := os.MkdirAll(uploadDir, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create upload directory")
-	}
-
-	src, err := file.Open()
-	if err != nil {
-		return nil, fmt.Errorf("failed to open file")
-	}
-	defer src.Close()
-
 	ct := file.Header.Get("Content-Type")
 	if !strings.HasPrefix(ct, "image/") {
 		return nil, fmt.Errorf("only image files are allowed")
 	}
 
-	ext := filepath.Ext(file.Filename)
-	if ext == "" {
-		ext = ".jpg"
-	}
-
-	filename := fmt.Sprintf("%d_%d%s", time.Now().UnixNano(), rand.Intn(999999), ext)
-	savePath := filepath.Join(uploadDir, filename)
-
-	dst, err := os.Create(savePath)
+	url, err := utils.SaveUploadedImage(file, "blogs")
 	if err != nil {
-		return nil, fmt.Errorf("failed to create destination file")
-	}
-	defer dst.Close()
-
-	if _, err := dst.ReadFrom(src); err != nil {
-		return nil, fmt.Errorf("failed to save file")
+		return nil, fmt.Errorf("failed to upload image: %w", err)
 	}
 
-	return []string{"/uploads/blogs/" + filename}, nil
+	return []string{url}, nil
 }
 
 func (s *Service) GetPublicEntrances(page, limit int, search, level, stream, status string) ([]Exam, int64, error) {

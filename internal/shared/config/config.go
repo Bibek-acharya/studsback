@@ -45,6 +45,12 @@ type Config struct {
 	EmbeddingModel     string
 	VectorDimension    int
 	EmbeddingBatchSize int
+
+	MinioEndpoint  string
+	MinioAccessKey string
+	MinioSecretKey string
+	MinioBucket    string
+	MinioUseSSL    bool
 }
 
 var AppConfig *Config
@@ -96,6 +102,12 @@ func Load() {
 		EmbeddingModel:     getEnv("EMBEDDING_MODEL", "text-embedding-3-small"),
 		VectorDimension:    getEnvInt("VECTOR_DIMENSION", 1536),
 		EmbeddingBatchSize: getEnvInt("EMBEDDING_BATCH_SIZE", 20),
+
+		MinioEndpoint:  getEnv("MINIO_ENDPOINT", ""),
+		MinioAccessKey: getEnv("MINIO_ACCESS_KEY", ""),
+		MinioSecretKey: getEnv("MINIO_SECRET_KEY", ""),
+		MinioBucket:    getEnv("MINIO_BUCKET", "studsphere-storage"),
+		MinioUseSSL:    getEnv("MINIO_USE_SSL", "false") == "true",
 	}
 }
 

@@ -4,13 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/rand"
 	"mime/multipart"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
+
+	"studsphere/backend/internal/shared/utils"
 )
 
 type Service struct {
@@ -450,43 +449,19 @@ func (s *Service) UploadForumMedia(files []*multipart.FileHeader) ([]string, err
 		return nil, errors.New("no files provided")
 	}
 
-	uploadDir := filepath.Join("uploads", "forum")
-	if err := os.MkdirAll(uploadDir, 0755); err != nil {
-		return nil, errors.New("failed to create upload directory")
-	}
-
 	var urls []string
 	for _, file := range files {
-		f, err := file.Open()
-		if err != nil {
-			continue
-		}
-
 		ct := file.Header.Get("Content-Type")
-		f.Close()
-
 		if !strings.HasPrefix(ct, "image/") && !strings.HasPrefix(ct, "video/") {
 			continue
 		}
 
-		ext := filepath.Ext(file.Filename)
-		if ext == "" {
-			if strings.HasPrefix(ct, "image/") {
-				ext = ".jpg"
-			} else {
-				ext = ".mp4"
-			}
-		}
-
-		randSuffix := rand.Intn(999999)
-		filename := fmt.Sprintf("%d_%d%s", time.Now().UnixNano(), randSuffix, ext)
-		savePath := filepath.Join(uploadDir, filename)
-
-		if err := saveUploadedFile(file, savePath); err != nil {
+		url, err := utils.SaveUploadedImage(file, "forum")
+		if err != nil {
 			return nil, fmt.Errorf("failed to save file: %s", file.Filename)
 		}
 
-		urls = append(urls, "/uploads/forum/"+filename)
+		urls = append(urls, url)
 	}
 
 	if len(urls) == 0 {
@@ -494,23 +469,6 @@ func (s *Service) UploadForumMedia(files []*multipart.FileHeader) ([]string, err
 	}
 
 	return urls, nil
-}
-
-func saveUploadedFile(file *multipart.FileHeader, savePath string) error {
-	src, err := file.Open()
-	if err != nil {
-		return err
-	}
-	defer src.Close()
-
-	dst, err := os.Create(savePath)
-	if err != nil {
-		return err
-	}
-	defer dst.Close()
-
-	_, err = dst.ReadFrom(src)
-	return err
 }
 
 func mapPostToResponse(post ForumPost) PostResponse {

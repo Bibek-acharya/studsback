@@ -12,10 +12,6 @@ bin/
 *.dylib
 *.test
 *.out
-main
-server
-cmd/server/server
-cmd/*/*/server
 
 # Coverage and temporary files
 coverage/

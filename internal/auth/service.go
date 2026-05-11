@@ -7,11 +7,10 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
+	"studsphere/backend/internal/shared/storage"
 	"studsphere/backend/internal/shared/utils"
 )
 
@@ -217,11 +216,8 @@ func downloadAndSavePicture(url string) (string, error) {
 		return "", err
 	}
 
-	dir := filepath.Join("uploads", "profiles")
-	os.MkdirAll(dir, 0755)
 	filename := fmt.Sprintf("%d.jpg", time.Now().UnixNano())
-	path := filepath.Join(dir, filename)
-	if err := os.WriteFile(path, data, 0644); err != nil {
+	if err := storage.UploadBytes("profiles/"+filename, data, "image/jpeg"); err != nil {
 		return "", err
 	}
 	return "/uploads/profiles/" + filename, nil
