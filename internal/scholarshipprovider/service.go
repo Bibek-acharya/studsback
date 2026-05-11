@@ -396,6 +396,18 @@ func (s *Service) CreateScholarship(providerID uint, req CreateScholarshipReques
 		deadlineValue = req.ApplicationEndDate
 	}
 
+	var applicationStartDate time.Time
+	if parsed, ok := parseOptionalTime(req.ApplicationStartDate); ok {
+		applicationStartDate = parsed
+	}
+	var deadlineTime time.Time
+	if parsed, ok := parseOptionalTime(deadlineValue); ok {
+		deadlineTime = parsed
+	}
+	if parsed, ok := parseOptionalTime(deadlineValue); ok {
+		deadlineTime = parsed
+	}
+
 	scholarship := &ProviderScholarship{
 		ProviderID:               providerID,
 		Title:                    req.Title,
@@ -408,6 +420,9 @@ func (s *Service) CreateScholarship(providerID uint, req CreateScholarshipReques
 		EducationLevelOther:      req.EducationLevelOther,
 		Location:                 req.Location,
 		Value:                    req.Value,
+		Deadline:                 deadlineTime,
+		ApplicationStartDate:     applicationStartDate,
+		ApplicationEndDate:       deadlineTime,
 		DegreeLevel:              req.DegreeLevel,
 		FundingType:              req.FundingType,
 		ScholarshipType:          req.ScholarshipType,
@@ -460,7 +475,7 @@ func (s *Service) CreateScholarship(providerID uint, req CreateScholarshipReques
 		return nil, err
 	}
 
-	if err := s.syncPublicScholarship(providerID, scholarship, status, false); err != nil {
+	if err := s.syncPublicScholarship(scholarship, status, false); err != nil {
 		return nil, err
 	}
 
@@ -475,7 +490,7 @@ func (s *Service) CreateScholarship(providerID uint, req CreateScholarshipReques
 	return scholarship, nil
 }
 
-func (s *Service) syncPublicScholarship(providerID uint, scholarship *ProviderScholarship, status string, isUpdate bool) error {
+func (s *Service) syncPublicScholarship(scholarship *ProviderScholarship, status string, isUpdate bool) error {
 	if normalizeScholarshipStatus(status) != "published" {
 		if isUpdate {
 			return s.repo.DeletePublicScholarshipByProviderScholarshipID(scholarship.ID)
@@ -483,14 +498,9 @@ func (s *Service) syncPublicScholarship(providerID uint, scholarship *ProviderSc
 		return nil
 	}
 
-	provider, err := s.repo.GetProviderProfile(providerID)
-	if err != nil {
-		return err
-	}
-
 	publicScholarship := &publicscholarship.Scholarship{
 		Title:                    scholarship.Title,
-		Provider:                 provider.ProviderName,
+		Provider:                 scholarship.Provider,
 		Location:                 scholarship.Location,
 		Value:                    scholarship.Value,
 		Deadline:                 scholarship.Deadline,
@@ -817,7 +827,7 @@ func (s *Service) UpdateScholarship(providerID, id uint, req CreateScholarshipRe
 	if req.Status != "" {
 		statusToSync = normalizeScholarshipStatus(req.Status)
 	}
-	if err := s.syncPublicScholarship(providerID, &resolved, statusToSync, true); err != nil {
+	if err := s.syncPublicScholarship(&resolved, statusToSync, true); err != nil {
 		log.Printf("scholarshipprovider: UpdateScholarship syncPublicScholarship error: %v", err)
 	}
 

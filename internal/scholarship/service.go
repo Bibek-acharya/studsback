@@ -41,40 +41,6 @@ func (s *Service) GetScholarships(search, categoryFilter, typeFilter, locationFi
 		return nil, nil, err
 	}
 
-	providerScholarships, err := s.repo.FindPublishedProviderScholarships()
-	if err != nil {
-		return nil, nil, err
-	}
-	for _, ps := range providerScholarships {
-		status := deriveScholarshipStatus(ps.Deadline)
-		if statusFilter != "" && statusFilter != status {
-			continue
-		}
-		providerName := "Provider"
-		imageURL := ""
-		if ps.ImageURL != nil {
-			imageURL = *ps.ImageURL
-		}
-		bannerURL := ""
-		if ps.BannerBackgroundImageURL != nil {
-			bannerURL = *ps.BannerBackgroundImageURL
-		}
-		scholarships = append(scholarships, Scholarship{
-			ID:                       ps.ID + 10000,
-			Title:                    ps.Title,
-			Provider:                 providerName,
-			Location:                 ps.Location,
-			Value:                    ps.Value,
-			Deadline:                 ps.Deadline,
-			DegreeLevel:              ps.DegreeLevel,
-			FundingType:              ps.FundingType,
-			ScholarshipType:          ps.ScholarshipType,
-			Description:              ps.Description,
-			ImageURL:                 imageURL,
-			BannerBackgroundImageURL: bannerURL,
-		})
-	}
-
 	categoryRows, err := s.repo.FindAllCategoryRows()
 	if err != nil {
 		return nil, nil, err
