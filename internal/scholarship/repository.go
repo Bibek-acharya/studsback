@@ -76,6 +76,14 @@ func (r *Repository) FindAllAdmin() ([]Scholarship, error) {
 	return scholarships, err
 }
 
+func (r *Repository) FindAllScholarships() ([]Scholarship, error) {
+	var scholarships []Scholarship
+	if err := r.db.Order("title asc").Find(&scholarships).Error; err != nil {
+		return nil, err
+	}
+	return scholarships, nil
+}
+
 type ProviderScholarship struct {
 	ID                       uint   `gorm:"primaryKey"`
 	ProviderID               uint   `gorm:"index"`

@@ -73,13 +73,16 @@ func (r *Repository) DeleteContactInquiry(id uint) error {
 	return nil
 }
 
-func (r *Repository) FindAds(page, limit int, pageFilter string, active *bool) ([]Ad, int64, error) {
+func (r *Repository) FindAds(page, limit int, pageFilter, positionFilter string, active *bool) ([]Ad, int64, error) {
 	var ads []Ad
 	var total int64
 
 	query := r.db.Model(&Ad{})
 	if pageFilter != "" {
 		query = query.Where("page = ?", pageFilter)
+	}
+	if positionFilter != "" {
+		query = query.Where("position = ?", positionFilter)
 	}
 	if active != nil {
 		query = query.Where("active = ?", *active)
@@ -100,9 +103,12 @@ func (r *Repository) FindAds(page, limit int, pageFilter string, active *bool) (
 func (r *Repository) FindActiveAds(page string) ([]Ad, error) {
 	var ads []Ad
 	now := time.Now()
+	var zeroTime time.Time
 
 	query := r.db.Model(&Ad{}).
-		Where("active = ? AND start_date <= ? AND (end_date IS NULL OR end_date >= ?)", true, now, now)
+		Where("active = ?", true).
+		Where("(start_date <= ? OR start_date = ?)", now, zeroTime).
+		Where("(end_date >= ? OR end_date = ?)", now, zeroTime)
 
 	if page != "" {
 		query = query.Where("page = ?", page)

@@ -121,6 +121,7 @@ func (h *Handler) GetAds(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 	pageFilter := c.Query("page")
+	positionFilter := c.Query("position")
 	activeStr := c.Query("active")
 
 	var active *bool
@@ -129,7 +130,7 @@ func (h *Handler) GetAds(c *gin.Context) {
 		active = &val
 	}
 
-	ads, total, err := h.service.GetAds(page, limit, pageFilter, active)
+	ads, total, err := h.service.GetAds(page, limit, pageFilter, positionFilter, active)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "Failed to retrieve ads")
 		return

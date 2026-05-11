@@ -347,6 +347,30 @@ func (h *Handler) AdminDeleteScholarship(c *gin.Context) {
 	response.Success(c, 200, "Scholarship deleted successfully", nil)
 }
 
+func (h *Handler) AdminListScholarships(c *gin.Context) {
+	scholarships, err := h.service.AdminListScholarships()
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to list scholarships")
+		return
+	}
+
+	type listItem struct {
+		ID    uint   `json:"id"`
+		Slug  string `json:"slug"`
+		Title string `json:"title"`
+	}
+	items := make([]listItem, 0, len(scholarships))
+	for _, s := range scholarships {
+		items = append(items, listItem{
+			ID:    s.ID,
+			Slug:  scholarshipSlug(s),
+			Title: s.Title,
+		})
+	}
+
+	response.Success(c, http.StatusOK, "Scholarships retrieved successfully", items)
+}
+
 func scholarshipSlug(s Scholarship) string {
 	if s.Slug != "" {
 		return s.Slug

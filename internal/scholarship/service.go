@@ -821,6 +821,10 @@ func (s *Service) AdminDeleteScholarship(id uint) error {
 	return s.repo.Delete(id)
 }
 
+func (s *Service) AdminListScholarships() ([]Scholarship, error) {
+	return s.repo.FindAllScholarships()
+}
+
 func (s *Service) deleteScholarshipFiles(scholarship *Scholarship) {
 	extractPath := func(url string) string {
 		if strings.HasPrefix(url, "/uploads/") {

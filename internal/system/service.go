@@ -76,7 +76,7 @@ func (s *Service) DeleteContactInquiry(id uint) error {
 	return s.repo.DeleteContactInquiry(id)
 }
 
-func (s *Service) GetAds(page, limit int, pageFilter string, active *bool) ([]Ad, int64, error) {
+func (s *Service) GetAds(page, limit int, pageFilter, positionFilter string, active *bool) ([]Ad, int64, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -84,7 +84,7 @@ func (s *Service) GetAds(page, limit int, pageFilter string, active *bool) ([]Ad
 		limit = 20
 	}
 
-	return s.repo.FindAds(page, limit, pageFilter, active)
+	return s.repo.FindAds(page, limit, pageFilter, positionFilter, active)
 }
 
 func (s *Service) GetActiveAds(page string) ([]Ad, error) {

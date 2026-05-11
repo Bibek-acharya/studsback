@@ -47,6 +47,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 		admin.Use(roleMW)
 		{
 			admin.GET("/scholarships", h.GetAllApplications)
+			admin.GET("/scholarships/list", h.AdminListScholarships)
 			admin.GET("/scholarships/:id", h.GetScholarshipByID)
 			admin.POST("/scholarships", h.AdminCreateScholarship)
 			admin.PUT("/scholarships/:id", h.AdminUpdateScholarship)
