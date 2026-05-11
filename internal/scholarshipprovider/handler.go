@@ -3041,12 +3041,40 @@ func (h *Handler) ApplyVolunteer(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "Invalid ID")
 		return
 	}
-	var req ApplyVolunteerRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "Invalid request: "+err.Error())
+
+	if err := c.Request.ParseMultipartForm(10 << 20); err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid form data")
 		return
 	}
-	app, err := h.service.ApplyVolunteer(uint(id), &req)
+
+	var req ApplyVolunteerRequest
+	req.FullName = c.PostForm("full_name")
+	req.Gender = c.PostForm("gender")
+	req.Phone = c.PostForm("phone")
+	req.Email = c.PostForm("email")
+	req.Designation = c.PostForm("designation")
+	req.OtherDesignation = c.PostForm("other_designation")
+	req.Province = c.PostForm("province")
+	req.District = c.PostForm("district")
+	req.Municipality = c.PostForm("municipality")
+	req.Ward = c.PostForm("ward")
+	req.Tole = c.PostForm("tole")
+	req.ParticipateDistrict = c.PostForm("participate_district")
+	req.AvailableDays = c.PostFormArray("available_days")
+	req.VolunteeredBefore = c.PostForm("volunteered_before")
+	req.VolunteerDetails = c.PostForm("volunteer_details")
+
+	var cvPath string
+	file, fErr := c.FormFile("cv_file")
+	if fErr == nil {
+		cvPath, err = utils.SaveUploadedDocument(file, "volunteer/cvs")
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, "Failed to upload CV: "+err.Error())
+			return
+		}
+	}
+
+	app, err := h.service.ApplyVolunteer(uint(id), &req, cvPath)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return

@@ -474,6 +474,7 @@ type VolunteerApplication struct {
 	AvailableDays      []byte         `gorm:"type:jsonb" json:"available_days"`
 	VolunteeredBefore  string         `json:"volunteered_before"`
 	VolunteerDetails   string         `gorm:"type:text" json:"volunteer_details"`
+	CVPath             string         `json:"cv_path"`
 	Status             string         `gorm:"default:'pending'" json:"status"`
 }
 

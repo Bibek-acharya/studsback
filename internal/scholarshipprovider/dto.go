@@ -214,6 +214,7 @@ type VolunteerApplicationResponse struct {
 	AvailableDays      []string `json:"available_days"`
 	VolunteeredBefore  string   `json:"volunteered_before"`
 	VolunteerDetails   string   `json:"volunteer_details"`
+	CVPath             string   `json:"cv_path"`
 	Status             string   `json:"status"`
 }
 

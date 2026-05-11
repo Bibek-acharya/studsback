@@ -2869,7 +2869,7 @@ func (s *Service) GetPublicVolunteerByID(id uint) (*VolunteerResponse, error) {
 	return &resp, nil
 }
 
-func (s *Service) ApplyVolunteer(volunteerID uint, req *ApplyVolunteerRequest) (*VolunteerApplication, error) {
+func (s *Service) ApplyVolunteer(volunteerID uint, req *ApplyVolunteerRequest, cvPath string) (*VolunteerApplication, error) {
 	v, err := s.repo.GetVolunteerByID(volunteerID)
 	if err != nil {
 		return nil, errors.New("volunteer opportunity not found")
@@ -2896,6 +2896,7 @@ func (s *Service) ApplyVolunteer(volunteerID uint, req *ApplyVolunteerRequest) (
 		AvailableDays:      availableDays,
 		VolunteeredBefore:  req.VolunteeredBefore,
 		VolunteerDetails:   req.VolunteerDetails,
+		CVPath:             cvPath,
 		Status:             "pending",
 	}
 	if err := s.repo.CreateVolunteerApplication(app); err != nil {
@@ -3035,6 +3036,7 @@ func toVolunteerApplicationResponse(a *VolunteerApplication) VolunteerApplicatio
 		AvailableDays:      availableDays,
 		VolunteeredBefore:  a.VolunteeredBefore,
 		VolunteerDetails:   a.VolunteerDetails,
+		CVPath:             a.CVPath,
 		Status:             a.Status,
 	}
 }
