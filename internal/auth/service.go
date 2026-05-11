@@ -587,6 +587,62 @@ func (s *Service) RejectScholarshipProvider(providerID uint) error {
 	return nil
 }
 
+func (s *Service) CreateInstitution(req CreateInstitutionRequest) (*InstitutionUser, error) {
+	slug := strings.NewReplacer(" ", "_", ".", "_", "-", "_").Replace(strings.ToLower(req.InstitutionName))
+	email := fmt.Sprintf("%s@institution.edu.np", slug)
+
+	password, err := utils.GenerateRandomPassword(12)
+	if err != nil {
+		return nil, errors.New("Failed to generate password")
+	}
+
+	profileData := map[string]interface{}{
+		"videos":          req.Videos,
+		"overview_data":   req.OverviewData,
+		"leadership_data": req.LeadershipData,
+		"courses_data":    req.CoursesData,
+		"programs_data":   req.ProgramsData,
+		"facilities_data": req.FacilitiesData,
+		"alumni_data":     req.AlumniData,
+		"gallery_data":    req.GalleryData,
+		"downloads_data":  req.DownloadsData,
+	}
+
+	profileJSON, err := json.Marshal(profileData)
+	if err != nil {
+		return nil, errors.New("Failed to marshal profile data")
+	}
+	profileStr := string(profileJSON)
+
+	regNumber := fmt.Sprintf("ADMIN-%d", time.Now().UnixMilli())
+
+	institutionUser := InstitutionUser{
+		InstitutionName:    req.InstitutionName,
+		RegistrationNumber: regNumber,
+		Email:              email,
+		Role:               "institution",
+		Status:             "approved",
+		District:           req.Location,
+		WebsiteURL:         req.Website,
+		LogoURL:            req.LogoURL,
+		BannerURL:          req.BannerURL,
+		About:              req.About,
+		Vision:             req.Vision,
+		Mission:            req.Mission,
+		ProfileData:        &profileStr,
+	}
+
+	if err := institutionUser.HashPassword(password); err != nil {
+		return nil, errors.New("Failed to hash password")
+	}
+
+	if err := s.repo.CreateInstitutionUser(&institutionUser); err != nil {
+		return nil, err
+	}
+
+	return &institutionUser, nil
+}
+
 func (s *Service) ListPendingInstitutions() ([]InstitutionUser, error) {
 	return s.repo.FindInstitutionUsersByStatus("pending")
 }

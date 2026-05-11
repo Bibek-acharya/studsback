@@ -87,7 +87,8 @@ func (s *Service) GetProfile(instID uint) (*ProfileResponse, error) {
 		return nil, err
 	}
 
-	var videos, overviewData, leadershipData, coursesData, programsData, facilitiesData, alumniData, galleryData, downloadsData interface{}
+	var videos, overviewData, leadershipData, coursesData, programsData, facilitiesData, alumniData, downloadsData interface{}
+	var whatsNewData, eligibilityData, admissionProcessData, scholarshipsData, faqsData, contactPersonsData, brochureData interface{}
 	if user.ProfileData != nil && *user.ProfileData != "" {
 		var data map[string]interface{}
 		if err := json.Unmarshal([]byte(*user.ProfileData), &data); err == nil {
@@ -98,33 +99,45 @@ func (s *Service) GetProfile(instID uint) (*ProfileResponse, error) {
 			if v, ok := data["programs_data"]; ok { programsData = v }
 			if v, ok := data["facilities_data"]; ok { facilitiesData = v }
 			if v, ok := data["alumni_data"]; ok { alumniData = v }
-			if v, ok := data["gallery_data"]; ok { galleryData = v }
 			if v, ok := data["downloads_data"]; ok { downloadsData = v }
+			if v, ok := data["whats_new_data"]; ok { whatsNewData = v }
+			if v, ok := data["eligibility_data"]; ok { eligibilityData = v }
+			if v, ok := data["admission_process_data"]; ok { admissionProcessData = v }
+			if v, ok := data["scholarships_data"]; ok { scholarshipsData = v }
+			if v, ok := data["faqs_data"]; ok { faqsData = v }
+			if v, ok := data["contact_persons_data"]; ok { contactPersonsData = v }
+			if v, ok := data["brochure_data"]; ok { brochureData = v }
 		}
 	}
 
 	return &ProfileResponse{
-		ID:                 user.ID,
-		InstitutionName:    user.InstitutionName,
-		Email:              user.Email,
-		RegistrationNumber: user.RegistrationNumber,
-		Role:               user.Role,
-		Location:           user.District,
-		Website:            user.WebsiteURL,
-		LogoURL:            user.LogoURL,
-		BannerURL:          user.BannerURL,
-		About:              user.About,
-		Vision:             user.Vision,
-		Mission:            user.Mission,
-		Videos:             videos,
-		OverviewData:       overviewData,
-		LeadershipData:     leadershipData,
-		CoursesData:        coursesData,
-		ProgramsData:       programsData,
-		FacilitiesData:     facilitiesData,
-		AlumniData:         alumniData,
-		GalleryData:        galleryData,
-		DownloadsData:      downloadsData,
+		ID:                    user.ID,
+		InstitutionName:       user.InstitutionName,
+		Email:                 user.Email,
+		RegistrationNumber:    user.RegistrationNumber,
+		Role:                  user.Role,
+		Location:              user.District,
+		Website:               user.WebsiteURL,
+		LogoURL:               user.LogoURL,
+		BannerURL:             user.BannerURL,
+		About:                 user.About,
+		Vision:                user.Vision,
+		Mission:               user.Mission,
+		Videos:                videos,
+		OverviewData:          overviewData,
+		LeadershipData:        leadershipData,
+		CoursesData:           coursesData,
+		ProgramsData:          programsData,
+		FacilitiesData:        facilitiesData,
+		AlumniData:            alumniData,
+		DownloadsData:         downloadsData,
+		WhatsNewData:          whatsNewData,
+		EligibilityData:       eligibilityData,
+		AdmissionProcessData:  admissionProcessData,
+		ScholarshipsData:      scholarshipsData,
+		FaqsData:              faqsData,
+		ContactPersonsData:    contactPersonsData,
+		BrochureData:          brochureData,
 	}, nil
 }
 
@@ -163,7 +176,10 @@ func (s *Service) UpdateProfile(instID uint, req UpdateProfileRequest) (*Profile
 	}
 	if req.Videos != nil || req.OverviewData != nil || req.LeadershipData != nil ||
 		req.CoursesData != nil || req.ProgramsData != nil || req.FacilitiesData != nil ||
-		req.AlumniData != nil || req.GalleryData != nil || req.DownloadsData != nil {
+		req.AlumniData != nil || req.DownloadsData != nil ||
+		req.WhatsNewData != nil || req.EligibilityData != nil || req.AdmissionProcessData != nil ||
+		req.ScholarshipsData != nil || req.FaqsData != nil || req.ContactPersonsData != nil ||
+		req.BrochureData != nil {
 
 		var existing map[string]interface{}
 		if user.ProfileData != nil && *user.ProfileData != "" {
@@ -180,8 +196,14 @@ func (s *Service) UpdateProfile(instID uint, req UpdateProfileRequest) (*Profile
 		setField(&existing, "programs_data", req.ProgramsData)
 		setField(&existing, "facilities_data", req.FacilitiesData)
 		setField(&existing, "alumni_data", req.AlumniData)
-		setField(&existing, "gallery_data", req.GalleryData)
 		setField(&existing, "downloads_data", req.DownloadsData)
+		setField(&existing, "whats_new_data", req.WhatsNewData)
+		setField(&existing, "eligibility_data", req.EligibilityData)
+		setField(&existing, "admission_process_data", req.AdmissionProcessData)
+		setField(&existing, "scholarships_data", req.ScholarshipsData)
+		setField(&existing, "faqs_data", req.FaqsData)
+		setField(&existing, "contact_persons_data", req.ContactPersonsData)
+		setField(&existing, "brochure_data", req.BrochureData)
 
 		if data, err := json.Marshal(existing); err == nil {
 			str := string(data)
@@ -193,20 +215,7 @@ func (s *Service) UpdateProfile(instID uint, req UpdateProfileRequest) (*Profile
 		return nil, err
 	}
 
-	return &ProfileResponse{
-		ID:                 user.ID,
-		InstitutionName:    user.InstitutionName,
-		Email:              user.Email,
-		RegistrationNumber: user.RegistrationNumber,
-		Role:               user.Role,
-		Location:           user.District,
-		Website:            user.WebsiteURL,
-		LogoURL:            user.LogoURL,
-		BannerURL:          user.BannerURL,
-		About:              user.About,
-		Vision:             user.Vision,
-		Mission:            user.Mission,
-	}, nil
+	return s.GetProfile(instID)
 }
 
 func setField(data *map[string]interface{}, key string, val interface{}) {

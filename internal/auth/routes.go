@@ -58,6 +58,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			superadmin.GET("/pending-institutions", h.ListPendingInstitutions)
 			superadmin.GET("/institutions", h.ListVerifiedInstitutions)
 			superadmin.GET("/rejected-institutions", h.ListRejectedInstitutions)
+			superadmin.POST("/institutions", h.CreateInstitution)
 			superadmin.POST("/institutions/approve", h.ApproveInstitution)
 			superadmin.PUT("/institutions/:id/access", h.UpdateInstitutionProfileAccess)
 		}

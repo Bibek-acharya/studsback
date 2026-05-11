@@ -920,6 +920,22 @@ func (h *Handler) ListRejectedInstitutions(c *gin.Context) {
 	response.Success(c, 200, "Rejected institutions retrieved successfully", institutions)
 }
 
+func (h *Handler) CreateInstitution(c *gin.Context) {
+	var req CreateInstitutionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+
+	result, err := h.service.CreateInstitution(req)
+	if err != nil {
+		response.Error(c, 409, err.Error())
+		return
+	}
+
+	response.Success(c, 201, "Institution created successfully", result)
+}
+
 func (h *Handler) ApproveInstitution(c *gin.Context) {
 	var req InstitutionApprovalRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

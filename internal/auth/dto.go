@@ -125,6 +125,26 @@ type InstitutionRegisterRequest struct {
 	ContactPersonPhone       string `json:"contact_person_phone"`
 }
 
+type CreateInstitutionRequest struct {
+	InstitutionName    string      `json:"institution_name" binding:"required"`
+	Location           string      `json:"location"`
+	Website            string      `json:"website"`
+	LogoURL            string      `json:"logo_url"`
+	BannerURL          string      `json:"banner_url"`
+	About              string      `json:"about"`
+	Vision             string      `json:"vision"`
+	Mission            string      `json:"mission"`
+	Videos             interface{} `json:"videos"`
+	OverviewData       interface{} `json:"overview_data"`
+	LeadershipData     interface{} `json:"leadership_data"`
+	CoursesData        interface{} `json:"courses_data"`
+	ProgramsData       interface{} `json:"programs_data"`
+	FacilitiesData     interface{} `json:"facilities_data"`
+	AlumniData         interface{} `json:"alumni_data"`
+	GalleryData        interface{} `json:"gallery_data"`
+	DownloadsData      interface{} `json:"downloads_data"`
+}
+
 type InstitutionApprovalRequest struct {
 	InstitutionID  uint   `json:"institution_id" binding:"required"`
 	Action         string `json:"action" binding:"required"` // "approved" or "rejected"
