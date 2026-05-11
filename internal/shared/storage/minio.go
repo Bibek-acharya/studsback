@@ -34,7 +34,17 @@ func Init() error {
 	return nil
 }
 
+func requireClient() error {
+	if Client == nil {
+		return fmt.Errorf("MinIO client not initialized (check MINIO_* env vars)")
+	}
+	return nil
+}
+
 func Upload(objectPath string, reader io.Reader, size int64, contentType string) error {
+	if err := requireClient(); err != nil {
+		return err
+	}
 	ctx := context.Background()
 	bucket := config.AppConfig.MinioBucket
 
@@ -54,6 +64,9 @@ type ObjectInfo struct {
 }
 
 func Get(objectPath string) (io.Reader, *ObjectInfo, error) {
+	if err := requireClient(); err != nil {
+		return nil, nil, err
+	}
 	ctx := context.Background()
 	bucket := config.AppConfig.MinioBucket
 
@@ -77,6 +90,9 @@ func Get(objectPath string) (io.Reader, *ObjectInfo, error) {
 }
 
 func GetLatest(prefix string) (io.Reader, *ObjectInfo, error) {
+	if err := requireClient(); err != nil {
+		return nil, nil, err
+	}
 	ctx := context.Background()
 	bucket := config.AppConfig.MinioBucket
 
