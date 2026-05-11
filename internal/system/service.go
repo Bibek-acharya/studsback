@@ -87,8 +87,8 @@ func (s *Service) GetAds(page, limit int, pageFilter, positionFilter string, act
 	return s.repo.FindAds(page, limit, pageFilter, positionFilter, active)
 }
 
-func (s *Service) GetActiveAds(page string) ([]Ad, error) {
-	return s.repo.FindActiveAds(page)
+func (s *Service) GetActiveAds(page, position string) ([]Ad, error) {
+	return s.repo.FindActiveAds(page, position)
 }
 
 func (s *Service) GetAdByID(id uint) (*Ad, error) {

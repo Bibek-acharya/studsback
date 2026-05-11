@@ -123,6 +123,7 @@ func buildEventResponse(event Event) EventResponse {
 		Image:           event.Image,
 		Interested:      event.Interested,
 		Trending:        event.Trending,
+		Featured:        event.Featured,
 	}
 }
 
@@ -470,8 +471,8 @@ func (s *Service) GetEducationEventByID(id string) (*EventResponse, error) {
 	return &resp, nil
 }
 
-func (s *Service) GetEducationEventsFiltered(page, limit int, category, search, sort string) ([]EventResponse, PaginationMeta, error) {
-	events, total, err := s.repo.FindEventsFiltered(page, limit, category, search, sort)
+func (s *Service) GetEducationEventsFiltered(page, limit int, category, search, sort, featuredStr string) ([]EventResponse, PaginationMeta, error) {
+	events, total, err := s.repo.FindEventsFiltered(page, limit, category, search, sort, featuredStr)
 	if err != nil {
 		return nil, PaginationMeta{}, err
 	}
@@ -493,6 +494,116 @@ func (s *Service) GetEducationEventsFiltered(page, limit int, category, search, 
 		responses = append(responses, buildEventResponse(event))
 	}
 	return responses, meta, nil
+}
+
+func (s *Service) GetAllEventsAdmin(page, limit int) ([]EventResponse, PaginationMeta, error) {
+	events, total, err := s.repo.FindAllEvents(page, limit)
+	if err != nil {
+		return nil, PaginationMeta{}, err
+	}
+
+	pages := (total + int64(limit) - 1) / int64(limit)
+	if total == 0 {
+		pages = 0
+	}
+
+	meta := PaginationMeta{
+		Total: total,
+		Page:  page,
+		Limit: limit,
+		Pages: pages,
+	}
+
+	responses := make([]EventResponse, 0, len(events))
+	for _, event := range events {
+		responses = append(responses, buildEventResponse(event))
+	}
+	return responses, meta, nil
+}
+
+func (s *Service) CreateEvent(req EventRequest) (*EventResponse, error) {
+	event := &Event{
+		Title:           req.Title,
+		Excerpt:         req.Excerpt,
+		Description:     req.Description,
+		Category:        req.Category,
+		Organizer:       req.Organizer,
+		Location:        req.Location,
+		Date:            req.Date,
+		Time:            req.Time,
+		RegistrationFee: req.RegistrationFee,
+		Image:           req.Image,
+	}
+
+	if req.Featured != nil {
+		event.Featured = *req.Featured
+	}
+
+	if err := s.repo.CreateEvent(event); err != nil {
+		return nil, err
+	}
+
+	resp := buildEventResponse(*event)
+	return &resp, nil
+}
+
+func (s *Service) UpdateEvent(id string, req UpdateEventRequest) (*EventResponse, error) {
+	updates := map[string]interface{}{}
+	if req.Title != "" {
+		updates["title"] = req.Title
+	}
+	if req.Excerpt != "" {
+		updates["excerpt"] = req.Excerpt
+	}
+	if req.Description != "" {
+		updates["description"] = req.Description
+	}
+	if req.Category != "" {
+		updates["category"] = req.Category
+	}
+	if req.Organizer != "" {
+		updates["organizer"] = req.Organizer
+	}
+	if req.Location != "" {
+		updates["location"] = req.Location
+	}
+	if req.Date != "" {
+		updates["date"] = req.Date
+	}
+	if req.Time != "" {
+		updates["time"] = req.Time
+	}
+	if req.RegistrationFee != "" {
+		updates["registration_fee"] = req.RegistrationFee
+	}
+	if req.Image != "" {
+		updates["image"] = req.Image
+	}
+	if req.Featured != nil {
+		updates["featured"] = *req.Featured
+	}
+
+	event, err := s.repo.UpdateEvent(id, updates)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := buildEventResponse(*event)
+	return &resp, nil
+}
+
+func (s *Service) DeleteEvent(id string) error {
+	return s.repo.DeleteEvent(id)
+}
+
+func (s *Service) ToggleEventFeatured(id string) (*EventResponse, error) {
+	event, err := s.repo.ToggleEventFeatured(id)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := buildEventResponse(*event)
+	return &resp, nil
 }
 
 func (s *Service) GetEventFilterCounts() (*EventFilterCounts, error) {

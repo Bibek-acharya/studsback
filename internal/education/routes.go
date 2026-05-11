@@ -50,6 +50,19 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			adminBlogs.POST("/upload-image", h.UploadBlogImage)
 		}
 
+		// Admin event management routes
+		adminEvents := v1.Group("/admin/events")
+		adminEvents.Use(authMW)
+		adminEvents.Use(roleMW)
+		{
+			adminEvents.GET("", h.AdminGetEvents)
+			adminEvents.GET("/:id", h.AdminGetEventByID)
+			adminEvents.POST("", h.CreateEvent)
+			adminEvents.PUT("/:id", h.UpdateEvent)
+			adminEvents.DELETE("/:id", h.DeleteEvent)
+			adminEvents.PUT("/:id/feature", h.ToggleEventFeatured)
+		}
+
 		// Blog comments (public)
 		v1.GET("/blogs/:id/comments", h.GetBlogComments)
 		v1.POST("/blogs/:id/comments", h.CreateBlogComment)

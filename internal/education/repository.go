@@ -288,7 +288,7 @@ func (r *Repository) FindEvents() ([]Event, error) {
 	return events, err
 }
 
-func (r *Repository) FindEventsFiltered(page, limit int, category, search, sort string) ([]Event, int64, error) {
+func (r *Repository) FindEventsFiltered(page, limit int, category, search, sort, featuredStr string) ([]Event, int64, error) {
 	var events []Event
 	var err error
 
@@ -308,6 +308,10 @@ func (r *Repository) FindEventsFiltered(page, limit int, category, search, sort 
 	if search != "" {
 		query = query.Where("title ILIKE ? OR description ILIKE ?", "%"+search+"%", "%"+search+"%")
 	}
+	if featuredStr != "" {
+		featured := featuredStr == "true"
+		query = query.Where("featured = ?", featured)
+	}
 
 	var total int64
 	if err = query.Count(&total).Error; err != nil {
@@ -323,6 +327,66 @@ func (r *Repository) FindEventsFiltered(page, limit int, category, search, sort 
 
 	err = query.Order(orderClause).Offset(offset).Limit(limit).Find(&events).Error
 	return events, total, err
+}
+
+func (r *Repository) FindAllEvents(page, limit int) ([]Event, int64, error) {
+	var events []Event
+	var total int64
+
+	query := r.db.Model(&Event{})
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * limit
+	if err := query.Order("created_at desc").Offset(offset).Limit(limit).Find(&events).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return events, total, nil
+}
+
+func (r *Repository) CreateEvent(event *Event) error {
+	return r.db.Create(event).Error
+}
+
+func (r *Repository) UpdateEvent(id string, updates map[string]interface{}) (*Event, error) {
+	var event Event
+	if err := r.db.First(&event, id).Error; err != nil {
+		return nil, err
+	}
+
+	if err := r.db.Model(&event).Updates(updates).Error; err != nil {
+		return nil, err
+	}
+
+	return &event, nil
+}
+
+func (r *Repository) DeleteEvent(id string) error {
+	result := r.db.Delete(&Event{}, id)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *Repository) ToggleEventFeatured(id string) (*Event, error) {
+	var event Event
+	if err := r.db.First(&event, id).Error; err != nil {
+		return nil, err
+	}
+
+	newFeatured := !event.Featured
+	if err := r.db.Model(&event).Update("featured", newFeatured).Error; err != nil {
+		return nil, err
+	}
+
+	event.Featured = newFeatured
+	return &event, nil
 }
 
 type EventFilterCounts struct {

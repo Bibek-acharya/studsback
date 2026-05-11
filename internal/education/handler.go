@@ -177,9 +177,10 @@ func (h *Handler) GetEducationEvents(c *gin.Context) {
 	category := c.Query("category")
 	search := c.Query("search")
 	sort := c.DefaultQuery("sort", "newest")
+	featuredStr := c.Query("featured")
 
 	// If no filtering params, use old endpoint
-	if category == "" && search == "" {
+	if category == "" && search == "" && featuredStr == "" {
 		events, err := h.service.GetEducationEvents()
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, "Failed to fetch events")
@@ -189,7 +190,7 @@ func (h *Handler) GetEducationEvents(c *gin.Context) {
 		return
 	}
 
-	events, meta, err := h.service.GetEducationEventsFiltered(page, limit, category, search, sort)
+	events, meta, err := h.service.GetEducationEventsFiltered(page, limit, category, search, sort, featuredStr)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "Failed to fetch events")
 		return
@@ -405,6 +406,87 @@ func (h *Handler) DeleteBlog(c *gin.Context) {
 	}
 
 	response.Success(c, http.StatusOK, "Blog deleted successfully", nil)
+}
+
+func (h *Handler) AdminGetEvents(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
+
+	events, meta, err := h.service.GetAllEventsAdmin(page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch events")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Events retrieved successfully", gin.H{
+		"events": events,
+		"meta":   meta,
+	})
+}
+
+func (h *Handler) AdminGetEventByID(c *gin.Context) {
+	id := c.Param("id")
+	event, err := h.service.GetEducationEventByID(id)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Event not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Event retrieved successfully", event)
+}
+
+func (h *Handler) CreateEvent(c *gin.Context) {
+	var req EventRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	event, err := h.service.CreateEvent(req)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to create event")
+		return
+	}
+
+	response.Success(c, http.StatusCreated, "Event created successfully", event)
+}
+
+func (h *Handler) UpdateEvent(c *gin.Context) {
+	id := c.Param("id")
+	var req UpdateEventRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	event, err := h.service.UpdateEvent(id, req)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to update event")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Event updated successfully", event)
+}
+
+func (h *Handler) DeleteEvent(c *gin.Context) {
+	id := c.Param("id")
+	if err := h.service.DeleteEvent(id); err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to delete event")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Event deleted successfully", nil)
+}
+
+func (h *Handler) ToggleEventFeatured(c *gin.Context) {
+	id := c.Param("id")
+	event, err := h.service.ToggleEventFeatured(id)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to toggle featured")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Featured toggled successfully", event)
 }
 
 func (h *Handler) UploadBlogImage(c *gin.Context) {

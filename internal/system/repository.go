@@ -100,7 +100,7 @@ func (r *Repository) FindAds(page, limit int, pageFilter, positionFilter string,
 	return ads, total, nil
 }
 
-func (r *Repository) FindActiveAds(page string) ([]Ad, error) {
+func (r *Repository) FindActiveAds(page, position string) ([]Ad, error) {
 	var ads []Ad
 	now := time.Now()
 	var zeroTime time.Time
@@ -112,6 +112,9 @@ func (r *Repository) FindActiveAds(page string) ([]Ad, error) {
 
 	if page != "" {
 		query = query.Where("page = ?", page)
+	}
+	if position != "" {
+		query = query.Where("position = ?", position)
 	}
 
 	if err := query.Order("priority desc, created_at desc").Find(&ads).Error; err != nil {
@@ -187,7 +190,7 @@ func (r *Repository) FindCarouselSlides(page string, active *bool) ([]CarouselSl
 		query = query.Where("active = ?", *active)
 	}
 
-	if err := query.Order("order asc, created_at desc").Find(&slides).Error; err != nil {
+	if err := query.Order(`"order" asc, created_at desc`).Find(&slides).Error; err != nil {
 		return nil, err
 	}
 

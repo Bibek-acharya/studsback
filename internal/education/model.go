@@ -124,6 +124,7 @@ type Event struct {
 	Image           string         `json:"image"`
 	Interested      int            `json:"interested"`
 	Trending        bool             `json:"trending"`
+	Featured        bool             `gorm:"default:false;index" json:"featured"`
 }
 
 func (Event) TableName() string {

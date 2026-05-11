@@ -153,8 +153,9 @@ func (h *Handler) GetAds(c *gin.Context) {
 
 func (h *Handler) GetActiveAds(c *gin.Context) {
 	page := c.Query("page")
+	position := c.Query("position")
 
-	ads, err := h.service.GetActiveAds(page)
+	ads, err := h.service.GetActiveAds(page, position)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "Failed to retrieve active ads")
 		return
