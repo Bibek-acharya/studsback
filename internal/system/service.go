@@ -100,6 +100,7 @@ func (s *Service) CreateAd(req AdRequest) (*Ad, error) {
 		Title:    req.Title,
 		ImageURL: req.ImageURL,
 		LinkURL:  req.LinkURL,
+		Location: req.Location,
 		Page:     req.Page,
 		Position: req.Position,
 		Active:   true,
@@ -137,6 +138,9 @@ func (s *Service) UpdateAd(id uint, req AdRequest) (*Ad, error) {
 	}
 	if req.LinkURL != "" {
 		updates["link_url"] = req.LinkURL
+	}
+	if req.Location != "" {
+		updates["location"] = req.Location
 	}
 	if req.Page != "" {
 		updates["page"] = req.Page

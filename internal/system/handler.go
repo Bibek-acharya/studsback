@@ -437,6 +437,7 @@ func toAdResponse(ad *Ad) AdResponse {
 		Title:       ad.Title,
 		ImageURL:    ad.ImageURL,
 		LinkURL:     ad.LinkURL,
+		Location:    ad.Location,
 		Page:        ad.Page,
 		Position:    ad.Position,
 		StartDate:   startDate,

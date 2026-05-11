@@ -17,6 +17,7 @@ type AdRequest struct {
 	Title     string `json:"title" binding:"required"`
 	ImageURL  string `json:"image_url"`
 	LinkURL   string `json:"link_url"`
+	Location  string `json:"location"`
 	Page      string `json:"page" binding:"required"`
 	Position  string `json:"position"`
 	StartDate string `json:"start_date"`
@@ -64,6 +65,7 @@ type AdResponse struct {
 	Title       string `json:"title"`
 	ImageURL    string `json:"image_url"`
 	LinkURL     string `json:"link_url"`
+	Location    string `json:"location"`
 	Page        string `json:"page"`
 	Position    string `json:"position"`
 	StartDate   string `json:"start_date"`

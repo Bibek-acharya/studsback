@@ -28,6 +28,7 @@ type Ad struct {
 	Title       string         `gorm:"not null" json:"title"`
 	ImageURL    string         `json:"image_url"`
 	LinkURL     string         `json:"link_url"`
+	Location    string         `json:"location"`
 	Page        string         `gorm:"index" json:"page"`
 	Position    string         `json:"position"`
 	StartDate   time.Time      `json:"start_date"`
