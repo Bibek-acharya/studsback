@@ -368,6 +368,18 @@ func fixMissingColumns(db *gorm.DB) error {
 	if err := db.Exec(`ALTER TABLE provider_applications ADD COLUMN IF NOT EXISTS roll_number TEXT DEFAULT ''`).Error; err != nil {
 		return err
 	}
+	if err := db.Exec(`ALTER TABLE scholarships ADD COLUMN IF NOT EXISTS slug TEXT`).Error; err != nil {
+		return err
+	}
+	if err := db.Exec(`ALTER TABLE provider_scholarships ADD COLUMN IF NOT EXISTS slug TEXT`).Error; err != nil {
+		return err
+	}
+	if err := db.Exec(`ALTER TABLE provider_volunteers ADD COLUMN IF NOT EXISTS slug TEXT`).Error; err != nil {
+		return err
+	}
+	db.Exec(`UPDATE scholarships SET slug = 'scholarship-' || id WHERE slug IS NULL OR slug = ''`)
+	db.Exec(`UPDATE provider_scholarships SET slug = 'provider-scholarship-' || id WHERE slug IS NULL OR slug = ''`)
+	db.Exec(`UPDATE provider_volunteers SET slug = 'volunteer-' || id WHERE slug IS NULL OR slug = ''`)
 	return nil
 }
 

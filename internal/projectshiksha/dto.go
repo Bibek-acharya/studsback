@@ -105,6 +105,32 @@ type ApplicationListResponse struct {
 	Limit        int                   `json:"limit"`
 }
 
+// eSewa Payment Types
+
+type EsewaInitiateRequest struct {
+	ApplicationID uint    `json:"application_id" binding:"required"`
+	Amount        float64 `json:"amount" binding:"required"`
+}
+
+type EsewaInitiateResponse struct {
+	Amount          string `json:"amount"`
+	TaxAmount       string `json:"tax_amount"`
+	TotalAmount     string `json:"total_amount"`
+	TransactionUUID string `json:"transaction_uuid"`
+	ProductCode     string `json:"product_code"`
+	Signature       string `json:"signature"`
+	SuccessURL      string `json:"success_url"`
+	FailureURL      string `json:"failure_url"`
+	GatewayURL      string `json:"gateway_url"`
+}
+
+type EsewaVerifyRequest struct {
+	ApplicationID   uint   `json:"application_id" binding:"required"`
+	TransactionUUID string `json:"transaction_uuid" binding:"required"`
+	TotalAmount     string `json:"total_amount" binding:"required"`
+	RefID           string `json:"ref_id" binding:"required"`
+}
+
 // StatsResponse represents application statistics
 type StatsResponse struct {
 	TotalApplications   int64 `json:"total_applications"`

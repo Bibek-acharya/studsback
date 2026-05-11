@@ -46,6 +46,15 @@ func (r *PaymentRepository) Update(payment *Payment) error {
 	return nil
 }
 
+func (r *PaymentRepository) FindByTransactionID(txnID string) (*Payment, error) {
+	var payment Payment
+	err := r.db.Where("transaction_id = ?", txnID).First(&payment).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to find payment by transaction id %s: %w", txnID, err)
+	}
+	return &payment, nil
+}
+
 func (r *PaymentRepository) FindByScholarshipID(scholarshipID uint) ([]Payment, error) {
 	var payments []Payment
 	err := r.db.Where("scholarship_id = ?", scholarshipID).Find(&payments).Error

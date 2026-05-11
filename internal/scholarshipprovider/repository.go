@@ -1275,6 +1275,19 @@ func (r *Repository) GetVolunteerByID(id uint) (*ProviderVolunteer, error) {
 	return &v, nil
 }
 
+func (r *Repository) GetVolunteerBySlug(slug string) (*ProviderVolunteer, error) {
+	var v ProviderVolunteer
+	if err := r.db.Where("slug = ?", slug).First(&v).Error; err != nil {
+		return nil, err
+	}
+	var count int64
+	if cnt := r.db.Model(&VolunteerApplication{}).Where("volunteer_id = ?", v.ID).Count(&count); cnt.Error != nil {
+		count = 0
+	}
+	v.ApplicantCount = count
+	return &v, nil
+}
+
 func (r *Repository) GetVolunteerByIDAndProvider(id, providerID uint) (*ProviderVolunteer, error) {
 	var v ProviderVolunteer
 	if err := r.db.Where("id = ? AND provider_id = ?", id, providerID).First(&v).Error; err != nil {

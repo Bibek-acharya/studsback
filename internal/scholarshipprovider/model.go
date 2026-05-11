@@ -4,6 +4,8 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+
+	"studsphere/backend/internal/shared/slug"
 )
 
 type ProviderScholarship struct {
@@ -11,6 +13,7 @@ type ProviderScholarship struct {
 	CreatedAt                time.Time `json:"created_at"`
 	UpdatedAt                time.Time `json:"updated_at"`
 	ProviderID               uint      `gorm:"index;not null" json:"provider_id"`
+	Slug                     string    `gorm:"uniqueIndex" json:"slug"`
 	Title                    string    `gorm:"not null" json:"title"`
 	Provider                 string    `gorm:"column:provider" json:"provider"`
 	Description              string    `gorm:"type:text" json:"description"`
@@ -436,6 +439,7 @@ type ProviderVolunteer struct {
 	UpdatedAt          time.Time      `json:"updated_at"`
 	DeletedAt          gorm.DeletedAt `gorm:"index" json:"-"`
 	ProviderID         uint           `gorm:"index;not null" json:"provider_id"`
+	Slug               string         `gorm:"uniqueIndex" json:"slug"`
 	Title              string         `gorm:"not null" json:"title"`
 	BannerImage        string         `json:"banner_image"`
 	Description        string         `gorm:"type:text" json:"description"`
@@ -493,4 +497,26 @@ type ProviderAccessUser struct {
 	LastActive  time.Time      `json:"last_active"`
 	Avatar      string         `json:"avatar"`
 	Permissions []byte         `gorm:"type:jsonb" json:"permissions"`
+}
+
+func (ps *ProviderScholarship) BeforeCreate(tx *gorm.DB) error {
+	if ps.Slug == "" {
+		ps.Slug = slug.GenerateUnique(ps.Title, func(slugStr string) bool {
+			var count int64
+			tx.Model(&ProviderScholarship{}).Where("slug = ?", slugStr).Count(&count)
+			return count > 0
+		})
+	}
+	return nil
+}
+
+func (pv *ProviderVolunteer) BeforeCreate(tx *gorm.DB) error {
+	if pv.Slug == "" {
+		pv.Slug = slug.GenerateUnique(pv.Title, func(slugStr string) bool {
+			var count int64
+			tx.Model(&ProviderVolunteer{}).Where("slug = ?", slugStr).Count(&count)
+			return count > 0
+		})
+	}
+	return nil
 }

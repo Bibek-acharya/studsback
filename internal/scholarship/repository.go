@@ -115,6 +115,7 @@ type ProviderScholarship struct {
 	PrimaryPhone             string
 	SecondaryPhone           string
 	WebsiteUrl               string
+	Slug                     string
 	OfficeAddress            string
 	MapUrl                   string
 	AboutParagraph1          string
@@ -161,6 +162,17 @@ func (r *Repository) FindProviderScholarshipByID(id uint) (*ProviderScholarship,
 	return &scholarship, nil
 }
 
+func (r *Repository) FindProviderScholarshipBySlug(slug string) (*ProviderScholarship, error) {
+	var scholarship ProviderScholarship
+	err := r.db.Table("provider_scholarships").
+		Where("slug = ?", slug).
+		First(&scholarship).Error
+	if err != nil {
+		return nil, err
+	}
+	return &scholarship, nil
+}
+
 func (r *Repository) FindByProviderScholarshipID(providerScholarshipID uint) (*Scholarship, error) {
 	var scholarship Scholarship
 	err := r.db.Where("provider_scholarship_id = ?", providerScholarshipID).First(&scholarship).Error
@@ -173,6 +185,23 @@ func (r *Repository) FindByProviderScholarshipID(providerScholarshipID uint) (*S
 func (r *Repository) FindByID(id uint) (*Scholarship, error) {
 	var scholarship Scholarship
 	err := r.db.First(&scholarship, id).Error
+	if err != nil {
+		return nil, err
+	}
+
+	if scholarship.ProviderScholarshipID != nil {
+		var ps ProviderScholarship
+		if err := r.db.Select("provider_id").Where("id = ?", *scholarship.ProviderScholarshipID).First(&ps).Error; err == nil {
+			scholarship.ProviderID = ps.ProviderID
+		}
+	}
+
+	return &scholarship, nil
+}
+
+func (r *Repository) FindBySlug(slug string) (*Scholarship, error) {
+	var scholarship Scholarship
+	err := r.db.Where("slug = ?", slug).First(&scholarship).Error
 	if err != nil {
 		return nil, err
 	}

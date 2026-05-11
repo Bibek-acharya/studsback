@@ -4,6 +4,8 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+
+	"studsphere/backend/internal/shared/slug"
 )
 
 type Scholarship struct {
@@ -11,6 +13,7 @@ type Scholarship struct {
 	CreatedAt                time.Time        `json:"created_at"`
 	UpdatedAt                time.Time        `json:"updated_at"`
 	DeletedAt                gorm.DeletedAt   `gorm:"index" json:"-"`
+	Slug                     string           `gorm:"uniqueIndex" json:"slug"`
 	Title                    string           `gorm:"not null" json:"title"`
 	Provider                 string           `gorm:"not null" json:"provider"`
 	Location                 string           `json:"location"`
@@ -155,4 +158,15 @@ type User struct {
 	Email     string `json:"email"`
 	FirstName string `json:"first_name"`
 	LastName  string `json:"last_name"`
+}
+
+func (s *Scholarship) BeforeCreate(tx *gorm.DB) error {
+	if s.Slug == "" {
+		s.Slug = slug.GenerateUnique(s.Title, func(slugStr string) bool {
+			var count int64
+			tx.Model(&Scholarship{}).Where("slug = ?", slugStr).Count(&count)
+			return count > 0
+		})
+	}
+	return nil
 }

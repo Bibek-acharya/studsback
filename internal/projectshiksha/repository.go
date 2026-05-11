@@ -158,6 +158,16 @@ func (r *Repository) GetPaymentByApplicationID(appID uint) (*ShikshaPayment, err
 	return &payment, nil
 }
 
+// GetPaymentByTransactionID retrieves payment by transaction ID
+func (r *Repository) GetPaymentByTransactionID(txnID string) (*ShikshaPayment, error) {
+	var payment ShikshaPayment
+	err := r.db.Where("transaction_id = ?", txnID).First(&payment).Error
+	if err != nil {
+		return nil, err
+	}
+	return &payment, nil
+}
+
 // UpdatePayment updates a payment
 func (r *Repository) UpdatePayment(payment *ShikshaPayment) error {
 	return r.db.Save(payment).Error

@@ -152,6 +152,7 @@ type CreateVolunteerRequest struct {
 
 type VolunteerResponse struct {
 	ID                  uint     `json:"id"`
+	Slug                string   `json:"slug"`
 	CreatedAt           string   `json:"created_at"`
 	UpdatedAt           string   `json:"updated_at"`
 	ProviderID          uint     `json:"provider_id"`
@@ -287,6 +288,7 @@ type CreateScholarshipRequest struct {
 
 type ScholarshipResponse struct {
 	ID                       uint                       `json:"id"`
+	Slug                     string                     `json:"slug"`
 	CreatedAt                time.Time                  `json:"created_at"`
 	UpdatedAt                time.Time                  `json:"updated_at"`
 	ProviderID               uint                       `json:"provider_id"`

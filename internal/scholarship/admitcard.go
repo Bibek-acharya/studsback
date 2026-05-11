@@ -180,6 +180,8 @@ func PhotoToBase64(photoPath string) string {
 			mimeType = "image/gif"
 		} else if data[0] == 0x52 && data[1] == 0x49 && data[2] == 0x46 && data[3] == 0x46 {
 			mimeType = "image/webp"
+		} else if data[0] == '<' {
+			mimeType = "image/svg+xml"
 		}
 	}
 	return fmt.Sprintf("data:%s;base64,%s", mimeType, base64.StdEncoding.EncodeToString(data))

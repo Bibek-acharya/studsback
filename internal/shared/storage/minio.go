@@ -135,3 +135,13 @@ func GetLatest(prefix string) (io.Reader, *ObjectInfo, error) {
 func UploadBytes(objectPath string, data []byte, contentType string) error {
 	return Upload(objectPath, bytes.NewReader(data), int64(len(data)), contentType)
 }
+
+func DeleteObject(objectPath string) error {
+	if err := requireClient(); err != nil {
+		return err
+	}
+	ctx := context.Background()
+	bucket := config.AppConfig.MinioBucket
+
+	return Client.RemoveObject(ctx, bucket, objectPath, minio.RemoveObjectOptions{})
+}

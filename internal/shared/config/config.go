@@ -51,6 +51,12 @@ type Config struct {
 	MinioSecretKey string
 	MinioBucket    string
 	MinioUseSSL    bool
+
+	EsewaTestMode     bool
+	EsewaMerchantCode string
+	EsewaSecretKey    string
+	EsewaSuccessURL   string
+	EsewaFailureURL   string
 }
 
 var AppConfig *Config
@@ -108,7 +114,27 @@ func Load() {
 		MinioSecretKey: getEnv("MINIO_SECRET_KEY", ""),
 		MinioBucket:    getEnv("MINIO_BUCKET", "studsphere-storage"),
 		MinioUseSSL:    getEnv("MINIO_USE_SSL", "false") == "true",
+
+		EsewaTestMode:     getEnv("ESEWA_TEST_MODE", "true") == "true",
+		EsewaMerchantCode: getEnv("ESEWA_MERCHANT_CODE", "EPAYTEST"),
+		EsewaSecretKey:    getEnv("ESEWA_SECRET_KEY", "8gBm/:&EnhH.1/q"),
+		EsewaSuccessURL:   getEnv("ESEWA_SUCCESS_URL", "http://localhost:3000/scholarship-apply/project-shiksha/success"),
+		EsewaFailureURL:   getEnv("ESEWA_FAILURE_URL", "http://localhost:3000/scholarship-apply/project-shiksha/payment"),
 	}
+}
+
+func (c *Config) EsewaGatewayURL() string {
+	if c.EsewaTestMode {
+		return "https://rc-epay.esewa.com.np/api/epay/main/v2/form"
+	}
+	return "https://epay.esewa.com.np/api/epay/main/v2/form"
+}
+
+func (c *Config) EsewaStatusAPIURL() string {
+	if c.EsewaTestMode {
+		return "https://rc-epay.esewa.com.np/api/epay/trns/v2/status"
+	}
+	return "https://epay.esewa.com.np/api/epay/trns/v2/status"
 }
 
 func getEnv(key, defaultValue string) string {

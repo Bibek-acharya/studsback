@@ -23,6 +23,8 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			public.POST("/scholarships/:id/pay", h.ProcessPayment)
 			public.POST("/scholarships/pay/:id/confirm", h.ConfirmPayment)
 			public.POST("/scholarships/pay/:id/receipt", h.uploadBankReceipt)
+			public.POST("/scholarships/pay/esewa/initiate", h.InitiateEsewaPayment)
+			public.POST("/scholarships/pay/esewa/verify", h.VerifyEsewaPayment)
 		}
 
 		protected := v1.Group("")

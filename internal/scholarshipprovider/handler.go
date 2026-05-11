@@ -3021,12 +3021,16 @@ func (h *Handler) GetPublicVolunteers(c *gin.Context) {
 }
 
 func (h *Handler) GetPublicVolunteerByID(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		response.Error(c, http.StatusBadRequest, "Invalid ID")
-		return
+	param := c.Param("id")
+
+	var resp *VolunteerResponse
+	var err error
+
+	if id, e := strconv.ParseUint(param, 10, 32); e == nil {
+		resp, err = h.service.GetPublicVolunteerByID(uint(id))
+	} else {
+		resp, err = h.service.GetPublicVolunteerBySlug(param)
 	}
-	resp, err := h.service.GetPublicVolunteerByID(uint(id))
 	if err != nil {
 		response.Error(c, http.StatusNotFound, "Volunteer opportunity not found")
 		return
@@ -3036,10 +3040,18 @@ func (h *Handler) GetPublicVolunteerByID(c *gin.Context) {
 }
 
 func (h *Handler) ApplyVolunteer(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		response.Error(c, http.StatusBadRequest, "Invalid ID")
-		return
+	param := c.Param("id")
+
+	var volunteerID uint
+	if id, e := strconv.ParseUint(param, 10, 32); e == nil {
+		volunteerID = uint(id)
+	} else {
+		resp, e := h.service.GetPublicVolunteerBySlug(param)
+		if e != nil {
+			response.Error(c, http.StatusNotFound, "Volunteer opportunity not found")
+			return
+		}
+		volunteerID = resp.ID
 	}
 
 	if err := c.Request.ParseMultipartForm(10 << 20); err != nil {
@@ -3065,6 +3077,7 @@ func (h *Handler) ApplyVolunteer(c *gin.Context) {
 	req.VolunteerDetails = c.PostForm("volunteer_details")
 
 	var cvPath string
+	var err error
 	file, fErr := c.FormFile("cv_file")
 	if fErr == nil {
 		cvPath, err = utils.SaveUploadedDocument(file, "volunteer/cvs")
@@ -3074,7 +3087,7 @@ func (h *Handler) ApplyVolunteer(c *gin.Context) {
 		}
 	}
 
-	app, err := h.service.ApplyVolunteer(uint(id), &req, cvPath)
+	app, err := h.service.ApplyVolunteer(volunteerID, &req, cvPath)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return

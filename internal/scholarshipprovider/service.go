@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"regexp"
 	"strings"
 	"time"
 
@@ -2879,6 +2880,15 @@ func (s *Service) GetPublicVolunteerByID(id uint) (*VolunteerResponse, error) {
 	return &resp, nil
 }
 
+func (s *Service) GetPublicVolunteerBySlug(slugStr string) (*VolunteerResponse, error) {
+	v, err := s.repo.GetVolunteerBySlug(slugStr)
+	if err != nil {
+		return nil, err
+	}
+	resp := toVolunteerResponse(v, "")
+	return &resp, nil
+}
+
 func (s *Service) ApplyVolunteer(volunteerID uint, req *ApplyVolunteerRequest, cvPath string) (*VolunteerApplication, error) {
 	v, err := s.repo.GetVolunteerByID(volunteerID)
 	if err != nil {
@@ -2979,6 +2989,18 @@ func (s *Service) RejectVolunteerApplication(id, providerID uint) error {
 
 // ─── Volunteer Helpers ──────────────────────────────────────────────
 
+func volunteerSlug(v *ProviderVolunteer) string {
+	if v.Slug != "" {
+		return v.Slug
+	}
+	generated := strings.ToLower(strings.TrimSpace(v.Title))
+	re := regexp.MustCompile(`[^a-z0-9\s-]`)
+	generated = re.ReplaceAllString(generated, "")
+	re = regexp.MustCompile(`\s+`)
+	generated = re.ReplaceAllString(generated, "-")
+	return strings.Trim(generated, "-")
+}
+
 func toVolunteerResponse(v *ProviderVolunteer, organizer string) VolunteerResponse {
 	var specificDates, districts []string
 	json.Unmarshal(v.SpecificDates, &specificDates)
@@ -2994,6 +3016,7 @@ func toVolunteerResponse(v *ProviderVolunteer, organizer string) VolunteerRespon
 
 	return VolunteerResponse{
 		ID:                  v.ID,
+		Slug:                volunteerSlug(v),
 		CreatedAt:           v.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:           v.UpdatedAt.Format(time.RFC3339),
 		ProviderID:          v.ProviderID,

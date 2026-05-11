@@ -1,10 +1,13 @@
 package scholarship
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/rand"
+	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -12,6 +15,8 @@ import (
 	"gorm.io/gorm"
 
 	"studsphere/backend/internal/emailqueue"
+	"studsphere/backend/internal/shared/config"
+	"studsphere/backend/internal/shared/storage"
 )
 
 type Service struct {
@@ -126,6 +131,7 @@ func (s *Service) GetScholarshipByID(id uint) (*Scholarship, error) {
 		}
 		return &Scholarship{
 			ID:                       id,
+			Slug:                     ps.Slug,
 			Title:                    ps.Title,
 			Provider:                 providerName,
 			Location:                 ps.Location,
@@ -140,6 +146,42 @@ func (s *Service) GetScholarshipByID(id uint) (*Scholarship, error) {
 		}, nil
 	}
 	return s.repo.FindByID(id)
+}
+
+func (s *Service) GetScholarshipBySlug(slugStr string) (*Scholarship, error) {
+	scholarship, err := s.repo.FindBySlug(slugStr)
+	if err != nil {
+		ps, err2 := s.repo.FindProviderScholarshipBySlug(slugStr)
+		if err2 != nil {
+			return nil, err
+		}
+		providerName := "Provider"
+		imageURL := ""
+		if ps.ImageURL != nil {
+			imageURL = *ps.ImageURL
+		}
+		bannerURL := ""
+		if ps.BannerBackgroundImageURL != nil {
+			bannerURL = *ps.BannerBackgroundImageURL
+		}
+		return &Scholarship{
+			ID:                       ps.ID + 10000,
+			Slug:                     ps.Slug,
+			Title:                    ps.Title,
+			Provider:                 providerName,
+			ProviderID:               ps.ProviderID,
+			Location:                 ps.Location,
+			Value:                    ps.Value,
+			Deadline:                 ps.Deadline,
+			DegreeLevel:              ps.DegreeLevel,
+			FundingType:              ps.FundingType,
+			ScholarshipType:          ps.ScholarshipType,
+			Description:              ps.Description,
+			ImageURL:                 imageURL,
+			BannerBackgroundImageURL: bannerURL,
+		}, nil
+	}
+	return scholarship, nil
 }
 
 func (s *Service) GetSimilarScholarships(id uint) ([]Scholarship, error) {
@@ -401,7 +443,7 @@ func (s *Service) ApplyScholarship(scholarshipID uint, userID *uint, req Scholar
 		return nil, errors.New("failed to submit application")
 	}
 
-	rollNumber := fmt.Sprintf("PS-%d-%04d", application.ID, rand.Intn(9000)+1000)
+	rollNumber := fmt.Sprintf("PS-%05d", application.ID)
 	if err := s.repo.UpdateApplicationRollNumber(application.ID, rollNumber); err == nil {
 		application.RollNumber = rollNumber
 	}
@@ -458,7 +500,7 @@ func (s *Service) sendAdmitCard(app *ScholarshipApplication, scholarship *Schola
 		Provider:         scholarship.Provider,
 		ExamDate:         scholarship.ExamDate,
 		ExamTime:         scholarship.ExamTime,
-		SubjectName:      scholarship.ScholarshipType,
+		SubjectName:      app.Stream,
 	}
 
 	pdfBytes, err := GenerateAdmitCardPDF(cardData)
@@ -769,12 +811,63 @@ func (s *Service) AdminUpdateScholarship(id uint, req CreateScholarshipRequest) 
 }
 
 func (s *Service) AdminDeleteScholarship(id uint) error {
-	_, err := s.repo.FindByID(id)
+	scholarship, err := s.repo.FindByID(id)
 	if err != nil {
 		return errors.New("scholarship not found")
 	}
 
+	s.deleteScholarshipFiles(scholarship)
+
 	return s.repo.Delete(id)
+}
+
+func (s *Service) deleteScholarshipFiles(scholarship *Scholarship) {
+	extractPath := func(url string) string {
+		if strings.HasPrefix(url, "/uploads/") {
+			return url[len("/uploads/"):]
+		}
+		return ""
+	}
+
+	tryDelete := func(url string) {
+		if path := extractPath(url); path != "" {
+			_ = storage.DeleteObject(path)
+		}
+	}
+
+	tryDelete(scholarship.ImageURL)
+	tryDelete(scholarship.BannerBackgroundImageURL)
+
+	for _, url := range extractUploadURLs(scholarship.GalleryImages) {
+		tryDelete(url)
+	}
+	for _, url := range extractUploadURLs(scholarship.GalleryImagesNew) {
+		tryDelete(url)
+	}
+	for _, url := range extractUploadURLs(scholarship.Downloads) {
+		tryDelete(url)
+	}
+}
+
+func extractUploadURLs(data []byte) []string {
+	var urls []string
+	var items []any
+	if err := json.Unmarshal(data, &items); err != nil {
+		return nil
+	}
+	for _, item := range items {
+		switch v := item.(type) {
+		case string:
+			if strings.HasPrefix(v, "/uploads/") {
+				urls = append(urls, v)
+			}
+		case map[string]any:
+			if url, ok := v["url"].(string); ok && strings.HasPrefix(url, "/uploads/") {
+				urls = append(urls, url)
+			}
+		}
+	}
+	return urls
 }
 
 func (s *PaymentService) CreatePayment(appID uint, scholarshipID uint, userID *uint, req PaymentRequest) (*Payment, error) {
@@ -812,7 +905,7 @@ func (s *PaymentService) ProcessSuccessfulPayment(paymentID uint, transactionID 
 		s.scholarshipRepo.ApplicationSave(app)
 	}
 
-	return s.sendAdmitCard(payment)
+	return s.sendAdmitCard(app, payment)
 }
 
 func (s *PaymentService) UploadBankReceipt(paymentID uint, receiptURL string) error {
@@ -847,13 +940,102 @@ func (s *PaymentService) ApproveBankPayment(paymentID uint, approvedBy uint, rea
 			s.scholarshipRepo.ApplicationSave(app)
 		}
 
-		s.sendAdmitCard(payment)
+		s.sendAdmitCard(app, payment)
 	}
 	return s.repo.Update(payment)
 }
 
-func (s *PaymentService) sendAdmitCard(payment *Payment) error {
-	app, _ := s.scholarshipRepo.ApplicationFindByID(payment.ApplicationID)
+func (s *PaymentService) InitiateEsewaPayment(appID uint, amount float64) (*EsewaInitiateResponse, error) {
+	app, err := s.scholarshipRepo.ApplicationFindByID(appID)
+	if err != nil {
+		return nil, fmt.Errorf("application not found")
+	}
+
+	cfg := config.AppConfig
+	frontendURL := strings.TrimRight(cfg.FrontendURL, "/")
+
+	totalAmount := fmt.Sprintf("%.0f", amount)
+	taxAmount := "0"
+	transactionUUID := fmt.Sprintf("SCH-%d-%d", appID, time.Now().UnixMilli())
+
+	message := fmt.Sprintf("total_amount=%s,transaction_uuid=%s,product_code=%s", totalAmount, transactionUUID, cfg.EsewaMerchantCode)
+	h := hmac.New(sha256.New, []byte(cfg.EsewaSecretKey))
+	h.Write([]byte(message))
+	signature := base64.StdEncoding.EncodeToString(h.Sum(nil))
+
+	existingPayment, _ := s.repo.FindByApplicationID(appID)
+	if existingPayment != nil {
+		existingPayment.TransactionID = transactionUUID
+		existingPayment.Status = "pending"
+		s.repo.Update(existingPayment)
+	} else {
+		payment := &Payment{
+			ApplicationID: appID,
+			ScholarshipID: app.ScholarshipID,
+			Method:        "esewa",
+			Amount:        amount,
+			Status:        "pending",
+			TransactionID: transactionUUID,
+		}
+		if app.UserID != nil {
+			payment.UserID = app.UserID
+		}
+		if err := s.repo.Create(payment); err != nil {
+			return nil, err
+		}
+	}
+
+	return &EsewaInitiateResponse{
+		Amount:          fmt.Sprintf("%.0f", amount),
+		TaxAmount:       taxAmount,
+		TotalAmount:     totalAmount,
+		TransactionUUID: transactionUUID,
+		ProductCode:     cfg.EsewaMerchantCode,
+		Signature:       signature,
+		SuccessURL:      fmt.Sprintf("%s/scholarship-pay/%d/success", frontendURL, app.ScholarshipID),
+		FailureURL:      fmt.Sprintf("%s/scholarship-pay/%d/failure", frontendURL, app.ScholarshipID),
+		GatewayURL:      cfg.EsewaGatewayURL(),
+	}, nil
+}
+
+func (s *PaymentService) VerifyEsewaPayment(req EsewaVerifyRequest) (*Payment, error) {
+	if req.Status != "COMPLETE" {
+		return nil, fmt.Errorf("eSewa payment not completed, status: %s", req.Status)
+	}
+
+	payment, err := s.repo.FindByTransactionID(req.TransactionUUID)
+	if err != nil {
+		return nil, fmt.Errorf("payment not found for transaction: %s", req.TransactionUUID)
+	}
+
+	payment.Status = "completed"
+	payment.TransactionID = req.TransactionUUID
+	now := time.Now()
+	payment.PaidAt = &now
+
+	if err := s.repo.Update(payment); err != nil {
+		return nil, err
+	}
+
+	app, _ := s.scholarshipRepo.ApplicationFindByID(req.ApplicationID)
+	if app != nil {
+		if app.Status != "confirmed" {
+			app.Status = "pending"
+		}
+		if app.RollNumber == "" {
+			app.RollNumber = fmt.Sprintf("PS-%05d", app.ID)
+		}
+		s.scholarshipRepo.ApplicationSave(app)
+
+		if err := s.sendAdmitCard(app, payment); err != nil {
+			log.Printf("esewa: failed to send admit card: %v", err)
+		}
+	}
+
+	return payment, nil
+}
+
+func (s *PaymentService) sendAdmitCard(app *ScholarshipApplication, payment *Payment) error {
 	scholarship, _ := s.scholarshipRepo.FindByID(payment.ScholarshipID)
 
 	if app == nil || scholarship == nil {
@@ -880,7 +1062,7 @@ func (s *PaymentService) sendAdmitCard(payment *Payment) error {
 		Provider:         scholarship.Provider,
 		ExamDate:         scholarship.ExamDate,
 		ExamTime:         scholarship.ExamTime,
-		SubjectName:      scholarship.ScholarshipType,
+		SubjectName:      app.Stream,
 	}
 
 	pdfBytes, err := GenerateAdmitCardPDF(cardData)

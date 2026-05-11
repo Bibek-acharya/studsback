@@ -124,6 +124,7 @@ type UpdateScholarshipApplicationStatusRequest struct {
 
 type ScholarshipResponse struct {
 	ID               uint          `json:"id"`
+	Slug             string        `json:"slug"`
 	Title            string        `json:"title"`
 	Provider         string        `json:"provider"`
 	Location         string        `json:"location"`
@@ -211,6 +212,7 @@ type ScholarshipListResponse struct {
 
 type ScholarshipSummary struct {
 	ID          uint   `json:"id"`
+	Slug        string `json:"slug"`
 	Title       string `json:"title"`
 	Provider    string `json:"provider"`
 	Deadline    string `json:"deadline"`
