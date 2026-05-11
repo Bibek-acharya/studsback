@@ -5,9 +5,13 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"os"
+	"strings"
 	"text/template"
 	"time"
+
+	"studsphere/backend/internal/shared/storage"
 
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/chromedp"
@@ -72,7 +76,7 @@ const admitCardHTMLTemplate = `<!DOCTYPE html>
             </div>
             <div class="w-32 shrink-0 flex items-center justify-end">
                 <div class="w-20 h-20 border border-gray-400 p-1 bg-white">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/d/d0/QR_code_for_mobile_English_Wikipedia.svg" alt="QR" class="w-full h-full object-contain">
+                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://studsphere.com/" alt="QR" class="w-full h-full object-contain" onerror="this.src='https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=https://studsphere.com/'">
                 </div>
             </div>
         </div>
@@ -157,34 +161,59 @@ const admitCardHTMLTemplate = `<!DOCTYPE html>
 </body>
 </html>`
 
-// PhotoToBase64 reads an uploaded photo from the local filesystem and returns a base64 data URL.
-// The path should be a relative upload path like "/uploads/scholarship/photos/12345.jpg".
+// PhotoToBase64 reads an uploaded photo from MinIO (or local filesystem as fallback) and returns a base64 data URL.
+// The path should be like "/uploads/scholarship/photos/12345.jpg".
 func PhotoToBase64(photoPath string) string {
 	if photoPath == "" {
 		return ""
 	}
-	// Strip leading slash and use local path
-	localPath := photoPath
-	if localPath[0] == '/' {
-		localPath = "." + localPath
+
+	// Strip /uploads/ prefix to get the MinIO object path
+	objectPath := strings.TrimPrefix(photoPath, "/uploads/")
+	objectPath = strings.TrimPrefix(objectPath, "/")
+
+	// Try MinIO first
+	reader, info, err := storage.Get(objectPath)
+	if err == nil {
+		data, readErr := io.ReadAll(reader)
+		if readErr == nil {
+			mimeType := info.ContentType
+			if mimeType == "" {
+				mimeType = detectMimeType(data)
+			}
+			return fmt.Sprintf("data:%s;base64,%s", mimeType, base64.StdEncoding.EncodeToString(data))
+		}
 	}
-	data, err := os.ReadFile(localPath)
+
+	// Fallback: try local filesystem
+	data, err := os.ReadFile(photoPath)
+	if err != nil && len(photoPath) > 0 && photoPath[0] == '/' {
+		data, err = os.ReadFile("." + photoPath)
+	}
 	if err != nil {
 		return ""
 	}
-	mimeType := "image/jpeg"
-	if len(data) > 4 {
-		if data[0] == 0x89 && data[1] == 'P' && data[2] == 'N' && data[3] == 'G' {
-			mimeType = "image/png"
-		} else if data[0] == 'G' && data[1] == 'I' && data[2] == 'F' {
-			mimeType = "image/gif"
-		} else if data[0] == 0x52 && data[1] == 0x49 && data[2] == 0x46 && data[3] == 0x46 {
-			mimeType = "image/webp"
-		} else if data[0] == '<' {
-			mimeType = "image/svg+xml"
-		}
+
+	return fmt.Sprintf("data:%s;base64,%s", detectMimeType(data), base64.StdEncoding.EncodeToString(data))
+}
+
+func detectMimeType(data []byte) string {
+	if len(data) < 4 {
+		return "image/jpeg"
 	}
-	return fmt.Sprintf("data:%s;base64,%s", mimeType, base64.StdEncoding.EncodeToString(data))
+	if data[0] == 0x89 && data[1] == 'P' && data[2] == 'N' && data[3] == 'G' {
+		return "image/png"
+	}
+	if data[0] == 'G' && data[1] == 'I' && data[2] == 'F' {
+		return "image/gif"
+	}
+	if data[0] == 0x52 && data[1] == 0x49 && data[2] == 0x46 && data[3] == 0x46 {
+		return "image/webp"
+	}
+	if data[0] == '<' {
+		return "image/svg+xml"
+	}
+	return "image/jpeg"
 }
 
 // GenerateAdmitCardPDF renders the admit card HTML with the given data and returns a PDF as bytes.
@@ -237,6 +266,8 @@ func GenerateAdmitCardPDF(data AdmitCardData) ([]byte, error) {
 				chromedp.Flag("no-sandbox", true),
 				chromedp.Flag("disable-gpu", true),
 				chromedp.Flag("headless", true),
+				chromedp.Flag("disable-web-security", true),
+				chromedp.Flag("allow-file-access-from-files", true),
 			)...,
 		)
 	} else {
@@ -246,6 +277,8 @@ func GenerateAdmitCardPDF(data AdmitCardData) ([]byte, error) {
 				chromedp.Flag("no-sandbox", true),
 				chromedp.Flag("disable-gpu", true),
 				chromedp.Flag("headless", true),
+				chromedp.Flag("disable-web-security", true),
+				chromedp.Flag("allow-file-access-from-files", true),
 			)...,
 		)
 	}
