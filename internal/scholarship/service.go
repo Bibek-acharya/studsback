@@ -540,9 +540,11 @@ func (s *Service) GetMyApplications(userID uint) ([]ScholarshipApplication, erro
 
 func (s *Service) sendAdmitCard(app *ScholarshipApplication, scholarship *Scholarship) {
 	if app.RollNumber == "" {
-		app.RollNumber = fmt.Sprintf("PS-%05d", app.ID)
-		s.repo.UpdateApplicationRollNumber(app.ID, app.RollNumber)
-		s.repo.UpdateProviderApplicationRollNumber(app.ID, app.RollNumber)
+		if seq, err := s.repo.GetNextRollNumber(); err == nil {
+			app.RollNumber = fmt.Sprintf("PS-%05d", seq)
+			s.repo.UpdateApplicationRollNumber(app.ID, app.RollNumber)
+			s.repo.UpdateProviderApplicationRollNumber(app.ID, app.RollNumber)
+		}
 	}
 
 	dobStr := ""
@@ -1143,7 +1145,9 @@ func (s *PaymentService) VerifyEsewaPayment(req EsewaVerifyRequest) (*Payment, e
 			app.Status = "pending"
 		}
 		if app.RollNumber == "" {
-			app.RollNumber = fmt.Sprintf("PS-%05d", app.ID)
+			if seq, err := s.scholarshipRepo.GetNextRollNumber(); err == nil {
+				app.RollNumber = fmt.Sprintf("PS-%05d", seq)
+			}
 		}
 		s.scholarshipRepo.ApplicationSave(app)
 		s.scholarshipRepo.UpdateProviderApplicationRollNumber(app.ID, app.RollNumber)

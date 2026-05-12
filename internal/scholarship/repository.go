@@ -271,6 +271,12 @@ func (r *Repository) UpdateApplicationRollNumber(id uint, rollNumber string) err
 	return r.db.Model(&ScholarshipApplication{}).Where("id = ?", id).Update("roll_number", rollNumber).Error
 }
 
+func (r *Repository) GetNextRollNumber() (int, error) {
+	var seq int
+	err := r.db.Raw("SELECT nextval('scholarship_roll_number_seq')").Scan(&seq).Error
+	return seq, err
+}
+
 func (r *Repository) UpdateProviderApplicationRollNumber(scholarshipApplicationID uint, rollNumber string) error {
 	return r.db.Table("provider_applications").Where("scholarship_application_id = ?", scholarshipApplicationID).Update("roll_number", rollNumber).Error
 }
