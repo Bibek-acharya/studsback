@@ -189,6 +189,23 @@ func main() {
 	scholarshipRepo := scholarship.NewRepository(db)
 	scholarshipSvc := scholarship.NewService(scholarshipRepo, db)
 	scholarshipHandler := scholarship.NewHandler(scholarshipSvc, scholarship.NewPaymentService(db))
+
+	go func() {
+		time.Sleep(10 * time.Second)
+		ticker := time.NewTicker(48 * time.Hour)
+		defer ticker.Stop()
+		for range ticker.C {
+			cutoff := time.Now().Add(-24 * time.Hour)
+			count, err := scholarshipSvc.PurgeOldDraftApplications(cutoff)
+			if err != nil {
+				logger.Error("Failed to purge old draft applications", "error", err)
+			} else if count > 0 {
+				logger.Info("Purged old draft applications", "count", count)
+			}
+		}
+	}()
+	logger.Info("Draft application cleanup cron started")
+
 	scholarshipPHandler := initModule(scholarshipprovider.NewRepository(db), scholarshipprovider.NewService, scholarshipprovider.NewHandler)
 
 	auth.SetScholarshipProviderHandler(scholarshipPHandler)

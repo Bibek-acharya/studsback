@@ -273,7 +273,7 @@ func (r *Repository) UpdateApplicationRollNumber(id uint, rollNumber string) err
 
 func (r *Repository) ApplicationFindByUserID(userID uint) ([]ScholarshipApplication, error) {
 	var applications []ScholarshipApplication
-	err := r.db.Where("user_id = ?", userID).Preload("Scholarship").Order("created_at DESC").Find(&applications).Error
+	err := r.db.Where("user_id = ? AND status != ?", userID, ApplicationStatusDraft).Preload("Scholarship").Order("created_at DESC").Find(&applications).Error
 	return applications, err
 }
 
@@ -300,6 +300,8 @@ func (r *Repository) ApplicationFindAll(status string) ([]ScholarshipApplication
 
 	if status != "" {
 		query = query.Where("status = ?", status)
+	} else {
+		query = query.Where("status != ?", ApplicationStatusDraft)
 	}
 
 	err := query.Order("created_at DESC").Find(&applications).Error
@@ -311,9 +313,16 @@ func (r *Repository) ApplicationFindByScholarshipID(scholarshipID string, status
 	query := r.db.Where("scholarship_id = ?", scholarshipID)
 	if status != "" {
 		query = query.Where("status = ?", status)
+	} else {
+		query = query.Where("status != ?", ApplicationStatusDraft)
 	}
 	err := query.Find(&apps).Error
 	return apps, err
+}
+
+func (r *Repository) ApplicationDeleteOlderThan(cutoff time.Time) (int64, error) {
+	result := r.db.Where("status = ? AND created_at < ?", ApplicationStatusDraft, cutoff).Delete(&ScholarshipApplication{})
+	return result.RowsAffected, result.Error
 }
 
 func (r *Repository) ApplicationFindByUserAndScholarshipID(scholarshipID uint, userID uint) (*ScholarshipApplication, error) {
@@ -323,6 +332,12 @@ func (r *Repository) ApplicationFindByUserAndScholarshipID(scholarshipID uint, u
 		return nil, err
 	}
 	return &app, nil
+}
+
+func (r *Repository) UpdateProviderApplicationStatus(appID uint, status string) error {
+	return r.db.Table("provider_applications").
+		Where("scholarship_application_id = ?", appID).
+		Update("status", status).Error
 }
 
 func (r *Repository) ApplicationExists(scholarshipID uint, userID uint) bool {
@@ -386,7 +401,7 @@ func (r *Repository) CreateProviderApplication(providerScholarshipID uint, app *
 		"mother_occupation_other": app.MotherOccupationOther,
 		"family_monthly_income":   app.FamilyMonthlyIncome,
 		"family_members_count":    app.FamilyMembersCount,
-		"status":                  "pending",
+		"status":                  statusForProviderApp(app.Status),
 		"stream":                  app.Stream,
 		"exam_center":             app.ExamCenter,
 		"roll_number":             app.RollNumber,
@@ -396,6 +411,13 @@ func (r *Repository) CreateProviderApplication(providerScholarshipID uint, app *
 		"created_at":               now,
 		"updated_at":              now,
 	}).Error
+}
+
+func statusForProviderApp(appStatus string) string {
+	if appStatus == ApplicationStatusDraft {
+		return "pending_payment"
+	}
+	return appStatus
 }
 
 func splitFullName(fullName string) [2]string {

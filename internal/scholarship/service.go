@@ -402,7 +402,7 @@ func (s *Service) CreateDraftApplication(scholarshipID uint, userID uint) (*Scho
 	application := &ScholarshipApplication{
 		ScholarshipID: scholarship.ID,
 		UserID:        &userID,
-		Status:        ApplicationStatusPendingPayment,
+		Status:        ApplicationStatusDraft,
 	}
 
 	if err := s.repo.ApplicationCreate(application); err != nil {
@@ -496,7 +496,7 @@ func (s *Service) ApplyScholarship(scholarshipID uint, userID *uint, req Scholar
 
 		Status: func() string {
 			if req.RequiresPayment {
-				return ApplicationStatusPendingPayment
+				return ApplicationStatusDraft
 			}
 			return "pending"
 		}(),
@@ -766,6 +766,10 @@ func (s *Service) DeleteApplication(id uint, userID uint) error {
 	return s.repo.ApplicationDelete(id)
 }
 
+func (s *Service) PurgeOldDraftApplications(before time.Time) (int64, error) {
+	return s.repo.ApplicationDeleteOlderThan(before)
+}
+
 func (s *Service) GetAllApplications(status string) ([]ScholarshipApplication, error) {
 	return s.repo.ApplicationFindAll(status)
 }
@@ -1016,7 +1020,20 @@ func (s *PaymentService) UploadBankReceipt(paymentID uint, receiptURL string) er
 
 	payment.Status = "pending_approval"
 	payment.ReceiptURL = receiptURL
-	return s.repo.Update(payment)
+	if err := s.repo.Update(payment); err != nil {
+		return err
+	}
+
+	app, err := s.scholarshipRepo.ApplicationFindByID(payment.ApplicationID)
+	if err == nil && app.Status == ApplicationStatusDraft {
+		app.Status = ApplicationStatusPendingPayment
+		if err := s.scholarshipRepo.ApplicationSave(app); err != nil {
+			return err
+		}
+		s.scholarshipRepo.UpdateProviderApplicationStatus(app.ID, "pending")
+	}
+
+	return nil
 }
 
 func (s *PaymentService) ApproveBankPayment(paymentID uint, approvedBy uint, reason string) error {
@@ -1039,6 +1056,7 @@ func (s *PaymentService) ApproveBankPayment(paymentID uint, approvedBy uint, rea
 		if app != nil && app.Status != "confirmed" {
 			app.Status = "pending"
 			s.scholarshipRepo.ApplicationSave(app)
+			s.scholarshipRepo.UpdateProviderApplicationStatus(app.ID, "pending")
 		}
 
 		s.sendAdmitCard(app, payment)
@@ -1127,6 +1145,7 @@ func (s *PaymentService) VerifyEsewaPayment(req EsewaVerifyRequest) (*Payment, e
 			app.RollNumber = fmt.Sprintf("PS-%05d", app.ID)
 		}
 		s.scholarshipRepo.ApplicationSave(app)
+		s.scholarshipRepo.UpdateProviderApplicationStatus(app.ID, "pending")
 
 		if err := s.sendAdmitCard(app, payment); err != nil {
 			log.Printf("esewa: failed to send admit card: %v", err)

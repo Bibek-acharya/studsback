@@ -7,6 +7,7 @@ const (
 	ApplicationStatusRejected     = "rejected"
 	ApplicationStatusShortlisted  = "shortlisted"
 	ApplicationStatusPendingPayment = "pending_payment"
+	ApplicationStatusDraft         = "draft"
 )
 
 type CreateScholarshipRequest struct {
