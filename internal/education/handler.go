@@ -505,6 +505,96 @@ func (h *Handler) UploadBlogImage(c *gin.Context) {
 	response.Success(c, http.StatusOK, "Image uploaded successfully", gin.H{"url": urls[0]})
 }
 
+// ─── Admin News CRUD Handlers ─────────────────────────────────────────────────
+
+func (h *Handler) AdminGetNews(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	category := c.Query("category")
+	search := c.Query("search")
+
+	news, meta, err := h.service.GetAllNewsAdmin(page, limit, category, search)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch news")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "News retrieved successfully", gin.H{
+		"news": news,
+		"meta": meta,
+	})
+}
+
+func (h *Handler) AdminCreateNews(c *gin.Context) {
+	var req CreateNewsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	news, err := h.service.CreateNewsAdmin(req)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to create news")
+		return
+	}
+
+	response.Success(c, http.StatusCreated, "News created successfully", news)
+}
+
+func (h *Handler) AdminGetNewsByID(c *gin.Context) {
+	id := c.Param("id")
+	news, err := h.service.GetNewsByIDAdmin(id)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "News not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "News retrieved successfully", news)
+}
+
+func (h *Handler) AdminUpdateNews(c *gin.Context) {
+	id := c.Param("id")
+	var req UpdateNewsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	news, err := h.service.UpdateNewsAdmin(id, req)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to update news")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "News updated successfully", news)
+}
+
+func (h *Handler) AdminDeleteNews(c *gin.Context) {
+	id := c.Param("id")
+	if err := h.service.DeleteNewsAdmin(id); err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to delete news")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "News deleted successfully", nil)
+}
+
+func (h *Handler) AdminUploadNewsImage(c *gin.Context) {
+	file, err := c.FormFile("image")
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "No image file provided")
+		return
+	}
+
+	url, err := h.service.UploadNewsImage(file)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to upload image")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Image uploaded successfully", gin.H{"url": url})
+}
+
 func (h *Handler) GetBlogComments(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {

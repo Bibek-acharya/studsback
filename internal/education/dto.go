@@ -255,3 +255,45 @@ type UpdateBlogRequest struct {
 	Featured  *bool    `json:"featured"`
 	Published *bool    `json:"published"`
 }
+
+type CreateNewsRequest struct {
+	Category string   `json:"category" binding:"required"`
+	Title    string   `json:"title" binding:"required"`
+	Excerpt  string   `json:"excerpt"`
+	Content  string   `json:"content" binding:"required"`
+	Image    string   `json:"image"`
+	Author   string   `json:"author"`
+	Date     string   `json:"date"`
+	ReadTime string   `json:"readTime"`
+	Source   string   `json:"source"`
+	Tags     []string `json:"tags"`
+}
+
+type UpdateNewsRequest struct {
+	Category string   `json:"category"`
+	Title    string   `json:"title"`
+	Excerpt  string   `json:"excerpt"`
+	Content  string   `json:"content"`
+	Image    string   `json:"image"`
+	Author   string   `json:"author"`
+	Date     string   `json:"date"`
+	ReadTime string   `json:"readTime"`
+	Source   string   `json:"source"`
+	Tags     []string `json:"tags"`
+}
+
+type AdminNewsResponse struct {
+	ID        uint     `json:"id"`
+	Category  string   `json:"category"`
+	Title     string   `json:"title"`
+	Excerpt   string   `json:"excerpt"`
+	Content   string   `json:"content"`
+	Image     string   `json:"image"`
+	Author    string   `json:"author"`
+	Date      string   `json:"date"`
+	ReadTime  string   `json:"readTime"`
+	Source    string   `json:"source"`
+	Tags      []string `json:"tags"`
+	CreatedAt string   `json:"created_at"`
+	UpdatedAt string   `json:"updated_at"`
+}

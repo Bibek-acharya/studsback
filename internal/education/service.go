@@ -920,6 +920,146 @@ func (s *Service) UploadBlogImage(file *multipart.FileHeader) ([]string, error) 
 	return []string{url}, nil
 }
 
+func buildAdminNewsResponse(news News) AdminNewsResponse {
+	return AdminNewsResponse{
+		ID:        news.ID,
+		Category:  news.Category,
+		Title:     news.Title,
+		Excerpt:   news.Excerpt,
+		Content:   news.Content,
+		Image:     news.Image,
+		Author:    news.Author,
+		Date:      news.Date,
+		ReadTime:  news.ReadTime,
+		Source:    news.Source,
+		Tags:      parseStringArrayField(news.Tags),
+		CreatedAt: news.CreatedAt.String(),
+		UpdatedAt: news.UpdatedAt.String(),
+	}
+}
+
+func (s *Service) GetAllNewsAdmin(page, limit int, category, search string) ([]AdminNewsResponse, PaginationMeta, error) {
+	news, total, err := s.repo.FindAllNewsAdmin(page, limit, category, search)
+	if err != nil {
+		return nil, PaginationMeta{}, err
+	}
+
+	pages := (total + int64(limit) - 1) / int64(limit)
+	if total == 0 {
+		pages = 0
+	}
+
+	meta := PaginationMeta{
+		Total: total,
+		Page:  page,
+		Limit: limit,
+		Pages: pages,
+	}
+
+	responses := make([]AdminNewsResponse, 0, len(news))
+	for _, n := range news {
+		responses = append(responses, buildAdminNewsResponse(n))
+	}
+	return responses, meta, nil
+}
+
+func (s *Service) CreateNewsAdmin(req CreateNewsRequest) (*AdminNewsResponse, error) {
+	tagsJSON, _ := json.Marshal(req.Tags)
+
+	news := News{
+		Category: req.Category,
+		Title:    req.Title,
+		Excerpt:  req.Excerpt,
+		Content:  req.Content,
+		Image:    req.Image,
+		Author:   req.Author,
+		Date:     req.Date,
+		ReadTime: req.ReadTime,
+		Source:   req.Source,
+		Tags:     tagsJSON,
+	}
+
+	if err := s.repo.CreateNews(&news); err != nil {
+		return nil, err
+	}
+
+	resp := buildAdminNewsResponse(news)
+	return &resp, nil
+}
+
+func (s *Service) GetNewsByIDAdmin(id string) (*AdminNewsResponse, error) {
+	news, err := s.repo.FindNewsByIDAdmin(id)
+	if err != nil {
+		return nil, err
+	}
+	resp := buildAdminNewsResponse(*news)
+	return &resp, nil
+}
+
+func (s *Service) UpdateNewsAdmin(id string, req UpdateNewsRequest) (*AdminNewsResponse, error) {
+	news, err := s.repo.FindNewsByIDAdmin(id)
+	if err != nil {
+		return nil, err
+	}
+
+	if req.Title != "" {
+		news.Title = req.Title
+	}
+	if req.Category != "" {
+		news.Category = req.Category
+	}
+	if req.Excerpt != "" {
+		news.Excerpt = req.Excerpt
+	}
+	if req.Content != "" {
+		news.Content = req.Content
+	}
+	if req.Image != "" {
+		news.Image = req.Image
+	}
+	if req.Author != "" {
+		news.Author = req.Author
+	}
+	if req.Date != "" {
+		news.Date = req.Date
+	}
+	if req.ReadTime != "" {
+		news.ReadTime = req.ReadTime
+	}
+	if req.Source != "" {
+		news.Source = req.Source
+	}
+	if req.Tags != nil {
+		tagsJSON, _ := json.Marshal(req.Tags)
+		news.Tags = tagsJSON
+	}
+
+	if err := s.repo.UpdateNews(news); err != nil {
+		return nil, err
+	}
+
+	resp := buildAdminNewsResponse(*news)
+	return &resp, nil
+}
+
+func (s *Service) DeleteNewsAdmin(id string) error {
+	return s.repo.DeleteNews(id)
+}
+
+func (s *Service) UploadNewsImage(file *multipart.FileHeader) (string, error) {
+	ct := file.Header.Get("Content-Type")
+	if !strings.HasPrefix(ct, "image/") {
+		return "", fmt.Errorf("only image files are allowed")
+	}
+
+	url, err := utils.SaveUploadedImage(file, "news")
+	if err != nil {
+		return "", fmt.Errorf("failed to upload image: %w", err)
+	}
+
+	return url, nil
+}
+
 func (s *Service) GetPublicEntrances(page, limit int, search, level, stream, status string) ([]Exam, int64, error) {
 	return s.repo.GetPublicEntrances(page, limit, search, level, stream, status)
 }

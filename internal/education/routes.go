@@ -63,6 +63,19 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			adminEvents.PUT("/:id/feature", h.ToggleEventFeatured)
 		}
 
+		// Admin news management routes
+		adminNews := v1.Group("/admin/news")
+		adminNews.Use(authMW)
+		adminNews.Use(roleMW)
+		{
+			adminNews.GET("", h.AdminGetNews)
+			adminNews.POST("", h.AdminCreateNews)
+			adminNews.GET("/:id", h.AdminGetNewsByID)
+			adminNews.PUT("/:id", h.AdminUpdateNews)
+			adminNews.DELETE("/:id", h.AdminDeleteNews)
+			adminNews.POST("/upload-image", h.AdminUploadNewsImage)
+		}
+
 		// Blog comments (public)
 		v1.GET("/blogs/:id/comments", h.GetBlogComments)
 		v1.POST("/blogs/:id/comments", h.CreateBlogComment)

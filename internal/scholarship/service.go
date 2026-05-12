@@ -1037,7 +1037,7 @@ func (s *PaymentService) InitiateEsewaPayment(appID uint, amount float64) (*Esew
 }
 
 func (s *PaymentService) VerifyEsewaPayment(req EsewaVerifyRequest) (*Payment, error) {
-	if req.Status != "COMPLETE" {
+	if strings.ToUpper(req.Status) != "COMPLETE" {
 		return nil, fmt.Errorf("eSewa payment not completed, status: %s", req.Status)
 	}
 

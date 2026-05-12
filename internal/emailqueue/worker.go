@@ -454,7 +454,7 @@ func renderEmailWrapper(title, content string) string {
             </div>
             <div class="footer-text">
                 <p>This email can't receive replies. For more information, visit the <a href="https://studsphere.com/help">Studsphere Help Center</a>.</p>
-                <p>&copy; 2026 Studsphere Inc., Sallyan House, Baghbajar Kathmandu, Nepal</p>
+                <p>&copy; 2026 Stud Sphere Pvt. Ltd., Sallyan House, Bagbazar Kathmandu, Nepal</p>
             </div>
         </div>
     </div>

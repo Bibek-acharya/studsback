@@ -593,6 +593,64 @@ func (r *Repository) IncrementCommentLikes(id uint) error {
 	return r.db.Model(&BlogComment{}).Where("id = ?", id).Update("likes", gorm.Expr("likes + ?", 1)).Error
 }
 
+// ─── Admin News CRUD ─────────────────────────────────────────────────────────
+
+func (r *Repository) FindAllNewsAdmin(page, limit int, category, search string) ([]News, int64, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50 {
+		limit = 10
+	}
+	offset := (page - 1) * limit
+
+	query := r.db.Model(&News{})
+
+	if category != "" {
+		query = query.Where("category = ?", category)
+	}
+	if search != "" {
+		query = query.Where("title ILIKE ? OR excerpt ILIKE ?", "%"+search+"%", "%"+search+"%")
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var news []News
+	err := query.Order("created_at desc").Offset(offset).Limit(limit).Find(&news).Error
+	return news, total, err
+}
+
+func (r *Repository) CreateNews(news *News) error {
+	return r.db.Create(news).Error
+}
+
+func (r *Repository) FindNewsByIDAdmin(id string) (*News, error) {
+	var news News
+	err := r.db.First(&news, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &news, nil
+}
+
+func (r *Repository) UpdateNews(news *News) error {
+	return r.db.Save(news).Error
+}
+
+func (r *Repository) DeleteNews(id string) error {
+	result := r.db.Delete(&News{}, id)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
 func (r *Repository) GetPublicEntrances(page, limit int, search, level, stream, status string) ([]Exam, int64, error) {
 	var exams []Exam
 	var total int64

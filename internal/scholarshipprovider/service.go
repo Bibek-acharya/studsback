@@ -726,9 +726,15 @@ func (s *Service) UpdateScholarship(providerID, id uint, req CreateScholarshipRe
 	}
 
 	if deadlineValue != "" {
-		if parsed, ok := parseOptionalTime(deadlineValue); ok {
-			updates["deadline"] = parsed
-			updates["application_end_date"] = parsed
+		parsed, ok := parseOptionalTime(deadlineValue)
+		if ok {
+			if !parsed.IsZero() {
+				updates["deadline"] = parsed
+				updates["application_end_date"] = parsed
+			} else {
+				updates["deadline"] = time.Time{}
+				updates["application_end_date"] = time.Time{}
+			}
 		} else {
 			return nil, errors.New("invalid application end date")
 		}
@@ -813,9 +819,15 @@ func (s *Service) UpdateScholarship(providerID, id uint, req CreateScholarshipRe
 		resolved.ApplicationStartDate = time.Time{}
 	}
 	if deadlineValue != "" {
-		if parsed, ok := parseOptionalTime(deadlineValue); ok {
-			resolved.Deadline = parsed
-			resolved.ApplicationEndDate = parsed
+		parsed, ok := parseOptionalTime(deadlineValue)
+		if ok {
+			if !parsed.IsZero() {
+				resolved.Deadline = parsed
+				resolved.ApplicationEndDate = parsed
+			} else {
+				resolved.Deadline = time.Time{}
+				resolved.ApplicationEndDate = time.Time{}
+			}
 		} else {
 			return nil, errors.New("invalid application end date")
 		}
@@ -868,7 +880,31 @@ func (s *Service) GetApplications(providerID uint, page, limit int, status, scho
 		limit = 10
 	}
 
-	return s.repo.GetApplicationsByProvider(providerID, page, limit, status, scholarshipID)
+	applications, total, err := s.repo.GetApplicationsByProvider(providerID, page, limit, status, scholarshipID)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Auto-approve pending eSewa payments and send admit cards
+	for i, app := range applications {
+		if app.Payment != nil && app.Payment.Method == "esewa" && app.Payment.Status == "pending" && app.ScholarshipApplicationID != nil {
+			payment, lookupErr := s.repo.FindPaymentByApplicationID(*app.ScholarshipApplicationID)
+			if lookupErr != nil {
+				continue
+			}
+			payment.Status = "completed"
+			now := time.Now()
+			payment.PaidAt = &now
+			if updateErr := s.repo.UpdatePayment(payment); updateErr != nil {
+				continue
+			}
+			applications[i].Payment.Status = "completed"
+			applications[i].Payment.PaidAt = &now
+			go s.sendAdmitCard(&app, payment)
+		}
+	}
+
+	return applications, total, nil
 }
 
 func (s *Service) GetApplicationByID(providerID, id uint) (*ProviderApplication, error) {
@@ -887,6 +923,7 @@ func (s *Service) GetApplicationByID(providerID, id uint) (*ProviderApplication,
 			if updateErr := s.repo.UpdatePayment(payment); updateErr == nil {
 				app.Payment.Status = "completed"
 				app.Payment.PaidAt = &now
+				s.sendAdmitCard(app, payment)
 			}
 		}
 	}
