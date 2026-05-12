@@ -1014,7 +1014,7 @@ func (s *Service) sendAdmitCard(application *ProviderApplication, payment *publi
 		Provider:         scholarship.Provider,
 		ExamDate:         scholarship.ExamDate,
 		ExamTime:         scholarship.ExamTime,
-		SubjectName:      scholarship.ScholarshipType,
+		SubjectName:      application.Stream,
 	}
 
 	pdfBytes, err := publicscholarship.GenerateAdmitCardPDF(cardData)
