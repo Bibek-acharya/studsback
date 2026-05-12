@@ -223,6 +223,15 @@ func main() {
 			ct = "application/octet-stream"
 		}
 
+		filename := filepath
+		if idx := strings.LastIndex(filepath, "/"); idx >= 0 {
+			filename = filepath[idx+1:]
+		}
+
+		if c.Query("dl") == "1" {
+			c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
+		}
+
 		c.DataFromReader(http.StatusOK, -1, ct, reader, nil)
 	})
 	router.Static("/docs", "./docs")
