@@ -1,5 +1,7 @@
 package institution
 
+import "encoding/json"
+
 type CreateProgramRequest struct {
 	Name        string `json:"name" binding:"required"`
 	Description string `json:"description"`
@@ -249,61 +251,185 @@ type SettingsResponse struct {
 	PublicProfile bool   `json:"public_profile"`
 }
 
+// --- Admission Profile Sub-Object Types ---
+
+type OverviewData struct {
+	OverviewHeading     string `json:"overviewHeading"`
+	OverviewDesc        string `json:"overviewDesc"`
+	ApplicationFormLink string `json:"applicationFormLink"`
+	Level               string `json:"level"`
+}
+
+type WhatsNewData struct {
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	BtnText     string `json:"btnText"`
+	BtnLink     string `json:"btnLink"`
+}
+
+type ProgramDataItem struct {
+	Title           string   `json:"title"`
+	Subtitle        string   `json:"subtitle"`
+	AdmissionStatus string   `json:"admissionStatus"`
+	ProgramIcon     string   `json:"programIcon"`
+	Description     string   `json:"description"`
+	Streams         []string `json:"streams"`
+	Careers         []string `json:"careers"`
+}
+
+type FacilityDataItem struct {
+	Heading      string `json:"heading"`
+	FacilityIcon string `json:"facilityIcon"`
+	Description  string `json:"description"`
+}
+
+type CourseDataItem struct {
+	CourseName      string `json:"courseName"`
+	CurriculumLink  string `json:"curriculumLink"`
+	FeesText        string `json:"feesText"`
+	ApplicationDate string `json:"applicationDate"`
+	ApplyLink       string `json:"applyLink"`
+}
+
+type DownloadDataItem struct {
+	Title       string `json:"title"`
+	Description string `json:"description"`
+}
+
+type FaqDataItem struct {
+	Question string `json:"question"`
+	Answer   string `json:"answer"`
+}
+
+type ContactPersonItem struct {
+	Name        string `json:"name"`
+	Designation string `json:"designation"`
+	Number      string `json:"number"`
+	Email       string `json:"email"`
+	WhatsApp    string `json:"whatsapp"`
+}
+
+type ScholarshipDataItem struct {
+	Name        string `json:"name"`
+	Level       string `json:"level"`
+	Stream      string `json:"stream"`
+	Coverage    string `json:"coverage"`
+	Eligibility string `json:"eligibility"`
+	Seats       string `json:"seats"`
+}
+
+type EligibilityCriterion struct {
+	Level       string   `json:"level"`
+	Stream      string   `json:"stream"`
+	Eligibility []string `json:"eligibility"`
+	Documents   []string `json:"documents"`
+}
+
+type EligibilityData struct {
+	Criteria []EligibilityCriterion `json:"criteria"`
+}
+
+func (e *EligibilityData) UnmarshalJSON(data []byte) error {
+	var obj struct {
+		Criteria []EligibilityCriterion `json:"criteria"`
+	}
+	if err := json.Unmarshal(data, &obj); err == nil && obj.Criteria != nil {
+		e.Criteria = obj.Criteria
+		return nil
+	}
+	var arr []EligibilityCriterion
+	if err := json.Unmarshal(data, &arr); err == nil {
+		e.Criteria = arr
+		return nil
+	}
+	return json.Unmarshal(data, &obj)
+}
+
+type AdmissionProcessItem struct {
+	StepNumber  string `json:"stepNumber"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+}
+
+type BrochureData struct {
+	URL string `json:"url"`
+}
+
+// ProfileData mirrors the full JSONB shape stored in the profile_data column.
+type ProfileData struct {
+	Videos              interface{}            `json:"videos"`
+	OverviewData        *OverviewData          `json:"overview_data"`
+	LeadershipData      interface{}            `json:"leadership_data"`
+	CoursesData         []CourseDataItem       `json:"courses_data"`
+	ProgramsData        []ProgramDataItem      `json:"programs_data"`
+	FacilitiesData      []FacilityDataItem     `json:"facilities_data"`
+	AlumniData          interface{}            `json:"alumni_data"`
+	DownloadsData       []DownloadDataItem     `json:"downloads_data"`
+	GalleryData         interface{}            `json:"gallery_data"`
+	WhatsNewData        *WhatsNewData          `json:"whats_new_data"`
+	EligibilityData     *EligibilityData        `json:"eligibility_data"`
+	AdmissionProcessData []AdmissionProcessItem `json:"admission_process_data"`
+	ScholarshipsData    []ScholarshipDataItem   `json:"scholarships_data"`
+	FaqsData            []FaqDataItem           `json:"faqs_data"`
+	ContactPersonsData  []ContactPersonItem     `json:"contact_persons_data"`
+	BrochureData        *BrochureData           `json:"brochure_data"`
+}
+
 type UpdateProfileRequest struct {
-	InstitutionName      string      `json:"institution_name"`
-	RegistrationNumber   string      `json:"registration_number"`
-	Location             string      `json:"location"`
-	Website              string      `json:"website"`
-	LogoURL              string      `json:"logo_url"`
-	BannerURL            string      `json:"banner_url"`
-	About                string      `json:"about"`
-	Vision               string      `json:"vision"`
-	Mission              string      `json:"mission"`
-	Videos               interface{} `json:"videos"`
-	OverviewData         interface{} `json:"overview_data"`
-	LeadershipData       interface{} `json:"leadership_data"`
-	CoursesData          interface{} `json:"courses_data"`
-	ProgramsData         interface{} `json:"programs_data"`
-	FacilitiesData       interface{} `json:"facilities_data"`
-	AlumniData           interface{} `json:"alumni_data"`
-	DownloadsData        interface{} `json:"downloads_data"`
-	WhatsNewData         interface{} `json:"whats_new_data"`
-	EligibilityData      interface{} `json:"eligibility_data"`
-	AdmissionProcessData interface{} `json:"admission_process_data"`
-	ScholarshipsData     interface{} `json:"scholarships_data"`
-	FaqsData             interface{} `json:"faqs_data"`
-	ContactPersonsData   interface{} `json:"contact_persons_data"`
-	BrochureData         interface{} `json:"brochure_data"`
+	InstitutionName      string                `json:"institution_name"`
+	RegistrationNumber   string                `json:"registration_number"`
+	Location             string                `json:"location"`
+	Website              string                `json:"website"`
+	LogoURL              string                `json:"logo_url"`
+	BannerURL            string                `json:"banner_url"`
+	About                string                `json:"about"`
+	Vision               string                `json:"vision"`
+	Mission              string                `json:"mission"`
+	Videos               interface{}           `json:"videos"`
+	OverviewData         *OverviewData         `json:"overview_data"`
+	LeadershipData       interface{}           `json:"leadership_data"`
+	CoursesData          []CourseDataItem      `json:"courses_data"`
+	ProgramsData         []ProgramDataItem     `json:"programs_data"`
+	FacilitiesData       []FacilityDataItem    `json:"facilities_data"`
+	AlumniData           interface{}           `json:"alumni_data"`
+	DownloadsData        []DownloadDataItem    `json:"downloads_data"`
+	WhatsNewData         *WhatsNewData         `json:"whats_new_data"`
+	EligibilityData      *EligibilityData      `json:"eligibility_data"`
+	AdmissionProcessData []AdmissionProcessItem `json:"admission_process_data"`
+	ScholarshipsData     []ScholarshipDataItem  `json:"scholarships_data"`
+	FaqsData             []FaqDataItem          `json:"faqs_data"`
+	ContactPersonsData   []ContactPersonItem    `json:"contact_persons_data"`
+	BrochureData         *BrochureData          `json:"brochure_data"`
 }
 
 type ProfileResponse struct {
-	ID                    uint        `json:"id"`
-	InstitutionName       string      `json:"institution_name"`
-	Email                 string      `json:"email"`
-	RegistrationNumber    string      `json:"registration_number"`
-	Role                  string      `json:"role"`
-	Location              string      `json:"location,omitempty"`
-	Website               string      `json:"website,omitempty"`
-	LogoURL               string      `json:"logo_url,omitempty"`
-	BannerURL             string      `json:"banner_url,omitempty"`
-	About                 string      `json:"about,omitempty"`
-	Vision                string      `json:"vision,omitempty"`
-	Mission               string      `json:"mission,omitempty"`
-	Videos                interface{} `json:"videos,omitempty"`
-	OverviewData          interface{} `json:"overview_data,omitempty"`
-	LeadershipData        interface{} `json:"leadership_data,omitempty"`
-	CoursesData           interface{} `json:"courses_data,omitempty"`
-	ProgramsData          interface{} `json:"programs_data,omitempty"`
-	FacilitiesData        interface{} `json:"facilities_data,omitempty"`
-	AlumniData            interface{} `json:"alumni_data,omitempty"`
-	DownloadsData         interface{} `json:"downloads_data,omitempty"`
-	WhatsNewData          interface{} `json:"whats_new_data,omitempty"`
-	EligibilityData       interface{} `json:"eligibility_data,omitempty"`
-	AdmissionProcessData  interface{} `json:"admission_process_data,omitempty"`
-	ScholarshipsData      interface{} `json:"scholarships_data,omitempty"`
-	FaqsData              interface{} `json:"faqs_data,omitempty"`
-	ContactPersonsData    interface{} `json:"contact_persons_data,omitempty"`
-	BrochureData          interface{} `json:"brochure_data,omitempty"`
+	ID                    uint                  `json:"id"`
+	InstitutionName       string                `json:"institution_name"`
+	Email                 string                `json:"email"`
+	RegistrationNumber    string                `json:"registration_number"`
+	Role                  string                `json:"role"`
+	Location              string                `json:"location,omitempty"`
+	Website               string                `json:"website,omitempty"`
+	LogoURL               string                `json:"logo_url,omitempty"`
+	BannerURL             string                `json:"banner_url,omitempty"`
+	About                 string                `json:"about,omitempty"`
+	Vision                string                `json:"vision,omitempty"`
+	Mission               string                `json:"mission,omitempty"`
+	Videos                interface{}           `json:"videos,omitempty"`
+	OverviewData          *OverviewData         `json:"overview_data,omitempty"`
+	LeadershipData        interface{}           `json:"leadership_data,omitempty"`
+	CoursesData           []CourseDataItem      `json:"courses_data,omitempty"`
+	ProgramsData          []ProgramDataItem     `json:"programs_data,omitempty"`
+	FacilitiesData        []FacilityDataItem    `json:"facilities_data,omitempty"`
+	AlumniData            interface{}           `json:"alumni_data,omitempty"`
+	DownloadsData         []DownloadDataItem    `json:"downloads_data,omitempty"`
+	WhatsNewData          *WhatsNewData         `json:"whats_new_data,omitempty"`
+	EligibilityData       *EligibilityData      `json:"eligibility_data,omitempty"`
+	AdmissionProcessData  []AdmissionProcessItem `json:"admission_process_data,omitempty"`
+	ScholarshipsData      []ScholarshipDataItem  `json:"scholarships_data,omitempty"`
+	FaqsData              []FaqDataItem          `json:"faqs_data,omitempty"`
+	ContactPersonsData    []ContactPersonItem    `json:"contact_persons_data,omitempty"`
+	BrochureData          *BrochureData          `json:"brochure_data,omitempty"`
 }
 
 type UpdatePasswordRequest struct {
@@ -449,24 +575,24 @@ type PublicInstitutionResponse struct {
 }
 
 type PublicInstitutionDetailResponse struct {
-	ID                 uint        `json:"id"`
-	InstitutionName    string      `json:"institution_name"`
-	LogoURL            string      `json:"logo_url,omitempty"`
-	BannerURL          string      `json:"banner_url,omitempty"`
-	About              string      `json:"about,omitempty"`
-	Vision             string      `json:"vision,omitempty"`
-	Mission            string      `json:"mission,omitempty"`
-	District           string      `json:"district,omitempty"`
-	WebsiteURL         string      `json:"website_url,omitempty"`
-	Videos             interface{} `json:"videos,omitempty"`
-	OverviewData       interface{} `json:"overview_data,omitempty"`
-	LeadershipData     interface{} `json:"leadership_data,omitempty"`
-	CoursesData        interface{} `json:"courses_data,omitempty"`
-	ProgramsData       interface{} `json:"programs_data,omitempty"`
-	FacilitiesData     interface{} `json:"facilities_data,omitempty"`
-	AlumniData         interface{} `json:"alumni_data,omitempty"`
-	GalleryData        interface{} `json:"gallery_data,omitempty"`
-	DownloadsData      interface{} `json:"downloads_data,omitempty"`
+	ID                 uint                `json:"id"`
+	InstitutionName    string              `json:"institution_name"`
+	LogoURL            string              `json:"logo_url,omitempty"`
+	BannerURL          string              `json:"banner_url,omitempty"`
+	About              string              `json:"about,omitempty"`
+	Vision             string              `json:"vision,omitempty"`
+	Mission            string              `json:"mission,omitempty"`
+	District           string              `json:"district,omitempty"`
+	WebsiteURL         string              `json:"website_url,omitempty"`
+	Videos             interface{}         `json:"videos,omitempty"`
+	OverviewData       *OverviewData       `json:"overview_data,omitempty"`
+	LeadershipData     interface{}         `json:"leadership_data,omitempty"`
+	CoursesData        []CourseDataItem    `json:"courses_data,omitempty"`
+	ProgramsData       []ProgramDataItem   `json:"programs_data,omitempty"`
+	FacilitiesData     []FacilityDataItem  `json:"facilities_data,omitempty"`
+	AlumniData         interface{}         `json:"alumni_data,omitempty"`
+	GalleryData        interface{}         `json:"gallery_data,omitempty"`
+	DownloadsData      []DownloadDataItem  `json:"downloads_data,omitempty"`
 }
 
 type PaginatedResponse struct {

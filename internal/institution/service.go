@@ -87,27 +87,9 @@ func (s *Service) GetProfile(instID uint) (*ProfileResponse, error) {
 		return nil, err
 	}
 
-	var videos, overviewData, leadershipData, coursesData, programsData, facilitiesData, alumniData, downloadsData interface{}
-	var whatsNewData, eligibilityData, admissionProcessData, scholarshipsData, faqsData, contactPersonsData, brochureData interface{}
+	var pd ProfileData
 	if user.ProfileData != nil && *user.ProfileData != "" {
-		var data map[string]interface{}
-		if err := json.Unmarshal([]byte(*user.ProfileData), &data); err == nil {
-			if v, ok := data["videos"]; ok { videos = v }
-			if v, ok := data["overview_data"]; ok { overviewData = v }
-			if v, ok := data["leadership_data"]; ok { leadershipData = v }
-			if v, ok := data["courses_data"]; ok { coursesData = v }
-			if v, ok := data["programs_data"]; ok { programsData = v }
-			if v, ok := data["facilities_data"]; ok { facilitiesData = v }
-			if v, ok := data["alumni_data"]; ok { alumniData = v }
-			if v, ok := data["downloads_data"]; ok { downloadsData = v }
-			if v, ok := data["whats_new_data"]; ok { whatsNewData = v }
-			if v, ok := data["eligibility_data"]; ok { eligibilityData = v }
-			if v, ok := data["admission_process_data"]; ok { admissionProcessData = v }
-			if v, ok := data["scholarships_data"]; ok { scholarshipsData = v }
-			if v, ok := data["faqs_data"]; ok { faqsData = v }
-			if v, ok := data["contact_persons_data"]; ok { contactPersonsData = v }
-			if v, ok := data["brochure_data"]; ok { brochureData = v }
-		}
+		json.Unmarshal([]byte(*user.ProfileData), &pd)
 	}
 
 	return &ProfileResponse{
@@ -123,21 +105,21 @@ func (s *Service) GetProfile(instID uint) (*ProfileResponse, error) {
 		About:                 user.About,
 		Vision:                user.Vision,
 		Mission:               user.Mission,
-		Videos:                videos,
-		OverviewData:          overviewData,
-		LeadershipData:        leadershipData,
-		CoursesData:           coursesData,
-		ProgramsData:          programsData,
-		FacilitiesData:        facilitiesData,
-		AlumniData:            alumniData,
-		DownloadsData:         downloadsData,
-		WhatsNewData:          whatsNewData,
-		EligibilityData:       eligibilityData,
-		AdmissionProcessData:  admissionProcessData,
-		ScholarshipsData:      scholarshipsData,
-		FaqsData:              faqsData,
-		ContactPersonsData:    contactPersonsData,
-		BrochureData:          brochureData,
+		Videos:                pd.Videos,
+		OverviewData:          pd.OverviewData,
+		LeadershipData:        pd.LeadershipData,
+		CoursesData:           pd.CoursesData,
+		ProgramsData:          pd.ProgramsData,
+		FacilitiesData:        pd.FacilitiesData,
+		AlumniData:            pd.AlumniData,
+		DownloadsData:         pd.DownloadsData,
+		WhatsNewData:          pd.WhatsNewData,
+		EligibilityData:       pd.EligibilityData,
+		AdmissionProcessData:  pd.AdmissionProcessData,
+		ScholarshipsData:      pd.ScholarshipsData,
+		FaqsData:              pd.FaqsData,
+		ContactPersonsData:    pd.ContactPersonsData,
+		BrochureData:          pd.BrochureData,
 	}, nil
 }
 
@@ -985,20 +967,9 @@ func (s *Service) GetPublicInstitution(id uint) (*PublicInstitutionDetailRespons
 		return nil, errors.New("institution not found or not public")
 	}
 
-	var videos, overviewData, leadershipData, coursesData, programsData, facilitiesData, alumniData, galleryData, downloadsData interface{}
+	var pd ProfileData
 	if user.ProfileData != nil && *user.ProfileData != "" {
-		var data map[string]interface{}
-		if err := json.Unmarshal([]byte(*user.ProfileData), &data); err == nil {
-			if v, ok := data["videos"]; ok { videos = v }
-			if v, ok := data["overview_data"]; ok { overviewData = v }
-			if v, ok := data["leadership_data"]; ok { leadershipData = v }
-			if v, ok := data["courses_data"]; ok { coursesData = v }
-			if v, ok := data["programs_data"]; ok { programsData = v }
-			if v, ok := data["facilities_data"]; ok { facilitiesData = v }
-			if v, ok := data["alumni_data"]; ok { alumniData = v }
-			if v, ok := data["gallery_data"]; ok { galleryData = v }
-			if v, ok := data["downloads_data"]; ok { downloadsData = v }
-		}
+		json.Unmarshal([]byte(*user.ProfileData), &pd)
 	}
 
 	return &PublicInstitutionDetailResponse{
@@ -1011,14 +982,14 @@ func (s *Service) GetPublicInstitution(id uint) (*PublicInstitutionDetailRespons
 		Mission:         user.Mission,
 		District:        user.District,
 		WebsiteURL:      user.WebsiteURL,
-		Videos:          videos,
-		OverviewData:    overviewData,
-		LeadershipData:  leadershipData,
-		CoursesData:     coursesData,
-		ProgramsData:    programsData,
-		FacilitiesData:  facilitiesData,
-		AlumniData:      alumniData,
-		GalleryData:     galleryData,
-		DownloadsData:   downloadsData,
+		Videos:          pd.Videos,
+		OverviewData:    pd.OverviewData,
+		LeadershipData:  pd.LeadershipData,
+		CoursesData:     pd.CoursesData,
+		ProgramsData:    pd.ProgramsData,
+		FacilitiesData:  pd.FacilitiesData,
+		AlumniData:      pd.AlumniData,
+		GalleryData:     pd.GalleryData,
+		DownloadsData:   pd.DownloadsData,
 	}, nil
 }
