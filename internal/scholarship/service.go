@@ -917,6 +917,40 @@ func (s *PaymentService) UploadBankReceipt(paymentID uint, receiptURL string) er
 	if err != nil {
 		return err
 	}
+
+	// If receipt is a base64 data URL, upload to MinIO
+	if strings.HasPrefix(receiptURL, "data:") {
+		commaIdx := strings.Index(receiptURL, ",")
+		if commaIdx > 0 {
+			mimeType := receiptURL[5:commaIdx]
+			if semiIdx := strings.Index(mimeType, ";"); semiIdx > 0 {
+				mimeType = mimeType[:semiIdx]
+			}
+			b64Data := receiptURL[commaIdx+1:]
+			decoded, decErr := base64.StdEncoding.DecodeString(b64Data)
+			if decErr != nil {
+				return fmt.Errorf("failed to decode receipt image: %w", decErr)
+			}
+
+			ext := ".png"
+			switch {
+			case strings.Contains(mimeType, "jpeg"), strings.Contains(mimeType, "jpg"):
+				ext = ".jpg"
+			case strings.Contains(mimeType, "gif"):
+				ext = ".gif"
+			case strings.Contains(mimeType, "webp"):
+				ext = ".webp"
+			}
+
+			objectPath := fmt.Sprintf("scholarship/payments/receipt_%d_%d%s", paymentID, time.Now().UnixNano(), ext)
+			if upErr := storage.UploadBytes(objectPath, decoded, mimeType); upErr != nil {
+				return fmt.Errorf("failed to upload receipt to MinIO: %w", upErr)
+			}
+
+			receiptURL = "/uploads/" + objectPath
+		}
+	}
+
 	payment.Status = "pending_approval"
 	payment.ReceiptURL = receiptURL
 	return s.repo.Update(payment)
