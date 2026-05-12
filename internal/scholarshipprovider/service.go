@@ -405,9 +405,6 @@ func (s *Service) CreateScholarship(providerID uint, req CreateScholarshipReques
 	if parsed, ok := parseOptionalTime(deadlineValue); ok {
 		deadlineTime = parsed
 	}
-	if parsed, ok := parseOptionalTime(deadlineValue); ok {
-		deadlineTime = parsed
-	}
 
 	scholarship := &ProviderScholarship{
 		ProviderID:               providerID,
@@ -505,6 +502,7 @@ func (s *Service) syncPublicScholarship(scholarship *ProviderScholarship, status
 		Location:                 scholarship.Location,
 		Value:                    scholarship.Value,
 		Deadline:                 scholarship.Deadline,
+		ApplicationStartDate:     scholarship.ApplicationStartDate,
 		DegreeLevel:              scholarship.DegreeLevel,
 		FundingType:              scholarship.FundingType,
 		ScholarshipType:          scholarship.ScholarshipType,
@@ -569,6 +567,7 @@ func (s *Service) syncPublicScholarship(scholarship *ProviderScholarship, status
 			"location":                    publicScholarship.Location,
 			"value":                       publicScholarship.Value,
 			"deadline":                    publicScholarship.Deadline,
+			"application_start_date":      publicScholarship.ApplicationStartDate,
 			"degree_level":                publicScholarship.DegreeLevel,
 			"funding_type":                publicScholarship.FundingType,
 			"scholarship_type":            publicScholarship.ScholarshipType,
