@@ -14,6 +14,16 @@ func NewRepository(db *gorm.DB) *Repository {
 	return &Repository{db: db}
 }
 
+func (r *Repository) GetNextRollNumber() (int, error) {
+	var seq int
+	err := r.db.Raw("SELECT nextval('scholarship_roll_number_seq')").Scan(&seq).Error
+	return seq, err
+}
+
+func (r *Repository) UpdateRollNumber(id uint, rollNumber string) error {
+	return r.db.Table("provider_applications").Where("id = ?", id).Update("roll_number", rollNumber).Error
+}
+
 func (r *Repository) GetDashboardCounts(providerID uint) (int64, int64, int64, int64, int64, error) {
 	var totalScholarships, totalApplications, pendingApplications, totalInterviews, unreadMessages int64
 

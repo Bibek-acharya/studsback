@@ -392,7 +392,7 @@ func fixMissingColumns(db *gorm.DB) error {
 	if err := db.Exec(`ALTER TABLE scholarship_applications ADD COLUMN IF NOT EXISTS roll_number TEXT DEFAULT ''`).Error; err != nil {
 		return err
 	}
-	if err := db.Exec(`CREATE SEQUENCE IF NOT EXISTS scholarship_roll_number_seq START WITH 49`).Error; err != nil {
+	if err := db.Exec(`CREATE SEQUENCE IF NOT EXISTS scholarship_roll_number_seq START WITH 50`).Error; err != nil {
 		return err
 	}
 	if err := db.Exec(`ALTER TABLE provider_applications ADD COLUMN IF NOT EXISTS roll_number TEXT DEFAULT ''`).Error; err != nil {

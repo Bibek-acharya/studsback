@@ -1037,7 +1037,15 @@ func (s *Service) sendAdmitCard(application *ProviderApplication, payment *publi
 		SubjectName:      application.Stream,
 	}
 
-	pdfBytes, err := publicscholarship.GenerateAdmitCardPDF(cardData)
+	pdfBytes, err := publicscholarship.GenerateAdmitCardPDF(cardData, func() string {
+		if seq, err := s.repo.GetNextRollNumber(); err == nil {
+			rn := fmt.Sprintf("PS-%05d", seq)
+			s.repo.UpdateRollNumber(application.ID, rn)
+			application.RollNumber = rn
+			return rn
+		}
+		return ""
+	})
 	if err != nil {
 		_ = emailqueue.SendAdmitCardEmail(application.Email, application.FullName, scholarship.Title, nil)
 		return

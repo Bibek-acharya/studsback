@@ -539,14 +539,6 @@ func (s *Service) GetMyApplications(userID uint) ([]ScholarshipApplication, erro
 }
 
 func (s *Service) sendAdmitCard(app *ScholarshipApplication, scholarship *Scholarship) {
-	if app.RollNumber == "" {
-		if seq, err := s.repo.GetNextRollNumber(); err == nil {
-			app.RollNumber = fmt.Sprintf("PS-%05d", seq)
-			s.repo.UpdateApplicationRollNumber(app.ID, app.RollNumber)
-			s.repo.UpdateProviderApplicationRollNumber(app.ID, app.RollNumber)
-		}
-	}
-
 	dobStr := ""
 	if !app.DateOfBirthAD.IsZero() {
 		dobStr = app.DateOfBirthAD.Format("02-Jan-2006")
@@ -569,7 +561,16 @@ func (s *Service) sendAdmitCard(app *ScholarshipApplication, scholarship *Schola
 		SubjectName:      app.Stream,
 	}
 
-	pdfBytes, err := GenerateAdmitCardPDF(cardData)
+	pdfBytes, err := GenerateAdmitCardPDF(cardData, func() string {
+		if seq, err := s.repo.GetNextRollNumber(); err == nil {
+			rn := fmt.Sprintf("PS-%05d", seq)
+			s.repo.UpdateApplicationRollNumber(app.ID, rn)
+			s.repo.UpdateProviderApplicationRollNumber(app.ID, rn)
+			app.RollNumber = rn
+			return rn
+		}
+		return ""
+	})
 	if err != nil {
 		fmt.Printf("Warning: PDF generation failed: %v — sending plain email\n", err)
 		subject := fmt.Sprintf("Admit Card - %s", scholarship.Title)
@@ -1144,13 +1145,7 @@ func (s *PaymentService) VerifyEsewaPayment(req EsewaVerifyRequest) (*Payment, e
 		if app.Status != "confirmed" {
 			app.Status = "pending"
 		}
-		if app.RollNumber == "" {
-			if seq, err := s.scholarshipRepo.GetNextRollNumber(); err == nil {
-				app.RollNumber = fmt.Sprintf("PS-%05d", seq)
-			}
-		}
 		s.scholarshipRepo.ApplicationSave(app)
-		s.scholarshipRepo.UpdateProviderApplicationRollNumber(app.ID, app.RollNumber)
 		s.scholarshipRepo.UpdateProviderApplicationStatus(app.ID, "pending")
 
 		if err := s.sendAdmitCard(app, payment); err != nil {
@@ -1191,7 +1186,16 @@ func (s *PaymentService) sendAdmitCard(app *ScholarshipApplication, payment *Pay
 		SubjectName:      app.Stream,
 	}
 
-	pdfBytes, err := GenerateAdmitCardPDF(cardData)
+	pdfBytes, err := GenerateAdmitCardPDF(cardData, func() string {
+		if seq, err := s.scholarshipRepo.GetNextRollNumber(); err == nil {
+			rn := fmt.Sprintf("PS-%05d", seq)
+			s.scholarshipRepo.UpdateApplicationRollNumber(app.ID, rn)
+			s.scholarshipRepo.UpdateProviderApplicationRollNumber(app.ID, rn)
+			app.RollNumber = rn
+			return rn
+		}
+		return ""
+	})
 	if err != nil {
 		// Fallback: send a plain email if PDF generation fails
 		fmt.Printf("Warning: PDF generation failed: %v — sending plain email\n", err)

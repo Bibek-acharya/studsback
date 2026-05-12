@@ -217,15 +217,16 @@ func detectMimeType(data []byte) string {
 }
 
 // GenerateAdmitCardPDF renders the admit card HTML with the given data and returns a PDF as bytes.
-func GenerateAdmitCardPDF(data AdmitCardData) ([]byte, error) {
+// nextRollNumber is called to generate a roll number if data.RollNumber is empty.
+func GenerateAdmitCardPDF(data AdmitCardData, nextRollNumber func() string) ([]byte, error) {
 	if data.SubjectName == "" {
 		data.SubjectName = data.Stream
 	}
 	if data.Shift == "" {
 		data.Shift = "1st"
 	}
-	if data.RollNumber == "" {
-		data.RollNumber = fmt.Sprintf("PS-%d", time.Now().UnixNano()%1000000000)
+	if data.RollNumber == "" && nextRollNumber != nil {
+		data.RollNumber = nextRollNumber()
 	}
 
 	tmpl, err := template.New("admitcard").Parse(admitCardHTMLTemplate)
