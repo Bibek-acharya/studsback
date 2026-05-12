@@ -135,6 +135,7 @@ type ProviderApplication struct {
 	ExamCenter            string              `json:"exam_center"`
 	RollNumber            string              `gorm:"size:20" json:"roll_number"`
 	ScholarshipApplicationID *uint             `gorm:"column:scholarship_application_id" json:"scholarship_application_id,omitempty"`
+	RejectionReason          string            `gorm:"type:text" json:"rejection_reason"`
 	Payment                  *ProviderPayment  `gorm:"-" json:"payment,omitempty"`
 }
 

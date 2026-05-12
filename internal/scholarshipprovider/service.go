@@ -983,6 +983,27 @@ func (s *Service) ApproveApplicationPayment(providerID uint, applicationID uint,
 		if err := s.repo.UpdatePayment(payment); err != nil {
 			return nil, errors.New("failed to update payment")
 		}
+
+		if application.Email != "" {
+			reasonText := reason
+			if reasonText == "" {
+				reasonText = "No specific reason provided."
+			}
+			subject := "Payment Status Update - StudSphere"
+			html := fmt.Sprintf(`
+<p>Dear %s,</p>
+<p>Your payment for the application has been <strong>rejected</strong>.</p>
+<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:16px;margin:16px 0;">
+    <p style="margin:0 0 4px 0;font-weight:600;color:#991b1b;">Reason:</p>
+    <p style="margin:0;color:#b91c1c;">%s</p>
+</div>
+<p>Please contact support if you have any questions.</p>
+<div class="signature">
+    <p>Best Regards,</p>
+    <p>Team Studsphere</p>
+</div>`, application.FullName, reasonText)
+			go emailqueue.EnqueueGenericEmail(application.Email, subject, html)
+		}
 	}
 
 	return application, nil
@@ -1040,6 +1061,14 @@ func (s *Service) UpdateApplicationStatus(providerID, id uint, req UpdateApplica
 		return nil, errors.New("invalid status")
 	}
 
+	if req.Status == "rejected" {
+		reason := req.Reason
+		if len(reason) > 250 {
+			reason = reason[:250]
+		}
+		application.RejectionReason = reason
+	}
+
 	if err := s.repo.UpdateApplicationStatus(application, req.Status); err != nil {
 		return nil, err
 	}
@@ -1059,6 +1088,27 @@ func (s *Service) UpdateApplicationStatus(providerID, id uint, req UpdateApplica
 		Type:       "application",
 		Link:       "applications",
 	})
+
+	if req.Status == "rejected" && application.Email != "" {
+		reason := application.RejectionReason
+		if reason == "" {
+			reason = "No specific reason provided."
+		}
+		subject := "Application Status Update - StudSphere"
+		html := fmt.Sprintf(`
+<p>Dear %s,</p>
+<p>We regret to inform you that your application has been <strong>rejected</strong>.</p>
+<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:16px;margin:16px 0;">
+    <p style="margin:0 0 4px 0;font-weight:600;color:#991b1b;">Reason:</p>
+    <p style="margin:0;color:#b91c1c;">%s</p>
+</div>
+<p>We appreciate your interest and encourage you to apply for future opportunities.</p>
+<div class="signature">
+    <p>Best Regards,</p>
+    <p>Team Studsphere</p>
+</div>`, application.FullName, reason)
+		go emailqueue.EnqueueGenericEmail(application.Email, subject, html)
+	}
 
 	return application, nil
 }

@@ -441,6 +441,7 @@ type EvaluateApplicationRequest struct {
 
 type UpdateApplicationStatusRequest struct {
 	Status string `json:"status" binding:"required"`
+	Reason string `json:"reason"`
 }
 
 type CreateInterviewRequest struct {

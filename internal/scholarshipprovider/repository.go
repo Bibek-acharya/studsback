@@ -291,14 +291,18 @@ func (r *Repository) EvaluateApplication(application *ProviderApplication, score
 }
 
 func (r *Repository) UpdateApplicationStatus(application *ProviderApplication, status string) error {
-	err := r.db.Model(application).Update("status", status).Error
+	updates := map[string]interface{}{"status": status}
+	if status == "rejected" && application.RejectionReason != "" {
+		updates["rejection_reason"] = application.RejectionReason
+	}
+	err := r.db.Model(application).Updates(updates).Error
 	if err != nil {
 		return err
 	}
 	if application.ScholarshipApplicationID != nil {
 		r.db.Model(&scholarship.ScholarshipApplication{}).
 			Where("id = ?", *application.ScholarshipApplicationID).
-			Update("status", status)
+			Updates(updates)
 	}
 	return nil
 }
