@@ -124,15 +124,17 @@ type UpdateScholarshipApplicationStatusRequest struct {
 }
 
 type ScholarshipResponse struct {
-	ID               uint          `json:"id"`
-	Slug             string        `json:"slug"`
-	Title            string        `json:"title"`
-	Provider         string        `json:"provider"`
-	Location         string        `json:"location"`
-	Type             string        `json:"type"`
-	Amount           string        `json:"amount"`
-	Deadline         string        `json:"deadline"`
-	Status           string        `json:"status"`
+	ID                   uint          `json:"id"`
+	Slug                 string        `json:"slug"`
+	Title                string        `json:"title"`
+	Provider             string        `json:"provider"`
+	Location             string        `json:"location"`
+	Type                 string        `json:"type"`
+	Amount               string        `json:"amount"`
+	Deadline             string        `json:"deadline"`
+	ApplicationStartDate string        `json:"application_start_date"`
+	ApplicationEndDate   string        `json:"application_end_date"`
+	Status               string        `json:"status"`
 	Category         string        `json:"category"`
 	Description      string        `json:"description"`
 	Image            string        `json:"image"`
@@ -212,12 +214,14 @@ type ScholarshipListResponse struct {
 }
 
 type ScholarshipSummary struct {
-	ID          uint   `json:"id"`
-	Slug        string `json:"slug"`
-	Title       string `json:"title"`
-	Provider    string `json:"provider"`
-	Deadline    string `json:"deadline"`
-	Status      string `json:"status"`
+	ID                   uint   `json:"id"`
+	Slug                 string `json:"slug"`
+	Title                string `json:"title"`
+	Provider             string `json:"provider"`
+	Deadline             string `json:"deadline"`
+	Status               string `json:"status"`
+	ApplicationStartDate string `json:"application_start_date"`
+	ApplicationEndDate   string `json:"application_end_date"`
 	Location    string `json:"location"`
 	FundingType string `json:"funding_type"`
 	DegreeLevel string `json:"degree_level"`
