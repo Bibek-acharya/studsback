@@ -1129,6 +1129,140 @@ func (h *Handler) UpdateScholarshipApplicationStatus(c *gin.Context) {
 	response.Success(c, http.StatusOK, "Application status updated successfully", toScholarshipApplicationResponse(*application))
 }
 
+// --- Admission Page Handlers ---
+
+func (h *Handler) CreateAdmissionPage(c *gin.Context) {
+	instID := getInstID(c)
+
+	var req CreateAdmissionPageRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	page, err := h.service.CreateAdmissionPage(instID, req)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to create admission")
+		return
+	}
+
+	response.Success(c, http.StatusCreated, "Admission created successfully", page)
+}
+
+func (h *Handler) GetAdmissionPages(c *gin.Context) {
+	instID := getInstID(c)
+	status := c.Query("status")
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50 {
+		limit = 20
+	}
+
+	pages, total, err := h.service.GetAdmissionPages(instID, status, page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch admissions")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Admissions retrieved successfully", gin.H{
+		"admissions": pages,
+		"meta": gin.H{
+			"total": total,
+			"page":  page,
+			"limit": limit,
+		},
+	})
+}
+
+func (h *Handler) GetAdmissionPage(c *gin.Context) {
+	instID := getInstID(c)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid admission ID")
+		return
+	}
+
+	page, err := h.service.GetAdmissionPage(instID, uint(id))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Admission not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Admission retrieved successfully", page)
+}
+
+func (h *Handler) UpdateAdmissionPage(c *gin.Context) {
+	instID := getInstID(c)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid admission ID")
+		return
+	}
+
+	var req UpdateAdmissionPageRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	page, err := h.service.UpdateAdmissionPage(instID, uint(id), req)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Admission updated successfully", page)
+}
+
+func (h *Handler) DeleteAdmissionPage(c *gin.Context) {
+	instID := getInstID(c)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid admission ID")
+		return
+	}
+
+	if err := h.service.DeleteAdmissionPage(instID, uint(id)); err != nil {
+		if err.Error() == "record not found" {
+			response.Error(c, http.StatusNotFound, "Admission not found")
+		} else {
+			response.Error(c, http.StatusInternalServerError, "Failed to delete admission")
+		}
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Admission deleted successfully", nil)
+}
+
+func (h *Handler) GetPublishedAdmissionPages(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50 {
+		limit = 20
+	}
+
+	pages, total, err := h.service.GetPublishedAdmissionPages(page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch published admissions")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Published admissions retrieved successfully", gin.H{
+		"admissions": pages,
+		"meta": gin.H{
+			"total": total,
+			"page":  page,
+			"limit": limit,
+		},
+	})
+}
+
 func toProgramResponse(p InstitutionProgram) ProgramResponse {
 	return ProgramResponse{
 		ID:            p.ID,

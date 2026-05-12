@@ -549,3 +549,65 @@ func (r *Repository) FindScholarshipApplicationByID(id uint) (*ScholarshipApplic
 func (r *Repository) SaveScholarshipApplication(application *ScholarshipApplication) error {
 	return r.db.Save(application).Error
 }
+
+// --- Admission Page Repository ---
+
+func (r *Repository) FindAdmissionPagesByInstitution(instID uint, status string, page, limit int) ([]AdmissionPage, int64, error) {
+	var pages []AdmissionPage
+	var total int64
+
+	query := r.db.Model(&AdmissionPage{}).Where("institution_id = ?", instID)
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * limit
+	err := query.Where("institution_id = ?", instID).
+		Order("created_at desc").Offset(offset).Limit(limit).Find(&pages).Error
+	return pages, total, err
+}
+
+func (r *Repository) FindAdmissionPageByID(id uint, instID uint) (*AdmissionPage, error) {
+	var page AdmissionPage
+	err := r.db.Where("id = ? AND institution_id = ?", id, instID).First(&page).Error
+	if err != nil {
+		return nil, err
+	}
+	return &page, nil
+}
+
+func (r *Repository) CreateAdmissionPage(page *AdmissionPage) error {
+	return r.db.Create(page).Error
+}
+
+func (r *Repository) SaveAdmissionPage(page *AdmissionPage) error {
+	return r.db.Save(page).Error
+}
+
+func (r *Repository) DeleteAdmissionPage(id uint, instID uint) error {
+	result := r.db.Where("id = ? AND institution_id = ?", id, instID).Delete(&AdmissionPage{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *Repository) FindPublishedAdmissionPages(page, limit int) ([]AdmissionPage, int64, error) {
+	var pages []AdmissionPage
+	var total int64
+
+	query := r.db.Model(&AdmissionPage{}).Where("status = ?", "published")
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * limit
+	err := query.Order("published_at desc").Offset(offset).Limit(limit).Find(&pages).Error
+	return pages, total, err
+}

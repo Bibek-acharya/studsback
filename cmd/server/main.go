@@ -122,6 +122,7 @@ func main() {
 		&institution.InstitutionNews{},
 		&institution.InstitutionQMS{},
 		&institution.InstitutionMessage{},
+		&institution.AdmissionPage{},
 		&institution.InstitutionSettings{},
 		&review.Review{},
 		&review.ReviewHelpful{},

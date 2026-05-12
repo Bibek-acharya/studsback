@@ -892,6 +892,189 @@ func (s *Service) UpdateAdmissionStatus(instID, id uint, req UpdateAdmissionStat
 	return admission, nil
 }
 
+// --- Admission Page Service ---
+
+func extractAdmissionTitle(data *string) string {
+	if data == nil || *data == "" {
+		return ""
+	}
+	var parsed map[string]interface{}
+	if err := json.Unmarshal([]byte(*data), &parsed); err != nil {
+		return ""
+	}
+	if od, ok := parsed["overview_data"].(map[string]interface{}); ok {
+		if heading, ok := od["overviewHeading"].(string); ok && heading != "" {
+			return heading
+		}
+	}
+	if programs, ok := parsed["programs_data"].([]interface{}); ok && len(programs) > 0 {
+		if first, ok := programs[0].(map[string]interface{}); ok {
+			if title, ok := first["title"].(string); ok && title != "" {
+				return title
+			}
+		}
+	}
+	return ""
+}
+
+func extractFirstProgram(data *string) string {
+	if data == nil || *data == "" {
+		return ""
+	}
+	var parsed map[string]interface{}
+	if err := json.Unmarshal([]byte(*data), &parsed); err != nil {
+		return ""
+	}
+	if programs, ok := parsed["programs_data"].([]interface{}); ok && len(programs) > 0 {
+		if first, ok := programs[0].(map[string]interface{}); ok {
+			if title, ok := first["title"].(string); ok {
+				return title
+			}
+		}
+	}
+	return ""
+}
+
+func extractLevel(data *string) string {
+	if data == nil || *data == "" {
+		return ""
+	}
+	var parsed map[string]interface{}
+	if err := json.Unmarshal([]byte(*data), &parsed); err != nil {
+		return ""
+	}
+	if od, ok := parsed["overview_data"].(map[string]interface{}); ok {
+		if level, ok := od["level"].(string); ok {
+			return level
+		}
+	}
+	return ""
+}
+
+func (s *Service) CreateAdmissionPage(instID uint, req CreateAdmissionPageRequest) (*AdmissionPageResponse, error) {
+	dataStr := string(req.Data)
+	page := &AdmissionPage{
+		InstitutionID: instID,
+		Title:         extractAdmissionTitle(&dataStr),
+		Status:        "draft",
+		Data:          &dataStr,
+	}
+
+	if req.Status == "published" {
+		now := time.Now()
+		page.Status = "published"
+		page.PublishedAt = &now
+	}
+
+	if err := s.repo.CreateAdmissionPage(page); err != nil {
+		return nil, err
+	}
+
+	return toAdmissionPageResponse(page), nil
+}
+
+func (s *Service) GetAdmissionPages(instID uint, status string, page, limit int) ([]AdmissionPageListItem, int64, error) {
+	pages, total, err := s.repo.FindAdmissionPagesByInstitution(instID, status, page, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	items := make([]AdmissionPageListItem, len(pages))
+	for i, p := range pages {
+		items[i] = toAdmissionPageListItem(p)
+	}
+	return items, total, nil
+}
+
+func (s *Service) GetAdmissionPage(instID, id uint) (*AdmissionPageResponse, error) {
+	page, err := s.repo.FindAdmissionPageByID(id, instID)
+	if err != nil {
+		return nil, err
+	}
+	return toAdmissionPageResponse(page), nil
+}
+
+func (s *Service) UpdateAdmissionPage(instID, id uint, req UpdateAdmissionPageRequest) (*AdmissionPageResponse, error) {
+	page, err := s.repo.FindAdmissionPageByID(id, instID)
+	if err != nil {
+		return nil, err
+	}
+
+	if req.Data != nil {
+		dataStr := string(req.Data)
+		page.Data = &dataStr
+		page.Title = extractAdmissionTitle(&dataStr)
+	}
+
+	if req.Status != nil {
+		page.Status = *req.Status
+		if *req.Status == "published" {
+			now := time.Now()
+			page.PublishedAt = &now
+		} else {
+			page.PublishedAt = nil
+		}
+	}
+
+	if err := s.repo.SaveAdmissionPage(page); err != nil {
+		return nil, err
+	}
+
+	return toAdmissionPageResponse(page), nil
+}
+
+func (s *Service) DeleteAdmissionPage(instID, id uint) error {
+	return s.repo.DeleteAdmissionPage(id, instID)
+}
+
+func (s *Service) GetPublishedAdmissionPages(page, limit int) ([]AdmissionPageListItem, int64, error) {
+	pages, total, err := s.repo.FindPublishedAdmissionPages(page, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	items := make([]AdmissionPageListItem, len(pages))
+	for i, p := range pages {
+		items[i] = toAdmissionPageListItem(p)
+	}
+	return items, total, nil
+}
+
+func toAdmissionPageResponse(p *AdmissionPage) *AdmissionPageResponse {
+	resp := &AdmissionPageResponse{
+		ID:            p.ID,
+		CreatedAt:     p.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:     p.UpdatedAt.Format(time.RFC3339),
+		InstitutionID: p.InstitutionID,
+		Title:         p.Title,
+		Status:        p.Status,
+	}
+	if p.Data != nil {
+		resp.Data = json.RawMessage(*p.Data)
+	}
+	if p.PublishedAt != nil {
+		s := p.PublishedAt.Format(time.RFC3339)
+		resp.PublishedAt = &s
+	}
+	return resp
+}
+
+func toAdmissionPageListItem(p AdmissionPage) AdmissionPageListItem {
+	item := AdmissionPageListItem{
+		ID:         p.ID,
+		Title:      p.Title,
+		Program:    extractFirstProgram(p.Data),
+		Level:      extractLevel(p.Data),
+		Status:     p.Status,
+		LastEdited: p.UpdatedAt.Format("2006-01-02"),
+	}
+	if p.PublishedAt != nil {
+		s := p.PublishedAt.Format("2006-01-02")
+		item.PublishedAt = &s
+	}
+	return item
+}
+
 func (s *Service) GetScholarshipApplications(instID uint, status string) ([]ScholarshipApplication, error) {
 	college, err := s.repo.FindCollegeByUniversityID(instID)
 	if err != nil {

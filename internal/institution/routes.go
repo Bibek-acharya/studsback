@@ -12,6 +12,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 		// Public institution routes (no auth)
 		v1.GET("/institutions/public", h.ListPublicInstitutions)
 		v1.GET("/institutions/public/:id", h.GetPublicInstitution)
+		v1.GET("/admissions/published", h.GetPublishedAdmissionPages)
 
 		institution := v1.Group("/institution")
 		institution.Use(authMW)
@@ -78,6 +79,12 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 
 			institution.GET("/admissions", h.GetAdmissions)
 			institution.PUT("/admissions/:id/status", h.UpdateAdmissionStatus)
+
+			institution.POST("/admission-pages", h.CreateAdmissionPage)
+			institution.GET("/admission-pages", h.GetAdmissionPages)
+			institution.GET("/admission-pages/:id", h.GetAdmissionPage)
+			institution.PUT("/admission-pages/:id", h.UpdateAdmissionPage)
+			institution.DELETE("/admission-pages/:id", h.DeleteAdmissionPage)
 
 			institution.GET("/scholarship-applications", h.GetScholarshipApplications)
 			institution.PUT("/scholarship-applications/:id/status", h.UpdateScholarshipApplicationStatus)

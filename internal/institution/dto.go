@@ -595,6 +595,40 @@ type PublicInstitutionDetailResponse struct {
 	DownloadsData      []DownloadDataItem  `json:"downloads_data,omitempty"`
 }
 
+// --- Admission Page DTOs ---
+
+type CreateAdmissionPageRequest struct {
+	Data   json.RawMessage `json:"data"`
+	Status string          `json:"status"` // "draft" | "published"
+}
+
+type UpdateAdmissionPageRequest struct {
+	Data   json.RawMessage `json:"data"`
+	Status *string         `json:"status"`
+}
+
+type AdmissionPageResponse struct {
+	ID            uint            `json:"id"`
+	CreatedAt     string          `json:"created_at"`
+	UpdatedAt     string          `json:"updated_at"`
+	InstitutionID uint            `json:"institution_id"`
+	Title         string          `json:"title"`
+	Status        string          `json:"status"`
+	PublishedAt   *string         `json:"published_at,omitempty"`
+	Data          json.RawMessage `json:"data,omitempty"`
+}
+
+type AdmissionPageListItem struct {
+	ID          uint    `json:"id"`
+	Title       string  `json:"title"`
+	Program     string  `json:"program"`
+	Level       string  `json:"level"`
+	Status      string  `json:"status"`
+	PublishedAt *string `json:"published_at,omitempty"`
+	LastEdited  string  `json:"last_edited"`
+	Applicants  int     `json:"applicants"`
+}
+
 type PaginatedResponse struct {
 	Meta PaginationMeta `json:"meta"`
 }

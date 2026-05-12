@@ -259,6 +259,18 @@ type Admission struct {
 	User    *User   `gorm:"foreignKey:UserID" json:"user,omitempty"`
 }
 
+type AdmissionPage struct {
+	ID            uint           `gorm:"primarykey" json:"id"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
+	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
+	InstitutionID uint           `gorm:"index;not null" json:"institution_id"`
+	Title         string         `json:"title"`
+	Status        string         `gorm:"default:'draft'" json:"status"`
+	PublishedAt   *time.Time     `json:"published_at,omitempty"`
+	Data          *string        `gorm:"type:jsonb;default:'{}'" json:"data"`
+}
+
 type User struct {
 	ID        uint   `json:"id"`
 	Email     string `json:"email"`

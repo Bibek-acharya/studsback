@@ -118,6 +118,7 @@ func (r *Repository) CreateScholarship(scholarship *ProviderScholarship) error {
 
 func (r *Repository) CreatePublicScholarship(s *scholarship.Scholarship, providerScholarshipID uint) error {
 	s.ProviderScholarshipID = &providerScholarshipID
+	r.db.Unscoped().Where("provider_scholarship_id = ?", providerScholarshipID).Delete(&scholarship.Scholarship{})
 	return r.db.Create(s).Error
 }
 
@@ -149,11 +150,11 @@ func (r *Repository) UpdatePublicScholarship(id uint, updates map[string]interfa
 }
 
 func (r *Repository) DeletePublicScholarship(title, provider string) error {
-	return r.db.Where("title = ? AND provider = ?", title, provider).Delete(&scholarship.Scholarship{}).Error
+	return r.db.Unscoped().Where("title = ? AND provider = ?", title, provider).Delete(&scholarship.Scholarship{}).Error
 }
 
 func (r *Repository) DeletePublicScholarshipByProviderScholarshipID(providerScholarshipID uint) error {
-	return r.db.Where("provider_scholarship_id = ?", providerScholarshipID).Delete(&scholarship.Scholarship{}).Error
+	return r.db.Unscoped().Where("provider_scholarship_id = ?", providerScholarshipID).Delete(&scholarship.Scholarship{}).Error
 }
 
 func (r *Repository) GetScholarshipsByProvider(providerID uint, page, limit int) ([]ProviderScholarship, int64, error) {
