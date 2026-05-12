@@ -184,6 +184,69 @@ func (s *Service) GetScholarshipBySlug(slugStr string) (*Scholarship, error) {
 	return scholarship, nil
 }
 
+func (s *Service) GetAvailableExamCenters(scholarshipID uint) ([]string, error) {
+	var examCenters []DetailField
+	realScholarshipID := scholarshipID
+
+	scholarship, err := s.repo.FindByID(scholarshipID)
+	if err != nil {
+		if scholarshipID > 10000 {
+			providerScholarshipID := scholarshipID - 10000
+			ps, psErr := s.repo.FindProviderScholarshipByID(providerScholarshipID)
+			if psErr != nil {
+				return nil, err
+			}
+			examCenters = parseDetailFieldArray(ps.ExamCentersNew)
+			if len(examCenters) == 0 {
+				examCenters = parseDetailFieldArray(ps.ExamCenters)
+			}
+			return s.filterAvailableCenters(examCenters, realScholarshipID)
+		}
+		return nil, err
+	}
+
+	if scholarship.ProviderScholarshipID != nil {
+		ps, psErr := s.repo.FindProviderScholarshipByID(*scholarship.ProviderScholarshipID)
+		if psErr == nil {
+			examCenters = parseDetailFieldArray(ps.ExamCentersNew)
+			if len(examCenters) == 0 {
+				examCenters = parseDetailFieldArray(ps.ExamCenters)
+			}
+		}
+	}
+
+	if len(examCenters) == 0 {
+		examCenters = parseDetailFieldArray(scholarship.ExamCentersNew)
+		if len(examCenters) == 0 {
+			examCenters = parseDetailFieldArray(scholarship.ExamCenters)
+		}
+	}
+
+	return s.filterAvailableCenters(examCenters, scholarship.ID)
+}
+
+func (s *Service) filterAvailableCenters(examCenters []DetailField, scholarshipID uint) ([]string, error) {
+	var available []string
+	for _, ec := range examCenters {
+		centerName := ec.CenterName
+		if centerName == "" {
+			continue
+		}
+		if ec.AllocatedSeats == 0 {
+			available = append(available, centerName)
+			continue
+		}
+		count, err := s.repo.CountApplicationsByExamCenter(scholarshipID, centerName)
+		if err != nil {
+			continue
+		}
+		if count < int64(ec.AllocatedSeats) {
+			available = append(available, centerName)
+		}
+	}
+	return available, nil
+}
+
 func (s *Service) GetSimilarScholarships(id uint) ([]Scholarship, error) {
 	current, err := s.repo.FindByID(id)
 	if err != nil {

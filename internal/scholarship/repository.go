@@ -331,6 +331,14 @@ func (r *Repository) ApplicationExists(scholarshipID uint, userID uint) bool {
 	return count > 0
 }
 
+func (r *Repository) CountApplicationsByExamCenter(scholarshipID uint, centerName string) (int64, error) {
+	var count int64
+	err := r.db.Model(&ScholarshipApplication{}).
+		Where("scholarship_id = ? AND exam_center = ? AND status != ?", scholarshipID, centerName, ApplicationStatusRejected).
+		Count(&count).Error
+	return count, err
+}
+
 func (r *Repository) CreateProviderApplication(providerScholarshipID uint, app *ScholarshipApplication) error {
 	nameParts := splitFullName(app.FullName)
 	now := time.Now()

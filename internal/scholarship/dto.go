@@ -257,6 +257,7 @@ type DetailField struct {
 	Name           string `json:"name,omitempty"`
 	Type           string `json:"type,omitempty"`
 	Seats          string `json:"seats,omitempty"`
+	AllocatedSeats int    `json:"allocatedSeats,omitempty"`
 	Coverage       string `json:"coverage,omitempty"`
 	Eligibility    string `json:"eligibility,omitempty"`
 	URL            string `json:"url,omitempty"`

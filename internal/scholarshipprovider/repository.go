@@ -291,7 +291,16 @@ func (r *Repository) EvaluateApplication(application *ProviderApplication, score
 }
 
 func (r *Repository) UpdateApplicationStatus(application *ProviderApplication, status string) error {
-	return r.db.Model(application).Update("status", status).Error
+	err := r.db.Model(application).Update("status", status).Error
+	if err != nil {
+		return err
+	}
+	if application.ScholarshipApplicationID != nil {
+		r.db.Model(&scholarship.ScholarshipApplication{}).
+			Where("id = ?", *application.ScholarshipApplicationID).
+			Update("status", status)
+	}
+	return nil
 }
 
 func (r *Repository) GetInterviewsByProvider(providerID uint) ([]ProviderInterview, error) {

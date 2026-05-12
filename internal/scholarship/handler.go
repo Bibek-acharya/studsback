@@ -107,6 +107,38 @@ func (h *Handler) GetSimilarScholarships(c *gin.Context) {
 	})
 }
 
+func (h *Handler) GetAvailableExamCenters(c *gin.Context) {
+	param := c.Param("id")
+
+	var scholarshipID uint
+	var err error
+
+	if id, e := parseID(param); e == nil {
+		scholarshipID = id
+	} else {
+		s, e := h.service.GetScholarshipBySlug(param)
+		if e != nil {
+			response.Error(c, 404, "Scholarship not found")
+			return
+		}
+		scholarshipID = s.ID
+	}
+
+	centers, err := h.service.GetAvailableExamCenters(scholarshipID)
+	if err != nil {
+		response.Error(c, 500, "Failed to fetch exam centers")
+		return
+	}
+
+	if centers == nil {
+		centers = []string{}
+	}
+
+	response.Success(c, 200, "Exam centers retrieved successfully", gin.H{
+		"exam_centers": centers,
+	})
+}
+
 func (h *Handler) ApplyScholarship(c *gin.Context) {
 	param := c.Param("id")
 

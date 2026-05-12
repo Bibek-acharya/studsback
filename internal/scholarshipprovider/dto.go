@@ -104,6 +104,7 @@ type ExamCenterItem struct {
 	ContactPerson  string `json:"contactPerson"`
 	PhoneNumber    string `json:"phoneNumber"`
 	MapCoordinates string `json:"mapCoordinates"`
+	AllocatedSeats int    `json:"allocatedSeats"`
 }
 
 type DownloadItem struct {
