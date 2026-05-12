@@ -2944,14 +2944,14 @@ func (s *Service) ApplyVolunteer(volunteerID uint, req *ApplyVolunteerRequest, c
 	return app, nil
 }
 
-func (s *Service) GetVolunteerApplications(providerID uint, volunteerID *uint, page, limit int) (*VolunteerApplicationListResponse, error) {
+func (s *Service) GetVolunteerApplications(providerID uint, volunteerID *uint, page, limit int, status *string) (*VolunteerApplicationListResponse, error) {
 	if page < 1 {
 		page = 1
 	}
 	if limit < 1 || limit > 100 {
 		limit = 20
 	}
-	apps, total, err := s.repo.GetVolunteerApplicationsByProvider(providerID, volunteerID, page, limit)
+	apps, total, err := s.repo.GetVolunteerApplicationsByProvider(providerID, volunteerID, page, limit, status)
 	if err != nil {
 		return nil, err
 	}

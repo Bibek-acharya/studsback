@@ -1371,13 +1371,17 @@ func (r *Repository) CreateVolunteerApplication(a *VolunteerApplication) error {
 	return r.db.Create(a).Error
 }
 
-func (r *Repository) GetVolunteerApplicationsByProvider(providerID uint, volunteerID *uint, page, limit int) ([]VolunteerApplication, int64, error) {
+func (r *Repository) GetVolunteerApplicationsByProvider(providerID uint, volunteerID *uint, page, limit int, status *string) ([]VolunteerApplication, int64, error) {
 	query := r.db.Model(&VolunteerApplication{}).
 		Joins("JOIN provider_volunteers ON provider_volunteers.id = volunteer_applications.volunteer_id").
 		Where("provider_volunteers.provider_id = ?", providerID)
 
 	if volunteerID != nil && *volunteerID > 0 {
 		query = query.Where("volunteer_applications.volunteer_id = ?", *volunteerID)
+	}
+
+	if status != nil && *status != "" {
+		query = query.Where("volunteer_applications.status = ?", *status)
 	}
 
 	var total int64
