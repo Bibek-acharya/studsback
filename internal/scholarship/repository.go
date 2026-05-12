@@ -271,6 +271,10 @@ func (r *Repository) UpdateApplicationRollNumber(id uint, rollNumber string) err
 	return r.db.Model(&ScholarshipApplication{}).Where("id = ?", id).Update("roll_number", rollNumber).Error
 }
 
+func (r *Repository) UpdateProviderApplicationRollNumber(scholarshipApplicationID uint, rollNumber string) error {
+	return r.db.Table("provider_applications").Where("scholarship_application_id = ?", scholarshipApplicationID).Update("roll_number", rollNumber).Error
+}
+
 func (r *Repository) ApplicationFindByUserID(userID uint) ([]ScholarshipApplication, error) {
 	var applications []ScholarshipApplication
 	err := r.db.Where("user_id = ? AND status != ?", userID, ApplicationStatusDraft).Preload("Scholarship").Order("created_at DESC").Find(&applications).Error

@@ -506,11 +506,6 @@ func (s *Service) ApplyScholarship(scholarshipID uint, userID *uint, req Scholar
 		return nil, errors.New("failed to submit application")
 	}
 
-	rollNumber := fmt.Sprintf("PS-%05d", application.ID)
-	if err := s.repo.UpdateApplicationRollNumber(application.ID, rollNumber); err == nil {
-		application.RollNumber = rollNumber
-	}
-
 	if scholarship.ProviderScholarshipID != nil {
 		if err := s.repo.CreateProviderApplication(*scholarship.ProviderScholarshipID, application); err != nil {
 			return nil, errors.New("failed to submit application")
@@ -544,6 +539,12 @@ func (s *Service) GetMyApplications(userID uint) ([]ScholarshipApplication, erro
 }
 
 func (s *Service) sendAdmitCard(app *ScholarshipApplication, scholarship *Scholarship) {
+	if app.RollNumber == "" {
+		app.RollNumber = fmt.Sprintf("PS-%05d", app.ID)
+		s.repo.UpdateApplicationRollNumber(app.ID, app.RollNumber)
+		s.repo.UpdateProviderApplicationRollNumber(app.ID, app.RollNumber)
+	}
+
 	dobStr := ""
 	if !app.DateOfBirthAD.IsZero() {
 		dobStr = app.DateOfBirthAD.Format("02-Jan-2006")
@@ -1145,6 +1146,7 @@ func (s *PaymentService) VerifyEsewaPayment(req EsewaVerifyRequest) (*Payment, e
 			app.RollNumber = fmt.Sprintf("PS-%05d", app.ID)
 		}
 		s.scholarshipRepo.ApplicationSave(app)
+		s.scholarshipRepo.UpdateProviderApplicationRollNumber(app.ID, app.RollNumber)
 		s.scholarshipRepo.UpdateProviderApplicationStatus(app.ID, "pending")
 
 		if err := s.sendAdmitCard(app, payment); err != nil {
