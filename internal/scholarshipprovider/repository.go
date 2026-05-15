@@ -2,6 +2,7 @@ package scholarshipprovider
 
 import (
 	"studsphere/backend/internal/scholarship"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -1354,7 +1355,9 @@ func (r *Repository) ToggleVolunteerActive(id, providerID uint) (*ProviderVolunt
 
 func (r *Repository) GetPublicVolunteers(page, limit int, search, volunteerType string) ([]ProviderVolunteer, int64, error) {
 	var total int64
-	query := r.db.Model(&ProviderVolunteer{}).Where("active = ?", true)
+	today := time.Now().Format("2006-01-02")
+	query := r.db.Model(&ProviderVolunteer{}).Where("active = ?", true).
+		Where("application_deadline >= ? OR application_deadline = '' OR application_deadline IS NULL", today)
 	if search != "" {
 		q := "%" + search + "%"
 		query = query.Where("title ILIKE ? OR description ILIKE ?", q, q)
@@ -1368,7 +1371,8 @@ func (r *Repository) GetPublicVolunteers(page, limit int, search, volunteerType 
 
 	var volunteers []ProviderVolunteer
 	offset := (page - 1) * limit
-	dataQuery := r.db.Where("active = ?", true)
+	dataQuery := r.db.Where("active = ?", true).
+		Where("application_deadline >= ? OR application_deadline = '' OR application_deadline IS NULL", today)
 	if search != "" {
 		q := "%" + search + "%"
 		dataQuery = dataQuery.Where("title ILIKE ? OR description ILIKE ?", q, q)

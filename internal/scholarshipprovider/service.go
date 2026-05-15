@@ -3010,6 +3010,12 @@ func (s *Service) ApplyVolunteer(volunteerID uint, req *ApplyVolunteerRequest, c
 	if !v.Active {
 		return nil, errors.New("volunteer opportunity is not currently active")
 	}
+	if v.ApplicationDeadline != "" {
+		deadline, err := time.Parse("2006-01-02", v.ApplicationDeadline)
+		if err == nil && deadline.Before(time.Now().Truncate(24*time.Hour)) {
+			return nil, errors.New("volunteer opportunity deadline has passed")
+		}
+	}
 
 	availableDays, _ := json.Marshal(req.AvailableDays)
 	app := &VolunteerApplication{
