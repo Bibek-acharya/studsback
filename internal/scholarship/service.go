@@ -426,6 +426,10 @@ func (s *Service) ApplyScholarship(scholarshipID uint, userID *uint, req Scholar
 		return nil, errors.New("you have already applied for this scholarship")
 	}
 
+	if !scholarship.Deadline.IsZero() && scholarship.Deadline.Before(time.Now()) {
+		return nil, errors.New("scholarship application deadline has passed")
+	}
+
 	var dobAD time.Time
 	if req.DateOfBirthAD != "" {
 		dobAD, _ = time.Parse("2006-01-02", req.DateOfBirthAD)

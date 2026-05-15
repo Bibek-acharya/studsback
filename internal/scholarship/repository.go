@@ -17,7 +17,9 @@ func NewRepository(db *gorm.DB) *Repository {
 
 func (r *Repository) FindAll(search, typeFilter, locationFilter, levelFilter, sortBy, order string) ([]Scholarship, error) {
 	var scholarships []Scholarship
-	query := r.db.Model(&Scholarship{})
+	now := time.Now()
+	query := r.db.Model(&Scholarship{}).
+		Where("deadline >= ? OR deadline = ?", now, time.Time{})
 
 	if search != "" {
 		like := "%" + search + "%"
