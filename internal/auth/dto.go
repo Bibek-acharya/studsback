@@ -129,6 +129,8 @@ type CreateInstitutionRequest struct {
 	InstitutionName    string      `json:"institution_name" binding:"required"`
 	Location           string      `json:"location"`
 	Website            string      `json:"website"`
+	Level              string      `json:"level"`
+	Affiliation        string      `json:"affiliation"`
 	LogoURL            string      `json:"logo_url"`
 	BannerURL          string      `json:"banner_url"`
 	About              string      `json:"about"`
@@ -190,4 +192,43 @@ type SuperadminLoginRequest struct {
 
 type UpdateProfileAccessRequest struct {
 	ProfileAccess map[string]bool `json:"profile_access" binding:"required"`
+}
+
+type ClaimRegisterRequest struct {
+	CollegeID                uint   `json:"college_id" binding:"required"`
+	InstitutionName          string `json:"institution_name" binding:"required"`
+	RegistrationNumber       string `json:"registration_number" binding:"required"`
+	Email                    string `json:"email" binding:"required,email"`
+	ContactNumber            string `json:"contact_number"`
+	Province                 string `json:"province"`
+	District                 string `json:"district"`
+	LocalBody                string `json:"local_body"`
+	OrganizationType         string `json:"organization_type"`
+	PANNumber                string `json:"pan_number"`
+	WebsiteURL               string `json:"website_url"`
+	ContactPerson            string `json:"contact_person"`
+	ContactPersonDesignation string `json:"contact_person_designation"`
+	ContactPersonPhone       string `json:"contact_person_phone"`
+}
+
+type RejectClaimRequest struct {
+	ClaimID         uint   `json:"claim_id" binding:"required"`
+	RejectionReason string `json:"rejection_reason"`
+}
+
+type RecordPaymentRequest struct {
+	PaymentDate string  `json:"payment_date" binding:"required"`
+	PaidForDays int     `json:"paid_for_days" binding:"required"`
+	Amount      float64 `json:"amount"`
+	Remarks     string  `json:"remarks"`
+}
+
+type InstitutionFilter struct {
+	Search        string `form:"search"`
+	Type          string `form:"type"`
+	PaymentStatus string `form:"payment_status"`
+	Verification  string `form:"verification"`
+	Claim         string `form:"claim"`
+	Province      string `form:"province"`
+	Level         string `form:"level"`
 }

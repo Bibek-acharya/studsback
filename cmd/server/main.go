@@ -130,6 +130,7 @@ func main() {
 		&projectshiksha.ShikshaApplication{},
 		&projectshiksha.ShikshaPayment{},
 		&system.ContactInquiry{},
+		&auth.InstitutionSubscription{},
 		&system.Ad{},
 		&system.CarouselSlide{},
 		&system.PublicNotification{},

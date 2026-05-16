@@ -151,11 +151,95 @@ func (r *Repository) DeleteScholarshipProviderUser(id uint) error {
 
 func (r *Repository) FindInstitutionUsersByStatus(status string) ([]InstitutionUser, error) {
 	var users []InstitutionUser
-	err := r.db.Where("status = ?", status).Find(&users).Error
+	err := r.db.Preload("Subscription").Where("status = ?", status).Find(&users).Error
 	if err != nil {
 		return nil, err
 	}
 	return users, nil
+}
+
+func (r *Repository) FindInstitutionUsersFiltered(status string, filter InstitutionFilter) ([]InstitutionUser, map[string]int64, error) {
+	baseQuery := r.db.Table("institution_users").Where("institution_users.status = ?", status)
+
+	if filter.Search != "" {
+		s := "%" + filter.Search + "%"
+		baseQuery = baseQuery.Where("institution_users.institution_name LIKE ? OR institution_users.registration_number LIKE ?", s, s)
+	}
+	if filter.Type != "" {
+		baseQuery = baseQuery.Where("institution_users.organization_type = ?", filter.Type)
+	}
+	if filter.Province != "" {
+		baseQuery = baseQuery.Where("institution_users.province = ?", filter.Province)
+	}
+	if filter.Verification == "verified" {
+		baseQuery = baseQuery.Where("institution_users.verified = ?", true)
+	} else if filter.Verification == "not_verified" {
+		baseQuery = baseQuery.Where("institution_users.verified = ?", false)
+	}
+	if filter.Claim == "claimed" {
+		baseQuery = baseQuery.Where("institution_users.claimed = ?", true)
+	} else if filter.Claim == "unclaimed" {
+		baseQuery = baseQuery.Where("institution_users.claimed = ?", false)
+	}
+	if filter.Level != "" {
+		baseQuery = baseQuery.Where("institution_users.level = ?", filter.Level)
+	}
+	if filter.PaymentStatus != "" {
+		baseQuery = baseQuery.Joins("LEFT JOIN institution_subscriptions ON institution_subscriptions.institution_id = institution_users.id").
+			Where("institution_subscriptions.status = ?", filter.PaymentStatus)
+	}
+
+	var levelCounts []struct {
+		Level string `gorm:"column:level"`
+		Count int64  `gorm:"column:count"`
+	}
+	r.db.Table("institution_users").Select("level, COUNT(*) as count").
+		Where("status = ?", status).
+		Group("level").Scan(&levelCounts)
+
+	countsMap := map[string]int64{}
+	for _, lc := range levelCounts {
+		if lc.Level != "" {
+			countsMap[lc.Level] = lc.Count
+		}
+	}
+
+	var users []InstitutionUser
+	err := baseQuery.Preload("Subscription").Find(&users).Error
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return users, countsMap, nil
+}
+
+func (r *Repository) FindAllInstitutions() ([]InstitutionUser, error) {
+	var users []InstitutionUser
+	err := r.db.Preload("Subscription").Find(&users).Error
+	if err != nil {
+		return nil, err
+	}
+	return users, nil
+}
+
+func (r *Repository) FindSubscriptionByInstitutionID(institutionID uint) (*InstitutionSubscription, error) {
+	var sub InstitutionSubscription
+	err := r.db.Where("institution_id = ?", institutionID).First(&sub).Error
+	if err != nil {
+		return nil, err
+	}
+	return &sub, nil
+}
+
+func (r *Repository) CreateOrUpdateSubscription(sub *InstitutionSubscription) error {
+	var existing InstitutionSubscription
+	result := r.db.Where("institution_id = ?", sub.InstitutionID).First(&existing)
+	if result.Error != nil {
+		return r.db.Create(sub).Error
+	}
+	sub.ID = existing.ID
+	sub.CreatedAt = existing.CreatedAt
+	return r.db.Save(sub).Error
 }
 
 func (r *Repository) UpdateInstitutionUser(user *InstitutionUser) error {
@@ -202,4 +286,21 @@ func (r *Repository) DeleteEducationEntry(id, userID uint) error {
 		return errors.New("not found")
 	}
 	return result.Error
+}
+
+func (r *Repository) FindInstitutionUsersByStatusAndCollegeID(status string, collegeID uint, operators ...string) ([]InstitutionUser, error) {
+	var users []InstitutionUser
+	op := "="
+	if len(operators) > 0 {
+		op = operators[0]
+	}
+	err := r.db.Preload("Subscription").Where("status = ? AND college_id "+op+" ?", status, collegeID).Find(&users).Error
+	if err != nil {
+		return nil, err
+	}
+	return users, nil
+}
+
+func (r *Repository) UpdateCollegeClaimed(collegeID uint, claimed bool) error {
+	return r.db.Table("colleges").Where("id = ?", collegeID).Update("claimed", claimed).Error
 }

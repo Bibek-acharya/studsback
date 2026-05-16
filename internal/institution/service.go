@@ -1158,6 +1158,7 @@ func (s *Service) GetPublicInstitution(id uint) (*PublicInstitutionDetailRespons
 	return &PublicInstitutionDetailResponse{
 		ID:              user.ID,
 		InstitutionName: user.InstitutionName,
+		Claimed:         user.Claimed,
 		LogoURL:         user.LogoURL,
 		BannerURL:       user.BannerURL,
 		About:           user.About,

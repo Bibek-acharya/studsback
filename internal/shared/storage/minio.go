@@ -31,6 +31,19 @@ func Init() error {
 	}
 
 	Client = client
+
+	bucket := config.AppConfig.MinioBucket
+	ctx := context.Background()
+	exists, err := client.BucketExists(ctx, bucket)
+	if err != nil {
+		return fmt.Errorf("failed to check MinIO bucket: %w", err)
+	}
+	if !exists {
+		if err := client.MakeBucket(ctx, bucket, minio.MakeBucketOptions{}); err != nil {
+			return fmt.Errorf("failed to create MinIO bucket: %w", err)
+		}
+	}
+
 	return nil
 }
 

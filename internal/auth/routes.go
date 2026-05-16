@@ -28,6 +28,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 		institutionAuth := v1.Group("/institutions/auth")
 		{
 			institutionAuth.POST("/register", h.InstitutionRegister)
+			institutionAuth.POST("/claim", h.ClaimRegister)
 			institutionAuth.POST("/login", h.InstitutionLogin)
 			institutionAuth.GET("/google", h.InstitutionGoogleLogin)
 			institutionAuth.GET("/google/callback", h.InstitutionGoogleCallback)
@@ -60,7 +61,14 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			superadmin.GET("/rejected-institutions", h.ListRejectedInstitutions)
 			superadmin.POST("/institutions", h.CreateInstitution)
 			superadmin.POST("/institutions/approve", h.ApproveInstitution)
+			superadmin.POST("/institutions/claim-approve", h.ApproveClaimRequest)
+			superadmin.POST("/institutions/claim-reject", h.RejectClaimRequest)
 			superadmin.PUT("/institutions/:id/access", h.UpdateInstitutionProfileAccess)
+			superadmin.PUT("/institutions/:id/payment", h.RecordInstitutionPayment)
+			superadmin.PUT("/institutions/:id/verify", h.VerifyInstitution)
+			superadmin.PUT("/institutions/:id/suspend", h.SuspendInstitution)
+			superadmin.DELETE("/institutions/:id", h.DeleteInstitution)
+			superadmin.POST("/upload", h.SuperadminUploadFile)
 		}
 
 		institutionProtected := v1.Group("/institutions")

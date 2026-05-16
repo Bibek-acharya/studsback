@@ -24,6 +24,7 @@ type College struct {
 	Affiliation      string         `json:"affiliation"`
 	CollegeType      string         `json:"type"`
 	Verified         bool           `gorm:"default:false" json:"verified"`
+	Claimed          bool           `gorm:"default:false" json:"claimed"`
 	Popular          bool           `gorm:"default:false" json:"popular"`
 	Featured         bool           `gorm:"default:false;index" json:"featured"`
 	Rating           float64        `json:"rating"`

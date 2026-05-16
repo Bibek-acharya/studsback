@@ -82,7 +82,28 @@ type InstitutionUser struct {
 	About                   string         `gorm:"type:text" json:"about"`
 	Vision                  string         `gorm:"type:text" json:"vision"`
 	Mission                 string         `gorm:"type:text" json:"mission"`
-	ProfileData             *string        `gorm:"type:jsonb;default:'{}'" json:"profile_data"`
+	CollegeID               uint                      `gorm:"default:0" json:"college_id"`
+	Level                   string                    `gorm:"default:''" json:"level"`
+	Affiliation             string                    `gorm:"default:''" json:"affiliation"`
+	Claimed                 bool                      `gorm:"default:false" json:"claimed"`
+	Verified                bool                      `gorm:"default:false" json:"verified"`
+	VerifiedBy              string                    `gorm:"default:''" json:"verified_by"`
+	VerifiedAt              *time.Time                `json:"verified_at"`
+	ProfileData             *string                   `gorm:"type:jsonb;default:'{}'" json:"profile_data"`
+	Subscription            *InstitutionSubscription  `gorm:"foreignKey:InstitutionID" json:"subscription,omitempty"`
+}
+
+type InstitutionSubscription struct {
+	ID                uint       `gorm:"primarykey" json:"id"`
+	CreatedAt         time.Time  `json:"created_at"`
+	UpdatedAt         time.Time  `json:"updated_at"`
+	InstitutionID     uint       `gorm:"index;not null" json:"institution_id"`
+	Status            string     `gorm:"default:'pending'" json:"status"`
+	StartDate         *time.Time `json:"start_date"`
+	ExpireDate        *time.Time `json:"expire_date"`
+	LastPaymentDate   *time.Time `json:"last_payment_date"`
+	LastPaymentAmount float64    `gorm:"default:0" json:"last_payment_amount"`
+	Remarks           string     `gorm:"default:''" json:"remarks"`
 }
 
 func (u *InstitutionUser) HashPassword(password string) error {

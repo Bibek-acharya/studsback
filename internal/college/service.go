@@ -352,6 +352,7 @@ func buildCollegeResponse(college College) CollegeResponse {
 		Affiliation:      affiliation,
 		CollegeType:      college.CollegeType,
 		Verified:         college.Verified,
+		Claimed:          college.Claimed,
 		Popular:          college.Popular,
 		Featured:         college.Featured,
 		Rating:           college.Rating,

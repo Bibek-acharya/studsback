@@ -67,6 +67,7 @@ type CollegeResponse struct {
 	Affiliation      string      `json:"affiliation"`
 	CollegeType      string      `json:"type"`
 	Verified         bool        `json:"verified"`
+	Claimed          bool        `json:"claimed"`
 	Popular          bool        `json:"popular"`
 	Featured         bool        `json:"featured"`
 	Rating           float64     `json:"rating"`

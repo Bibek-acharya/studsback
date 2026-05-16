@@ -618,6 +618,9 @@ func (s *Service) CreateInstitution(req CreateInstitutionRequest) (*InstitutionU
 		Email:              email,
 		Role:               "institution",
 		Status:             "approved",
+		Level:              req.Level,
+		Affiliation:        req.Affiliation,
+		Claimed:            false,
 		District:           req.Location,
 		WebsiteURL:         req.Website,
 		LogoURL:            req.LogoURL,
@@ -639,12 +642,195 @@ func (s *Service) CreateInstitution(req CreateInstitutionRequest) (*InstitutionU
 	return &institutionUser, nil
 }
 
+func (s *Service) RecordInstitutionPayment(institutionID uint, paymentDate time.Time, paidForDays int, amount float64, remarks string) error {
+	expireDate := paymentDate.AddDate(0, 0, paidForDays)
+
+	defaultRemarks := fmt.Sprintf("Paid for %d days from %s", paidForDays, paymentDate.Format("Jan 2, 2006"))
+	if remarks == "" {
+		remarks = defaultRemarks
+	}
+
+	sub := &InstitutionSubscription{
+		InstitutionID:     institutionID,
+		Status:            "paid",
+		StartDate:         &paymentDate,
+		ExpireDate:        &expireDate,
+		LastPaymentDate:   &paymentDate,
+		LastPaymentAmount: amount,
+		Remarks:           remarks,
+	}
+
+	return s.repo.CreateOrUpdateSubscription(sub)
+}
+
+func (s *Service) VerifyInstitution(institutionID uint) error {
+	institution, err := s.repo.FindInstitutionUserByID(institutionID)
+	if err != nil {
+		return errors.New("Institution not found")
+	}
+
+	institution.Verified = !institution.Verified
+	if institution.Verified {
+		now := time.Now()
+		institution.VerifiedAt = &now
+	}
+
+	if err := s.repo.UpdateInstitutionUser(institution); err != nil {
+		return errors.New("Failed to update verification status")
+	}
+
+	return nil
+}
+
+func (s *Service) SuspendInstitution(institutionID uint) error {
+	institution, err := s.repo.FindInstitutionUserByID(institutionID)
+	if err != nil {
+		return errors.New("Institution not found")
+	}
+
+	institution.Status = "suspended"
+	if err := s.repo.UpdateInstitutionUser(institution); err != nil {
+		return errors.New("Failed to suspend institution")
+	}
+
+	return nil
+}
+
+func (s *Service) ApproveClaimRequest(institutionID uint) error {
+	institution, err := s.repo.FindInstitutionUserByID(institutionID)
+	if err != nil {
+		return errors.New("Institution not found")
+	}
+	if institution.Claimed {
+		return errors.New("Institution is already claimed")
+	}
+
+	password, err := utils.GenerateRandomPassword(12)
+	if err != nil {
+		return errors.New("Failed to generate password")
+	}
+
+	if err := institution.HashPassword(password); err != nil {
+		return errors.New("Failed to hash password")
+	}
+
+	institution.Claimed = true
+	institution.Status = "approved"
+	if err := s.repo.UpdateInstitutionUser(institution); err != nil {
+		return errors.New("Failed to update institution")
+	}
+
+	if emailErr := utils.SendApprovalEmail(institution.Email, institution.InstitutionName, password); emailErr != nil {
+		log.Printf("Warning: failed to send claim approval email to %s: %v", institution.Email, emailErr)
+	}
+
+	if institution.CollegeID > 0 {
+		_ = s.repo.UpdateCollegeClaimed(institution.CollegeID, true)
+
+		otherClaims, err := s.repo.FindInstitutionUsersByStatusAndCollegeID("pending", institution.CollegeID)
+		if err == nil {
+			for _, claim := range otherClaims {
+				if claim.ID == institutionID {
+					continue
+				}
+				claim.Status = "rejected"
+				claim.RejectionReason = "Already claimed"
+				_ = s.repo.UpdateInstitutionUser(&claim)
+				_ = utils.SendRejectionEmail(claim.Email, claim.InstitutionName)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (s *Service) DeleteInstitution(institutionID uint) error {
+	return s.repo.DeleteInstitutionUser(institutionID)
+}
+
+func (s *Service) ClaimRegister(req ClaimRegisterRequest) (*RegisterResponse, error) {
+	if exists, _ := s.repo.FindInstitutionUserByEmail(req.Email); exists != nil {
+		return nil, errors.New("Email already registered")
+	}
+	if exists, _ := s.repo.FindInstitutionUserByRegistrationNumber(req.RegistrationNumber); exists != nil {
+		return nil, errors.New("Registration number already exists")
+	}
+
+	institutionUser := InstitutionUser{
+		InstitutionName:          req.InstitutionName,
+		RegistrationNumber:       req.RegistrationNumber,
+		Email:                    req.Email,
+		Role:                     "institution",
+		Status:                   "pending",
+		Claimed:                  false,
+		CollegeID:                req.CollegeID,
+		ContactNumber:            req.ContactNumber,
+		Province:                 req.Province,
+		District:                 req.District,
+		LocalBody:                req.LocalBody,
+		OrganizationType:         req.OrganizationType,
+		PANNumber:                req.PANNumber,
+		WebsiteURL:               req.WebsiteURL,
+		ContactPerson:            req.ContactPerson,
+		ContactPersonDesignation: req.ContactPersonDesignation,
+		ContactPersonPhone:       req.ContactPersonPhone,
+	}
+
+	password, err := utils.GenerateRandomPassword(12)
+	if err != nil {
+		return nil, errors.New("Failed to generate password")
+	}
+	if err := institutionUser.HashPassword(password); err != nil {
+		return nil, errors.New("Failed to hash password")
+	}
+
+	otp, err := utils.GenerateOTP()
+	if err != nil {
+		return nil, errors.New("Failed to generate OTP")
+	}
+	utils.StoreOTP(req.Email, otp, institutionUser)
+
+	return &RegisterResponse{Email: req.Email, RequiresOTP: true}, nil
+}
+
+func (s *Service) RejectClaimRequest(claimID uint, reason string) error {
+	institution, err := s.repo.FindInstitutionUserByID(claimID)
+	if err != nil {
+		return errors.New("Claim request not found")
+	}
+
+	institution.Status = "rejected"
+	institution.RejectionReason = reason
+	if err := s.repo.UpdateInstitutionUser(institution); err != nil {
+		return errors.New("Failed to reject claim request")
+	}
+
+	if emailErr := utils.SendRejectionEmail(institution.Email, institution.InstitutionName); emailErr != nil {
+		log.Printf("Warning: failed to send rejection email to %s: %v", institution.Email, emailErr)
+	}
+
+	return nil
+}
+
 func (s *Service) ListPendingInstitutions() ([]InstitutionUser, error) {
 	return s.repo.FindInstitutionUsersByStatus("pending")
 }
 
+func (s *Service) ListPendingInstitutionsFiltered(status, reqType string) ([]InstitutionUser, error) {
+	if reqType == "registration" {
+		return s.repo.FindInstitutionUsersByStatusAndCollegeID(status, 0)
+	} else if reqType == "claim" {
+		return s.repo.FindInstitutionUsersByStatusAndCollegeID(status, 0, ">")
+	}
+	return s.repo.FindInstitutionUsersByStatus(status)
+}
+
 func (s *Service) ListVerifiedInstitutions() ([]InstitutionUser, error) {
 	return s.repo.FindInstitutionUsersByStatus("approved")
+}
+
+func (s *Service) ListVerifiedInstitutionsFiltered(filter InstitutionFilter) ([]InstitutionUser, map[string]int64, error) {
+	return s.repo.FindInstitutionUsersFiltered("approved", filter)
 }
 
 func (s *Service) ListRejectedInstitutions() ([]InstitutionUser, error) {
@@ -667,6 +853,7 @@ func (s *Service) ApproveInstitution(institutionID uint) error {
 	}
 
 	institution.Status = "approved"
+	institution.Claimed = true
 	if err := s.repo.UpdateInstitutionUser(institution); err != nil {
 		return errors.New("Failed to update institution")
 	}

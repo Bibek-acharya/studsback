@@ -879,7 +879,10 @@ func (h *Handler) ApproveScholarshipProvider(c *gin.Context) {
 }
 
 func (h *Handler) ListPendingInstitutions(c *gin.Context) {
-	institutions, err := h.service.ListPendingInstitutions()
+	reqType := c.DefaultQuery("type", "")
+	status := c.DefaultQuery("status", "pending")
+
+	institutions, err := h.service.ListPendingInstitutionsFiltered(status, reqType)
 	if err != nil {
 		response.Error(c, 500, err.Error())
 		return
@@ -893,7 +896,13 @@ func (h *Handler) ListPendingInstitutions(c *gin.Context) {
 }
 
 func (h *Handler) ListVerifiedInstitutions(c *gin.Context) {
-	institutions, err := h.service.ListVerifiedInstitutions()
+	var filter InstitutionFilter
+	if err := c.ShouldBindQuery(&filter); err != nil {
+		response.Error(c, 400, "Invalid filter parameters")
+		return
+	}
+
+	institutions, counts, err := h.service.ListVerifiedInstitutionsFiltered(filter)
 	if err != nil {
 		response.Error(c, 500, err.Error())
 		return
@@ -903,7 +912,10 @@ func (h *Handler) ListVerifiedInstitutions(c *gin.Context) {
 		institutions = []InstitutionUser{}
 	}
 
-	response.Success(c, 200, "Verified institutions retrieved successfully", institutions)
+	response.Success(c, 200, "Verified institutions retrieved successfully", gin.H{
+		"institutions": institutions,
+		"counts":       counts,
+	})
 }
 
 func (h *Handler) ListRejectedInstitutions(c *gin.Context) {
@@ -981,6 +993,130 @@ func (h *Handler) UpdateInstitutionProfileAccess(c *gin.Context) {
 	}
 
 	response.Success(c, 200, "Profile access updated successfully", nil)
+}
+
+func (h *Handler) ClaimRegister(c *gin.Context) {
+	var req ClaimRegisterRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+
+	result, err := h.service.ClaimRegister(req)
+	if err != nil {
+		response.Error(c, 409, err.Error())
+		return
+	}
+
+	response.Success(c, 201, "Verification code sent to your email", result)
+}
+
+func (h *Handler) RejectClaimRequest(c *gin.Context) {
+	var req RejectClaimRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+
+	if err := h.service.RejectClaimRequest(req.ClaimID, req.RejectionReason); err != nil {
+		response.Error(c, 500, err.Error())
+		return
+	}
+
+	response.Success(c, 200, "Claim request rejected successfully. Email sent.", nil)
+}
+
+func (h *Handler) RecordInstitutionPayment(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		response.Error(c, 400, "Invalid institution ID")
+		return
+	}
+
+	var req RecordPaymentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+
+	paymentDate, err := time.Parse("2006-01-02", req.PaymentDate)
+	if err != nil {
+		response.Error(c, 400, "Invalid payment date format (use YYYY-MM-DD)")
+		return
+	}
+
+	if err := h.service.RecordInstitutionPayment(uint(id), paymentDate, req.PaidForDays, req.Amount, req.Remarks); err != nil {
+		response.Error(c, 500, err.Error())
+		return
+	}
+
+	response.Success(c, 200, "Payment recorded successfully", nil)
+}
+
+func (h *Handler) VerifyInstitution(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		response.Error(c, 400, "Invalid institution ID")
+		return
+	}
+
+	if err := h.service.VerifyInstitution(uint(id)); err != nil {
+		response.Error(c, 500, err.Error())
+		return
+	}
+
+	response.Success(c, 200, "Institution verified successfully", nil)
+}
+
+func (h *Handler) ApproveClaimRequest(c *gin.Context) {
+	var req struct {
+		InstitutionID uint `json:"institution_id" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+
+	if err := h.service.ApproveClaimRequest(req.InstitutionID); err != nil {
+		response.Error(c, 500, err.Error())
+		return
+	}
+
+	response.Success(c, 200, "Claim approved successfully. Email sent with login credentials.", nil)
+}
+
+func (h *Handler) SuspendInstitution(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		response.Error(c, 400, "Invalid institution ID")
+		return
+	}
+
+	if err := h.service.SuspendInstitution(uint(id)); err != nil {
+		response.Error(c, 500, err.Error())
+		return
+	}
+
+	response.Success(c, 200, "Institution suspended successfully", nil)
+}
+
+func (h *Handler) DeleteInstitution(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		response.Error(c, 400, "Invalid institution ID")
+		return
+	}
+
+	if err := h.service.DeleteInstitution(uint(id)); err != nil {
+		response.Error(c, 500, err.Error())
+		return
+	}
+
+	response.Success(c, 200, "Institution deleted successfully", nil)
 }
 
 func (h *Handler) GetMyProfileAccess(c *gin.Context) {
@@ -1097,6 +1233,29 @@ func (h *Handler) DeleteEducationEntry(c *gin.Context) {
 	}
 
 	response.Success(c, http.StatusOK, "Education entry deleted successfully", nil)
+}
+
+func (h *Handler) SuperadminUploadFile(c *gin.Context) {
+	file, err := c.FormFile("file")
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "File is required")
+		return
+	}
+
+	folder := c.DefaultQuery("folder", "uploads")
+
+	url, err := utils.SaveUploadedImage(file, folder)
+	if err != nil {
+		url, err = utils.SaveUploadedDocument(file, folder)
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, "Failed to upload file: "+err.Error())
+			return
+		}
+	}
+
+	response.Success(c, http.StatusOK, "File uploaded successfully", gin.H{
+		"url": url,
+	})
 }
 
 func (h *Handler) Logout(c *gin.Context) {
