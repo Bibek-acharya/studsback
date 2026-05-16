@@ -92,7 +92,20 @@ func (s *Service) GetProfile(instID uint) (*ProfileResponse, error) {
 		json.Unmarshal([]byte(*user.ProfileData), &pd)
 	}
 
+	subType := "free"
+	var sub struct {
+		ExpireDate *time.Time `json:"expire_date"`
+	}
+	s.repo.db.Table("institution_subscriptions").
+		Where("institution_id = ?", instID).
+		Select("expire_date").
+		Scan(&sub)
+	if sub.ExpireDate != nil && sub.ExpireDate.After(time.Now()) {
+		subType = "premium"
+	}
+
 	return &ProfileResponse{
+		SubscriptionType: subType,
 		ID:                    user.ID,
 		InstitutionName:       user.InstitutionName,
 		Email:                 user.Email,
@@ -553,6 +566,65 @@ func (s *Service) UpdateNews(instID, id uint, req UpdateNewsRequest) (*Instituti
 
 func (s *Service) DeleteNews(instID, id uint) error {
 	return s.repo.DeleteNews(id, instID)
+}
+
+func (s *Service) GetBlogs(instID uint, page, limit int) ([]InstitutionBlog, int64, error) {
+	return s.repo.FindBlogsByInstitution(instID, page, limit)
+}
+
+func (s *Service) GetBlogByID(instID, id uint) (*InstitutionBlog, error) {
+	return s.repo.FindBlogByIDAndInstitution(id, instID)
+}
+
+func (s *Service) CreateBlog(instID uint, req CreateBlogRequest) (*InstitutionBlog, error) {
+	blog := &InstitutionBlog{
+		InstitutionID: instID,
+		Title:         req.Title,
+		Content:       req.Content,
+		Excerpt:       req.Excerpt,
+		Image:         req.Image,
+		Category:      req.Category,
+		Published:     true,
+	}
+
+	if err := s.repo.CreateBlog(blog); err != nil {
+		return nil, err
+	}
+
+	return blog, nil
+}
+
+func (s *Service) UpdateBlog(instID, id uint, req UpdateBlogRequest) (*InstitutionBlog, error) {
+	blog, err := s.repo.FindBlogByIDAndInstitution(id, instID)
+	if err != nil {
+		return nil, errors.New("blog not found")
+	}
+
+	if req.Title != "" {
+		blog.Title = req.Title
+	}
+	if req.Content != "" {
+		blog.Content = req.Content
+	}
+	if req.Excerpt != "" {
+		blog.Excerpt = req.Excerpt
+	}
+	if req.Image != "" {
+		blog.Image = req.Image
+	}
+	if req.Category != "" {
+		blog.Category = req.Category
+	}
+
+	if err := s.repo.SaveBlog(blog); err != nil {
+		return nil, err
+	}
+
+	return blog, nil
+}
+
+func (s *Service) DeleteBlog(instID, id uint) error {
+	return s.repo.DeleteBlog(id, instID)
 }
 
 func (s *Service) GetQMS(instID uint, page, limit int) ([]InstitutionQMS, int64, error) {

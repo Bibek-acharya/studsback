@@ -111,7 +111,8 @@ func (s *Service) SendOTP(email string, otpType string) error {
 	if otpType == "password_reset" {
 		_, userErr := s.repo.FindUserByEmail(email)
 		_, providerErr := s.repo.FindScholarshipProviderUserByEmail(email)
-		if userErr != nil && providerErr != nil {
+		_, instErr := s.repo.FindInstitutionUserByEmail(email)
+		if userErr != nil && providerErr != nil && instErr != nil {
 			return errors.New("No account found with this email address")
 		}
 	}
@@ -1187,13 +1188,21 @@ func (s *Service) ResetPassword(email, otp, newPassword string) error {
 	}
 
 	providerUser, providerErr := s.repo.FindScholarshipProviderUserByEmail(email)
-	if providerErr != nil {
+	if providerErr == nil {
+		if err := providerUser.HashPassword(newPassword); err != nil {
+			return errors.New("Failed to hash password")
+		}
+		return s.repo.UpdateScholarshipProviderUser(providerUser)
+	}
+
+	instUser, instErr := s.repo.FindInstitutionUserByEmail(email)
+	if instErr != nil {
 		return errors.New("User not found")
 	}
 
-	if err := providerUser.HashPassword(newPassword); err != nil {
+	if err := instUser.HashPassword(newPassword); err != nil {
 		return errors.New("Failed to hash password")
 	}
 
-	return s.repo.UpdateScholarshipProviderUser(providerUser)
+	return s.repo.UpdateInstitutionUser(instUser)
 }

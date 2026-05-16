@@ -30,6 +30,8 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			institutionAuth.POST("/register", h.InstitutionRegister)
 			institutionAuth.POST("/claim", h.ClaimRegister)
 			institutionAuth.POST("/login", h.InstitutionLogin)
+			institutionAuth.POST("/send-otp", h.SendOTP)
+			institutionAuth.POST("/reset-password", h.ResetPassword)
 			institutionAuth.GET("/google", h.InstitutionGoogleLogin)
 			institutionAuth.GET("/google/callback", h.InstitutionGoogleCallback)
 		}

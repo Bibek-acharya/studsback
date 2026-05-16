@@ -684,6 +684,117 @@ func (h *Handler) DeleteNews(c *gin.Context) {
 	response.Success(c, http.StatusOK, "News deleted successfully", nil)
 }
 
+func (h *Handler) GetBlogs(c *gin.Context) {
+	instID := getInstID(c)
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50 {
+		limit = 10
+	}
+
+	blogs, total, err := h.service.GetBlogs(instID, page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch blogs")
+		return
+	}
+
+	var resp []BlogResponse
+	for _, b := range blogs {
+		resp = append(resp, toBlogResponse(b))
+	}
+
+	response.Success(c, http.StatusOK, "Blogs retrieved successfully", gin.H{
+		"blogs": resp,
+		"meta": gin.H{
+			"total": total,
+			"page":  page,
+			"limit": limit,
+		},
+	})
+}
+
+func (h *Handler) GetBlogByID(c *gin.Context) {
+	instID := getInstID(c)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid blog ID")
+		return
+	}
+
+	blog, err := h.service.GetBlogByID(instID, uint(id))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Blog not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Blog retrieved successfully", toBlogResponse(*blog))
+}
+
+func (h *Handler) CreateBlog(c *gin.Context) {
+	instID := getInstID(c)
+
+	var req CreateBlogRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	blog, err := h.service.CreateBlog(instID, req)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to create blog")
+		return
+	}
+
+	response.Success(c, http.StatusCreated, "Blog created successfully", toBlogResponse(*blog))
+}
+
+func (h *Handler) UpdateBlog(c *gin.Context) {
+	instID := getInstID(c)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid blog ID")
+		return
+	}
+
+	var req UpdateBlogRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	blog, err := h.service.UpdateBlog(instID, uint(id), req)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Blog updated successfully", toBlogResponse(*blog))
+}
+
+func (h *Handler) DeleteBlog(c *gin.Context) {
+	instID := getInstID(c)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid blog ID")
+		return
+	}
+
+	if err := h.service.DeleteBlog(instID, uint(id)); err != nil {
+		if err.Error() == "record not found" {
+			response.Error(c, http.StatusNotFound, "Blog not found")
+		} else {
+			response.Error(c, http.StatusInternalServerError, "Failed to delete blog")
+		}
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Blog deleted successfully", nil)
+}
+
 func (h *Handler) GetQMS(c *gin.Context) {
 	instID := getInstID(c)
 
@@ -1381,6 +1492,21 @@ func toNewsResponse(n InstitutionNews) NewsResponse {
 		Image:         n.Image,
 		Category:      n.Category,
 		Published:     n.Published,
+	}
+}
+
+func toBlogResponse(b InstitutionBlog) BlogResponse {
+	return BlogResponse{
+		ID:            b.ID,
+		CreatedAt:     b.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:     b.UpdatedAt.Format(time.RFC3339),
+		InstitutionID: b.InstitutionID,
+		Title:         b.Title,
+		Content:       b.Content,
+		Excerpt:       b.Excerpt,
+		Image:         b.Image,
+		Category:      b.Category,
+		Published:     b.Published,
 	}
 }
 

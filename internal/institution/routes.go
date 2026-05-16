@@ -56,6 +56,12 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			institution.PUT("/news/:id", h.UpdateNews)
 			institution.DELETE("/news/:id", h.DeleteNews)
 
+			institution.GET("/blogs", h.GetBlogs)
+			institution.GET("/blogs/:id", h.GetBlogByID)
+			institution.POST("/blogs", h.CreateBlog)
+			institution.PUT("/blogs/:id", h.UpdateBlog)
+			institution.DELETE("/blogs/:id", h.DeleteBlog)
+
 			institution.GET("/qms", h.GetQMS)
 			institution.GET("/qms/:id", h.GetQMSByID)
 			institution.POST("/qms", h.CreateQMS)

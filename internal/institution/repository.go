@@ -355,6 +355,48 @@ func (r *Repository) DeleteNews(id uint, instID uint) error {
 	return nil
 }
 
+func (r *Repository) FindBlogsByInstitution(instID uint, page, limit int) ([]InstitutionBlog, int64, error) {
+	var blogs []InstitutionBlog
+	var total int64
+
+	if err := r.db.Model(&InstitutionBlog{}).Where("institution_id = ?", instID).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * limit
+	err := r.db.Where("institution_id = ?", instID).
+		Order("created_at desc").Offset(offset).Limit(limit).Find(&blogs).Error
+	return blogs, total, err
+}
+
+func (r *Repository) FindBlogByIDAndInstitution(id uint, instID uint) (*InstitutionBlog, error) {
+	var blog InstitutionBlog
+	err := r.db.Where("id = ? AND institution_id = ?", id, instID).First(&blog).Error
+	if err != nil {
+		return nil, err
+	}
+	return &blog, nil
+}
+
+func (r *Repository) CreateBlog(blog *InstitutionBlog) error {
+	return r.db.Create(blog).Error
+}
+
+func (r *Repository) SaveBlog(blog *InstitutionBlog) error {
+	return r.db.Save(blog).Error
+}
+
+func (r *Repository) DeleteBlog(id uint, instID uint) error {
+	result := r.db.Where("id = ? AND institution_id = ?", id, instID).Delete(&InstitutionBlog{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
 func (r *Repository) FindQMSByInstitution(instID uint, page, limit int) ([]InstitutionQMS, int64, error) {
 	var qms []InstitutionQMS
 	var total int64

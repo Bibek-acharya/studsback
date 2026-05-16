@@ -114,6 +114,20 @@ type InstitutionNews struct {
 	Published     bool           `gorm:"default:true" json:"published"`
 }
 
+type InstitutionBlog struct {
+	ID            uint           `gorm:"primarykey" json:"id"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
+	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
+	InstitutionID uint           `gorm:"index;not null" json:"institution_id"`
+	Title         string         `gorm:"not null" json:"title"`
+	Content       string         `gorm:"type:text" json:"content"`
+	Excerpt       string         `json:"excerpt"`
+	Image         string         `json:"image"`
+	Category      string         `json:"category"`
+	Published     bool           `gorm:"default:true" json:"published"`
+}
+
 type InstitutionQMS struct {
 	ID            uint           `gorm:"primarykey" json:"id"`
 	CreatedAt     time.Time      `json:"created_at"`

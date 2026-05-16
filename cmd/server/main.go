@@ -120,6 +120,7 @@ func main() {
 		&institution.InstitutionEntranceApplicant{},
 		&institution.InstitutionEvent{},
 		&institution.InstitutionNews{},
+		&institution.InstitutionBlog{},
 		&institution.InstitutionQMS{},
 		&institution.InstitutionMessage{},
 		&institution.AdmissionPage{},

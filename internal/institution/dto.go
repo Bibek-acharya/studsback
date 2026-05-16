@@ -180,6 +180,35 @@ type NewsResponse struct {
 	Published     bool   `json:"published"`
 }
 
+type CreateBlogRequest struct {
+	Title    string `json:"title" binding:"required"`
+	Content  string `json:"content"`
+	Excerpt  string `json:"excerpt"`
+	Image    string `json:"image"`
+	Category string `json:"category"`
+}
+
+type UpdateBlogRequest struct {
+	Title    string `json:"title"`
+	Content  string `json:"content"`
+	Excerpt  string `json:"excerpt"`
+	Image    string `json:"image"`
+	Category string `json:"category"`
+}
+
+type BlogResponse struct {
+	ID            uint   `json:"id"`
+	CreatedAt     string `json:"created_at"`
+	UpdatedAt     string `json:"updated_at"`
+	InstitutionID uint   `json:"institution_id"`
+	Title         string `json:"title"`
+	Content       string `json:"content"`
+	Excerpt       string `json:"excerpt"`
+	Image         string `json:"image"`
+	Category      string `json:"category"`
+	Published     bool   `json:"published"`
+}
+
 type CreateQMSRequest struct {
 	Title       string  `json:"title" binding:"required"`
 	Description string  `json:"description"`
@@ -406,6 +435,7 @@ type ProfileResponse struct {
 	ID                    uint                  `json:"id"`
 	InstitutionName       string                `json:"institution_name"`
 	Email                 string                `json:"email"`
+	SubscriptionType      string                `json:"subscription_type"`
 	RegistrationNumber    string                `json:"registration_number"`
 	Role                  string                `json:"role"`
 	Location              string                `json:"location,omitempty"`
