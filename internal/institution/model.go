@@ -19,6 +19,8 @@ type InstitutionProgram struct {
 	Fee           string         `json:"fee"`
 	Eligibility   string         `gorm:"type:text" json:"eligibility"`
 	Capacity      int            `json:"capacity"`
+	BannerURL     string         `json:"banner_url"`
+	Data          *string        `gorm:"type:jsonb;default:'{}'" json:"data"`
 	Status        string         `gorm:"default:'active'" json:"status"`
 }
 
@@ -67,10 +69,18 @@ type InstitutionEntrance struct {
 	InstitutionID uint           `gorm:"index;not null" json:"institution_id"`
 	Title         string         `gorm:"not null" json:"title"`
 	Description   string         `gorm:"type:text" json:"description"`
+	Program       string         `json:"program"`
 	Date          time.Time      `json:"date"`
+	StartTime     string         `json:"start_time"`
+	EndTime       string         `json:"end_time"`
 	Duration      int            `json:"duration"`
+	TotalMarks    int            `json:"total_marks"`
+	PassingMarks  int            `json:"passing_marks"`
 	TotalSeats    int            `json:"total_seats"`
 	FilledSeats   int            `gorm:"default:0" json:"filled_seats"`
+	Instructions  string         `gorm:"type:text" json:"instructions"`
+	HeroBanner    string         `json:"hero_banner"`
+	Questions     *string        `gorm:"type:jsonb" json:"questions"`
 	Status        string         `gorm:"default:'upcoming'" json:"status"`
 }
 
@@ -188,6 +198,7 @@ type InstitutionUser struct {
 	Claimed            bool           `gorm:"default:false" json:"claimed"`
 	CollegeID          uint           `gorm:"default:0" json:"college_id"`
 	ProfileData        *string        `gorm:"type:jsonb;default:'{}'" json:"profile_data"`
+	Featured           bool           `gorm:"default:false" json:"featured"`
 }
 
 func (u *InstitutionUser) HashPassword(password string) error {

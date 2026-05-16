@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"studsphere/backend/internal/institution"
 	"studsphere/backend/internal/shared/storage"
 	"studsphere/backend/internal/shared/utils"
 )
@@ -640,7 +641,108 @@ func (s *Service) CreateInstitution(req CreateInstitutionRequest) (*InstitutionU
 		return nil, err
 	}
 
+	settings := institution.InstitutionSettings{
+		InstitutionID: institutionUser.ID,
+		PublicProfile: true,
+		EmailNotifs:   true,
+	}
+	if err := s.repo.CreateInstitutionSettings(&settings); err != nil {
+		return nil, err
+	}
+
 	return &institutionUser, nil
+}
+
+func (s *Service) GetInstitution(id uint) (*InstitutionDetailResponse, error) {
+	user, err := s.repo.FindInstitutionUserByID(id)
+	if err != nil {
+		return nil, errors.New("institution not found")
+	}
+
+	var profileData map[string]interface{}
+	if user.ProfileData != nil && *user.ProfileData != "" {
+		if err := json.Unmarshal([]byte(*user.ProfileData), &profileData); err != nil {
+			profileData = nil
+		}
+	}
+
+	logoURL := user.LogoURL
+	bannerURL := user.BannerURL
+	if strings.HasPrefix(logoURL, "data:") {
+		logoURL = ""
+	}
+	if strings.HasPrefix(bannerURL, "data:") {
+		bannerURL = ""
+	}
+
+	return &InstitutionDetailResponse{
+		ID:                 user.ID,
+		InstitutionName:    user.InstitutionName,
+		Email:              user.Email,
+		RegistrationNumber: user.RegistrationNumber,
+		Status:             user.Status,
+		Claimed:            user.Claimed,
+		Verified:           user.Verified,
+		Featured:           user.Featured,
+		District:           user.District,
+		WebsiteURL:         user.WebsiteURL,
+		LogoURL:            logoURL,
+		BannerURL:          bannerURL,
+		About:              user.About,
+		Vision:             user.Vision,
+		Mission:            user.Mission,
+		Level:              user.Level,
+		Affiliation:        user.Affiliation,
+		ProfileData:        profileData,
+	}, nil
+}
+
+func (s *Service) UpdateInstitution(id uint, req UpdateInstitutionRequest) error {
+	user, err := s.repo.FindInstitutionUserByID(id)
+	if err != nil {
+		return errors.New("institution not found")
+	}
+
+	if req.InstitutionName != "" {
+		user.InstitutionName = req.InstitutionName
+	}
+	if req.Location != "" {
+		user.District = req.Location
+	}
+	if req.Website != "" {
+		user.WebsiteURL = req.Website
+	}
+	if req.Level != "" {
+		user.Level = req.Level
+	}
+	if req.Affiliation != "" {
+		user.Affiliation = req.Affiliation
+	}
+	if req.About != "" {
+		user.About = req.About
+	}
+	if req.Vision != "" {
+		user.Vision = req.Vision
+	}
+	if req.Mission != "" {
+		user.Mission = req.Mission
+	}
+	if req.LogoURL != "" {
+		user.LogoURL = req.LogoURL
+	}
+	if req.BannerURL != "" {
+		user.BannerURL = req.BannerURL
+	}
+
+	if req.ProfileData != nil {
+		profileJSON, err := json.Marshal(req.ProfileData)
+		if err == nil {
+			profileStr := string(profileJSON)
+			user.ProfileData = &profileStr
+		}
+	}
+
+	return s.repo.UpdateInstitutionUser(user)
 }
 
 func (s *Service) RecordInstitutionPayment(institutionID uint, paymentDate time.Time, paidForDays int, amount float64, remarks string) error {
@@ -662,6 +764,21 @@ func (s *Service) RecordInstitutionPayment(institutionID uint, paymentDate time.
 	}
 
 	return s.repo.CreateOrUpdateSubscription(sub)
+}
+
+func (s *Service) ToggleInstitutionFeatured(institutionID uint) error {
+	institution, err := s.repo.FindInstitutionUserByID(institutionID)
+	if err != nil {
+		return errors.New("Institution not found")
+	}
+
+	institution.Featured = !institution.Featured
+
+	if err := s.repo.UpdateInstitutionUser(institution); err != nil {
+		return errors.New("Failed to toggle featured status")
+	}
+
+	return nil
 }
 
 func (s *Service) VerifyInstitution(institutionID uint) error {

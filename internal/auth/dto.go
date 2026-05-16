@@ -125,6 +125,41 @@ type InstitutionRegisterRequest struct {
 	ContactPersonPhone       string `json:"contact_person_phone"`
 }
 
+type UpdateInstitutionRequest struct {
+	InstitutionName string      `json:"institution_name"`
+	Location        string      `json:"location"`
+	Website         string      `json:"website"`
+	Level           string      `json:"level"`
+	Affiliation     string      `json:"affiliation"`
+	About           string      `json:"about"`
+	Vision          string      `json:"vision"`
+	Mission         string      `json:"mission"`
+	LogoURL         string      `json:"logo_url"`
+	BannerURL       string      `json:"banner_url"`
+	ProfileData     interface{} `json:"profile_data"`
+}
+
+type InstitutionDetailResponse struct {
+	ID                 uint                   `json:"id"`
+	InstitutionName    string                 `json:"institution_name"`
+	Email              string                 `json:"email"`
+	RegistrationNumber string                 `json:"registration_number"`
+	Status             string                 `json:"status"`
+	Claimed            bool                   `json:"claimed"`
+	Verified           bool                   `json:"verified"`
+	Featured           bool                   `json:"featured"`
+	District           string                 `json:"district"`
+	WebsiteURL         string                 `json:"website_url"`
+	LogoURL            string                 `json:"logo_url"`
+	BannerURL          string                 `json:"banner_url"`
+	About              string                 `json:"about"`
+	Vision             string                 `json:"vision"`
+	Mission            string                 `json:"mission"`
+	Level              string                 `json:"level"`
+	Affiliation        string                 `json:"affiliation"`
+	ProfileData        map[string]interface{} `json:"profile_data"`
+}
+
 type CreateInstitutionRequest struct {
 	InstitutionName    string      `json:"institution_name" binding:"required"`
 	Location           string      `json:"location"`

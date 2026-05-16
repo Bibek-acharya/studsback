@@ -130,8 +130,8 @@ func (r *Repository) FindPublicInstitutions(page, pageSize int, search, location
 	var total int64
 
 	query := r.db.Model(&InstitutionUser{}).
-		Joins("JOIN institution_settings ON institution_settings.institution_id = institution_users.id").
-		Where("institution_settings.public_profile = ?", true).
+		Joins("LEFT JOIN institution_settings ON institution_settings.institution_id = institution_users.id").
+		Where("(institution_settings.public_profile = ? OR institution_settings.id IS NULL)", true).
 		Where("institution_users.deleted_at IS NULL")
 
 	if search != "" {
@@ -158,9 +158,9 @@ func (r *Repository) FindPublicInstitutions(page, pageSize int, search, location
 
 func (r *Repository) FindPublicInstitutionByID(id uint) (*InstitutionUser, error) {
 	var user InstitutionUser
-	err := r.db.Joins("JOIN institution_settings ON institution_settings.institution_id = institution_users.id").
+	err := r.db.Joins("LEFT JOIN institution_settings ON institution_settings.institution_id = institution_users.id").
 		Where("institution_users.id = ?", id).
-		Where("institution_settings.public_profile = ?", true).
+		Where("(institution_settings.public_profile = ? OR institution_settings.id IS NULL)", true).
 		Where("institution_users.deleted_at IS NULL").
 		First(&user).Error
 	if err != nil {
@@ -196,6 +196,23 @@ func (r *Repository) FindCounsellingSessionsByInstitution(instID uint) ([]Instit
 	return sessions, err
 }
 
+func (r *Repository) FindCounsellingSessionByID(id uint, instID uint) (*InstitutionCounsellingSession, error) {
+	var session InstitutionCounsellingSession
+	err := r.db.Where("id = ? AND institution_id = ?", id, instID).First(&session).Error
+	if err != nil {
+		return nil, err
+	}
+	return &session, nil
+}
+
+func (r *Repository) CreateCounsellingSession(session *InstitutionCounsellingSession) error {
+	return r.db.Create(session).Error
+}
+
+func (r *Repository) DeleteCounsellingSession(session *InstitutionCounsellingSession) error {
+	return r.db.Delete(session).Error
+}
+
 func (r *Repository) FindCounsellingBookingsByInstitution(instID uint) ([]InstitutionCounsellingBooking, error) {
 	var bookings []InstitutionCounsellingBooking
 	err := r.db.
@@ -223,17 +240,21 @@ func (r *Repository) SaveBooking(booking *InstitutionCounsellingBooking) error {
 	return r.db.Save(booking).Error
 }
 
-func (r *Repository) FindEntrancesByInstitution(instID uint, page, limit int) ([]InstitutionEntrance, int64, error) {
+func (r *Repository) FindEntrancesByInstitution(instID uint, status string, page, limit int) ([]InstitutionEntrance, int64, error) {
 	var entrances []InstitutionEntrance
 	var total int64
 
-	if err := r.db.Model(&InstitutionEntrance{}).Where("institution_id = ?", instID).Count(&total).Error; err != nil {
+	query := r.db.Model(&InstitutionEntrance{}).Where("institution_id = ?", instID)
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
+
+	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
 	offset := (page - 1) * limit
-	err := r.db.Where("institution_id = ?", instID).
-		Order("date desc").Offset(offset).Limit(limit).Find(&entrances).Error
+	err := query.Order("date desc").Offset(offset).Limit(limit).Find(&entrances).Error
 	return entrances, total, err
 }
 

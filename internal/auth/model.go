@@ -90,6 +90,7 @@ type InstitutionUser struct {
 	VerifiedBy              string                    `gorm:"default:''" json:"verified_by"`
 	VerifiedAt              *time.Time                `json:"verified_at"`
 	ProfileData             *string                   `gorm:"type:jsonb;default:'{}'" json:"profile_data"`
+	Featured                bool                      `gorm:"default:false" json:"featured"`
 	Subscription            *InstitutionSubscription  `gorm:"foreignKey:InstitutionID" json:"subscription,omitempty"`
 }
 

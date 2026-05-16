@@ -34,6 +34,8 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			institution.DELETE("/media/:id", h.DeleteMedia)
 
 			institution.GET("/counselling/sessions", h.GetCounsellingSessions)
+			institution.POST("/counselling/sessions", h.CreateCounsellingSession)
+			institution.DELETE("/counselling/sessions/:id", h.DeleteCounsellingSession)
 			institution.GET("/counselling/bookings", h.GetCounsellingBookings)
 			institution.PUT("/counselling/bookings/:id/status", h.UpdateBookingStatus)
 

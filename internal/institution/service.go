@@ -3,6 +3,7 @@ package institution
 import (
 	"encoding/json"
 	"errors"
+	"strings"
 	"time"
 )
 
@@ -126,6 +127,7 @@ func (s *Service) GetProfile(instID uint) (*ProfileResponse, error) {
 		FacilitiesData:        pd.FacilitiesData,
 		AlumniData:            pd.AlumniData,
 		DownloadsData:         pd.DownloadsData,
+		GalleryData:           pd.GalleryData,
 		WhatsNewData:          pd.WhatsNewData,
 		EligibilityData:       pd.EligibilityData,
 		AdmissionProcessData:  pd.AdmissionProcessData,
@@ -171,7 +173,7 @@ func (s *Service) UpdateProfile(instID uint, req UpdateProfileRequest) (*Profile
 	}
 	if req.Videos != nil || req.OverviewData != nil || req.LeadershipData != nil ||
 		req.CoursesData != nil || req.ProgramsData != nil || req.FacilitiesData != nil ||
-		req.AlumniData != nil || req.DownloadsData != nil ||
+		req.AlumniData != nil || req.DownloadsData != nil || req.GalleryData != nil ||
 		req.WhatsNewData != nil || req.EligibilityData != nil || req.AdmissionProcessData != nil ||
 		req.ScholarshipsData != nil || req.FaqsData != nil || req.ContactPersonsData != nil ||
 		req.BrochureData != nil {
@@ -192,6 +194,7 @@ func (s *Service) UpdateProfile(instID uint, req UpdateProfileRequest) (*Profile
 		setField(&existing, "facilities_data", req.FacilitiesData)
 		setField(&existing, "alumni_data", req.AlumniData)
 		setField(&existing, "downloads_data", req.DownloadsData)
+		setField(&existing, "gallery_data", req.GalleryData)
 		setField(&existing, "whats_new_data", req.WhatsNewData)
 		setField(&existing, "eligibility_data", req.EligibilityData)
 		setField(&existing, "admission_process_data", req.AdmissionProcessData)
@@ -260,7 +263,14 @@ func (s *Service) CreateProgram(instID uint, req CreateProgramRequest) (*Institu
 		Fee:           req.Fee,
 		Eligibility:   req.Eligibility,
 		Capacity:      req.Capacity,
+		BannerURL:     req.BannerURL,
 		Status:        "active",
+	}
+
+	if req.Data != nil {
+		data, _ := json.Marshal(req.Data)
+		str := string(data)
+		program.Data = &str
 	}
 
 	if err := s.repo.CreateProgram(program); err != nil {
@@ -293,6 +303,14 @@ func (s *Service) UpdateProgram(instID, id uint, req UpdateProgramRequest) (*Ins
 	}
 	if req.Capacity > 0 {
 		program.Capacity = req.Capacity
+	}
+	if req.BannerURL != "" {
+		program.BannerURL = req.BannerURL
+	}
+	if req.Data != nil {
+		data, _ := json.Marshal(req.Data)
+		str := string(data)
+		program.Data = &str
 	}
 	if req.Status != "" {
 		program.Status = req.Status
@@ -340,6 +358,40 @@ func (s *Service) GetCounsellingBookings(instID uint) ([]InstitutionCounsellingB
 	return s.repo.FindCounsellingBookingsByInstitution(instID)
 }
 
+func (s *Service) CreateCounsellingSession(instID uint, req CreateCounsellingSessionRequest) (*InstitutionCounsellingSession, error) {
+	scheduledAt, err := time.Parse(time.RFC3339, req.ScheduledAt)
+	if err != nil {
+		scheduledAt, err = time.Parse("2006-01-02T15:04", req.ScheduledAt)
+		if err != nil {
+			return nil, errors.New("invalid scheduled_at format, use RFC3339 or YYYY-MM-DDTHH:mm")
+		}
+	}
+
+	session := &InstitutionCounsellingSession{
+		InstitutionID: instID,
+		Title:         req.Title,
+		Description:   req.Description,
+		ScheduledAt:   scheduledAt,
+		Duration:      req.Duration,
+		MaxSeats:      req.MaxSeats,
+		Status:        "scheduled",
+	}
+
+	if err := s.repo.CreateCounsellingSession(session); err != nil {
+		return nil, err
+	}
+
+	return session, nil
+}
+
+func (s *Service) DeleteCounsellingSession(instID, id uint) error {
+	session, err := s.repo.FindCounsellingSessionByID(id, instID)
+	if err != nil {
+		return errors.New("session not found")
+	}
+	return s.repo.DeleteCounsellingSession(session)
+}
+
 func (s *Service) UpdateBookingStatus(instID, id uint, status string) (*InstitutionCounsellingBooking, error) {
 	booking, err := s.repo.FindBookingByIDWithSession(id, instID)
 	if err != nil {
@@ -362,8 +414,8 @@ func (s *Service) UpdateBookingStatus(instID, id uint, status string) (*Institut
 	return booking, nil
 }
 
-func (s *Service) GetEntrances(instID uint, page, limit int) ([]InstitutionEntrance, int64, error) {
-	return s.repo.FindEntrancesByInstitution(instID, page, limit)
+func (s *Service) GetEntrances(instID uint, status string, page, limit int) ([]InstitutionEntrance, int64, error) {
+	return s.repo.FindEntrancesByInstitution(instID, status, page, limit)
 }
 
 func (s *Service) GetEntranceByID(instID, id uint) (*InstitutionEntrance, error) {
@@ -380,10 +432,23 @@ func (s *Service) CreateEntrance(instID uint, req CreateEntranceRequest) (*Insti
 		InstitutionID: instID,
 		Title:         req.Title,
 		Description:   req.Description,
+		Program:       req.Program,
 		Date:          date,
+		StartTime:     req.StartTime,
+		EndTime:       req.EndTime,
 		Duration:      req.Duration,
+		TotalMarks:    req.TotalMarks,
+		PassingMarks:  req.PassingMarks,
 		TotalSeats:    req.TotalSeats,
+		Instructions:  req.Instructions,
+		HeroBanner:    req.HeroBanner,
 		Status:        "upcoming",
+	}
+
+	if req.Questions != nil {
+		data, _ := json.Marshal(req.Questions)
+		str := string(data)
+		entrance.Questions = &str
 	}
 
 	if err := s.repo.CreateEntrance(entrance); err != nil {
@@ -405,16 +470,42 @@ func (s *Service) UpdateEntrance(instID, id uint, req UpdateEntranceRequest) (*I
 	if req.Description != "" {
 		entrance.Description = req.Description
 	}
+	if req.Program != "" {
+		entrance.Program = req.Program
+	}
 	if req.Date != "" {
 		if t, err := time.Parse("2006-01-02", req.Date); err == nil {
 			entrance.Date = t
 		}
 	}
+	if req.StartTime != "" {
+		entrance.StartTime = req.StartTime
+	}
+	if req.EndTime != "" {
+		entrance.EndTime = req.EndTime
+	}
 	if req.Duration > 0 {
 		entrance.Duration = req.Duration
 	}
+	if req.TotalMarks > 0 {
+		entrance.TotalMarks = req.TotalMarks
+	}
+	if req.PassingMarks > 0 {
+		entrance.PassingMarks = req.PassingMarks
+	}
 	if req.TotalSeats > 0 {
 		entrance.TotalSeats = req.TotalSeats
+	}
+	if req.Instructions != "" {
+		entrance.Instructions = req.Instructions
+	}
+	if req.HeroBanner != "" {
+		entrance.HeroBanner = req.HeroBanner
+	}
+	if req.Questions != nil {
+		data, _ := json.Marshal(req.Questions)
+		str := string(data)
+		entrance.Questions = &str
 	}
 	if req.Status != "" {
 		entrance.Status = req.Status
@@ -1202,15 +1293,24 @@ func (s *Service) ListPublicInstitutions(page, limit int, search, location strin
 
 	results := make([]PublicInstitutionResponse, len(users))
 	for i, u := range users {
+		logoURL := u.LogoURL
+		bannerURL := u.BannerURL
+		if strings.HasPrefix(logoURL, "data:") {
+			logoURL = ""
+		}
+		if strings.HasPrefix(bannerURL, "data:") {
+			bannerURL = ""
+		}
 		results[i] = PublicInstitutionResponse{
 			ID:              u.ID,
 			InstitutionName: u.InstitutionName,
-			LogoURL:         u.LogoURL,
-			BannerURL:       u.BannerURL,
+			LogoURL:         logoURL,
+			BannerURL:       bannerURL,
 			About:           u.About,
 			District:        u.District,
 			WebsiteURL:      u.WebsiteURL,
 			Status:          u.Status,
+			Featured:        u.Featured,
 		}
 	}
 	return results, total, nil
@@ -1227,12 +1327,22 @@ func (s *Service) GetPublicInstitution(id uint) (*PublicInstitutionDetailRespons
 		json.Unmarshal([]byte(*user.ProfileData), &pd)
 	}
 
+	logoURL := user.LogoURL
+	bannerURL := user.BannerURL
+	if strings.HasPrefix(logoURL, "data:") {
+		logoURL = ""
+	}
+	if strings.HasPrefix(bannerURL, "data:") {
+		bannerURL = ""
+	}
+
 	return &PublicInstitutionDetailResponse{
 		ID:              user.ID,
 		InstitutionName: user.InstitutionName,
 		Claimed:         user.Claimed,
-		LogoURL:         user.LogoURL,
-		BannerURL:       user.BannerURL,
+		Featured:        user.Featured,
+		LogoURL:         logoURL,
+		BannerURL:       bannerURL,
 		About:           user.About,
 		Vision:          user.Vision,
 		Mission:         user.Mission,

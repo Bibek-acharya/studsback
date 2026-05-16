@@ -3,36 +3,42 @@ package institution
 import "encoding/json"
 
 type CreateProgramRequest struct {
-	Name        string `json:"name" binding:"required"`
-	Description string `json:"description"`
-	Duration    string `json:"duration"`
-	Fee         string `json:"fee"`
-	Eligibility string `json:"eligibility"`
-	Capacity    int    `json:"capacity"`
+	Name        string      `json:"name" binding:"required"`
+	Description string      `json:"description"`
+	Duration    string      `json:"duration"`
+	Fee         string      `json:"fee"`
+	Eligibility string      `json:"eligibility"`
+	Capacity    int         `json:"capacity"`
+	BannerURL   string      `json:"banner_url"`
+	Data        interface{} `json:"data"`
 }
 
 type UpdateProgramRequest struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Duration    string `json:"duration"`
-	Fee         string `json:"fee"`
-	Eligibility string `json:"eligibility"`
-	Capacity    int    `json:"capacity"`
-	Status      string `json:"status"`
+	Name        string      `json:"name"`
+	Description string      `json:"description"`
+	Duration    string      `json:"duration"`
+	Fee         string      `json:"fee"`
+	Eligibility string      `json:"eligibility"`
+	Capacity    int         `json:"capacity"`
+	BannerURL   string      `json:"banner_url"`
+	Data        interface{} `json:"data"`
+	Status      string      `json:"status"`
 }
 
 type ProgramResponse struct {
-	ID            uint   `json:"id"`
-	CreatedAt     string `json:"created_at"`
-	UpdatedAt     string `json:"updated_at"`
-	InstitutionID uint   `json:"institution_id"`
-	Name          string `json:"name"`
-	Description   string `json:"description"`
-	Duration      string `json:"duration"`
-	Fee           string `json:"fee"`
-	Eligibility   string `json:"eligibility"`
-	Capacity      int    `json:"capacity"`
-	Status        string `json:"status"`
+	ID            uint        `json:"id"`
+	CreatedAt     string      `json:"created_at"`
+	UpdatedAt     string      `json:"updated_at"`
+	InstitutionID uint        `json:"institution_id"`
+	Name          string      `json:"name"`
+	Description   string      `json:"description"`
+	Duration      string      `json:"duration"`
+	Fee           string      `json:"fee"`
+	Eligibility   string      `json:"eligibility"`
+	Capacity      int         `json:"capacity"`
+	BannerURL     string      `json:"banner_url"`
+	Data          interface{} `json:"data"`
+	Status        string      `json:"status"`
 }
 
 type CreateMediaRequest struct {
@@ -79,35 +85,67 @@ type UpdateBookingStatusRequest struct {
 	Status string `json:"status" binding:"required"`
 }
 
-type CreateEntranceRequest struct {
-	Title       string `json:"title" binding:"required"`
+type CreateCounsellingSessionRequest struct {
+	Title       string `json:"title"`
 	Description string `json:"description"`
-	Date        string `json:"date" binding:"required"`
+	ScheduledAt string `json:"scheduled_at"`
 	Duration    int    `json:"duration"`
-	TotalSeats  int    `json:"total_seats"`
+	MaxSeats    int    `json:"max_seats"`
+}
+
+type CreateEntranceRequest struct {
+	Title        string      `json:"title" binding:"required"`
+	Description  string      `json:"description"`
+	Program      string      `json:"program"`
+	Date         string      `json:"date" binding:"required"`
+	StartTime    string      `json:"start_time"`
+	EndTime      string      `json:"end_time"`
+	Duration     int         `json:"duration"`
+	TotalMarks   int         `json:"total_marks"`
+	PassingMarks int         `json:"passing_marks"`
+	TotalSeats   int         `json:"total_seats"`
+	Instructions string      `json:"instructions"`
+	HeroBanner   string      `json:"hero_banner"`
+	Questions    interface{} `json:"questions"`
 }
 
 type UpdateEntranceRequest struct {
-	Title       string `json:"title"`
-	Description string `json:"description"`
-	Date        string `json:"date"`
-	Duration    int    `json:"duration"`
-	TotalSeats  int    `json:"total_seats"`
-	Status      string `json:"status"`
+	Title        string      `json:"title"`
+	Description  string      `json:"description"`
+	Program      string      `json:"program"`
+	Date         string      `json:"date"`
+	StartTime    string      `json:"start_time"`
+	EndTime      string      `json:"end_time"`
+	Duration     int         `json:"duration"`
+	TotalMarks   int         `json:"total_marks"`
+	PassingMarks int         `json:"passing_marks"`
+	TotalSeats   int         `json:"total_seats"`
+	Instructions string      `json:"instructions"`
+	HeroBanner   string      `json:"hero_banner"`
+	Questions    interface{} `json:"questions"`
+	Status       string      `json:"status"`
 }
 
 type EntranceResponse struct {
-	ID            uint   `json:"id"`
-	CreatedAt     string `json:"created_at"`
-	UpdatedAt     string `json:"updated_at"`
-	InstitutionID uint   `json:"institution_id"`
-	Title         string `json:"title"`
-	Description   string `json:"description"`
-	Date          string `json:"date"`
-	Duration      int    `json:"duration"`
-	TotalSeats    int    `json:"total_seats"`
-	FilledSeats   int    `json:"filled_seats"`
-	Status        string `json:"status"`
+	ID            uint        `json:"id"`
+	CreatedAt     string      `json:"created_at"`
+	UpdatedAt     string      `json:"updated_at"`
+	InstitutionID uint        `json:"institution_id"`
+	Title         string      `json:"title"`
+	Description   string      `json:"description"`
+	Program       string      `json:"program"`
+	Date          string      `json:"date"`
+	StartTime     string      `json:"start_time"`
+	EndTime       string      `json:"end_time"`
+	Duration      int         `json:"duration"`
+	TotalMarks    int         `json:"total_marks"`
+	PassingMarks  int         `json:"passing_marks"`
+	TotalSeats    int         `json:"total_seats"`
+	FilledSeats   int         `json:"filled_seats"`
+	Instructions  string      `json:"instructions"`
+	HeroBanner    string      `json:"hero_banner"`
+	Questions     interface{} `json:"questions"`
+	Status        string      `json:"status"`
 }
 
 type EntranceApplicantResponse struct {
@@ -422,6 +460,7 @@ type UpdateProfileRequest struct {
 	FacilitiesData       []FacilityDataItem    `json:"facilities_data"`
 	AlumniData           interface{}           `json:"alumni_data"`
 	DownloadsData        []DownloadDataItem    `json:"downloads_data"`
+	GalleryData          interface{}           `json:"gallery_data"`
 	WhatsNewData         *WhatsNewData         `json:"whats_new_data"`
 	EligibilityData      *EligibilityData      `json:"eligibility_data"`
 	AdmissionProcessData []AdmissionProcessItem `json:"admission_process_data"`
@@ -453,6 +492,7 @@ type ProfileResponse struct {
 	FacilitiesData        []FacilityDataItem    `json:"facilities_data,omitempty"`
 	AlumniData            interface{}           `json:"alumni_data,omitempty"`
 	DownloadsData         []DownloadDataItem    `json:"downloads_data,omitempty"`
+	GalleryData           interface{}           `json:"gallery_data,omitempty"`
 	WhatsNewData          *WhatsNewData         `json:"whats_new_data,omitempty"`
 	EligibilityData       *EligibilityData      `json:"eligibility_data,omitempty"`
 	AdmissionProcessData  []AdmissionProcessItem `json:"admission_process_data,omitempty"`
@@ -602,12 +642,14 @@ type PublicInstitutionResponse struct {
 	District        string `json:"district,omitempty"`
 	WebsiteURL      string `json:"website_url,omitempty"`
 	Status          string `json:"status"`
+	Featured        bool   `json:"featured"`
 }
 
 type PublicInstitutionDetailResponse struct {
 	ID                 uint                `json:"id"`
 	InstitutionName    string              `json:"institution_name"`
 	Claimed            bool                `json:"claimed"`
+	Featured           bool                `json:"featured"`
 	LogoURL            string              `json:"logo_url,omitempty"`
 	BannerURL          string              `json:"banner_url,omitempty"`
 	About              string              `json:"about,omitempty"`

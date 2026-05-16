@@ -948,6 +948,45 @@ func (h *Handler) CreateInstitution(c *gin.Context) {
 	response.Success(c, 201, "Institution created successfully", result)
 }
 
+func (h *Handler) GetInstitution(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		response.Error(c, 400, "Invalid institution ID")
+		return
+	}
+
+	result, err := h.service.GetInstitution(uint(id))
+	if err != nil {
+		response.Error(c, 404, err.Error())
+		return
+	}
+
+	response.Success(c, 200, "Institution retrieved successfully", result)
+}
+
+func (h *Handler) UpdateInstitution(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		response.Error(c, 400, "Invalid institution ID")
+		return
+	}
+
+	var req UpdateInstitutionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+
+	if err := h.service.UpdateInstitution(uint(id), req); err != nil {
+		response.Error(c, 500, err.Error())
+		return
+	}
+
+	response.Success(c, 200, "Institution updated successfully", nil)
+}
+
 func (h *Handler) ApproveInstitution(c *gin.Context) {
 	var req InstitutionApprovalRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -1068,6 +1107,22 @@ func (h *Handler) VerifyInstitution(c *gin.Context) {
 	}
 
 	response.Success(c, 200, "Institution verified successfully", nil)
+}
+
+func (h *Handler) ToggleInstitutionFeatured(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		response.Error(c, 400, "Invalid institution ID")
+		return
+	}
+
+	if err := h.service.ToggleInstitutionFeatured(uint(id)); err != nil {
+		response.Error(c, 500, err.Error())
+		return
+	}
+
+	response.Success(c, 200, "Featured status toggled successfully", nil)
 }
 
 func (h *Handler) ApproveClaimRequest(c *gin.Context) {

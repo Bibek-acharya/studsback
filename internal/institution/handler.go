@@ -285,6 +285,40 @@ func (h *Handler) GetCounsellingSessions(c *gin.Context) {
 	response.Success(c, http.StatusOK, "Counselling sessions retrieved successfully", resp)
 }
 
+func (h *Handler) CreateCounsellingSession(c *gin.Context) {
+	instID := getInstID(c)
+
+	var req CreateCounsellingSessionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	session, err := h.service.CreateCounsellingSession(instID, req)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to create session")
+		return
+	}
+
+	response.Success(c, http.StatusCreated, "Session created successfully", toCounsellingSessionResponse(*session))
+}
+
+func (h *Handler) DeleteCounsellingSession(c *gin.Context) {
+	instID := getInstID(c)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid session ID")
+		return
+	}
+
+	if err := h.service.DeleteCounsellingSession(instID, uint(id)); err != nil {
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Session deleted successfully", nil)
+}
+
 func (h *Handler) GetCounsellingBookings(c *gin.Context) {
 	instID := getInstID(c)
 
@@ -341,7 +375,8 @@ func (h *Handler) GetEntrances(c *gin.Context) {
 		limit = 10
 	}
 
-	entrances, total, err := h.service.GetEntrances(instID, page, limit)
+	statusFilter := c.Query("status")
+	entrances, total, err := h.service.GetEntrances(instID, statusFilter, page, limit)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "Failed to fetch entrances")
 		return
@@ -1375,6 +1410,10 @@ func (h *Handler) GetPublishedAdmissionPages(c *gin.Context) {
 }
 
 func toProgramResponse(p InstitutionProgram) ProgramResponse {
+	var data interface{}
+	if p.Data != nil {
+		json.Unmarshal([]byte(*p.Data), &data)
+	}
 	return ProgramResponse{
 		ID:            p.ID,
 		CreatedAt:     p.CreatedAt.Format(time.RFC3339),
@@ -1386,6 +1425,8 @@ func toProgramResponse(p InstitutionProgram) ProgramResponse {
 		Fee:           p.Fee,
 		Eligibility:   p.Eligibility,
 		Capacity:      p.Capacity,
+		BannerURL:     p.BannerURL,
+		Data:          data,
 		Status:        p.Status,
 	}
 }
@@ -1437,6 +1478,10 @@ func toCounsellingBookingResponse(b InstitutionCounsellingBooking) CounsellingBo
 }
 
 func toEntranceResponse(e InstitutionEntrance) EntranceResponse {
+	var questions interface{}
+	if e.Questions != nil {
+		json.Unmarshal([]byte(*e.Questions), &questions)
+	}
 	return EntranceResponse{
 		ID:            e.ID,
 		CreatedAt:     e.CreatedAt.Format(time.RFC3339),
@@ -1444,10 +1489,18 @@ func toEntranceResponse(e InstitutionEntrance) EntranceResponse {
 		InstitutionID: e.InstitutionID,
 		Title:         e.Title,
 		Description:   e.Description,
-		Date:          e.Date.Format(time.RFC3339),
+		Program:       e.Program,
+		Date:          e.Date.Format("2006-01-02"),
+		StartTime:     e.StartTime,
+		EndTime:       e.EndTime,
 		Duration:      e.Duration,
+		TotalMarks:    e.TotalMarks,
+		PassingMarks:  e.PassingMarks,
 		TotalSeats:    e.TotalSeats,
 		FilledSeats:   e.FilledSeats,
+		Instructions:  e.Instructions,
+		HeroBanner:    e.HeroBanner,
+		Questions:     questions,
 		Status:        e.Status,
 	}
 }

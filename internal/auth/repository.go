@@ -3,6 +3,7 @@ package auth
 import (
 	"errors"
 
+	"studsphere/backend/internal/institution"
 	"gorm.io/gorm"
 )
 
@@ -67,6 +68,10 @@ func (r *Repository) CreateInstitutionUser(user *InstitutionUser) error {
 	return r.db.Create(user).Error
 }
 
+func (r *Repository) CreateInstitutionSettings(settings *institution.InstitutionSettings) error {
+	return r.db.Create(settings).Error
+}
+
 func (r *Repository) FindInstitutionUserByID(id uint) (*InstitutionUser, error) {
 	var user InstitutionUser
 	err := r.db.First(&user, id).Error
@@ -74,6 +79,10 @@ func (r *Repository) FindInstitutionUserByID(id uint) (*InstitutionUser, error) 
 		return nil, err
 	}
 	return &user, nil
+}
+
+func (r *Repository) UpdateInstitutionUser(user *InstitutionUser) error {
+	return r.db.Save(user).Error
 }
 
 func (r *Repository) FindScholarshipProviderUserByEmail(email string) (*ScholarshipProviderUser, error) {
@@ -240,10 +249,6 @@ func (r *Repository) CreateOrUpdateSubscription(sub *InstitutionSubscription) er
 	sub.ID = existing.ID
 	sub.CreatedAt = existing.CreatedAt
 	return r.db.Save(sub).Error
-}
-
-func (r *Repository) UpdateInstitutionUser(user *InstitutionUser) error {
-	return r.db.Save(user).Error
 }
 
 func (r *Repository) DeleteInstitutionUser(id uint) error {
