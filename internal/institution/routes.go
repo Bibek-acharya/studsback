@@ -12,9 +12,17 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 		// Public institution routes (no auth)
 		v1.GET("/institutions/public", h.ListPublicInstitutions)
 		v1.GET("/institutions/public/:id", h.GetPublicInstitution)
+		v1.GET("/institutions/public/:id/counselling-sessions", h.GetPublicCounsellingSessions)
 		v1.GET("/admissions/published", h.GetPublishedAdmissionPages)
 		v1.GET("/admissions/published/institutions", h.GetPublishedAdmissionInstitutions)
 		v1.GET("/admissions/published/institutions/:id", h.GetPublishedAdmissionInstitutionByID)
+
+		// Public counselling booking (auth only, no role check)
+		publicBooking := v1.Group("")
+		publicBooking.Use(authMW)
+		{
+			publicBooking.POST("/counselling/sessions/book", h.CreatePublicCounsellingBooking)
+		}
 
 		institution := v1.Group("/institution")
 		institution.Use(authMW)

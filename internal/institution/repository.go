@@ -1,6 +1,8 @@
 package institution
 
 import (
+	"time"
+
 	"gorm.io/gorm"
 )
 
@@ -196,9 +198,25 @@ func (r *Repository) FindCounsellingSessionsByInstitution(instID uint) ([]Instit
 	return sessions, err
 }
 
+func (r *Repository) FindUpcomingSessionsByInstitution(instID uint) ([]InstitutionCounsellingSession, error) {
+	var sessions []InstitutionCounsellingSession
+	err := r.db.Where("institution_id = ? AND status = ? AND scheduled_at >= ?", instID, "scheduled", time.Now()).
+		Order("scheduled_at asc").Find(&sessions).Error
+	return sessions, err
+}
+
 func (r *Repository) FindCounsellingSessionByID(id uint, instID uint) (*InstitutionCounsellingSession, error) {
 	var session InstitutionCounsellingSession
 	err := r.db.Where("id = ? AND institution_id = ?", id, instID).First(&session).Error
+	if err != nil {
+		return nil, err
+	}
+	return &session, nil
+}
+
+func (r *Repository) FindCounsellingSessionByIDOnly(id uint) (*InstitutionCounsellingSession, error) {
+	var session InstitutionCounsellingSession
+	err := r.db.First(&session, id).Error
 	if err != nil {
 		return nil, err
 	}
@@ -238,6 +256,24 @@ func (r *Repository) FindBookingByIDWithSession(id uint, instID uint) (*Institut
 
 func (r *Repository) SaveBooking(booking *InstitutionCounsellingBooking) error {
 	return r.db.Save(booking).Error
+}
+
+func (r *Repository) CheckUserSessionBooking(userID uint, sessionID uint) bool {
+	var count int64
+	r.db.Model(&InstitutionCounsellingBooking{}).
+		Where("user_id = ? AND session_id = ?", userID, sessionID).
+		Count(&count)
+	return count > 0
+}
+
+func (r *Repository) CreateBooking(booking *InstitutionCounsellingBooking) error {
+	return r.db.Create(booking).Error
+}
+
+func (r *Repository) IncrementBookedSeats(sessionID uint) error {
+	return r.db.Model(&InstitutionCounsellingSession{}).
+		Where("id = ?", sessionID).
+		UpdateColumn("booked_seats", gorm.Expr("booked_seats + 1")).Error
 }
 
 func (r *Repository) FindEntrancesByInstitution(instID uint, status string, page, limit int) ([]InstitutionEntrance, int64, error) {

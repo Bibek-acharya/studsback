@@ -362,6 +362,30 @@ func (s *Service) GetCounsellingSessions(instID uint) ([]InstitutionCounsellingS
 	return s.repo.FindCounsellingSessionsByInstitution(instID)
 }
 
+func (s *Service) GetPublicCounsellingSessions(instID uint) ([]PublicCounsellingSessionResponse, error) {
+	sessions, err := s.repo.FindUpcomingSessionsByInstitution(instID)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := make([]PublicCounsellingSessionResponse, len(sessions))
+	for i, session := range sessions {
+		resp[i] = PublicCounsellingSessionResponse{
+			ID:             session.ID,
+			Title:          session.Title,
+			Description:    session.Description,
+			ScheduledAt:    session.ScheduledAt.Format(time.RFC3339),
+			Duration:       session.Duration,
+			MaxSeats:       session.MaxSeats,
+			BookedSeats:    session.BookedSeats,
+			AvailableSeats: session.MaxSeats - session.BookedSeats,
+			Status:         session.Status,
+		}
+	}
+
+	return resp, nil
+}
+
 func (s *Service) GetCounsellingBookings(instID uint) ([]InstitutionCounsellingBooking, error) {
 	return s.repo.FindCounsellingBookingsByInstitution(instID)
 }
@@ -417,6 +441,52 @@ func (s *Service) UpdateBookingStatus(instID, id uint, status string) (*Institut
 
 	if err := s.repo.SaveBooking(booking); err != nil {
 		return nil, err
+	}
+
+	return booking, nil
+}
+
+func (s *Service) CreatePublicBooking(userID uint, req PublicCounsellingBookingRequest) (*InstitutionCounsellingBooking, error) {
+	if req.SessionMode != "online" && req.SessionMode != "in_person" {
+		return nil, errors.New("session_mode must be 'online' or 'in_person'")
+	}
+
+	session, err := s.repo.FindCounsellingSessionByIDOnly(req.SessionID)
+	if err != nil {
+		return nil, errors.New("session not found")
+	}
+
+	if session.Status != "scheduled" {
+		return nil, errors.New("session is not available for booking")
+	}
+
+	if session.BookedSeats >= session.MaxSeats {
+		return nil, errors.New("no available seats in this session")
+	}
+
+	if s.repo.CheckUserSessionBooking(userID, req.SessionID) {
+		return nil, errors.New("you have already booked this session")
+	}
+
+	booking := &InstitutionCounsellingBooking{
+		SessionID:        req.SessionID,
+		UserID:           userID,
+		Status:           "pending",
+		Notes:            req.StudentNotes,
+		StudentName:      req.StudentName,
+		StudentPhone:     req.StudentPhone,
+		StudentEmail:     req.StudentEmail,
+		ProgramLevel:     req.ProgramLevel,
+		InterestedCourse: req.InterestedCourse,
+		SessionMode:      req.SessionMode,
+	}
+
+	if err := s.repo.CreateBooking(booking); err != nil {
+		return nil, errors.New("failed to create booking")
+	}
+
+	if err := s.repo.IncrementBookedSeats(req.SessionID); err != nil {
+		return nil, errors.New("failed to update seat count")
 	}
 
 	return booking, nil

@@ -2,6 +2,7 @@ package institution
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -1119,6 +1120,57 @@ func (h *Handler) GetPublicInstitution(c *gin.Context) {
 	response.Success(c, http.StatusOK, "Institution retrieved successfully", result)
 }
 
+func (h *Handler) GetPublicCounsellingSessions(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid institution ID")
+		return
+	}
+
+	sessions, err := h.service.GetPublicCounsellingSessions(uint(id))
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch counselling sessions")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Counselling sessions retrieved successfully", sessions)
+}
+
+func (h *Handler) CreatePublicCounsellingBooking(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		response.Error(c, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	var req PublicCounsellingBookingRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	booking, err := h.service.CreatePublicBooking(userID.(uint), req)
+	if err != nil {
+		status := http.StatusInternalServerError
+		switch err.Error() {
+		case "session_mode must be 'online' or 'in_person'":
+			status = http.StatusBadRequest
+		case "session not found":
+			status = http.StatusNotFound
+		case "session is not available for booking":
+			status = http.StatusConflict
+		case "no available seats in this session":
+			status = http.StatusConflict
+		case "you have already booked this session":
+			status = http.StatusConflict
+		}
+		response.Error(c, status, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusCreated, "Counselling session booked successfully", toCounsellingBookingResponse(*booking))
+}
+
 func (h *Handler) GetScholarships(c *gin.Context) {
 	instID := getInstID(c)
 
@@ -1495,14 +1547,25 @@ func toCounsellingSessionResponse(s InstitutionCounsellingSession) CounsellingSe
 }
 
 func toCounsellingBookingResponse(b InstitutionCounsellingBooking) CounsellingBookingResponse {
+	studentName := b.StudentName
+	if studentName == "" {
+		studentName = fmt.Sprintf("User #%d", b.UserID)
+	}
+
 	resp := CounsellingBookingResponse{
-		ID:        b.ID,
-		CreatedAt: b.CreatedAt.Format(time.RFC3339),
-		UpdatedAt: b.UpdatedAt.Format(time.RFC3339),
-		SessionID: b.SessionID,
-		UserID:    b.UserID,
-		Status:    b.Status,
-		Notes:     b.Notes,
+		ID:               b.ID,
+		CreatedAt:        b.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:        b.UpdatedAt.Format(time.RFC3339),
+		SessionID:        b.SessionID,
+		UserID:           b.UserID,
+		Status:           b.Status,
+		Notes:            b.Notes,
+		StudentName:      studentName,
+		StudentPhone:     b.StudentPhone,
+		StudentEmail:     b.StudentEmail,
+		ProgramLevel:     b.ProgramLevel,
+		InterestedCourse: b.InterestedCourse,
+		SessionMode:      b.SessionMode,
 	}
 
 	if b.Session.ID != 0 {

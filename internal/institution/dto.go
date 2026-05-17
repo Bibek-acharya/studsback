@@ -71,14 +71,20 @@ type CounsellingSessionResponse struct {
 }
 
 type CounsellingBookingResponse struct {
-	ID        uint                        `json:"id"`
-	CreatedAt string                      `json:"created_at"`
-	UpdatedAt string                      `json:"updated_at"`
-	SessionID uint                        `json:"session_id"`
-	UserID    uint                        `json:"user_id"`
-	Status    string                      `json:"status"`
-	Notes     string                      `json:"notes"`
-	Session   *CounsellingSessionResponse `json:"session,omitempty"`
+	ID               uint                        `json:"id"`
+	CreatedAt        string                      `json:"created_at"`
+	UpdatedAt        string                      `json:"updated_at"`
+	SessionID        uint                        `json:"session_id"`
+	UserID           uint                        `json:"user_id"`
+	Status           string                      `json:"status"`
+	Notes            string                      `json:"notes"`
+	StudentName      string                      `json:"student_name"`
+	StudentPhone     string                      `json:"student_phone"`
+	StudentEmail     string                      `json:"student_email"`
+	ProgramLevel     string                      `json:"program_level"`
+	InterestedCourse string                      `json:"interested_course"`
+	SessionMode      string                      `json:"session_mode"`
+	Session          *CounsellingSessionResponse `json:"session,omitempty"`
 }
 
 type UpdateBookingStatusRequest struct {
@@ -91,6 +97,29 @@ type CreateCounsellingSessionRequest struct {
 	ScheduledAt string `json:"scheduled_at"`
 	Duration    int    `json:"duration"`
 	MaxSeats    int    `json:"max_seats"`
+}
+
+type PublicCounsellingBookingRequest struct {
+	SessionID        uint   `json:"session_id" binding:"required"`
+	ProgramLevel     string `json:"program_level" binding:"required"`
+	InterestedCourse string `json:"interested_course" binding:"required"`
+	SessionMode      string `json:"session_mode" binding:"required"`
+	StudentName      string `json:"student_name" binding:"required"`
+	StudentPhone     string `json:"student_phone" binding:"required"`
+	StudentEmail     string `json:"student_email" binding:"required,email"`
+	StudentNotes     string `json:"student_notes"`
+}
+
+type PublicCounsellingSessionResponse struct {
+	ID             uint   `json:"id"`
+	Title          string `json:"title"`
+	Description    string `json:"description"`
+	ScheduledAt    string `json:"scheduled_at"`
+	Duration       int    `json:"duration"`
+	MaxSeats       int    `json:"max_seats"`
+	BookedSeats    int    `json:"booked_seats"`
+	AvailableSeats int    `json:"available_seats"`
+	Status         string `json:"status"`
 }
 
 type CreateEntranceRequest struct {

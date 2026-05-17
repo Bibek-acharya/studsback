@@ -49,14 +49,20 @@ type InstitutionCounsellingSession struct {
 }
 
 type InstitutionCounsellingBooking struct {
-	ID        uint           `gorm:"primarykey" json:"id"`
-	CreatedAt time.Time      `json:"created_at"`
-	UpdatedAt time.Time      `json:"updated_at"`
-	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
-	SessionID uint           `gorm:"index" json:"session_id"`
-	UserID    uint           `gorm:"index" json:"user_id"`
-	Status    string         `gorm:"default:'pending'" json:"status"`
-	Notes     string         `gorm:"type:text" json:"notes"`
+	ID               uint           `gorm:"primarykey" json:"id"`
+	CreatedAt        time.Time      `json:"created_at"`
+	UpdatedAt        time.Time      `json:"updated_at"`
+	DeletedAt        gorm.DeletedAt `gorm:"index" json:"-"`
+	SessionID        uint           `gorm:"index" json:"session_id"`
+	UserID           uint           `gorm:"index" json:"user_id"`
+	Status           string         `gorm:"default:'pending'" json:"status"`
+	Notes            string         `gorm:"type:text" json:"notes"`
+	StudentName      string         `gorm:"default:''" json:"student_name"`
+	StudentPhone     string         `gorm:"default:''" json:"student_phone"`
+	StudentEmail     string         `gorm:"default:''" json:"student_email"`
+	ProgramLevel     string         `gorm:"default:''" json:"program_level"`
+	InterestedCourse string         `gorm:"default:''" json:"interested_course"`
+	SessionMode      string         `gorm:"type:varchar(20);default:'in_person'" json:"session_mode"`
 
 	Session InstitutionCounsellingSession `gorm:"foreignKey:SessionID" json:"session,omitempty"`
 }
