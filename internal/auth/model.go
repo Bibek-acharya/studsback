@@ -66,6 +66,8 @@ type InstitutionUser struct {
 	Role                     string         `gorm:"default:'institution'" json:"role"`
 	Status                   string         `gorm:"default:'pending'" json:"status"`
 	ContactNumber            string         `gorm:"default:''" json:"contact_number"`
+	ContactEmail            string         `gorm:"default:''" json:"contact_email"`
+	ContactPhone            string         `gorm:"default:''" json:"contact_phone"`
 	Province                 string         `gorm:"default:''" json:"province"`
 	District                 string         `gorm:"default:''" json:"district"`
 	LocalBody                string         `gorm:"default:''" json:"local_body"`

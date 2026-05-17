@@ -674,3 +674,81 @@ func (r *Repository) FindPublishedAdmissionPages(page, limit int) ([]AdmissionPa
 	err := query.Order("published_at desc").Offset(offset).Limit(limit).Find(&pages).Error
 	return pages, total, err
 }
+
+func (r *Repository) FindPublishedAdmissionByInstitutionID(instID uint) (*AdmissionPage, error) {
+	var page AdmissionPage
+	err := r.db.Where("institution_id = ? AND status = ? AND deleted_at IS NULL", instID, "published").
+		Order("published_at DESC").
+		First(&page).Error
+	if err != nil {
+		return nil, err
+	}
+	return &page, nil
+}
+
+func (r *Repository) FindPublishedAdmissionInstitutionByID(id uint) ([]map[string]interface{}, error) {
+	var results []map[string]interface{}
+	query := `SELECT 
+		iu.id,
+		iu.institution_name AS name,
+		COALESCE(iu.logo_url, '') AS image_url,
+		COALESCE(iu.province, '') || CASE WHEN iu.district IS NOT NULL AND iu.district != '' THEN ', ' || iu.district ELSE '' END AS location,
+		COALESCE(iu.organization_type, 'College') AS type,
+		0.0 AS rating,
+		COALESCE(iu.website_url, '') AS website,
+		COALESCE(iu.affiliation, '') AS affiliation,
+		COALESCE(iu.verified, false) AS verified,
+		COALESCE(iu.contact_email, '') AS contact_email,
+		COALESCE(iu.contact_phone, '') AS contact_phone
+		FROM institution_users iu
+		WHERE iu.id = ? AND iu.deleted_at IS NULL`
+	if err := r.db.Raw(query, id).Scan(&results).Error; err != nil {
+		return nil, err
+	}
+	return results, nil
+}
+
+func (r *Repository) FindPublishedAdmissionInstitutions(page, limit int, level string) ([]map[string]interface{}, int64, error) {
+	var total int64
+	var results []map[string]interface{}
+
+	subQuery := `SELECT DISTINCT ap.institution_id FROM admission_pages ap WHERE ap.status = 'published' AND ap.deleted_at IS NULL`
+	args := []interface{}{}
+	if level != "" {
+		subQuery += ` AND ap.data->'overview_data'->>'level' = ?`
+		args = append(args, level)
+	}
+
+	countQuery := `SELECT COUNT(*) FROM institution_users iu 
+		WHERE iu.id IN (` + subQuery + `)
+		AND iu.deleted_at IS NULL`
+
+	if err := r.db.Raw(countQuery, args...).Scan(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * limit
+	dataArgs := append(args, offset, limit)
+
+	dataQuery := `SELECT 
+		iu.id,
+		iu.institution_name AS name,
+		COALESCE(iu.logo_url, '') AS image_url,
+		COALESCE(iu.province, '') || CASE WHEN iu.district IS NOT NULL AND iu.district != '' THEN ', ' || iu.district ELSE '' END AS location,
+		COALESCE(iu.organization_type, 'College') AS type,
+		0.0 AS rating,
+		COALESCE(iu.website_url, '') AS website,
+		COALESCE(iu.affiliation, '') AS affiliation,
+		COALESCE(iu.verified, false) AS verified
+		FROM institution_users iu
+		WHERE iu.id IN (` + subQuery + `)
+		AND iu.deleted_at IS NULL
+		ORDER BY (SELECT MAX(ap2.published_at) FROM admission_pages ap2 WHERE ap2.institution_id = iu.id AND ap2.status = 'published') DESC
+		OFFSET ? LIMIT ?`
+
+	if err := r.db.Raw(dataQuery, dataArgs...).Scan(&results).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return results, total, nil
+}

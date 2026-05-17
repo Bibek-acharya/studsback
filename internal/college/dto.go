@@ -129,12 +129,12 @@ type CollegeFilters struct {
 	Popular         string
 	DirectAdmission bool
 	MinRating       string
-	Search          string
-	CourseID        string
-	Sort            string
-	Order           string
-	Page            int
-	PageSize        int
+	Search                string
+	CourseID              string
+	Sort                  string
+	Order                 string
+	Page                  int
+	PageSize              int
 }
 
 type FeaturedCollegesResponse struct {

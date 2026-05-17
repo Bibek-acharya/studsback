@@ -13,6 +13,8 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 		v1.GET("/institutions/public", h.ListPublicInstitutions)
 		v1.GET("/institutions/public/:id", h.GetPublicInstitution)
 		v1.GET("/admissions/published", h.GetPublishedAdmissionPages)
+		v1.GET("/admissions/published/institutions", h.GetPublishedAdmissionInstitutions)
+		v1.GET("/admissions/published/institutions/:id", h.GetPublishedAdmissionInstitutionByID)
 
 		institution := v1.Group("/institution")
 		institution.Use(authMW)

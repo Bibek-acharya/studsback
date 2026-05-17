@@ -114,6 +114,8 @@ func (s *Service) GetProfile(instID uint) (*ProfileResponse, error) {
 		Role:                  user.Role,
 		Location:              user.District,
 		Website:               user.WebsiteURL,
+		ContactEmail:          user.ContactEmail,
+		ContactPhone:          user.ContactPhone,
 		LogoURL:               user.LogoURL,
 		BannerURL:             user.BannerURL,
 		About:                 user.About,
@@ -170,6 +172,12 @@ func (s *Service) UpdateProfile(instID uint, req UpdateProfileRequest) (*Profile
 	}
 	if req.Mission != "" {
 		user.Mission = req.Mission
+	}
+	if req.ContactEmail != "" {
+		user.ContactEmail = req.ContactEmail
+	}
+	if req.ContactPhone != "" {
+		user.ContactPhone = req.ContactPhone
 	}
 	if req.Videos != nil || req.OverviewData != nil || req.LeadershipData != nil ||
 		req.CoursesData != nil || req.ProgramsData != nil || req.FacilitiesData != nil ||
@@ -1201,6 +1209,141 @@ func (s *Service) GetPublishedAdmissionPages(page, limit int) ([]AdmissionPageLi
 		items[i] = toAdmissionPageListItem(p)
 	}
 	return items, total, nil
+}
+
+func mapAdmissionLevel(level string) string {
+	mapping := map[string]string{
+		"high-school": "+2",
+		"a-level":     "A-Level",
+		"diploma":     "Diploma/CTEVT",
+		"ctevt":       "Diploma/CTEVT",
+		"bachelor":    "Bachelor",
+		"master":      "Master",
+	}
+	if mapped, ok := mapping[level]; ok {
+		return mapped
+	}
+	return level
+}
+
+func (s *Service) GetPublishedAdmissionInstitutions(page, limit int, level string) (*PublishedAdmissionInstitutionListResponse, error) {
+	results, total, err := s.repo.FindPublishedAdmissionInstitutions(page, limit, mapAdmissionLevel(level))
+	if err != nil {
+		return nil, err
+	}
+
+	colleges := make([]PublishedAdmissionInstitutionItem, len(results))
+	for i, row := range results {
+		id, _ := row["id"].(int64)
+		name, _ := row["name"].(string)
+		imageURL, _ := row["image_url"].(string)
+		location, _ := row["location"].(string)
+		collegeType, _ := row["type"].(string)
+		rating, _ := row["rating"].(float64)
+		website, _ := row["website"].(string)
+		affiliation, _ := row["affiliation"].(string)
+		verified, _ := row["verified"].(bool)
+
+		colleges[i] = PublishedAdmissionInstitutionItem{
+			ID:               uint(id),
+			Name:             name,
+			ImageURL:         imageURL,
+			Location:         location,
+			Type:             collegeType,
+			Rating:           rating,
+			Website:          website,
+			Affiliation:      affiliation,
+			Verified:         verified,
+			FeaturedPrograms: []string{},
+			Programs:         0,
+		}
+	}
+
+	totalPages := int64(1)
+	if limit > 0 {
+		totalPages = (total + int64(limit) - 1) / int64(limit)
+	}
+
+	return &PublishedAdmissionInstitutionListResponse{
+		Colleges: colleges,
+		Pagination: PaginationMeta{
+			Total:      total,
+			Page:       page,
+			Limit:      limit,
+			PageSize:   limit,
+			TotalPages: totalPages,
+		},
+	}, nil
+}
+
+func (s *Service) GetPublishedAdmissionInstitutionByID(id uint) (*PublishedAdmissionInstitutionDetailResponse, error) {
+	rows, err := s.repo.FindPublishedAdmissionInstitutionByID(id)
+	if err != nil {
+		return nil, err
+	}
+
+	admissionPage, err := s.repo.FindPublishedAdmissionByInstitutionID(id)
+	if err != nil {
+		return nil, err
+	}
+
+	college := &PublishedAdmissionInstitutionItem{}
+	if len(rows) > 0 {
+		row := rows[0]
+		college.ID = uint(getInt64(row, "id"))
+		college.Name = getString(row, "name")
+		college.ImageURL = getString(row, "image_url")
+		college.Location = getString(row, "location")
+		college.Type = getString(row, "type")
+		college.Rating = getFloat64(row, "rating")
+		college.Website = getString(row, "website")
+		college.Affiliation = getString(row, "affiliation")
+		college.Verified = getBool(row, "verified")
+		college.ContactEmail = getString(row, "contact_email")
+		college.ContactPhone = getString(row, "contact_phone")
+		college.FeaturedPrograms = []string{}
+	}
+	pCount, _ := s.repo.CountProgramsByInstitution(id)
+	college.Programs = int(pCount)
+
+	var data json.RawMessage
+	if admissionPage.Data != nil {
+		data = json.RawMessage(*admissionPage.Data)
+	}
+
+	var publishedAt *string
+	if admissionPage.PublishedAt != nil {
+		s := admissionPage.PublishedAt.Format(time.RFC3339)
+		publishedAt = &s
+	}
+
+	return &PublishedAdmissionInstitutionDetailResponse{
+		Institution: college,
+		Data:        data,
+		CreatedAt:   admissionPage.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:   admissionPage.UpdatedAt.Format(time.RFC3339),
+		PublishedAt: publishedAt,
+	}, nil
+}
+
+func getInt64(m map[string]interface{}, key string) int64 {
+	v, _ := m[key].(int64)
+	return v
+}
+
+func getString(m map[string]interface{}, key string) string {
+	v, _ := m[key].(string)
+	return v
+}
+
+func getFloat64(m map[string]interface{}, key string) float64 {
+	v, _ := m[key].(float64)
+	return v
+}
+
+func getBool(m map[string]interface{}, key string) bool {
+	v, _ := m[key].(bool)
+	return v
 }
 
 func toAdmissionPageResponse(p *AdmissionPage) *AdmissionPageResponse {

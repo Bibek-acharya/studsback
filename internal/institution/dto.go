@@ -425,7 +425,7 @@ type BrochureData struct {
 // ProfileData mirrors the full JSONB shape stored in the profile_data column.
 type ProfileData struct {
 	Videos              interface{}            `json:"videos"`
-	OverviewData        *OverviewData          `json:"overview_data"`
+	OverviewData        interface{}            `json:"overview_data"`
 	LeadershipData      interface{}            `json:"leadership_data"`
 	CoursesData         []CourseDataItem       `json:"courses_data"`
 	ProgramsData        []ProgramDataItem      `json:"programs_data"`
@@ -447,13 +447,15 @@ type UpdateProfileRequest struct {
 	RegistrationNumber   string                `json:"registration_number"`
 	Location             string                `json:"location"`
 	Website              string                `json:"website"`
+	ContactEmail         string                `json:"contact_email"`
+	ContactPhone         string                `json:"contact_phone"`
 	LogoURL              string                `json:"logo_url"`
 	BannerURL            string                `json:"banner_url"`
 	About                string                `json:"about"`
 	Vision               string                `json:"vision"`
 	Mission              string                `json:"mission"`
 	Videos               interface{}           `json:"videos"`
-	OverviewData         *OverviewData         `json:"overview_data"`
+	OverviewData         interface{}           `json:"overview_data"`
 	LeadershipData       interface{}           `json:"leadership_data"`
 	CoursesData          []CourseDataItem      `json:"courses_data"`
 	ProgramsData         []ProgramDataItem     `json:"programs_data"`
@@ -479,13 +481,15 @@ type ProfileResponse struct {
 	Role                  string                `json:"role"`
 	Location              string                `json:"location,omitempty"`
 	Website               string                `json:"website,omitempty"`
+	ContactEmail          string                `json:"contact_email,omitempty"`
+	ContactPhone          string                `json:"contact_phone,omitempty"`
 	LogoURL               string                `json:"logo_url,omitempty"`
 	BannerURL             string                `json:"banner_url,omitempty"`
 	About                 string                `json:"about,omitempty"`
 	Vision                string                `json:"vision,omitempty"`
 	Mission               string                `json:"mission,omitempty"`
 	Videos                interface{}           `json:"videos,omitempty"`
-	OverviewData          *OverviewData         `json:"overview_data,omitempty"`
+	OverviewData          interface{}           `json:"overview_data,omitempty"`
 	LeadershipData        interface{}           `json:"leadership_data,omitempty"`
 	CoursesData           []CourseDataItem      `json:"courses_data,omitempty"`
 	ProgramsData          []ProgramDataItem     `json:"programs_data,omitempty"`
@@ -658,7 +662,7 @@ type PublicInstitutionDetailResponse struct {
 	District           string              `json:"district,omitempty"`
 	WebsiteURL         string              `json:"website_url,omitempty"`
 	Videos             interface{}         `json:"videos,omitempty"`
-	OverviewData       *OverviewData       `json:"overview_data,omitempty"`
+	OverviewData       interface{}         `json:"overview_data,omitempty"`
 	LeadershipData     interface{}         `json:"leadership_data,omitempty"`
 	CoursesData        []CourseDataItem    `json:"courses_data,omitempty"`
 	ProgramsData       []ProgramDataItem   `json:"programs_data,omitempty"`
@@ -706,8 +710,43 @@ type PaginatedResponse struct {
 	Meta PaginationMeta `json:"meta"`
 }
 
+// --- Published Admission Institution DTOs (for public listing) ---
+
+type PublishedAdmissionInstitutionItem struct {
+	ID               uint     `json:"id"`
+	Name             string   `json:"name"`
+	ImageURL         string   `json:"image_url,omitempty"`
+	Location         string   `json:"location"`
+	Type             string   `json:"type"`
+	Rating           float64  `json:"rating"`
+	Website          string   `json:"website,omitempty"`
+	Affiliation      string   `json:"affiliation,omitempty"`
+	Verified         bool     `json:"verified"`
+	FeaturedPrograms []string `json:"featured_programs,omitempty"`
+	Programs         int      `json:"programs"`
+	ContactEmail     string   `json:"contact_email,omitempty"`
+	ContactPhone     string   `json:"contact_phone,omitempty"`
+}
+
+type PublishedAdmissionInstitutionListResponse struct {
+	Colleges   []PublishedAdmissionInstitutionItem `json:"colleges"`
+	Pagination PaginationMeta                      `json:"pagination"`
+}
+
 type PaginationMeta struct {
-	Total int64 `json:"total"`
-	Page  int   `json:"page"`
-	Limit int   `json:"limit"`
+	Total      int64 `json:"total"`
+	Page       int   `json:"page"`
+	Limit      int   `json:"limit"`
+	PageSize   int   `json:"pageSize"`
+	TotalPages int64 `json:"totalPages"`
+}
+
+// --- Published Admission Institution Detail DTOs ---
+
+type PublishedAdmissionInstitutionDetailResponse struct {
+	Institution *PublishedAdmissionInstitutionItem `json:"institution"`
+	Data        json.RawMessage                    `json:"data"`
+	CreatedAt   string                             `json:"created_at"`
+	UpdatedAt   string                             `json:"updated_at"`
+	PublishedAt *string                            `json:"published_at,omitempty"`
 }

@@ -1409,6 +1409,42 @@ func (h *Handler) GetPublishedAdmissionPages(c *gin.Context) {
 	})
 }
 
+func (h *Handler) GetPublishedAdmissionInstitutions(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "18"))
+	level := c.Query("level")
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 18
+	}
+
+	result, err := h.service.GetPublishedAdmissionInstitutions(page, limit, level)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch published admission institutions")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Published admission institutions retrieved successfully", result)
+}
+
+func (h *Handler) GetPublishedAdmissionInstitutionByID(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid institution ID")
+		return
+	}
+
+	result, err := h.service.GetPublishedAdmissionInstitutionByID(uint(id))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Published admission institution not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Published admission institution retrieved successfully", result)
+}
+
 func toProgramResponse(p InstitutionProgram) ProgramResponse {
 	var data interface{}
 	if p.Data != nil {
