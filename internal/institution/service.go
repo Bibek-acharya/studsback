@@ -507,20 +507,35 @@ func (s *Service) CreateEntrance(instID uint, req CreateEntranceRequest) (*Insti
 	}
 
 	entrance := &InstitutionEntrance{
-		InstitutionID: instID,
-		Title:         req.Title,
-		Description:   req.Description,
-		Program:       req.Program,
-		Date:          date,
-		StartTime:     req.StartTime,
-		EndTime:       req.EndTime,
-		Duration:      req.Duration,
-		TotalMarks:    req.TotalMarks,
-		PassingMarks:  req.PassingMarks,
-		TotalSeats:    req.TotalSeats,
-		Instructions:  req.Instructions,
-		HeroBanner:    req.HeroBanner,
-		Status:        "upcoming",
+		InstitutionID:  instID,
+		Title:          req.Title,
+		Description:    req.Description,
+		Program:        req.Program,
+		Date:           date,
+		StartTime:      req.StartTime,
+		EndTime:        req.EndTime,
+		Duration:       req.Duration,
+		TotalMarks:     req.TotalMarks,
+		PassingMarks:   req.PassingMarks,
+		TotalSeats:     req.TotalSeats,
+		Instructions:   req.Instructions,
+		HeroBanner:     req.HeroBanner,
+		Status:         "draft",
+		ApplicationFee: req.ApplicationFee,
+		OverviewDetails: req.OverviewDetails,
+		ExamDateSchedules: req.ExamDateSchedules,
+		EligibilityList:   req.EligibilityList,
+		ApplicationSteps:  req.ApplicationSteps,
+		ExamPattern:       req.ExamPattern,
+		SubjectMarks:      req.SubjectMarks,
+		ModelSets:         req.ModelSets,
+		UpcomingDates:     req.UpcomingDates,
+		ContactPersons:    req.ContactPersons,
+		Faqs:              req.Faqs,
+	}
+
+	if req.Status != "" {
+		entrance.Status = req.Status
 	}
 
 	if req.Questions != nil {
@@ -587,6 +602,39 @@ func (s *Service) UpdateEntrance(instID, id uint, req UpdateEntranceRequest) (*I
 	}
 	if req.Status != "" {
 		entrance.Status = req.Status
+	}
+	if req.ApplicationFee != "" {
+		entrance.ApplicationFee = req.ApplicationFee
+	}
+	if len(req.OverviewDetails) > 0 {
+		entrance.OverviewDetails = req.OverviewDetails
+	}
+	if len(req.ExamDateSchedules) > 0 {
+		entrance.ExamDateSchedules = req.ExamDateSchedules
+	}
+	if len(req.EligibilityList) > 0 {
+		entrance.EligibilityList = req.EligibilityList
+	}
+	if len(req.ApplicationSteps) > 0 {
+		entrance.ApplicationSteps = req.ApplicationSteps
+	}
+	if len(req.ExamPattern) > 0 {
+		entrance.ExamPattern = req.ExamPattern
+	}
+	if len(req.SubjectMarks) > 0 {
+		entrance.SubjectMarks = req.SubjectMarks
+	}
+	if len(req.ModelSets) > 0 {
+		entrance.ModelSets = req.ModelSets
+	}
+	if len(req.UpcomingDates) > 0 {
+		entrance.UpcomingDates = req.UpcomingDates
+	}
+	if len(req.ContactPersons) > 0 {
+		entrance.ContactPersons = req.ContactPersons
+	}
+	if len(req.Faqs) > 0 {
+		entrance.Faqs = req.Faqs
 	}
 
 	if err := s.repo.SaveEntrance(entrance); err != nil {

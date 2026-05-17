@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"studsphere/backend/internal/shared/utils"
+
+	"gorm.io/gorm"
 )
 
 type Service struct {
@@ -187,18 +189,71 @@ func (s *Service) GetEducationCourses() ([]CourseResponse, error) {
 		}
 		responses = append(responses, buildCourseResponse(course, colleges))
 	}
+
+	instPrograms, _ := s.repo.FindPublishedInstitutionPrograms("", "")
+	for _, p := range instPrograms {
+		responses = append(responses, CourseResponse{
+			ID:              fmt.Sprintf("inst-%d", p.ID),
+			Title:           p.ProgramName,
+			Affiliation:     p.InstitutionName,
+			Duration:        p.Duration,
+			EstFee:          p.Fee,
+			Description:     p.Description,
+			Location:        p.InstitutionLoc,
+			Source:          "institution",
+			InstitutionName: p.InstitutionName,
+			Image:           p.BannerURL,
+		})
+	}
+
 	return responses, nil
 }
 
 func (s *Service) GetEducationCoursesPaginated(page, limit int, search, level, field, affiliation string) ([]CourseResponse, PaginationMeta, error) {
-	courses, total, err := s.repo.FindCoursesFiltered(page, limit, search, level, field, affiliation)
+	allCourses, _, err := s.repo.FindCoursesFiltered(1, 9999, search, level, field, affiliation)
 	if err != nil {
 		return nil, PaginationMeta{}, err
 	}
 
+	allResponses := make([]CourseResponse, 0, len(allCourses))
+	for _, course := range allCourses {
+		colleges := course.CollegesCount
+		count, err := s.repo.CountCourseOfferingColleges(course.ID)
+		if err == nil && count > 0 {
+			colleges = int(count)
+		}
+		allResponses = append(allResponses, buildCourseResponse(course, colleges))
+	}
+
+	instPrograms, _ := s.repo.FindPublishedInstitutionPrograms(search, level)
+	for _, p := range instPrograms {
+		allResponses = append(allResponses, CourseResponse{
+			ID:              fmt.Sprintf("inst-%d", p.ID),
+			Title:           p.ProgramName,
+			Affiliation:     p.InstitutionName,
+			Duration:        p.Duration,
+			EstFee:          p.Fee,
+			Description:     p.Description,
+			Location:        p.InstitutionLoc,
+			Source:          "institution",
+			InstitutionName: p.InstitutionName,
+			Image:           p.BannerURL,
+		})
+	}
+
+	total := int64(len(allResponses))
 	pages := (total + int64(limit) - 1) / int64(limit)
 	if total == 0 {
 		pages = 0
+	}
+
+	start := (page - 1) * limit
+	if start > int(total) {
+		return []CourseResponse{}, PaginationMeta{Total: total, Page: page, Limit: limit, Pages: pages}, nil
+	}
+	end := start + limit
+	if end > int(total) {
+		end = int(total)
 	}
 
 	meta := PaginationMeta{
@@ -208,16 +263,7 @@ func (s *Service) GetEducationCoursesPaginated(page, limit int, search, level, f
 		Pages: pages,
 	}
 
-	responses := make([]CourseResponse, 0, len(courses))
-	for _, course := range courses {
-		colleges := course.CollegesCount
-		count, err := s.repo.CountCourseOfferingColleges(course.ID)
-		if err == nil && count > 0 {
-			colleges = int(count)
-		}
-		responses = append(responses, buildCourseResponse(course, colleges))
-	}
-	return responses, meta, nil
+	return allResponses[start:end], meta, nil
 }
 
 func (s *Service) GetCourseFilterCounts() (*CourseFilterCounts, error) {
@@ -225,6 +271,21 @@ func (s *Service) GetCourseFilterCounts() (*CourseFilterCounts, error) {
 }
 
 func (s *Service) GetEducationCourseByID(id string) (*CourseResponse, error) {
+	if program, err := s.repo.FindPublishedInstitutionProgramByID(id); err == nil && program != nil {
+		return &CourseResponse{
+			ID:              fmt.Sprintf("inst-%d", program.ID),
+			Title:           program.ProgramName,
+			Affiliation:     program.InstitutionName,
+			Duration:        program.Duration,
+			EstFee:          program.Fee,
+			Description:     program.Description,
+			Location:        program.InstitutionLoc,
+			Source:          "institution",
+			InstitutionName: program.InstitutionName,
+			Image:           program.BannerURL,
+		}, nil
+	}
+
 	course, err := s.repo.FindCourseByID(id)
 	if err != nil {
 		return nil, err
@@ -241,6 +302,28 @@ func (s *Service) GetEducationCourseByID(id string) (*CourseResponse, error) {
 }
 
 func (s *Service) GetEducationCourseDetailsByID(id string) (*CourseDetailsResponse, error) {
+	if program, err := s.repo.FindPublishedInstitutionProgramByID(id); err == nil && program != nil {
+		return &CourseDetailsResponse{
+			Course: CourseResponse{
+				ID:              fmt.Sprintf("inst-%d", program.ID),
+				Title:           program.ProgramName,
+				Affiliation:     program.InstitutionName,
+				Duration:        program.Duration,
+				EstFee:          program.Fee,
+				Description:     program.Description,
+				Location:        program.InstitutionLoc,
+				Source:          "institution",
+				InstitutionName: program.InstitutionName,
+				Image:           program.BannerURL,
+			},
+			About:                 []string{program.Description},
+			Mode:                  "On-Campus",
+			DegreeLabel:           "Program",
+			AdmissionRequirements: []string{"As per institution criteria"},
+			Universities:          []string{program.InstitutionName},
+		}, nil
+	}
+
 	course, err := s.repo.FindCourseByID(id)
 	if err != nil {
 		return nil, err
@@ -1060,14 +1143,109 @@ func (s *Service) UploadNewsImage(file *multipart.FileHeader) (string, error) {
 	return url, nil
 }
 
-func (s *Service) GetPublicEntrances(page, limit int, search, level, stream, status string) ([]Exam, int64, error) {
-	return s.repo.GetPublicEntrances(page, limit, search, level, stream, status)
+func buildPublicEntranceResponse(exam Exam) PublicEntranceResponse {
+	return PublicEntranceResponse{
+		ID:           exam.ID,
+		Slug:         exam.Slug,
+		Title:        exam.Title,
+		Board:        exam.Board,
+		Badges:       parseStringArrayField(exam.Badges),
+		Level:        exam.Level,
+		Type:         exam.Type,
+		ExamDate:     exam.ExamDate,
+		FormDeadline: exam.FormDeadline,
+		Fee:          exam.Fee,
+		Description:  exam.Description,
+		Status:       exam.Status,
+		ImageUrl:     exam.ImageUrl,
+		University:   exam.University,
+		Faculty:      exam.Faculty,
+		NepaliDate:   exam.NepaliDate,
+		Overview:     exam.Overview,
+	}
+}
+
+func (s *Service) GetPublicEntrances(page, limit int, search, level, stream, status string) ([]PublicEntranceResponse, int64, error) {
+	exams, err := s.repo.GetAllExamEntries(search, level, stream, status)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	allResponses := make([]PublicEntranceResponse, 0, len(exams))
+	for _, exam := range exams {
+		allResponses = append(allResponses, buildPublicEntranceResponse(exam))
+	}
+
+	instEntrances, _ := s.repo.GetPublishedInstitutionEntrances(search)
+	for _, ie := range instEntrances {
+		allResponses = append(allResponses, PublicEntranceResponse{
+			ID:              ie.ID,
+			Title:           ie.Title,
+			Description:     ie.Description,
+			ExamDate:        ie.Date,
+			ImageUrl:        ie.HeroBanner,
+			Status:          ie.Status,
+			Fee:             ie.Fee,
+			University:      ie.InstitutionName,
+			Board:           ie.InstitutionName,
+			Phone:           ie.InstitutionPhone,
+			Email:           ie.InstitutionEmail,
+			Website:         ie.InstitutionSite,
+			Location:        ie.InstitutionLoc,
+			InstitutionLogo: ie.InstitutionLogo,
+		})
+	}
+
+	total := int64(len(allResponses))
+
+	start := (page - 1) * limit
+	if start > int(total) {
+		return []PublicEntranceResponse{}, total, nil
+	}
+	end := start + limit
+	if end > int(total) {
+		end = int(total)
+	}
+
+	return allResponses[start:end], total, nil
 }
 
 func (s *Service) GetEntranceFilterCounts() (FilterCounts, error) {
 	return s.repo.GetEntranceFilterCounts()
 }
 
-func (s *Service) GetPublicEntranceByID(id string) (*Exam, error) {
-	return s.repo.GetPublicEntranceByID(id)
+func (s *Service) GetPublicEntranceByID(id string) (*PublicEntranceResponse, error) {
+	exam, err := s.repo.GetPublicEntranceByID(id)
+	if err != nil {
+		return nil, err
+	}
+	if exam != nil {
+		resp := buildPublicEntranceResponse(*exam)
+		return &resp, nil
+	}
+
+	instEntrance, err := s.repo.GetInstitutionEntranceByID(id)
+	if err != nil {
+		return nil, err
+	}
+	if instEntrance != nil {
+		return &PublicEntranceResponse{
+			ID:              instEntrance.ID,
+			Title:           instEntrance.Title,
+			Description:     instEntrance.Description,
+			ExamDate:        instEntrance.Date,
+			ImageUrl:        instEntrance.HeroBanner,
+			Status:          instEntrance.Status,
+			Fee:             instEntrance.Fee,
+			University:      instEntrance.InstitutionName,
+			Board:           instEntrance.InstitutionName,
+			Phone:           instEntrance.InstitutionPhone,
+			Email:           instEntrance.InstitutionEmail,
+			Website:         instEntrance.InstitutionSite,
+			Location:        instEntrance.InstitutionLoc,
+			InstitutionLogo: instEntrance.InstitutionLogo,
+		}, nil
+	}
+
+	return nil, gorm.ErrRecordNotFound
 }

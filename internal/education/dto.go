@@ -32,22 +32,25 @@ type ExamResponse struct {
 }
 
 type CourseResponse struct {
-	ID          string   `json:"id"`
-	Title       string   `json:"title"`
-	ShortTitle  string   `json:"shortTitle"`
-	Colleges    int      `json:"colleges"`
-	Affiliation string   `json:"affiliation"`
-	Badges      []string `json:"badges"`
-	Level       string   `json:"level"`
-	Field       string   `json:"field"`
-	Duration    string   `json:"duration"`
-	EstFee      string   `json:"estFee"`
-	Highlights  []string `json:"highlights"`
-	CareerPath  string   `json:"careerPath"`
-	Description string   `json:"description"`
-	Location    string   `json:"location"`
-	GovtFee     string   `json:"govtFee"`
-	PrivateFee  string   `json:"privateFee"`
+	ID              string   `json:"id"`
+	Title           string   `json:"title"`
+	ShortTitle      string   `json:"shortTitle"`
+	Colleges        int      `json:"colleges"`
+	Affiliation     string   `json:"affiliation"`
+	Badges          []string `json:"badges"`
+	Level           string   `json:"level"`
+	Field           string   `json:"field"`
+	Duration        string   `json:"duration"`
+	EstFee          string   `json:"estFee"`
+	Highlights      []string `json:"highlights"`
+	CareerPath      string   `json:"careerPath"`
+	Description     string   `json:"description"`
+	Location        string   `json:"location"`
+	GovtFee         string   `json:"govtFee"`
+	PrivateFee      string   `json:"privateFee"`
+	Source          string   `json:"source,omitempty"`
+	InstitutionName string   `json:"institutionName,omitempty"`
+	Image           string   `json:"image,omitempty"`
 }
 
 type CourseCurriculumSemester struct {
@@ -223,18 +226,28 @@ type EntranceFilterRequest struct {
 }
 
 type PublicEntranceResponse struct {
-	ID          string `json:"id"`
-	Title       string `json:"title"`
-	Institution string `json:"institution"`
-	Location    string `json:"location"`
-	Affiliation string `json:"affiliation"`
-	ExamDate    string `json:"examDate"`
-	Deadline    string `json:"deadline"`
-	Status      string `json:"status"`
-	Level       string `json:"level"`
-	Stream      string `json:"stream"`
-	Verified    bool   `json:"verified"`
-	Image       string `json:"image"`
+	ID           uint     `json:"id"`
+	Slug         string   `json:"slug"`
+	Title        string   `json:"title"`
+	Board        string   `json:"board"`
+	Badges       []string `json:"badges"`
+	Level        string   `json:"level"`
+	Type         string   `json:"type"`
+	ExamDate     string   `json:"examDate"`
+	FormDeadline string   `json:"formDeadline"`
+	Fee          string   `json:"fee"`
+	Description  string   `json:"description"`
+	Status       string   `json:"status"`
+	ImageUrl     string   `json:"imageUrl"`
+	University   string   `json:"university"`
+	Faculty      string   `json:"faculty"`
+	NepaliDate   string   `json:"nepaliDate"`
+	Overview     string   `json:"overview"`
+	Phone        string   `json:"phone,omitempty"`
+	Email        string   `json:"email,omitempty"`
+	Website      string   `json:"website,omitempty"`
+	Location     string   `json:"location,omitempty"`
+	InstitutionLogo string `json:"institutionLogo,omitempty"`
 }
 
 type EntranceFilterCountsResponse struct {
