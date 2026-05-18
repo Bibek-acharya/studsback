@@ -233,7 +233,7 @@ func (r *Repository) DeleteScholarship(id uint, providerID uint) error {
 	})
 }
 
-func (r *Repository) GetApplicationsByProvider(providerID uint, page, limit int, status, scholarshipID string) ([]ProviderApplication, int64, error) {
+func (r *Repository) GetApplicationsByProvider(providerID uint, page, limit int, status, scholarshipID, examCenter string) ([]ProviderApplication, int64, error) {
 	query := r.db.Model(&ProviderApplication{}).
 		Joins("JOIN provider_scholarships ON provider_scholarships.id = provider_applications.scholarship_id").
 		Where("provider_scholarships.provider_id = ? AND EXISTS (SELECT 1 FROM scholarship_payments WHERE scholarship_payments.application_id = provider_applications.scholarship_application_id)", providerID)
@@ -243,6 +243,9 @@ func (r *Repository) GetApplicationsByProvider(providerID uint, page, limit int,
 	}
 	if scholarshipID != "" {
 		query = query.Where("provider_applications.scholarship_id = ?", scholarshipID)
+	}
+	if examCenter != "" {
+		query = query.Where("provider_applications.exam_center = ?", examCenter)
 	}
 
 	var total int64

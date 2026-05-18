@@ -871,7 +871,7 @@ func (s *Service) DeleteScholarship(providerID, id uint) error {
 	return s.repo.DeleteScholarship(id, providerID)
 }
 
-func (s *Service) GetApplications(providerID uint, page, limit int, status, scholarshipID string) ([]ProviderApplication, int64, error) {
+func (s *Service) GetApplications(providerID uint, page, limit int, status, scholarshipID, examCenter string) ([]ProviderApplication, int64, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -879,7 +879,7 @@ func (s *Service) GetApplications(providerID uint, page, limit int, status, scho
 		limit = 10
 	}
 
-	applications, total, err := s.repo.GetApplicationsByProvider(providerID, page, limit, status, scholarshipID)
+	applications, total, err := s.repo.GetApplicationsByProvider(providerID, page, limit, status, scholarshipID, examCenter)
 	if err != nil {
 		return nil, 0, err
 	}
