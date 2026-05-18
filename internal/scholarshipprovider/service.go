@@ -899,6 +899,10 @@ func (s *Service) GetApplications(providerID uint, page, limit int, status, scho
 			}
 			applications[i].Payment.Status = "completed"
 			applications[i].Payment.PaidAt = &now
+			if applications[i].Status == "pending_payment" {
+				s.repo.UpdateApplicationStatusOnly(applications[i].ID, "pending")
+				applications[i].Status = "pending"
+			}
 			go s.sendAdmitCard(&app, payment)
 		}
 	}
@@ -922,6 +926,10 @@ func (s *Service) GetApplicationByID(providerID, id uint) (*ProviderApplication,
 			if updateErr := s.repo.UpdatePayment(payment); updateErr == nil {
 				app.Payment.Status = "completed"
 				app.Payment.PaidAt = &now
+				if app.Status == "pending_payment" {
+					s.repo.UpdateApplicationStatusOnly(app.ID, "pending")
+					app.Status = "pending"
+				}
 				s.sendAdmitCard(app, payment)
 			}
 		}

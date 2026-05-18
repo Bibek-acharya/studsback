@@ -982,6 +982,7 @@ func (s *PaymentService) ProcessSuccessfulPayment(paymentID uint, transactionID 
 	if app != nil && app.Status != "confirmed" {
 		app.Status = "pending"
 		s.scholarshipRepo.ApplicationSave(app)
+		s.scholarshipRepo.UpdateProviderApplicationStatus(app.ID, "pending")
 	}
 
 	return s.sendAdmitCard(app, payment)
