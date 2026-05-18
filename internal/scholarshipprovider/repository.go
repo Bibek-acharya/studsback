@@ -34,7 +34,8 @@ func (r *Repository) GetDashboardCounts(providerID uint) (int64, int64, int64, i
 
 	if err := r.db.Model(&ProviderApplication{}).
 		Joins("JOIN provider_scholarships ON provider_scholarships.id = provider_applications.scholarship_id").
-		Where("provider_scholarships.provider_id = ?", providerID).Count(&totalApplications).Error; err != nil {
+		Where("provider_scholarships.provider_id = ? AND EXISTS (SELECT 1 FROM scholarship_payments WHERE scholarship_payments.application_id = provider_applications.scholarship_application_id)", providerID).
+		Count(&totalApplications).Error; err != nil {
 		return 0, 0, 0, 0, 0, err
 	}
 
