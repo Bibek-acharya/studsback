@@ -415,6 +415,7 @@ type ApplicationResponse struct {
 	GPA                   float64              `json:"gpa"`
 	SchoolType            string               `json:"school_type"`
 	ExamCenter            string               `json:"exam_center"`
+	RollNumber            string               `json:"roll_number"`
 	Payment               *PaymentResponse     `json:"payment,omitempty"`
 }
 

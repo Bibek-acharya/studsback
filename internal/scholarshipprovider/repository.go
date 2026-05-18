@@ -41,7 +41,7 @@ func (r *Repository) GetDashboardCounts(providerID uint) (int64, int64, int64, i
 
 	if err := r.db.Model(&ProviderApplication{}).
 		Joins("JOIN provider_scholarships ON provider_scholarships.id = provider_applications.scholarship_id").
-		Where("provider_scholarships.provider_id = ? AND provider_applications.status = ?", providerID, "pending").
+		Where("provider_scholarships.provider_id = ? AND provider_applications.status = ? AND EXISTS (SELECT 1 FROM scholarship_payments WHERE scholarship_payments.application_id = provider_applications.scholarship_application_id)", providerID, "pending").
 		Count(&pendingApplications).Error; err != nil {
 		return 0, 0, 0, 0, 0, err
 	}
@@ -61,7 +61,7 @@ func (r *Repository) GetAnalytics(providerID uint) ([]ProviderApplication, []Pro
 	var applications []ProviderApplication
 	if err := r.db.
 		Joins("JOIN provider_scholarships ON provider_scholarships.id = provider_applications.scholarship_id").
-		Where("provider_scholarships.provider_id = ?", providerID).
+		Where("provider_scholarships.provider_id = ? AND EXISTS (SELECT 1 FROM scholarship_payments WHERE scholarship_payments.application_id = provider_applications.scholarship_application_id)", providerID).
 		Find(&applications).Error; err != nil {
 		return nil, nil, err
 	}
@@ -78,7 +78,7 @@ func (r *Repository) GetFilteredApplications(providerID uint, filters DetailedAn
 	var applications []ProviderApplication
 	query := r.db.Model(&ProviderApplication{}).
 		Joins("JOIN provider_scholarships ON provider_scholarships.id = provider_applications.scholarship_id").
-		Where("provider_scholarships.provider_id = ?", providerID)
+		Where("provider_scholarships.provider_id = ? AND EXISTS (SELECT 1 FROM scholarship_payments WHERE scholarship_payments.application_id = provider_applications.scholarship_application_id)", providerID)
 
 	if filters.Province != "" {
 		query = query.Where("provider_applications.province = ?", filters.Province)
@@ -118,7 +118,9 @@ func (r *Repository) GetPaymentsByApplicationIDs(applicationIDs []uint) ([]schol
 
 func (r *Repository) GetApplicationCountByScholarship(scholarshipID uint) (int64, error) {
 	var count int64
-	if err := r.db.Model(&ProviderApplication{}).Where("scholarship_id = ?", scholarshipID).Count(&count).Error; err != nil {
+	if err := r.db.Model(&ProviderApplication{}).
+		Where("scholarship_id = ? AND EXISTS (SELECT 1 FROM scholarship_payments WHERE scholarship_payments.application_id = provider_applications.scholarship_application_id)", scholarshipID).
+		Count(&count).Error; err != nil {
 		return 0, err
 	}
 	return count, nil
@@ -959,7 +961,7 @@ func (r *Repository) GetDashboardDetails(providerID uint) ([]ScholarshipStat, er
 	var stats []ScholarshipStat
 
 	err := r.db.Model(&ProviderScholarship{}).
-		Select("id, title, status, (SELECT COUNT(*) FROM provider_applications WHERE provider_applications.scholarship_id = provider_scholarships.id) AS applications").
+		Select("id, title, status, (SELECT COUNT(*) FROM provider_applications WHERE provider_applications.scholarship_id = provider_scholarships.id AND EXISTS (SELECT 1 FROM scholarship_payments WHERE scholarship_payments.application_id = provider_applications.scholarship_application_id)) AS applications").
 		Where("provider_id = ?", providerID).
 		Scan(&stats).Error
 

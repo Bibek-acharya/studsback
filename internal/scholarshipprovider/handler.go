@@ -970,6 +970,7 @@ func toApplicationResponse(a *ProviderApplication) ApplicationResponse {
 		GPA:                   a.GPA,
 		SchoolType:            a.SchoolType,
 		ExamCenter:            a.ExamCenter,
+		RollNumber:            a.RollNumber,
 		Payment:               paymentResp,
 	}
 
