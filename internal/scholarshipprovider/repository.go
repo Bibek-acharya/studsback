@@ -239,7 +239,11 @@ func (r *Repository) DeleteScholarship(id uint, providerID uint) error {
 func (r *Repository) GetApplicationsByProvider(providerID uint, page, limit int, status, scholarshipID, search, gender, ethnicity, province, district, schoolType, stream, examCenter, paymentStatus string) ([]ProviderApplication, int64, error) {
 	query := r.db.Model(&ProviderApplication{}).
 		Joins("JOIN provider_scholarships ON provider_scholarships.id = provider_applications.scholarship_id").
-		Where("provider_scholarships.provider_id = ? AND "+excludePendingPayment, providerID)
+		Where("provider_scholarships.provider_id = ?", providerID)
+
+	if status == "" {
+		query = query.Where(excludePendingPayment)
+	}
 
 	// Payment EXISTS subquery
 	paymentExists := r.db.Table("scholarship_payments").
