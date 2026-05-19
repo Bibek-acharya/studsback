@@ -1533,7 +1533,7 @@ func (r *Repository) GetVolunteerApplicationsByProvider(providerID uint, volunte
 	}
 
 	if day != "" {
-		query = query.Where("EXISTS (SELECT 1 FROM jsonb_array_elements_text(volunteer_applications.available_days) AS d WHERE CAST(SPLIT_PART(d, '-', 3) AS INTEGER) = ?)", day)
+		query = query.Where("EXISTS (SELECT 1 FROM jsonb_array_elements_text(volunteer_applications.available_days) AS d WHERE SPLIT_PART(d, '-', 3) = LPAD(?, 2, '0'))", day)
 	}
 
 	var total int64
