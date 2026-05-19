@@ -424,8 +424,12 @@ func (s *Service) ApplyScholarship(scholarshipID uint, userID *uint, req Scholar
 		return nil, errors.New("scholarship not found")
 	}
 
-	if userID != nil && s.repo.ApplicationExists(scholarship.ID, *userID) {
-		return nil, errors.New("you have already applied for this scholarship")
+	if userID != nil {
+		if s.repo.ApplicationExists(scholarship.ID, *userID) {
+			return nil, errors.New("you have already applied for this scholarship")
+		}
+	} else if req.Email != "" && s.repo.ApplicationExistsByEmail(scholarship.ID, req.Email) {
+		return nil, errors.New("an application with this email already exists")
 	}
 
 	if !scholarship.Deadline.IsZero() && scholarship.Deadline.Before(time.Now()) {

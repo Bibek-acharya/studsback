@@ -358,6 +358,14 @@ func (r *Repository) ApplicationExists(scholarshipID uint, userID uint) bool {
 	return count > 0
 }
 
+func (r *Repository) ApplicationExistsByEmail(scholarshipID uint, email string) bool {
+	var count int64
+	r.db.Model(&ScholarshipApplication{}).
+		Where("scholarship_id = ? AND email = ? AND status NOT IN ('draft', 'rejected')", scholarshipID, email).
+		Count(&count)
+	return count > 0
+}
+
 func (r *Repository) CountApplicationsByExamCenter(scholarshipID uint, centerName string) (int64, error) {
 	var count int64
 	err := r.db.Model(&ScholarshipApplication{}).
