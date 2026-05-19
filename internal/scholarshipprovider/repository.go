@@ -8,6 +8,8 @@ import (
 	"gorm.io/gorm"
 )
 
+const excludePendingPayment = "provider_applications.status != 'pending_payment'"
+
 type Repository struct {
 	db *gorm.DB
 }
@@ -35,14 +37,14 @@ func (r *Repository) GetDashboardCounts(providerID uint) (int64, int64, int64, i
 
 	if err := r.db.Model(&ProviderApplication{}).
 		Joins("JOIN provider_scholarships ON provider_scholarships.id = provider_applications.scholarship_id").
-		Where("provider_scholarships.provider_id = ? AND EXISTS (SELECT 1 FROM scholarship_payments WHERE scholarship_payments.application_id = provider_applications.scholarship_application_id)", providerID).
+		Where("provider_scholarships.provider_id = ? AND "+excludePendingPayment+" AND EXISTS (SELECT 1 FROM scholarship_payments WHERE scholarship_payments.application_id = provider_applications.scholarship_application_id)", providerID).
 		Count(&totalApplications).Error; err != nil {
 		return 0, 0, 0, 0, 0, err
 	}
 
 	if err := r.db.Model(&ProviderApplication{}).
 		Joins("JOIN provider_scholarships ON provider_scholarships.id = provider_applications.scholarship_id").
-		Where("provider_scholarships.provider_id = ? AND provider_applications.status = ? AND EXISTS (SELECT 1 FROM scholarship_payments WHERE scholarship_payments.application_id = provider_applications.scholarship_application_id)", providerID, "pending").
+		Where("provider_scholarships.provider_id = ? AND provider_applications.status = ? AND "+excludePendingPayment+" AND EXISTS (SELECT 1 FROM scholarship_payments WHERE scholarship_payments.application_id = provider_applications.scholarship_application_id)", providerID, "pending").
 		Count(&pendingApplications).Error; err != nil {
 		return 0, 0, 0, 0, 0, err
 	}
@@ -62,7 +64,7 @@ func (r *Repository) GetAnalytics(providerID uint) ([]ProviderApplication, []Pro
 	var applications []ProviderApplication
 	if err := r.db.
 		Joins("JOIN provider_scholarships ON provider_scholarships.id = provider_applications.scholarship_id").
-		Where("provider_scholarships.provider_id = ? AND EXISTS (SELECT 1 FROM scholarship_payments WHERE scholarship_payments.application_id = provider_applications.scholarship_application_id)", providerID).
+		Where("provider_scholarships.provider_id = ? AND "+excludePendingPayment+" AND EXISTS (SELECT 1 FROM scholarship_payments WHERE scholarship_payments.application_id = provider_applications.scholarship_application_id)", providerID).
 		Find(&applications).Error; err != nil {
 		return nil, nil, err
 	}
@@ -79,7 +81,7 @@ func (r *Repository) GetFilteredApplications(providerID uint, filters DetailedAn
 	var applications []ProviderApplication
 	query := r.db.Model(&ProviderApplication{}).
 		Joins("JOIN provider_scholarships ON provider_scholarships.id = provider_applications.scholarship_id").
-		Where("provider_scholarships.provider_id = ? AND EXISTS (SELECT 1 FROM scholarship_payments WHERE scholarship_payments.application_id = provider_applications.scholarship_application_id)", providerID)
+		Where("provider_scholarships.provider_id = ? AND "+excludePendingPayment+" AND EXISTS (SELECT 1 FROM scholarship_payments WHERE scholarship_payments.application_id = provider_applications.scholarship_application_id)", providerID)
 
 	if filters.Province != "" {
 		query = query.Where("provider_applications.province = ?", filters.Province)
@@ -120,7 +122,7 @@ func (r *Repository) GetPaymentsByApplicationIDs(applicationIDs []uint) ([]schol
 func (r *Repository) GetApplicationCountByScholarship(scholarshipID uint) (int64, error) {
 	var count int64
 	if err := r.db.Model(&ProviderApplication{}).
-		Where("scholarship_id = ? AND EXISTS (SELECT 1 FROM scholarship_payments WHERE scholarship_payments.application_id = provider_applications.scholarship_application_id)", scholarshipID).
+		Where("scholarship_id = ? AND "+excludePendingPayment+" AND EXISTS (SELECT 1 FROM scholarship_payments WHERE scholarship_payments.application_id = provider_applications.scholarship_application_id)", scholarshipID).
 		Count(&count).Error; err != nil {
 		return 0, err
 	}
@@ -234,10 +236,10 @@ func (r *Repository) DeleteScholarship(id uint, providerID uint) error {
 	})
 }
 
-func (r *Repository) GetApplicationsByProvider(providerID uint, page, limit int, status, scholarshipID, search, gender, ethnicity, province, district, schoolType, examCenter, paymentStatus string) ([]ProviderApplication, int64, error) {
+func (r *Repository) GetApplicationsByProvider(providerID uint, page, limit int, status, scholarshipID, search, gender, ethnicity, province, district, schoolType, stream, examCenter, paymentStatus string) ([]ProviderApplication, int64, error) {
 	query := r.db.Model(&ProviderApplication{}).
 		Joins("JOIN provider_scholarships ON provider_scholarships.id = provider_applications.scholarship_id").
-		Where("provider_scholarships.provider_id = ?", providerID)
+		Where("provider_scholarships.provider_id = ? AND "+excludePendingPayment, providerID)
 
 	// Payment EXISTS subquery
 	paymentExists := r.db.Table("scholarship_payments").
@@ -275,6 +277,9 @@ func (r *Repository) GetApplicationsByProvider(providerID uint, page, limit int,
 	}
 	if schoolType != "" {
 		query = query.Where("provider_applications.school_type = ?", schoolType)
+	}
+	if stream != "" {
+		query = query.Where("provider_applications.stream = ?", stream)
 	}
 	if examCenter != "" {
 		query = query.Where("provider_applications.exam_center = ?", examCenter)
@@ -996,7 +1001,7 @@ func (r *Repository) GetDashboardDetails(providerID uint) ([]ScholarshipStat, er
 	var stats []ScholarshipStat
 
 	err := r.db.Model(&ProviderScholarship{}).
-		Select("id, title, status, (SELECT COUNT(*) FROM provider_applications WHERE provider_applications.scholarship_id = provider_scholarships.id AND EXISTS (SELECT 1 FROM scholarship_payments WHERE scholarship_payments.application_id = provider_applications.scholarship_application_id)) AS applications").
+		Select("id, title, status, (SELECT COUNT(*) FROM provider_applications WHERE provider_applications.scholarship_id = provider_scholarships.id AND "+excludePendingPayment+" AND EXISTS (SELECT 1 FROM scholarship_payments WHERE scholarship_payments.application_id = provider_applications.scholarship_application_id)) AS applications").
 		Where("provider_id = ?", providerID).
 		Scan(&stats).Error
 

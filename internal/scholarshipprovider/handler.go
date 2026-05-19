@@ -311,10 +311,11 @@ func (h *Handler) GetApplications(c *gin.Context) {
 	province := c.Query("province")
 	district := c.Query("district")
 	schoolType := c.Query("school_type")
+	stream := c.Query("stream")
 	examCenter := c.Query("exam_center")
 	paymentStatus := c.Query("payment_status")
 
-	applications, total, err := h.service.GetApplications(providerID, page, limit, status, scholarshipID, search, gender, ethnicity, province, district, schoolType, examCenter, paymentStatus)
+	applications, total, err := h.service.GetApplications(providerID, page, limit, status, scholarshipID, search, gender, ethnicity, province, district, schoolType, stream, examCenter, paymentStatus)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "Failed to fetch applications")
 		return
@@ -338,7 +339,7 @@ func (h *Handler) GetApplications(c *gin.Context) {
 func (h *Handler) ExportApplications(c *gin.Context) {
 	providerID := getProviderID(c)
 
-	applications, _, err := h.service.GetApplications(providerID, 1, 10000, "", "", "", "", "", "", "", "", "", "")
+	applications, _, err := h.service.GetApplications(providerID, 1, 10000, "", "", "", "", "", "", "", "", "", "", "")
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "Failed to fetch applications for export")
 		return
