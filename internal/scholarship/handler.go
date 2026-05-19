@@ -858,6 +858,11 @@ func (h *Handler) VerifyPendingEsewaPayments(c *gin.Context) {
 	response.Success(c, http.StatusOK, "eSewa payment verification complete", summary)
 }
 
+func (h *Handler) SendAdmitCards(c *gin.Context) {
+	summary := h.paymentService.SendAdmitCards()
+	response.Success(c, http.StatusOK, "Admit cards sent", summary)
+}
+
 func (h *Handler) ProcessPayment(c *gin.Context) {
 	param := c.Param("id")
 

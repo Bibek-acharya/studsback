@@ -37,7 +37,7 @@ type ScholarshipApplicationRequest struct {
 	Age             int     `json:"age"`
 	PhoneNumber     string  `json:"phone_number" binding:"required"`
 	Email           string  `json:"email" binding:"required,email"`
-	PhotoURL        string  `json:"photo_url"`
+	PhotoURL        string  `json:"photo_url" binding:"required"`
 
 	SEEGPA             string `json:"see_gpa" binding:"required"`
 	SchoolType         string `json:"school_type" binding:"required"`

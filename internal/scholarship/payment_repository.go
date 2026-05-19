@@ -72,3 +72,24 @@ func (r *PaymentRepository) FindPendingEsewa() ([]Payment, error) {
 	}
 	return payments, nil
 }
+
+func (r *PaymentRepository) FindCompletedEsewa() ([]Payment, error) {
+	var payments []Payment
+	err := r.db.Where("method = ? AND status = ?", "esewa", "completed").
+		Find(&payments).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to find completed eSewa payments: %w", err)
+	}
+	return payments, nil
+}
+
+func (r *PaymentRepository) FindPendingApplicationsWithRollNumber() ([]ScholarshipApplication, error) {
+	var apps []ScholarshipApplication
+	err := r.db.Where("status = ?", "pending").
+		Where("roll_number IS NOT NULL AND roll_number != ''").
+		Find(&apps).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to find pending applications: %w", err)
+	}
+	return apps, nil
+}

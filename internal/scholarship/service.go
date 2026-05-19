@@ -1257,6 +1257,43 @@ func (s *PaymentService) VerifyPendingEsewaPayments() *VerifySummary {
 	return summary
 }
 
+type SendAdmitCardSummary struct {
+	Total   int `json:"total"`
+	Sent    int `json:"sent"`
+	Failed  int `json:"failed"`
+	Skipped int `json:"skipped"`
+}
+
+func (s *PaymentService) SendAdmitCards() *SendAdmitCardSummary {
+	summary := &SendAdmitCardSummary{}
+
+	payments, err := s.repo.FindCompletedEsewa()
+	if err != nil {
+		return summary
+	}
+
+	for _, p := range payments {
+		summary.Total++
+		app, err := s.scholarshipRepo.ApplicationFindByID(p.ApplicationID)
+		if err != nil || app == nil {
+			summary.Skipped++
+			continue
+		}
+		if app.RollNumber == "" || app.Status != "pending" {
+			summary.Skipped++
+			continue
+		}
+		if err := s.sendAdmitCard(app, &p); err != nil {
+			log.Printf("send-admits: failed for app %d: %v", app.ID, err)
+			summary.Failed++
+		} else {
+			summary.Sent++
+		}
+	}
+
+	return summary
+}
+
 func (s *PaymentService) sendAdmitCard(app *ScholarshipApplication, payment *Payment) error {
 	scholarship, _ := s.scholarshipRepo.FindByID(payment.ScholarshipID)
 
