@@ -7,7 +7,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -1127,8 +1129,35 @@ func (s *PaymentService) InitiateEsewaPayment(appID uint, amount float64) (*Esew
 }
 
 func (s *PaymentService) VerifyEsewaPayment(req EsewaVerifyRequest) (*Payment, error) {
-	if strings.ToUpper(req.Status) != "COMPLETE" {
-		return nil, fmt.Errorf("eSewa payment not completed, status: %s", req.Status)
+	cfg := config.AppConfig
+
+	apiURL := fmt.Sprintf("%s?product_code=%s&total_amount=%s&transaction_uuid=%s",
+		cfg.EsewaStatusAPIURL(), cfg.EsewaMerchantCode, req.TotalAmount, req.TransactionUUID)
+
+	resp, err := http.Get(apiURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to verify with eSewa: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read eSewa response: %w", err)
+	}
+
+	var esewaResp struct {
+		Status          string `json:"status"`
+		RefID           string `json:"ref_id"`
+		TotalAmount     string `json:"total_amount"`
+		TransactionUUID string `json:"transaction_uuid"`
+	}
+
+	if err := json.Unmarshal(body, &esewaResp); err != nil {
+		return nil, fmt.Errorf("failed to parse eSewa response: %w", err)
+	}
+
+	if esewaResp.Status != "COMPLETE" {
+		return nil, fmt.Errorf("eSewa payment not completed, status: %s", esewaResp.Status)
 	}
 
 	payment, err := s.repo.FindByTransactionID(req.TransactionUUID)

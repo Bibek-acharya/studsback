@@ -884,29 +884,6 @@ func (s *Service) GetApplications(providerID uint, page, limit int, status, scho
 		return nil, 0, err
 	}
 
-	// Auto-approve pending eSewa payments and send admit cards
-	for i, app := range applications {
-		if app.Payment != nil && app.Payment.Method == "esewa" && app.Payment.Status == "pending" && app.ScholarshipApplicationID != nil {
-			payment, lookupErr := s.repo.FindPaymentByApplicationID(*app.ScholarshipApplicationID)
-			if lookupErr != nil {
-				continue
-			}
-			payment.Status = "completed"
-			now := time.Now()
-			payment.PaidAt = &now
-			if updateErr := s.repo.UpdatePayment(payment); updateErr != nil {
-				continue
-			}
-			applications[i].Payment.Status = "completed"
-			applications[i].Payment.PaidAt = &now
-			if applications[i].Status == "pending_payment" {
-				s.repo.UpdateApplicationStatusOnly(applications[i].ID, "pending")
-				applications[i].Status = "pending"
-			}
-			go s.sendAdmitCard(&app, payment)
-		}
-	}
-
 	return applications, total, nil
 }
 
@@ -914,25 +891,6 @@ func (s *Service) GetApplicationByID(providerID, id uint) (*ProviderApplication,
 	app, err := s.repo.GetApplicationByIDAndProvider(id, providerID)
 	if err != nil {
 		return nil, err
-	}
-
-	// Auto-approve eSewa payments — eSewa only reports successful transactions
-	if app.Payment != nil && app.Payment.Method == "esewa" && app.Payment.Status == "pending" {
-		payment, lookupErr := s.repo.FindPaymentByApplicationID(*app.ScholarshipApplicationID)
-		if lookupErr == nil {
-			payment.Status = "completed"
-			now := time.Now()
-			payment.PaidAt = &now
-			if updateErr := s.repo.UpdatePayment(payment); updateErr == nil {
-				app.Payment.Status = "completed"
-				app.Payment.PaidAt = &now
-				if app.Status == "pending_payment" {
-					s.repo.UpdateApplicationStatusOnly(app.ID, "pending")
-					app.Status = "pending"
-				}
-				s.sendAdmitCard(app, payment)
-			}
-		}
 	}
 
 	return app, nil
