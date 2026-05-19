@@ -3041,8 +3041,11 @@ func (s *Service) GetVolunteerApplications(providerID uint, volunteerID *uint, p
 	if page < 1 {
 		page = 1
 	}
-	if limit < 1 || limit > 100 {
+	if limit < 1 {
 		limit = 20
+	}
+	if limit > 10000 {
+		limit = 10000
 	}
 	apps, total, err := s.repo.GetVolunteerApplicationsByProvider(providerID, volunteerID, page, limit, status, search, province, district, gender, day)
 	if err != nil {
