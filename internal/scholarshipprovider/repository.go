@@ -1,6 +1,7 @@
 package scholarshipprovider
 
 import (
+	"strings"
 	"studsphere/backend/internal/scholarship"
 	"time"
 
@@ -233,16 +234,47 @@ func (r *Repository) DeleteScholarship(id uint, providerID uint) error {
 	})
 }
 
-func (r *Repository) GetApplicationsByProvider(providerID uint, page, limit int, status, scholarshipID, examCenter string) ([]ProviderApplication, int64, error) {
+func (r *Repository) GetApplicationsByProvider(providerID uint, page, limit int, status, scholarshipID, search, gender, ethnicity, province, district, schoolType, examCenter, paymentStatus string) ([]ProviderApplication, int64, error) {
 	query := r.db.Model(&ProviderApplication{}).
 		Joins("JOIN provider_scholarships ON provider_scholarships.id = provider_applications.scholarship_id").
-		Where("provider_scholarships.provider_id = ? AND EXISTS (SELECT 1 FROM scholarship_payments WHERE scholarship_payments.application_id = provider_applications.scholarship_application_id)", providerID)
+		Where("provider_scholarships.provider_id = ?", providerID)
+
+	// Payment EXISTS subquery
+	paymentExists := r.db.Table("scholarship_payments").
+		Select("1").
+		Where("scholarship_payments.application_id = provider_applications.scholarship_application_id")
+	if paymentStatus != "" {
+		paymentExists = paymentExists.Where("scholarship_payments.status = ?", paymentStatus)
+	}
+	query = query.Where("EXISTS (?)", paymentExists)
 
 	if status != "" {
 		query = query.Where("provider_applications.status = ?", status)
 	}
 	if scholarshipID != "" {
 		query = query.Where("provider_applications.scholarship_id = ?", scholarshipID)
+	}
+	if search != "" {
+		like := "%" + strings.ToLower(search) + "%"
+		query = query.Where(
+			"(LOWER(COALESCE(first_name,'') || ' ' || COALESCE(last_name,'')) LIKE ? OR LOWER(email) LIKE ? OR LOWER(phone_number) LIKE ?)",
+			like, like, like,
+		)
+	}
+	if gender != "" {
+		query = query.Where("provider_applications.gender = ?", gender)
+	}
+	if ethnicity != "" {
+		query = query.Where("provider_applications.ethnicity = ?", ethnicity)
+	}
+	if province != "" {
+		query = query.Where("provider_applications.province = ?", province)
+	}
+	if district != "" {
+		query = query.Where("provider_applications.district = ?", district)
+	}
+	if schoolType != "" {
+		query = query.Where("provider_applications.school_type = ?", schoolType)
 	}
 	if examCenter != "" {
 		query = query.Where("provider_applications.exam_center = ?", examCenter)

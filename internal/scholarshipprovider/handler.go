@@ -305,9 +305,16 @@ func (h *Handler) GetApplications(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 	status := c.Query("status")
 	scholarshipID := c.Query("scholarship_id")
+	search := c.Query("search")
+	gender := c.Query("gender")
+	ethnicity := c.Query("ethnicity")
+	province := c.Query("province")
+	district := c.Query("district")
+	schoolType := c.Query("school_type")
 	examCenter := c.Query("exam_center")
+	paymentStatus := c.Query("payment_status")
 
-	applications, total, err := h.service.GetApplications(providerID, page, limit, status, scholarshipID, examCenter)
+	applications, total, err := h.service.GetApplications(providerID, page, limit, status, scholarshipID, search, gender, ethnicity, province, district, schoolType, examCenter, paymentStatus)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "Failed to fetch applications")
 		return
@@ -331,7 +338,7 @@ func (h *Handler) GetApplications(c *gin.Context) {
 func (h *Handler) ExportApplications(c *gin.Context) {
 	providerID := getProviderID(c)
 
-	applications, _, err := h.service.GetApplications(providerID, 1, 10000, "", "", "")
+	applications, _, err := h.service.GetApplications(providerID, 1, 10000, "", "", "", "", "", "", "", "", "", "")
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "Failed to fetch applications for export")
 		return
