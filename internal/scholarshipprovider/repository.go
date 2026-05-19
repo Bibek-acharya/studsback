@@ -273,7 +273,8 @@ func (r *Repository) GetPendingPaymentApplications(providerID uint, page, limit 
 		return nil, 0, err
 	}
 
-	for i, app := range applications {
+	filtered := make([]ProviderApplication, 0, len(applications))
+	for _, app := range applications {
 		if app.ScholarshipApplicationID == nil {
 			continue
 		}
@@ -290,10 +291,12 @@ func (r *Repository) GetPendingPaymentApplications(providerID uint, page, limit 
 				best = p
 			}
 		}
-		applications[i].Payment = &best
+		app.Payment = &best
+		filtered = append(filtered, app)
 	}
 
-	return applications, total, nil
+	total = int64(len(filtered))
+	return filtered, total, nil
 }
 
 func (r *Repository) GetApplicationsByProvider(providerID uint, page, limit int, status, scholarshipID, search, gender, ethnicity, province, district, schoolType, stream, examCenter, paymentStatus string) ([]ProviderApplication, int64, error) {
