@@ -236,6 +236,39 @@ func (r *Repository) DeleteScholarship(id uint, providerID uint) error {
 	})
 }
 
+func (r *Repository) GetPendingPaymentApplications(providerID uint, page, limit int, search string) ([]ProviderApplication, int64, error) {
+	var total int64
+	query := r.db.Model(&ProviderApplication{}).
+		Joins("JOIN provider_scholarships ON provider_scholarships.id = provider_applications.scholarship_id").
+		Where("provider_scholarships.provider_id = ? AND provider_applications.status = 'pending_payment'", providerID)
+
+	if search != "" {
+		like := "%" + strings.ToLower(search) + "%"
+		query = query.Where(
+			"(LOWER(COALESCE(first_name,'') || ' ' || COALESCE(last_name,'')) LIKE ? OR LOWER(email) LIKE ? OR LOWER(phone_number) LIKE ?)",
+			like, like, like,
+		)
+	}
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var applications []ProviderApplication
+	offset := (page - 1) * limit
+	if err := query.Preload("Scholarship").Order("created_at desc").Offset(offset).Limit(limit).Find(&applications).Error; err != nil {
+		return nil, 0, err
+	}
+
+	for i, app := range applications {
+		if payment := r.findPaymentByApplication(&app); payment != nil {
+			applications[i].Payment = payment
+		}
+	}
+
+	return applications, total, nil
+}
+
 func (r *Repository) GetApplicationsByProvider(providerID uint, page, limit int, status, scholarshipID, search, gender, ethnicity, province, district, schoolType, stream, examCenter, paymentStatus string) ([]ProviderApplication, int64, error) {
 	query := r.db.Model(&ProviderApplication{}).
 		Joins("JOIN provider_scholarships ON provider_scholarships.id = provider_applications.scholarship_id").
@@ -245,7 +278,10 @@ func (r *Repository) GetApplicationsByProvider(providerID uint, page, limit int,
 		query = query.Where(excludePendingPayment)
 	}
 
-	// Payment EXISTS subquery
+	if status != "" {
+		query = query.Where("provider_applications.status = ?", status)
+	}
+
 	paymentExists := r.db.Table("scholarship_payments").
 		Select("1").
 		Where("scholarship_payments.application_id = provider_applications.scholarship_application_id")
@@ -253,10 +289,6 @@ func (r *Repository) GetApplicationsByProvider(providerID uint, page, limit int,
 		paymentExists = paymentExists.Where("scholarship_payments.status = ?", paymentStatus)
 	}
 	query = query.Where("EXISTS (?)", paymentExists)
-
-	if status != "" {
-		query = query.Where("provider_applications.status = ?", status)
-	}
 	if scholarshipID != "" {
 		query = query.Where("provider_applications.scholarship_id = ?", scholarshipID)
 	}

@@ -336,6 +336,34 @@ func (h *Handler) GetApplications(c *gin.Context) {
 	})
 }
 
+func (h *Handler) GetPendingPaymentApplications(c *gin.Context) {
+	providerID := getProviderID(c)
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	search := c.Query("search")
+
+	applications, total, err := h.service.GetPendingPaymentApplications(providerID, page, limit, search)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch pending payment applications")
+		return
+	}
+
+	responses := make([]ApplicationResponse, len(applications))
+	for i, a := range applications {
+		responses[i] = toApplicationResponse(&a)
+	}
+
+	response.Success(c, http.StatusOK, "Pending payment applications retrieved successfully", ApplicationListResponse{
+		Applications: responses,
+		Meta: PaginationMeta{
+			Total: total,
+			Page:  page,
+			Limit: limit,
+		},
+	})
+}
+
 func (h *Handler) ExportApplications(c *gin.Context) {
 	providerID := getProviderID(c)
 

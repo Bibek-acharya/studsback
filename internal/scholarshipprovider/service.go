@@ -871,6 +871,16 @@ func (s *Service) DeleteScholarship(providerID, id uint) error {
 	return s.repo.DeleteScholarship(id, providerID)
 }
 
+func (s *Service) GetPendingPaymentApplications(providerID uint, page, limit int, search string) ([]ProviderApplication, int64, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50 {
+		limit = 10
+	}
+	return s.repo.GetPendingPaymentApplications(providerID, page, limit, search)
+}
+
 func (s *Service) GetApplications(providerID uint, page, limit int, status, scholarshipID, search, gender, ethnicity, province, district, schoolType, stream, examCenter, paymentStatus string) ([]ProviderApplication, int64, error) {
 	if page < 1 {
 		page = 1
