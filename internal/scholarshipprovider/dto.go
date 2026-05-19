@@ -606,12 +606,14 @@ type NotificationListResponse struct {
 }
 
 type DashboardResponse struct {
-	TotalScholarships   int64             `json:"total_scholarships"`
-	TotalApplications   int64             `json:"total_applications"`
-	PendingApplications int64             `json:"pending_applications"`
-	TotalInterviews     int64             `json:"total_interviews"`
-	UnreadMessages      int64             `json:"unread_messages"`
-	ScholarshipStats    []ScholarshipStat `json:"scholarship_stats"` // Add detailed scholarship stats
+	TotalScholarships    int64             `json:"total_scholarships"`
+	TotalApplications    int64             `json:"total_applications"`
+	PendingApplications  int64             `json:"pending_applications"`
+	ApprovedApplications int64             `json:"approved_applications"`
+	RejectedApplications int64             `json:"rejected_applications"`
+	TotalInterviews      int64             `json:"total_interviews"`
+	UnreadMessages       int64             `json:"unread_messages"`
+	ScholarshipStats     []ScholarshipStat `json:"scholarship_stats"` // Add detailed scholarship stats
 }
 
 type ScholarshipStat struct {

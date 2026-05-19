@@ -24,7 +24,7 @@ func NewService(repo *Repository) *Service {
 }
 
 func (s *Service) GetDashboard(providerID uint) (*DashboardResponse, error) {
-	totalScholarships, totalApplications, pendingApplications, totalInterviews, unreadMessages, err := s.repo.GetDashboardCounts(providerID)
+	totalScholarships, totalApplications, pendingApplications, approvedApplications, rejectedApplications, totalInterviews, unreadMessages, err := s.repo.GetDashboardCounts(providerID)
 	if err != nil {
 		return nil, err
 	}
@@ -57,6 +57,8 @@ func (s *Service) GetDashboard(providerID uint) (*DashboardResponse, error) {
 		TotalScholarships:   totalScholarships,
 		TotalApplications:   totalApplications,
 		PendingApplications: pendingApplications,
+		ApprovedApplications: approvedApplications,
+		RejectedApplications: rejectedApplications,
 		TotalInterviews:     totalInterviews,
 		UnreadMessages:      unreadMessages,
 		ScholarshipStats:    details,
@@ -325,11 +327,26 @@ func (s *Service) GetDetailedAnalytics(providerID uint, filters DetailedAnalytic
 		payments, err := s.repo.GetPaymentsByApplicationIDs(scholarshipAppIDs)
 		if err == nil {
 			paymentMethods := make(map[string]int)
+			appPayments := make(map[uint]struct {
+				method string
+				status string
+			})
+			// Prefer completed > pending_approval > pending per application
+			priority := map[string]int{"completed": 3, "pending_approval": 2, "pending": 1}
 			for _, p := range payments {
-				if p.Method != "" {
-					paymentMethods[p.Method]++
+				existing, ok := appPayments[p.ApplicationID]
+				if !ok || priority[p.Status] > priority[existing.status] {
+					appPayments[p.ApplicationID] = struct {
+						method string
+						status string
+					}{p.Method, p.Status}
 				}
-				if p.Status == "completed" {
+			}
+			for _, ap := range appPayments {
+				if ap.method != "" {
+					paymentMethods[ap.method]++
+				}
+				if ap.status == "completed" {
 					res.AdmitCardsSent++
 				} else {
 					res.AdmitCardsPending++

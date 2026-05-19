@@ -28,36 +28,48 @@ func (r *Repository) UpdateRollNumber(id uint, rollNumber string) error {
 	return r.db.Table("provider_applications").Where("id = ?", id).Update("roll_number", rollNumber).Error
 }
 
-func (r *Repository) GetDashboardCounts(providerID uint) (int64, int64, int64, int64, int64, error) {
-	var totalScholarships, totalApplications, pendingApplications, totalInterviews, unreadMessages int64
+func (r *Repository) GetDashboardCounts(providerID uint) (int64, int64, int64, int64, int64, int64, int64, error) {
+	var totalScholarships, totalApplications, pendingApplications, approvedApplications, rejectedApplications, totalInterviews, unreadMessages int64
+
+	baseQuery := func(status ...string) *gorm.DB {
+		q := r.db.Model(&ProviderApplication{}).
+			Joins("JOIN provider_scholarships ON provider_scholarships.id = provider_applications.scholarship_id").
+			Where("provider_scholarships.provider_id = ? AND "+excludePendingPayment+" AND EXISTS (SELECT 1 FROM scholarship_payments WHERE scholarship_payments.application_id = provider_applications.scholarship_application_id)", providerID)
+		if len(status) > 0 && status[0] != "" {
+			q = q.Where("provider_applications.status = ?", status[0])
+		}
+		return q
+	}
 
 	if err := r.db.Model(&ProviderScholarship{}).Where("provider_id = ?", providerID).Count(&totalScholarships).Error; err != nil {
-		return 0, 0, 0, 0, 0, err
+		return 0, 0, 0, 0, 0, 0, 0, err
 	}
 
-	if err := r.db.Model(&ProviderApplication{}).
-		Joins("JOIN provider_scholarships ON provider_scholarships.id = provider_applications.scholarship_id").
-		Where("provider_scholarships.provider_id = ? AND "+excludePendingPayment+" AND EXISTS (SELECT 1 FROM scholarship_payments WHERE scholarship_payments.application_id = provider_applications.scholarship_application_id)", providerID).
-		Count(&totalApplications).Error; err != nil {
-		return 0, 0, 0, 0, 0, err
+	if err := baseQuery().Count(&totalApplications).Error; err != nil {
+		return 0, 0, 0, 0, 0, 0, 0, err
 	}
 
-	if err := r.db.Model(&ProviderApplication{}).
-		Joins("JOIN provider_scholarships ON provider_scholarships.id = provider_applications.scholarship_id").
-		Where("provider_scholarships.provider_id = ? AND provider_applications.status = ? AND "+excludePendingPayment+" AND EXISTS (SELECT 1 FROM scholarship_payments WHERE scholarship_payments.application_id = provider_applications.scholarship_application_id)", providerID, "pending").
-		Count(&pendingApplications).Error; err != nil {
-		return 0, 0, 0, 0, 0, err
+	if err := baseQuery("pending").Count(&pendingApplications).Error; err != nil {
+		return 0, 0, 0, 0, 0, 0, 0, err
+	}
+
+	if err := baseQuery("approved").Count(&approvedApplications).Error; err != nil {
+		return 0, 0, 0, 0, 0, 0, 0, err
+	}
+
+	if err := baseQuery("rejected").Count(&rejectedApplications).Error; err != nil {
+		return 0, 0, 0, 0, 0, 0, 0, err
 	}
 
 	if err := r.db.Model(&ProviderInterview{}).Where("provider_id = ?", providerID).Count(&totalInterviews).Error; err != nil {
-		return 0, 0, 0, 0, 0, err
+		return 0, 0, 0, 0, 0, 0, 0, err
 	}
 
 	if err := r.db.Model(&ProviderMessage{}).Where("provider_id = ? AND read = ?", providerID, false).Count(&unreadMessages).Error; err != nil {
-		return 0, 0, 0, 0, 0, err
+		return 0, 0, 0, 0, 0, 0, 0, err
 	}
 
-	return totalScholarships, totalApplications, pendingApplications, totalInterviews, unreadMessages, nil
+	return totalScholarships, totalApplications, pendingApplications, approvedApplications, rejectedApplications, totalInterviews, unreadMessages, nil
 }
 
 func (r *Repository) GetAnalytics(providerID uint) ([]ProviderApplication, []ProviderScholarship, error) {
@@ -239,6 +251,7 @@ func (r *Repository) DeleteScholarship(id uint, providerID uint) error {
 func (r *Repository) GetPendingPaymentApplications(providerID uint, page, limit int, search string) ([]ProviderApplication, int64, error) {
 	var total int64
 	query := r.db.Model(&ProviderApplication{}).
+		Select("DISTINCT provider_applications.*").
 		Joins("JOIN provider_scholarships ON provider_scholarships.id = provider_applications.scholarship_id").
 		Where("provider_scholarships.provider_id = ? AND provider_applications.status = 'pending_payment'", providerID)
 
@@ -261,9 +274,23 @@ func (r *Repository) GetPendingPaymentApplications(providerID uint, page, limit 
 	}
 
 	for i, app := range applications {
-		if payment := r.findPaymentByApplication(&app); payment != nil {
-			applications[i].Payment = payment
+		if app.ScholarshipApplicationID == nil {
+			continue
 		}
+		var payments []ProviderPayment
+		if err := r.db.Table("scholarship_payments").
+			Where("application_id = ?", *app.ScholarshipApplicationID).
+			Find(&payments).Error; err != nil || len(payments) == 0 {
+			continue
+		}
+		priority := map[string]int{"completed": 3, "pending_approval": 2, "pending": 1}
+		best := payments[0]
+		for _, p := range payments[1:] {
+			if priority[p.Status] > priority[best.Status] {
+				best = p
+			}
+		}
+		applications[i].Payment = &best
 	}
 
 	return applications, total, nil
