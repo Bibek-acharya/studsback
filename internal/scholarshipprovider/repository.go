@@ -249,11 +249,9 @@ func (r *Repository) DeleteScholarship(id uint, providerID uint) error {
 }
 
 func (r *Repository) GetPendingPaymentApplications(providerID uint, page, limit int, search string) ([]ProviderApplication, int64, error) {
-	var total int64
 	query := r.db.Model(&ProviderApplication{}).
-		Select("DISTINCT provider_applications.*").
 		Joins("JOIN provider_scholarships ON provider_scholarships.id = provider_applications.scholarship_id").
-		Where("provider_scholarships.provider_id = ? AND provider_applications.status = 'pending_payment'", providerID)
+		Where("provider_scholarships.provider_id = ? AND provider_applications.status = 'pending_payment' AND EXISTS (SELECT 1 FROM scholarship_payments WHERE scholarship_payments.application_id = provider_applications.scholarship_application_id)", providerID)
 
 	if search != "" {
 		like := "%" + strings.ToLower(search) + "%"
@@ -263,6 +261,7 @@ func (r *Repository) GetPendingPaymentApplications(providerID uint, page, limit 
 		)
 	}
 
+	var total int64
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
@@ -273,30 +272,27 @@ func (r *Repository) GetPendingPaymentApplications(providerID uint, page, limit 
 		return nil, 0, err
 	}
 
-	filtered := make([]ProviderApplication, 0, len(applications))
-	for _, app := range applications {
-		if app.ScholarshipApplicationID == nil {
+	priority := map[string]int{"completed": 3, "pending_approval": 2, "pending": 1}
+	for i := range applications {
+		if applications[i].ScholarshipApplicationID == nil {
 			continue
 		}
 		var payments []ProviderPayment
 		if err := r.db.Table("scholarship_payments").
-			Where("application_id = ?", *app.ScholarshipApplicationID).
+			Where("application_id = ?", *applications[i].ScholarshipApplicationID).
 			Find(&payments).Error; err != nil || len(payments) == 0 {
 			continue
 		}
-		priority := map[string]int{"completed": 3, "pending_approval": 2, "pending": 1}
 		best := payments[0]
 		for _, p := range payments[1:] {
 			if priority[p.Status] > priority[best.Status] {
 				best = p
 			}
 		}
-		app.Payment = &best
-		filtered = append(filtered, app)
+		applications[i].Payment = &best
 	}
 
-	total = int64(len(filtered))
-	return filtered, total, nil
+	return applications, total, nil
 }
 
 func (r *Repository) GetApplicationsByProvider(providerID uint, page, limit int, status, scholarshipID, search, gender, ethnicity, province, district, schoolType, stream, examCenter, paymentStatus string) ([]ProviderApplication, int64, error) {
