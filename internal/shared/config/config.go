@@ -132,9 +132,9 @@ func (c *Config) EsewaGatewayURL() string {
 
 func (c *Config) EsewaStatusAPIURL() string {
 	if c.EsewaTestMode {
-		return "https://rc-epay.esewa.com.np/api/epay/trns/v2/status"
+		return "https://rc.esewa.com.np/api/epay/transaction/status/"
 	}
-	return "https://epay.esewa.com.np/api/epay/trns/v2/status"
+	return "https://esewa.com.np/api/epay/transaction/status/"
 }
 
 func getEnv(key, defaultValue string) string {

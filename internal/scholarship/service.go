@@ -1146,10 +1146,11 @@ func (s *PaymentService) VerifyEsewaPayment(req EsewaVerifyRequest) (*Payment, e
 	}
 
 	var esewaResp struct {
-		Status          string `json:"status"`
-		RefID           string `json:"ref_id"`
-		TotalAmount     string `json:"total_amount"`
-		TransactionUUID string `json:"transaction_uuid"`
+		Status          string      `json:"status"`
+		RefID           string      `json:"ref_id"`
+		TotalAmount     interface{} `json:"total_amount"`
+		TransactionUUID string      `json:"transaction_uuid"`
+		ProductCode     string      `json:"product_code"`
 	}
 
 	if err := json.Unmarshal(body, &esewaResp); err != nil {
@@ -1188,6 +1189,72 @@ func (s *PaymentService) VerifyEsewaPayment(req EsewaVerifyRequest) (*Payment, e
 	}
 
 	return payment, nil
+}
+
+type VerifySummary struct {
+	Total       int    `json:"total"`
+	Verified    int    `json:"verified"`
+	Failed      int    `json:"failed"`
+	NotComplete int    `json:"not_complete"`
+	Error       string `json:"error,omitempty"`
+}
+
+func (s *PaymentService) VerifyPendingEsewaPayments() *VerifySummary {
+	payments, err := s.repo.FindPendingEsewa()
+	if err != nil {
+		return &VerifySummary{Error: err.Error()}
+	}
+
+	summary := &VerifySummary{Total: len(payments)}
+
+	for _, p := range payments {
+		cfg := config.AppConfig
+		apiURL := fmt.Sprintf("%s?product_code=%s&total_amount=%.0f&transaction_uuid=%s",
+			cfg.EsewaStatusAPIURL(), cfg.EsewaMerchantCode, p.Amount, p.TransactionID)
+
+		resp, err := http.Get(apiURL)
+		if err != nil {
+			summary.Failed++
+			continue
+		}
+
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+
+		var result struct {
+			Status string `json:"status"`
+		}
+		if err := json.Unmarshal(body, &result); err != nil || result.Status != "COMPLETE" {
+			summary.NotComplete++
+			continue
+		}
+
+		now := time.Now()
+		p.Status = "completed"
+		p.PaidAt = &now
+		if err := s.repo.Update(&p); err != nil {
+			summary.Failed++
+			continue
+		}
+
+		app, _ := s.scholarshipRepo.ApplicationFindByID(p.ApplicationID)
+		if app != nil {
+			if app.Status != "confirmed" {
+				app.Status = "pending"
+				s.scholarshipRepo.ApplicationSave(app)
+			}
+			s.scholarshipRepo.UpdateProviderApplicationStatus(app.ID, "pending")
+			go func(a *ScholarshipApplication, pay *Payment) {
+				if err := s.sendAdmitCard(a, pay); err != nil {
+					log.Printf("verify-esewa: failed to send admit card: %v", err)
+				}
+			}(app, &p)
+		}
+
+		summary.Verified++
+	}
+
+	return summary
 }
 
 func (s *PaymentService) sendAdmitCard(app *ScholarshipApplication, payment *Payment) error {

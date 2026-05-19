@@ -63,3 +63,12 @@ func (r *PaymentRepository) FindByScholarshipID(scholarshipID uint) ([]Payment, 
 	}
 	return payments, nil
 }
+
+func (r *PaymentRepository) FindPendingEsewa() ([]Payment, error) {
+	var payments []Payment
+	err := r.db.Where("method = ? AND status = ?", "esewa", "pending").Find(&payments).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to find pending eSewa payments: %w", err)
+	}
+	return payments, nil
+}

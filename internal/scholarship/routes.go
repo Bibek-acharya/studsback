@@ -58,6 +58,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			admin.GET("/scholarship-applications/:id", h.GetApplication)
 			admin.PUT("/scholarship-applications/:id/status", h.UpdateApplicationStatus)
 			admin.GET("/scholarship-applications/scholarship/:scholarshipId", h.GetApplicationsByScholarship)
+			admin.POST("/payments/verify-esewa", h.VerifyPendingEsewaPayments)
 		}
 	}
 }

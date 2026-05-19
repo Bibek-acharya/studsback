@@ -224,10 +224,11 @@ func (s *Service) VerifyEsewaPayment(req EsewaVerifyRequest) (*ShikshaPayment, e
 	}
 
 	var esewaResp struct {
-		Status          string `json:"status"`
-		RefID           string `json:"ref_id"`
-		TotalAmount     string `json:"total_amount"`
-		TransactionUUID string `json:"transaction_uuid"`
+		Status          string      `json:"status"`
+		RefID           string      `json:"ref_id"`
+		TotalAmount     interface{} `json:"total_amount"`
+		TransactionUUID string      `json:"transaction_uuid"`
+		ProductCode     string      `json:"product_code"`
 	}
 
 	if err := json.Unmarshal(body, &esewaResp); err != nil {

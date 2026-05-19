@@ -849,6 +849,15 @@ func (h *Handler) VerifyEsewaPayment(c *gin.Context) {
 	response.Success(c, http.StatusOK, "eSewa payment verified successfully", toPaymentResponse(payment))
 }
 
+func (h *Handler) VerifyPendingEsewaPayments(c *gin.Context) {
+	summary := h.paymentService.VerifyPendingEsewaPayments()
+	if summary.Error != "" {
+		response.Error(c, http.StatusInternalServerError, summary.Error)
+		return
+	}
+	response.Success(c, http.StatusOK, "eSewa payment verification complete", summary)
+}
+
 func (h *Handler) ProcessPayment(c *gin.Context) {
 	param := c.Param("id")
 
