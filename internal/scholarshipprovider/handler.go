@@ -2982,7 +2982,7 @@ func (h *Handler) GetVolunteerApplications(c *gin.Context) {
 		statusPtr = &status
 	}
 
-	resp, err := h.service.GetVolunteerApplications(providerID, volunteerID, page, limit, statusPtr)
+	resp, err := h.service.GetVolunteerApplications(providerID, volunteerID, page, limit, statusPtr, "", "", "", "", "")
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return
@@ -2995,13 +2995,18 @@ func (h *Handler) GetAllVolunteerApplications(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 	status := c.Query("status")
+	search := c.Query("search")
+	province := c.Query("province")
+	district := c.Query("district")
+	gender := c.Query("gender")
+	day := c.Query("day")
 
 	var statusPtr *string
 	if status != "" {
 		statusPtr = &status
 	}
 
-	resp, err := h.service.GetVolunteerApplications(providerID, nil, page, limit, statusPtr)
+	resp, err := h.service.GetVolunteerApplications(providerID, nil, page, limit, statusPtr, search, province, district, gender, day)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return

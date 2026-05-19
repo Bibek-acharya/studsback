@@ -1502,7 +1502,7 @@ func (r *Repository) CreateVolunteerApplication(a *VolunteerApplication) error {
 	return r.db.Create(a).Error
 }
 
-func (r *Repository) GetVolunteerApplicationsByProvider(providerID uint, volunteerID *uint, page, limit int, status *string) ([]VolunteerApplication, int64, error) {
+func (r *Repository) GetVolunteerApplicationsByProvider(providerID uint, volunteerID *uint, page, limit int, status *string, search, province, district, gender, day string) ([]VolunteerApplication, int64, error) {
 	query := r.db.Model(&VolunteerApplication{}).
 		Joins("JOIN provider_volunteers ON provider_volunteers.id = volunteer_applications.volunteer_id").
 		Where("provider_volunteers.provider_id = ?", providerID)
@@ -1513,6 +1513,27 @@ func (r *Repository) GetVolunteerApplicationsByProvider(providerID uint, volunte
 
 	if status != nil && *status != "" {
 		query = query.Where("volunteer_applications.status = ?", *status)
+	}
+
+	if search != "" {
+		q := "%" + search + "%"
+		query = query.Where("(volunteer_applications.full_name ILIKE ? OR volunteer_applications.email ILIKE ?)", q, q)
+	}
+
+	if province != "" {
+		query = query.Where("volunteer_applications.province = ?", province)
+	}
+
+	if district != "" {
+		query = query.Where("volunteer_applications.district = ?", district)
+	}
+
+	if gender != "" {
+		query = query.Where("volunteer_applications.gender = ?", gender)
+	}
+
+	if day != "" {
+		query = query.Where("EXISTS (SELECT 1 FROM jsonb_array_elements_text(volunteer_applications.available_days) AS d WHERE CAST(SPLIT_PART(d, '-', 3) AS INTEGER) = ?)", day)
 	}
 
 	var total int64
