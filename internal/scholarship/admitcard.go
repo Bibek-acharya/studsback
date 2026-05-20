@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"strings"
 	"text/template"
@@ -161,40 +162,78 @@ const admitCardHTMLTemplate = `<!DOCTYPE html>
 </body>
 </html>`
 
+var placeholderPhotoBase64 string
+
+func init() {
+	svg := `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="140" viewBox="0 0 120 140">
+		<rect width="120" height="140" fill="#e5e7eb" rx="4"/>
+		<circle cx="60" cy="48" r="18" fill="#9ca3af"/>
+		<ellipse cx="60" cy="105" rx="34" ry="28" fill="#9ca3af"/>
+	</svg>`
+	placeholderPhotoBase64 = base64.StdEncoding.EncodeToString([]byte(svg))
+}
+
+func defaultPhotoPlaceholder() string {
+	return "data:image/svg+xml;base64," + placeholderPhotoBase64
+}
+
 // PhotoToBase64 reads an uploaded photo from MinIO (or local filesystem as fallback) and returns a base64 data URL.
 // The path should be like "/uploads/scholarship/photos/12345.jpg".
+// Guaranteed to never return empty — falls back to a person silhouette placeholder.
 func PhotoToBase64(photoPath string) string {
 	if photoPath == "" {
-		return ""
+		log.Printf("PhotoToBase64: empty photo path, using placeholder")
+		return defaultPhotoPlaceholder()
 	}
 
-	// Strip /uploads/ prefix to get the MinIO object path
 	objectPath := strings.TrimPrefix(photoPath, "/uploads/")
 	objectPath = strings.TrimPrefix(objectPath, "/")
 
-	// Try MinIO first
-	reader, info, err := storage.Get(objectPath)
-	if err == nil {
-		data, readErr := io.ReadAll(reader)
-		if readErr == nil {
-			mimeType := info.ContentType
-			if mimeType == "" {
-				mimeType = detectMimeType(data)
-			}
-			return fmt.Sprintf("data:%s;base64,%s", mimeType, base64.StdEncoding.EncodeToString(data))
+	// Try MinIO with one retry for transient failures (connection pool exhaustion, etc.)
+	for attempt := 0; attempt < 2; attempt++ {
+		if data, mime := readPhotoFromMinIO(objectPath); data != nil {
+			return fmt.Sprintf("data:%s;base64,%s", mime, base64.StdEncoding.EncodeToString(data))
+		}
+		if attempt == 0 {
+			time.Sleep(200 * time.Millisecond)
 		}
 	}
 
-	// Fallback: try local filesystem
+	// Fallback to local filesystem
 	data, err := os.ReadFile(photoPath)
 	if err != nil && len(photoPath) > 0 && photoPath[0] == '/' {
 		data, err = os.ReadFile("." + photoPath)
 	}
-	if err != nil {
-		return ""
+	if err == nil {
+		return fmt.Sprintf("data:%s;base64,%s", detectMimeType(data), base64.StdEncoding.EncodeToString(data))
 	}
 
-	return fmt.Sprintf("data:%s;base64,%s", detectMimeType(data), base64.StdEncoding.EncodeToString(data))
+	log.Printf("PhotoToBase64: all fallbacks exhausted for %q, using placeholder", photoPath)
+	return defaultPhotoPlaceholder()
+}
+
+// readPhotoFromMinIO attempts to fetch a photo from MinIO. Returns nil on any failure.
+func readPhotoFromMinIO(objectPath string) ([]byte, string) {
+	reader, info, err := storage.Get(objectPath)
+	if err != nil {
+		log.Printf("PhotoToBase64: failed to get %q from MinIO: %v", objectPath, err)
+		return nil, ""
+	}
+	if closer, ok := reader.(io.Closer); ok {
+		defer closer.Close()
+	}
+
+	data, readErr := io.ReadAll(io.LimitReader(reader, 5 << 20))
+	if readErr != nil {
+		log.Printf("PhotoToBase64: failed to read %q from MinIO: %v", objectPath, readErr)
+		return nil, ""
+	}
+
+	mimeType := info.ContentType
+	if mimeType == "" {
+		mimeType = detectMimeType(data)
+	}
+	return data, mimeType
 }
 
 func detectMimeType(data []byte) string {
