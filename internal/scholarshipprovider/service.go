@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -313,6 +314,21 @@ func (s *Service) GetDetailedAnalytics(providerID uint, filters DetailedAnalytic
 	}
 	if len(res.ExamCenters) == 0 {
 		res.ExamCenters = []ExamCenterMetric{}
+	}
+
+	// Applications per day
+	dateMap := make(map[string]int)
+	for _, app := range apps {
+		dateKey := app.CreatedAt.Format("2006-01-02")
+		dateMap[dateKey]++
+	}
+	dateKeys := make([]string, 0, len(dateMap))
+	for k := range dateMap {
+		dateKeys = append(dateKeys, k)
+	}
+	sort.Strings(dateKeys)
+	for _, k := range dateKeys {
+		res.ApplicationsPerDay = append(res.ApplicationsPerDay, MetricCount{Label: k, Count: dateMap[k]})
 	}
 
 	// Get payment data for admit cards and payment methods

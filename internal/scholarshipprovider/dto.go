@@ -994,8 +994,9 @@ type DetailedAnalyticsResponse struct {
 	GenderByProvince   []CrossMetric      `json:"gender_by_province"`
 	StreamByProvince   []CrossMetric      `json:"stream_by_province"`
 	SchoolTypeByProvince []CrossMetric      `json:"school_type_by_province"`
-	ExamCenters        []ExamCenterMetric `json:"exam_centers"`
-	DistrictCount      int                `json:"district_count"`
+	ExamCenters          []ExamCenterMetric `json:"exam_centers"`
+	DistrictCount        int                `json:"district_count"`
+	ApplicationsPerDay   []MetricCount      `json:"applications_per_day"`
 }
 
 // ─── Provider Profile (Public) ───────────────────────────────────
