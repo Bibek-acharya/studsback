@@ -1046,21 +1046,90 @@ func (s *Service) sendAdmitCard(application *ProviderApplication, payment *publi
 		SubjectName:      application.Stream,
 	}
 
-	pdfBytes, err := publicscholarship.GenerateAdmitCardPDF(cardData, func() string {
+	if application.RollNumber == "" {
 		if seq, err := s.repo.GetNextRollNumber(); err == nil {
 			rn := fmt.Sprintf("PS-%05d", seq)
 			s.repo.UpdateRollNumber(application.ID, rn)
 			application.RollNumber = rn
-			return rn
+			cardData.RollNumber = rn
 		}
-		return ""
-	})
+	}
+
+	var pdfBytes []byte
+	for i := 0; i < 3; i++ {
+		pdfBytes, err = publicscholarship.GenerateAdmitCardPDF(cardData, nil)
+		if err == nil {
+			break
+		}
+		log.Printf("sendAdmitCard: attempt %d/3 failed: %v", i+1, err)
+		time.Sleep(1 * time.Second)
+	}
 	if err != nil {
 		_ = emailqueue.SendAdmitCardEmail(application.Email, application.FullName, scholarship.Title, nil)
 		return
 	}
 
 	_ = emailqueue.SendAdmitCardEmail(application.Email, application.FullName, scholarship.Title, pdfBytes)
+}
+
+func (s *Service) ResendAdmitCard(providerID, applicationID uint) error {
+	application, err := s.repo.GetApplicationByIDAndProvider(applicationID, providerID)
+	if err != nil {
+		return fmt.Errorf("application not found: %w", err)
+	}
+
+	if application.RollNumber == "" {
+		return errors.New("application has no roll number assigned")
+	}
+
+	if application.ScholarshipApplicationID == nil {
+		return errors.New("no linked scholarship application")
+	}
+
+	payment, err := s.repo.FindPaymentByApplicationID(*application.ScholarshipApplicationID)
+	if err != nil {
+		return errors.New("payment not found")
+	}
+
+	if payment.Status != "completed" {
+		return errors.New("payment is not completed")
+	}
+
+	scholarship, err := s.repo.FindScholarshipByID(payment.ScholarshipID)
+	if err != nil {
+		return fmt.Errorf("scholarship not found: %w", err)
+	}
+
+	dobStr := ""
+	if !application.DateOfBirthAD.IsZero() {
+		dobStr = application.DateOfBirthAD.Format("02-Jan-2006")
+	} else if application.DateOfBirthBS != "" {
+		dobStr = application.DateOfBirthBS
+	}
+
+	cardData := publicscholarship.AdmitCardData{
+		CandidateName:    application.FullName,
+		DateOfBirth:      dobStr,
+		Gender:           application.Gender,
+		RollNumber:       application.RollNumber,
+		ExamCentre:       application.ExamCenter,
+		Stream:           application.Stream,
+		PhotoURL:         publicscholarship.PhotoToBase64(application.PhotoURL),
+		ScholarshipTitle: scholarship.Title,
+		Provider:         scholarship.Provider,
+		ExamDate:         scholarship.ExamDate,
+		ExamTime:         scholarship.ExamTime,
+		SubjectName:      application.Stream,
+	}
+
+	pdfBytes, err := publicscholarship.GenerateAdmitCardPDF(cardData, nil)
+	if err != nil {
+		_ = emailqueue.SendAdmitCardEmail(application.Email, application.FullName, scholarship.Title, nil)
+		return nil
+	}
+
+	_ = emailqueue.SendAdmitCardEmail(application.Email, application.FullName, scholarship.Title, pdfBytes)
+	return nil
 }
 
 func (s *Service) UpdateApplicationStatus(providerID, id uint, req UpdateApplicationStatusRequest) (*ProviderApplication, error) {

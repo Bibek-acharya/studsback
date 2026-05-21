@@ -523,6 +523,24 @@ func (h *Handler) ApproveApplicationPayment(c *gin.Context) {
 	}
 }
 
+func (h *Handler) ResendAdmitCard(c *gin.Context) {
+	providerID := getProviderID(c)
+	idStr := c.Param("id")
+
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid application ID")
+		return
+	}
+
+	if err := h.service.ResendAdmitCard(providerID, uint(id)); err != nil {
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Admit card resent successfully", nil)
+}
+
 func (h *Handler) GetInterviews(c *gin.Context) {
 	providerID := getProviderID(c)
 

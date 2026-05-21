@@ -571,18 +571,28 @@ func (s *Service) sendAdmitCard(app *ScholarshipApplication, scholarship *Schola
 		SubjectName:      app.Stream,
 	}
 
-	pdfBytes, err := GenerateAdmitCardPDF(cardData, func() string {
+	if app.RollNumber == "" {
 		if seq, err := s.repo.GetNextRollNumber(); err == nil {
 			rn := fmt.Sprintf("PS-%05d", seq)
 			s.repo.UpdateApplicationRollNumber(app.ID, rn)
 			s.repo.UpdateProviderApplicationRollNumber(app.ID, rn)
 			app.RollNumber = rn
-			return rn
+			cardData.RollNumber = rn
 		}
-		return ""
-	})
+	}
+
+	var pdfBytes []byte
+	var err error
+	for i := 0; i < 3; i++ {
+		pdfBytes, err = GenerateAdmitCardPDF(cardData, nil)
+		if err == nil {
+			break
+		}
+		log.Printf("sendAdmitCard: attempt %d/3 failed: %v", i+1, err)
+		time.Sleep(1 * time.Second)
+	}
 	if err != nil {
-		fmt.Printf("Warning: PDF generation failed: %v — sending plain email\n", err)
+		log.Printf("Warning: PDF generation failed after 3 attempts: %v — sending plain email\n", err)
 		subject := fmt.Sprintf("Admit Card - %s", scholarship.Title)
 		body := fmt.Sprintf(`Dear %s,
 
