@@ -521,19 +521,11 @@ func (s *Service) ApplyScholarship(scholarshipID uint, userID *uint, req Scholar
 			return nil, errors.New("failed to submit application")
 		}
 
-		ps, _ := s.repo.FindProviderScholarshipByID(*scholarship.ProviderScholarshipID)
-		if ps != nil {
-			now := time.Now()
-			s.providerDB.Table("provider_notifications").Create(map[string]interface{}{
-				"provider_id": ps.ProviderID,
-				"title":       "New Application Received",
-				"message":     fmt.Sprintf("%s submitted an application for your scholarship: %s", application.FullName, ps.Title),
-				"type":        "application",
-				"link":        "applications",
-				"read":        false,
-				"created_at":  now,
-				"updated_at":  now,
-			})
+		if !req.RequiresPayment {
+			ps, _ := s.repo.FindProviderScholarshipByID(*scholarship.ProviderScholarshipID)
+			if ps != nil {
+				_ = s.repo.CreateProviderNotification(ps.ProviderID, application, ps.Title)
+			}
 		}
 	}
 
@@ -1001,6 +993,8 @@ func (s *PaymentService) ProcessSuccessfulPayment(paymentID uint, transactionID 
 		s.scholarshipRepo.UpdateProviderApplicationStatus(app.ID, "pending")
 	}
 
+	s.createApplicationReceivedNotification(app, payment.ScholarshipID)
+
 	return s.sendAdmitCard(app, payment)
 }
 
@@ -1056,6 +1050,7 @@ func (s *PaymentService) UploadBankReceipt(paymentID uint, receiptURL string) er
 			return err
 		}
 		s.scholarshipRepo.UpdateProviderApplicationStatus(app.ID, "pending")
+		s.createApplicationReceivedNotification(app, payment.ScholarshipID)
 	}
 
 	return nil
@@ -1196,6 +1191,8 @@ func (s *PaymentService) VerifyEsewaPayment(req EsewaVerifyRequest) (*Payment, e
 		}
 		s.scholarshipRepo.ApplicationSave(app)
 		s.scholarshipRepo.UpdateProviderApplicationStatus(app.ID, "pending")
+
+		s.createApplicationReceivedNotification(app, payment.ScholarshipID)
 
 		if err := s.sendAdmitCard(app, payment); err != nil {
 			log.Printf("esewa: failed to send admit card: %v", err)
@@ -1372,4 +1369,16 @@ Best regards,
 
 	// Send with PDF attachment
 	return emailqueue.SendAdmitCardEmail(app.Email, app.FullName, scholarship.Title, pdfBytes)
+}
+
+func (s *PaymentService) createApplicationReceivedNotification(app *ScholarshipApplication, scholarshipID uint) {
+	scholarship, err := s.scholarshipRepo.FindByID(scholarshipID)
+	if err != nil || scholarship.ProviderScholarshipID == nil {
+		return
+	}
+	ps, err := s.scholarshipRepo.FindProviderScholarshipByID(*scholarship.ProviderScholarshipID)
+	if err != nil {
+		return
+	}
+	_ = s.scholarshipRepo.CreateProviderNotification(ps.ProviderID, app, ps.Title)
 }

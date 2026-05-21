@@ -370,6 +370,14 @@ func (r *Repository) CountApplicationsByExamCenter(scholarshipID uint, centerNam
 	var count int64
 	err := r.db.Model(&ScholarshipApplication{}).
 		Where("scholarship_id = ? AND exam_center = ? AND status != ?", scholarshipID, centerName, ApplicationStatusRejected).
+		Where(`(
+			(SELECT COUNT(*) FROM scholarship_payments sp WHERE sp.application_id = scholarship_applications.id) = 0
+			OR scholarship_applications.id IN (
+				SELECT sp.application_id FROM scholarship_payments sp
+				WHERE (sp.method = 'esewa' AND sp.status = 'completed')
+				   OR (sp.method = 'bank' AND sp.status IN ('pending_approval', 'completed'))
+			)
+		)`).
 		Count(&count).Error
 	return count, err
 }
@@ -479,6 +487,20 @@ func joinRest(parts []string) string {
 		result += p
 	}
 	return result
+}
+
+func (r *Repository) CreateProviderNotification(providerID uint, app *ScholarshipApplication, scholarshipTitle string) error {
+	now := time.Now()
+	return r.db.Table("provider_notifications").Create(map[string]interface{}{
+		"provider_id": providerID,
+		"title":       "New Application Received",
+		"message":     fmt.Sprintf("%s submitted an application for your scholarship: %s", app.FullName, scholarshipTitle),
+		"type":        "application",
+		"link":        "applications",
+		"read":        false,
+		"created_at":  now,
+		"updated_at":  now,
+	}).Error
 }
 
 func parseGPA(gpa string) float64 {
