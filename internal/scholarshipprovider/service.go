@@ -992,6 +992,11 @@ func (s *Service) ApproveApplicationPayment(providerID uint, applicationID uint,
 			return nil, errors.New("failed to update payment")
 		}
 
+		application.Status = "rejected"
+		if _, err := s.repo.UpdateApplicationStatusOnly(application.ID, "rejected"); err != nil {
+			return nil, errors.New("failed to update application status")
+		}
+
 		if application.Email != "" {
 			reasonText := reason
 			if reasonText == "" {
