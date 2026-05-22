@@ -1065,7 +1065,7 @@ func (s *Service) sendAdmitCard(application *ProviderApplication, payment *publi
 		time.Sleep(1 * time.Second)
 	}
 	if err != nil {
-		_ = emailqueue.SendAdmitCardEmail(application.Email, application.FullName, scholarship.Title, nil)
+		_ = emailqueue.SendAdmitCardEmailHTML(application.Email, application.FullName, scholarship.Title, scholarship.Provider, application.RollNumber, application.ExamCenter, application.Stream, scholarship.ExamDate, scholarship.ExamTime, application.Gender, dobStr)
 		return
 	}
 
@@ -1124,7 +1124,7 @@ func (s *Service) ResendAdmitCard(providerID, applicationID uint) error {
 
 	pdfBytes, err := publicscholarship.GenerateAdmitCardPDF(cardData, nil)
 	if err != nil {
-		_ = emailqueue.SendAdmitCardEmail(application.Email, application.FullName, scholarship.Title, nil)
+		_ = emailqueue.SendAdmitCardEmailHTML(application.Email, application.FullName, scholarship.Title, scholarship.Provider, application.RollNumber, application.ExamCenter, application.Stream, scholarship.ExamDate, scholarship.ExamTime, application.Gender, dobStr)
 		return nil
 	}
 

@@ -233,6 +233,105 @@ func SendAdmitCardEmail(to, candidateName, scholarshipTitle string, pdfBytes []b
 	return nil
 }
 
+// SendAdmitCardEmailHTML sends an email with the admit card rendered as HTML in the body.
+// Used as fallback when PDF generation fails.
+func SendAdmitCardEmailHTML(to, candidateName, scholarshipTitle, provider, rollNumber, examCentre, stream, examDate, examTime, gender, dob string) error {
+	cfg := config.AppConfig
+	if cfg == nil {
+		return fmt.Errorf("config not loaded")
+	}
+
+	smtpHost := cfg.SMTPHost
+	smtpPort := cfg.SMTPPort
+	smtpUser := cfg.SMTPUser
+	smtpPass := cfg.SMTPPass
+
+	if smtpHost == "" {
+		smtpHost = "smtp.gmail.com"
+	}
+	if smtpPort == "" {
+		smtpPort = "587"
+	}
+
+	fromName := "Studsphere"
+	subject := fmt.Sprintf("Admit Card - %s", scholarshipTitle)
+
+	content := fmt.Sprintf(`
+<p>Dear %s,</p>
+<p>Congratulations! Your application for <strong>%s</strong> has been confirmed and your payment has been verified.</p>
+<p>Please find your admit card details below:</p>
+
+<table style="width:100%%;border-collapse:collapse;margin:20px 0;font-size:14px;">
+	<tr>
+		<td style="padding:10px 12px;border:1px solid #e5e7eb;background:#f9fafb;font-weight:600;width:140px;">Candidate Name</td>
+		<td style="padding:10px 12px;border:1px solid #e5e7eb;">%s</td>
+	</tr>
+	<tr>
+		<td style="padding:10px 12px;border:1px solid #e5e7eb;background:#f9fafb;font-weight:600;">Date of Birth</td>
+		<td style="padding:10px 12px;border:1px solid #e5e7eb;">%s</td>
+	</tr>
+	<tr>
+		<td style="padding:10px 12px;border:1px solid #e5e7eb;background:#f9fafb;font-weight:600;">Gender</td>
+		<td style="padding:10px 12px;border:1px solid #e5e7eb;">%s</td>
+	</tr>
+	<tr>
+		<td style="padding:10px 12px;border:1px solid #e5e7eb;background:#f9fafb;font-weight:600;">Roll Number</td>
+		<td style="padding:10px 12px;border:1px solid #e5e7eb;">%s</td>
+	</tr>
+	<tr>
+		<td style="padding:10px 12px;border:1px solid #e5e7eb;background:#f9fafb;font-weight:600;">Exam Centre</td>
+		<td style="padding:10px 12px;border:1px solid #e5e7eb;">%s</td>
+	</tr>
+	<tr>
+		<td style="padding:10px 12px;border:1px solid #e5e7eb;background:#f9fafb;font-weight:600;">Stream</td>
+		<td style="padding:10px 12px;border:1px solid #e5e7eb;">%s</td>
+	</tr>
+	<tr>
+		<td style="padding:10px 12px;border:1px solid #e5e7eb;background:#f9fafb;font-weight:600;">Exam Date</td>
+		<td style="padding:10px 12px;border:1px solid #e5e7eb;">%s</td>
+	</tr>
+	<tr>
+		<td style="padding:10px 12px;border:1px solid #e5e7eb;background:#f9fafb;font-weight:600;">Exam Time</td>
+		<td style="padding:10px 12px;border:1px solid #e5e7eb;">%s</td>
+	</tr>
+</table>
+
+<p style="color:#dc2626;font-weight:600;">Note: Please print this email and bring it to the examination centre along with a valid photo ID. We are unable to generate the PDF admit card at this time.</p>
+
+<div class="signature">
+	<p>Best Regards,</p>
+	<p>Team Studsphere</p>
+</div>`, candidateName, scholarshipTitle, candidateName, dob, gender, rollNumber, examCentre, stream, examDate, examTime)
+
+	htmlBody := renderEmailWrapper("Admit Card", content)
+
+	var msgBuf bytes.Buffer
+	msgBuf.WriteString(fmt.Sprintf("From: %s <%s>\r\n", fromName, smtpUser))
+	msgBuf.WriteString(fmt.Sprintf("To: %s\r\n", to))
+	msgBuf.WriteString(fmt.Sprintf("Subject: %s\r\n", subject))
+	msgBuf.WriteString("MIME-Version: 1.0\r\n")
+	msgBuf.WriteString("Content-Type: text/html; charset=\"UTF-8\"\r\n")
+	msgBuf.WriteString("Content-Transfer-Encoding: 7bit\r\n")
+	msgBuf.WriteString("\r\n")
+	msgBuf.WriteString(htmlBody)
+	msgBuf.WriteString("\r\n")
+
+	var auth smtp.Auth
+	if smtpUser != "" && smtpPass != "" {
+		auth = smtp.PlainAuth("", smtpUser, smtpPass, smtpHost)
+	}
+
+	addr := smtpHost + ":" + smtpPort
+	log.Printf("Sending admit card HTML email to %s via %s", to, addr)
+
+	if err := smtp.SendMail(addr, auth, smtpUser, []string{to}, msgBuf.Bytes()); err != nil {
+		logger.Error("Failed to send admit card HTML email", "to", to, "error", err)
+		return fmt.Errorf("failed to send admit card HTML email: %w", err)
+	}
+
+	logger.Info("Admit card HTML email sent", "to", to)
+	return nil
+}
 
 func renderOTPTemplate(otp string, expiresIn int) string {
 	if expiresIn == 0 {
