@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"strings"
@@ -261,6 +264,54 @@ func main() {
 
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok", "message": "Server is running"})
+	})
+
+	router.GET("/api/v1/proxy-image", func(c *gin.Context) {
+		imageURL := c.Query("url")
+		if imageURL == "" {
+			c.Status(http.StatusBadRequest)
+			return
+		}
+
+		parsedURL, err := url.Parse(imageURL)
+		if err != nil || !parsedURL.IsAbs() {
+			c.Status(http.StatusBadRequest)
+			return
+		}
+
+		allowedDomains := map[string]bool{
+			"projectshiksha.hundredgroupnepal.org": true,
+			"api.qrserver.com":                     true,
+			"chart.googleapis.com":                 true,
+		}
+		if !allowedDomains[parsedURL.Host] {
+			c.Status(http.StatusForbidden)
+			return
+		}
+
+		client := &http.Client{Timeout: 10 * time.Second}
+		resp, err := client.Get(imageURL)
+		if err != nil {
+			c.Status(http.StatusBadGateway)
+			return
+		}
+		defer resp.Body.Close()
+
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			c.Status(http.StatusBadGateway)
+			return
+		}
+
+		contentType := resp.Header.Get("Content-Type")
+		if contentType == "" {
+			contentType = http.DetectContentType(body)
+		}
+
+		c.DataFromReader(http.StatusOK, int64(len(body)), contentType, bytes.NewReader(body), map[string]string{
+			"Access-Control-Allow-Origin": "*",
+			"Cache-Control":               "public, max-age=86400",
+		})
 	})
 
 	authMW := middleware.Auth()
