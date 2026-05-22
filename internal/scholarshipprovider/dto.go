@@ -427,6 +427,7 @@ type PaymentResponse struct {
 	ReceiptURL     string  `json:"receipt_url"`
 	TransactionID  string  `json:"transaction_id"`
 	PaidAt         string  `json:"paid_at,omitempty"`
+	DisputeStatus  string  `json:"dispute_status"`
 }
 
 type ApplicationListResponse struct {

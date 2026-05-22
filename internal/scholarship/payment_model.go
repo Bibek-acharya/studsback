@@ -18,6 +18,7 @@ type Payment struct {
 	ApprovedAt     *time.Time `json:"approved_at"`
 	ApprovedBy     uint      `json:"approved_by" gorm:"index"`
 	RejectionReason string    `json:"rejection_reason"`
+	DisputeStatus  string    `json:"dispute_status" gorm:"default:pending"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
 

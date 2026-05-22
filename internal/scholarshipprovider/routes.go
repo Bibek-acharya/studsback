@@ -73,6 +73,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			scholarshipProvider.PUT("/applications/:id/evaluate", h.EvaluateApplication)
 			scholarshipProvider.PUT("/applications/:id/status", h.UpdateApplicationStatus)
 			scholarshipProvider.PUT("/applications/:id/payment", h.ApproveApplicationPayment)
+			scholarshipProvider.PUT("/applications/:id/dispute-status", h.UpdateDisputeStatus)
 			scholarshipProvider.PUT("/applications/:id/resend-admit-card", h.ResendAdmitCard)
 
 			scholarshipProvider.GET("/interviews", h.GetInterviews)

@@ -1017,6 +1017,25 @@ func (s *Service) ApproveApplicationPayment(providerID uint, applicationID uint,
 	return application, nil
 }
 
+func (s *Service) UpdateDisputeStatus(providerID uint, applicationID uint, status string) error {
+	application, err := s.repo.GetApplicationByIDAndProvider(applicationID, providerID)
+	if err != nil {
+		return fmt.Errorf("application not found: %w", err)
+	}
+
+	if application.ScholarshipApplicationID == nil {
+		return errors.New("no linked scholarship application")
+	}
+
+	payment, err := s.repo.FindPaymentByApplicationID(*application.ScholarshipApplicationID)
+	if err != nil {
+		return fmt.Errorf("payment not found: %w", err)
+	}
+
+	payment.DisputeStatus = status
+	return s.repo.UpdatePayment(payment)
+}
+
 func (s *Service) sendAdmitCard(application *ProviderApplication, payment *publicscholarship.Payment) {
 	scholarship, err := s.repo.FindScholarshipByID(payment.ScholarshipID)
 	if err != nil {

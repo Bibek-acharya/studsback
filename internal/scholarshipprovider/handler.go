@@ -523,6 +523,44 @@ func (h *Handler) ApproveApplicationPayment(c *gin.Context) {
 	}
 }
 
+func (h *Handler) UpdateDisputeStatus(c *gin.Context) {
+	providerID := getProviderID(c)
+	idStr := c.Param("id")
+
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid application ID")
+		return
+	}
+
+	var req struct {
+		DisputeStatus string `json:"dispute_status"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	validStatuses := map[string]bool{
+		"pending":          true,
+		"called":           true,
+		"no_response":      true,
+		"follow_up_required": true,
+		"resolved":         true,
+	}
+	if !validStatuses[req.DisputeStatus] {
+		response.Error(c, http.StatusBadRequest, "Invalid dispute status")
+		return
+	}
+
+	if err := h.service.UpdateDisputeStatus(providerID, uint(id), req.DisputeStatus); err != nil {
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Dispute status updated", nil)
+}
+
 func (h *Handler) ResendAdmitCard(c *gin.Context) {
 	providerID := getProviderID(c)
 	idStr := c.Param("id")
@@ -956,15 +994,16 @@ func unmarshalJSONB(data []byte) interface{} {
 
 func toApplicationResponse(a *ProviderApplication) ApplicationResponse {
 	var paymentResp *PaymentResponse
-	if a.Payment != nil {
-		paymentResp = &PaymentResponse{
-			ID:            a.Payment.ID,
-			Method:        a.Payment.Method,
-			Amount:        a.Payment.Amount,
-			Status:        a.Payment.Status,
-			ReceiptURL:    a.Payment.ReceiptURL,
-			TransactionID: a.Payment.TransactionID,
-		}
+		if a.Payment != nil {
+			paymentResp = &PaymentResponse{
+				ID:            a.Payment.ID,
+				Method:        a.Payment.Method,
+				Amount:        a.Payment.Amount,
+				Status:        a.Payment.Status,
+				ReceiptURL:    a.Payment.ReceiptURL,
+				TransactionID: a.Payment.TransactionID,
+				DisputeStatus: a.Payment.DisputeStatus,
+			}
 		if a.Payment.PaidAt != nil {
 			paymentResp.PaidAt = a.Payment.PaidAt.Format(time.RFC3339)
 		}

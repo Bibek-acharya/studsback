@@ -147,6 +147,7 @@ type ProviderPayment struct {
 	ReceiptURL     string     `json:"receipt_url"`
 	TransactionID  string     `json:"transaction_id"`
 	PaidAt         *time.Time `json:"paid_at"`
+	DisputeStatus  string     `json:"dispute_status"`
 }
 
 type ProviderInterview struct {
