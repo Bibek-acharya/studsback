@@ -1301,8 +1301,8 @@ func (s *Service) GetMessages(providerID uint, page, limit int) ([]ProviderMessa
 	if page < 1 {
 		page = 1
 	}
-	if limit < 1 || limit > 50 {
-		limit = 20
+	if limit < 1 || limit > 500 {
+		limit = 50
 	}
 
 	messages, total, err := s.repo.GetMessagesByProvider(providerID, page, limit)
