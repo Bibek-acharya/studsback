@@ -30,10 +30,10 @@ type CreateApplicationRequest struct {
 	GuardianName     string `json:"guardian_name" binding:"required"`
 	GuardianPhone    string `json:"guardian_phone" binding:"required"`
 	GuardianEmail    string `json:"guardian_email"`
-	FatherOccupation string `json:"father_occupation" binding:"required"`
-	MotherOccupation string `json:"mother_occupation" binding:"required"`
-	FamilyIncome     int    `json:"family_income" binding:"required"`
-	FamilyMembers    int    `json:"family_members" binding:"required"`
+	FatherOccupation string `json:"father_occupation"`
+	MotherOccupation string `json:"mother_occupation"`
+	FamilyIncome     int    `json:"family_income"`
+	FamilyMembers    int    `json:"family_members"`
 }
 
 // UpdateApplicationRequest represents the request to update an application

@@ -62,12 +62,12 @@ type ScholarshipApplicationRequest struct {
 	GuardianName          string  `json:"guardian_name" binding:"required"`
 	GuardianPhone         string  `json:"guardian_phone" binding:"required"`
 	GuardianEmail         string  `json:"guardian_email"`
-	FatherOccupation      string  `json:"father_occupation" binding:"required"`
+	FatherOccupation      string  `json:"father_occupation"`
 	FatherOccupationOther string  `json:"father_occupation_other"`
-	MotherOccupation      string  `json:"mother_occupation" binding:"required"`
+	MotherOccupation      string  `json:"mother_occupation"`
 	MotherOccupationOther string  `json:"mother_occupation_other"`
-	FamilyMonthlyIncome   float64 `json:"family_monthly_income" binding:"required"`
-	FamilyMembersCount    int     `json:"family_members_count" binding:"required"`
+	FamilyMonthlyIncome   float64 `json:"family_monthly_income"`
+	FamilyMembersCount    int     `json:"family_members_count"`
 
 	Stream     string `json:"stream" binding:"required"`
 	ExamCenter string `json:"exam_center" binding:"required"`
