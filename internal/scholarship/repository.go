@@ -369,14 +369,11 @@ func (r *Repository) ApplicationExistsByEmail(scholarshipID uint, email string) 
 func (r *Repository) CountApplicationsByExamCenter(scholarshipID uint, centerName string) (int64, error) {
 	var count int64
 	err := r.db.Model(&ScholarshipApplication{}).
-		Where("scholarship_id = ? AND exam_center = ? AND status != ?", scholarshipID, centerName, ApplicationStatusRejected).
-		Where(`(
-			(SELECT COUNT(*) FROM scholarship_payments sp WHERE sp.application_id = scholarship_applications.id) = 0
-			OR scholarship_applications.id IN (
-				SELECT sp.application_id FROM scholarship_payments sp
-				WHERE (sp.method = 'esewa' AND sp.status = 'completed')
-				   OR (sp.method = 'bank' AND sp.status IN ('pending_approval', 'completed'))
-			)
+		Where("scholarship_id = ? AND exam_center = ? AND status NOT IN ?", scholarshipID, centerName, []string{ApplicationStatusRejected, ApplicationStatusPendingPayment}).
+		Where(`scholarship_applications.id IN (
+			SELECT sp.application_id FROM scholarship_payments sp
+			WHERE (sp.method = 'esewa' AND sp.status = 'completed')
+			   OR (sp.method = 'bank' AND sp.status IN ('pending_approval', 'completed'))
 		)`).
 		Count(&count).Error
 	return count, err
