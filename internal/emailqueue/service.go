@@ -128,6 +128,26 @@ func EnqueueGenericEmail(to, subject, html string) error {
 	return nil
 }
 
+func EnqueueSendAdmitCard(payload AdmitCardPayload) error {
+	if Queue == nil {
+		return fmt.Errorf("asynq not initialized")
+	}
+
+	p, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal admit card payload: %w", err)
+	}
+
+	task := asynq.NewTask(TypeSendAdmitCard, p)
+	_, err = Queue.Enqueue(task, asynq.MaxRetry(2), asynq.Timeout(5*time.Minute))
+	if err != nil {
+		return fmt.Errorf("failed to enqueue admit card task: %w", err)
+	}
+
+	logger.Info("Admit card task enqueued", "to", payload.Email, "roll", payload.RollNumber)
+	return nil
+}
+
 func EnqueueReviewEmail(to, collegeName, reviewLink string) error {
 	if Queue == nil {
 		return fmt.Errorf("asynq not initialized")

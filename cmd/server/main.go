@@ -166,6 +166,10 @@ func main() {
 	} else {
 		logger.Info("Email queue initialized successfully")
 
+		// Register the admit card PDF generation handler from the scholarship package.
+		// This must happen before StartWorker so the handler is registered on the mux.
+		emailqueue.RegisterHandler(emailqueue.TypeSendAdmitCard, scholarship.HandleAdmitCardTask)
+
 		go func() {
 			if err := emailqueue.StartWorker(); err != nil {
 				logger.Error("Failed to start email worker", "error", err)

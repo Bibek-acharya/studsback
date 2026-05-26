@@ -1612,6 +1612,8 @@ func toEntranceResponse(e InstitutionEntrance) EntranceResponse {
 		UpcomingDates:    json.RawMessage(e.UpcomingDates),
 		ContactPersons:   json.RawMessage(e.ContactPersons),
 		Faqs:             json.RawMessage(e.Faqs),
+		ApplicationLink:  e.ApplicationLink,
+		NoticeFile:       e.NoticeFile,
 	}
 }
 

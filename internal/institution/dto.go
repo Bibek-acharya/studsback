@@ -148,6 +148,8 @@ type CreateEntranceRequest struct {
 	UpcomingDates    json.RawMessage `json:"upcoming_dates"`
 	ContactPersons   json.RawMessage `json:"contact_persons"`
 	Faqs             json.RawMessage `json:"faqs"`
+	ApplicationLink  string          `json:"application_link"`
+	NoticeFile       string          `json:"notice_file"`
 }
 
 type UpdateEntranceRequest struct {
@@ -176,6 +178,8 @@ type UpdateEntranceRequest struct {
 	UpcomingDates    json.RawMessage `json:"upcoming_dates"`
 	ContactPersons   json.RawMessage `json:"contact_persons"`
 	Faqs             json.RawMessage `json:"faqs"`
+	ApplicationLink  string          `json:"application_link"`
+	NoticeFile       string          `json:"notice_file"`
 }
 
 type EntranceResponse struct {
@@ -209,6 +213,8 @@ type EntranceResponse struct {
 	UpcomingDates    json.RawMessage  `json:"upcoming_dates"`
 	ContactPersons   json.RawMessage  `json:"contact_persons"`
 	Faqs             json.RawMessage  `json:"faqs"`
+	ApplicationLink  string           `json:"application_link"`
+	NoticeFile       string           `json:"notice_file"`
 }
 
 type EntranceApplicantResponse struct {
@@ -775,20 +781,25 @@ type PaginatedResponse struct {
 
 // --- Published Admission Institution DTOs (for public listing) ---
 
+type FeaturedProgramItem struct {
+	Title           string `json:"title"`
+	AdmissionStatus string `json:"admissionStatus"`
+}
+
 type PublishedAdmissionInstitutionItem struct {
-	ID               uint     `json:"id"`
-	Name             string   `json:"name"`
-	ImageURL         string   `json:"image_url,omitempty"`
-	Location         string   `json:"location"`
-	Type             string   `json:"type"`
-	Rating           float64  `json:"rating"`
-	Website          string   `json:"website,omitempty"`
-	Affiliation      string   `json:"affiliation,omitempty"`
-	Verified         bool     `json:"verified"`
-	FeaturedPrograms []string `json:"featured_programs,omitempty"`
-	Programs         int      `json:"programs"`
-	ContactEmail     string   `json:"contact_email,omitempty"`
-	ContactPhone     string   `json:"contact_phone,omitempty"`
+	ID               uint                  `json:"id"`
+	Name             string                `json:"name"`
+	ImageURL         string                `json:"image_url,omitempty"`
+	Location         string                `json:"location"`
+	Type             string                `json:"type"`
+	Rating           float64               `json:"rating"`
+	Website          string                `json:"website,omitempty"`
+	Affiliation      string                `json:"affiliation,omitempty"`
+	Verified         bool                  `json:"verified"`
+	FeaturedPrograms []FeaturedProgramItem `json:"featured_programs"`
+	Programs         int                   `json:"programs"`
+	ContactEmail     string                `json:"contact_email,omitempty"`
+	ContactPhone     string                `json:"contact_phone,omitempty"`
 }
 
 type PublishedAdmissionInstitutionListResponse struct {

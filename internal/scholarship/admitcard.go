@@ -12,11 +12,16 @@ import (
 	"text/template"
 	"time"
 
+	"studsphere/backend/internal/shared/logger"
 	"studsphere/backend/internal/shared/storage"
 
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/chromedp"
 )
+
+// chromeSem limits concurrent Chrome/Chromium processes to prevent
+// resource exhaustion under high load.
+var chromeSem = make(chan struct{}, 3)
 
 // AdmitCardData holds all the information needed to render the admit card.
 type AdmitCardData struct {
@@ -212,9 +217,13 @@ func PhotoToBase64(photoPath string) string {
 	return defaultPhotoPlaceholder()
 }
 
-// readPhotoFromMinIO attempts to fetch a photo from MinIO. Returns nil on any failure.
+// readPhotoFromMinIO attempts to fetch a photo from MinIO with a 10s timeout.
+// Returns nil on any failure.
 func readPhotoFromMinIO(objectPath string) ([]byte, string) {
-	reader, info, err := storage.Get(objectPath)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	reader, info, err := storage.GetWithContext(ctx, objectPath)
 	if err != nil {
 		log.Printf("PhotoToBase64: failed to get %q from MinIO: %v", objectPath, err)
 		return nil, ""
@@ -282,6 +291,14 @@ func GenerateAdmitCardPDF(data AdmitCardData, nextRollNumber func() string) ([]b
 	encoded := base64.StdEncoding.EncodeToString(buf.Bytes())
 	dataURL := "data:text/html;base64," + encoded
 
+	// Acquire semaphore to limit concurrent Chrome processes
+	log.Printf("GenerateAdmitCardPDF: waiting for Chrome semaphore (roll=%s)", data.RollNumber)
+	chromeSem <- struct{}{}
+	defer func() {
+		<-chromeSem
+		log.Printf("GenerateAdmitCardPDF: released Chrome semaphore (roll=%s)", data.RollNumber)
+	}()
+
 	// Find the chromium/chrome executable
 	chromiumPath := ""
 	for _, candidate := range []string{
@@ -333,8 +350,18 @@ func GenerateAdmitCardPDF(data AdmitCardData, nextRollNumber func() string) ([]b
 	if err := chromedp.Run(ctx,
 		chromedp.Navigate(dataURL),
 		chromedp.WaitReady("body"),
-		// Wait for Tailwind CDN to render
-		chromedp.Sleep(3*time.Second),
+		// Wait for Google Fonts to finish loading (async from the stylesheet)
+		// Uses document.fonts.ready which returns a promise — chromedp waits
+		// for the promise to resolve before proceeding.
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			err := chromedp.Evaluate(`document.fonts.ready`, nil).Do(ctx)
+			if err != nil {
+				logger.Warn("GenerateAdmitCardPDF: font loading wait failed (non-fatal)",
+					"roll", data.RollNumber, "error", err)
+			}
+			return nil
+		}),
+		chromedp.Sleep(500*time.Millisecond),
 		chromedp.ActionFunc(func(ctx context.Context) error {
 			result, _, err := page.PrintToPDF().
 				WithPrintBackground(true).
@@ -346,7 +373,7 @@ func GenerateAdmitCardPDF(data AdmitCardData, nextRollNumber func() string) ([]b
 				WithMarginRight(0).
 				Do(ctx)
 			if err != nil {
-				return err
+				return fmt.Errorf("printToPDF failed: %w", err)
 			}
 			pdfBuf = result
 			return nil
@@ -355,5 +382,7 @@ func GenerateAdmitCardPDF(data AdmitCardData, nextRollNumber func() string) ([]b
 		return nil, fmt.Errorf("failed to generate PDF: %w", err)
 	}
 
+	logger.Info("GenerateAdmitCardPDF: PDF generated successfully",
+		"roll", data.RollNumber, "size", len(pdfBuf))
 	return pdfBuf, nil
 }

@@ -99,6 +99,8 @@ type InstitutionEntrance struct {
 	UpcomingDates    []byte         `gorm:"type:jsonb;default:'[]'" json:"upcoming_dates"`
 	ContactPersons   []byte         `gorm:"type:jsonb;default:'[]'" json:"contact_persons"`
 	Faqs             []byte         `gorm:"type:jsonb;default:'[]'" json:"faqs"`
+	ApplicationLink  string         `json:"application_link"`
+	NoticeFile       string         `json:"notice_file"`
 }
 
 type InstitutionEntranceApplicant struct {

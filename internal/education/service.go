@@ -199,7 +199,7 @@ func (s *Service) GetEducationCourses() ([]CourseResponse, error) {
 			Duration:        p.Duration,
 			EstFee:          p.Fee,
 			Description:     p.Description,
-			Location:        p.InstitutionLoc,
+			Location:        p.InstitutionLocation,
 			Source:          "institution",
 			InstitutionName: p.InstitutionName,
 			Image:           p.BannerURL,
@@ -234,7 +234,7 @@ func (s *Service) GetEducationCoursesPaginated(page, limit int, search, level, f
 			Duration:        p.Duration,
 			EstFee:          p.Fee,
 			Description:     p.Description,
-			Location:        p.InstitutionLoc,
+			Location:        p.InstitutionLocation,
 			Source:          "institution",
 			InstitutionName: p.InstitutionName,
 			Image:           p.BannerURL,
@@ -279,7 +279,7 @@ func (s *Service) GetEducationCourseByID(id string) (*CourseResponse, error) {
 			Duration:        program.Duration,
 			EstFee:          program.Fee,
 			Description:     program.Description,
-			Location:        program.InstitutionLoc,
+			Location:        program.InstitutionLocation,
 			Source:          "institution",
 			InstitutionName: program.InstitutionName,
 			Image:           program.BannerURL,
@@ -311,7 +311,7 @@ func (s *Service) GetEducationCourseDetailsByID(id string) (*CourseDetailsRespon
 				Duration:        program.Duration,
 				EstFee:          program.Fee,
 				Description:     program.Description,
-				Location:        program.InstitutionLoc,
+				Location:        program.InstitutionLocation,
 				Source:          "institution",
 				InstitutionName: program.InstitutionName,
 				Image:           program.BannerURL,
@@ -1178,21 +1178,51 @@ func (s *Service) GetPublicEntrances(page, limit int, search, level, stream, sta
 
 	instEntrances, _ := s.repo.GetPublishedInstitutionEntrances(search)
 	for _, ie := range instEntrances {
+		loc := ie.InstitutionLocation
+		if ie.InstitutionProvince != "" {
+			if loc != "" {
+				loc = ie.InstitutionProvince + ", " + loc
+			} else {
+				loc = ie.InstitutionProvince
+			}
+		}
+		var overviewDetails []interface{}
+		if len(ie.OverviewDetails) > 0 {
+			json.Unmarshal(ie.OverviewDetails, &overviewDetails)
+		}
+		deadline := ""
+		if len(ie.ExamDateSchedules) > 0 {
+			var schedules []struct {
+				EndDate string `json:"endDate"`
+			}
+			if err := json.Unmarshal(ie.ExamDateSchedules, &schedules); err == nil {
+				for _, s := range schedules {
+					if s.EndDate != "" {
+						deadline = s.EndDate
+						break
+					}
+				}
+			}
+		}
 		allResponses = append(allResponses, PublicEntranceResponse{
-			ID:              ie.ID,
-			Title:           ie.Title,
-			Description:     ie.Description,
-			ExamDate:        ie.Date,
-			ImageUrl:        ie.HeroBanner,
-			Status:          ie.Status,
-			Fee:             ie.Fee,
-			University:      ie.InstitutionName,
-			Board:           ie.InstitutionName,
-			Phone:           ie.InstitutionPhone,
-			Email:           ie.InstitutionEmail,
-			Website:         ie.InstitutionSite,
-			Location:        ie.InstitutionLoc,
-			InstitutionLogo: ie.InstitutionLogo,
+			FormDeadline: deadline,
+			ID:               ie.ID,
+			Title:            ie.Title,
+			Description:      ie.Description,
+			ExamDate:         ie.Date,
+			ImageUrl:         ie.HeroBanner,
+			Status:           ie.Status,
+			Fee:              ie.Fee,
+			University:       ie.InstitutionName,
+			Board:            ie.InstitutionName,
+			Phone:            ie.InstitutionPhone,
+			Email:            ie.InstitutionEmail,
+			Website:          ie.InstitutionWebsite,
+			Location:         loc,
+			InstitutionLogo:  ie.InstitutionLogo,
+			OverviewDetails:  overviewDetails,
+			ApplicationLink:  ie.ApplicationLink,
+			NoticeFile:       ie.NoticeFile,
 		})
 	}
 
@@ -1229,21 +1259,36 @@ func (s *Service) GetPublicEntranceByID(id string) (*PublicEntranceResponse, err
 		return nil, err
 	}
 	if instEntrance != nil {
+		loc := instEntrance.InstitutionLocation
+		if instEntrance.InstitutionProvince != "" {
+			if loc != "" {
+				loc = instEntrance.InstitutionProvince + ", " + loc
+			} else {
+				loc = instEntrance.InstitutionProvince
+			}
+		}
+		var overviewDetails []interface{}
+		if len(instEntrance.OverviewDetails) > 0 {
+			json.Unmarshal(instEntrance.OverviewDetails, &overviewDetails)
+		}
 		return &PublicEntranceResponse{
-			ID:              instEntrance.ID,
-			Title:           instEntrance.Title,
-			Description:     instEntrance.Description,
-			ExamDate:        instEntrance.Date,
-			ImageUrl:        instEntrance.HeroBanner,
-			Status:          instEntrance.Status,
-			Fee:             instEntrance.Fee,
-			University:      instEntrance.InstitutionName,
-			Board:           instEntrance.InstitutionName,
-			Phone:           instEntrance.InstitutionPhone,
-			Email:           instEntrance.InstitutionEmail,
-			Website:         instEntrance.InstitutionSite,
-			Location:        instEntrance.InstitutionLoc,
-			InstitutionLogo: instEntrance.InstitutionLogo,
+			ID:               instEntrance.ID,
+			Title:            instEntrance.Title,
+			Description:      instEntrance.Description,
+			ExamDate:         instEntrance.Date,
+			ImageUrl:         instEntrance.HeroBanner,
+			Status:           instEntrance.Status,
+			Fee:              instEntrance.Fee,
+			University:       instEntrance.InstitutionName,
+			Board:            instEntrance.InstitutionName,
+			Phone:            instEntrance.InstitutionPhone,
+			Email:            instEntrance.InstitutionEmail,
+			Website:          instEntrance.InstitutionWebsite,
+			Location:         loc,
+			InstitutionLogo:  instEntrance.InstitutionLogo,
+			OverviewDetails:  overviewDetails,
+			ApplicationLink:  instEntrance.ApplicationLink,
+			NoticeFile:       instEntrance.NoticeFile,
 		}, nil
 	}
 

@@ -199,7 +199,8 @@ func (h *Handler) GetFeaturedColleges(c *gin.Context) {
 }
 
 func (h *Handler) GetCollegeFilterCounts(c *gin.Context) {
-	result, err := h.service.GetCollegeFilterCounts()
+	level := c.Query("level")
+	result, err := h.service.GetCollegeFilterCounts(level)
 	if err != nil {
 		response.Error(c, 500, err.Error())
 		return

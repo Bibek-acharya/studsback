@@ -247,7 +247,10 @@ type PublicEntranceResponse struct {
 	Email        string   `json:"email,omitempty"`
 	Website      string   `json:"website,omitempty"`
 	Location     string   `json:"location,omitempty"`
-	InstitutionLogo string `json:"institutionLogo,omitempty"`
+	InstitutionLogo  string            `json:"institutionLogo,omitempty"`
+	OverviewDetails  []interface{} `json:"overview_details,omitempty"`
+	ApplicationLink  string        `json:"application_link,omitempty"`
+	NoticeFile       string        `json:"notice_file,omitempty"`
 }
 
 type EntranceFilterCountsResponse struct {

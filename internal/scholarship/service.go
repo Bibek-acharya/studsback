@@ -18,6 +18,7 @@ import (
 
 	"studsphere/backend/internal/emailqueue"
 	"studsphere/backend/internal/shared/config"
+	"studsphere/backend/internal/shared/logger"
 	"studsphere/backend/internal/shared/storage"
 )
 
@@ -548,63 +549,36 @@ func (s *Service) sendAdmitCard(app *ScholarshipApplication, scholarship *Schola
 		dobStr = app.DateOfBirthBS
 	}
 
-	cardData := AdmitCardData{
-		CandidateName:    app.FullName,
-		DateOfBirth:      dobStr,
-		Gender:           app.Gender,
-		RollNumber:       app.RollNumber,
-		ExamCentre:       app.ExamCenter,
-		Stream:           app.Stream,
-		PhotoURL:         PhotoToBase64(app.PhotoURL),
-		ScholarshipTitle: scholarship.Title,
-		Provider:         scholarship.Provider,
-		ExamDate:         scholarship.ExamDate,
-		ExamTime:         scholarship.ExamTime,
-		SubjectName:      app.Stream,
-	}
-
 	if app.RollNumber == "" {
 		if seq, err := s.repo.GetNextRollNumber(); err == nil {
 			rn := fmt.Sprintf("PS-%05d", seq)
 			s.repo.UpdateApplicationRollNumber(app.ID, rn)
 			s.repo.UpdateProviderApplicationRollNumber(app.ID, rn)
 			app.RollNumber = rn
-			cardData.RollNumber = rn
 		}
 	}
 
-	var pdfBytes []byte
-	var err error
-	for i := 0; i < 3; i++ {
-		pdfBytes, err = GenerateAdmitCardPDF(cardData, nil)
-		if err == nil {
-			break
-		}
-		log.Printf("sendAdmitCard: attempt %d/3 failed: %v", i+1, err)
-		time.Sleep(1 * time.Second)
-	}
-	if err != nil {
-		log.Printf("Warning: PDF generation failed after 3 attempts: %v — sending plain email\n", err)
-		subject := fmt.Sprintf("Admit Card - %s", scholarship.Title)
-		body := fmt.Sprintf(`Dear %s,
-
-Congratulations! Your application for %s has been confirmed.
-
-Roll Number: %s
-Status: CONFIRMED
-
-Please keep this email for your records.
-
-Best regards,
-%s Team`, app.FullName, scholarship.Title, app.RollNumber, scholarship.Provider)
-
-		if emailqueue.Queue != nil {
-			_ = emailqueue.EnqueueGenericEmail(app.Email, subject, body)
-		}
-		return
+	payload := emailqueue.AdmitCardPayload{
+		Email:            app.Email,
+		CandidateName:    app.FullName,
+		DateOfBirth:      dobStr,
+		Gender:           app.Gender,
+		RollNumber:       app.RollNumber,
+		ExamCentre:       app.ExamCenter,
+		Stream:           app.Stream,
+		PhotoURL:         app.PhotoURL,
+		ScholarshipTitle: scholarship.Title,
+		Provider:         scholarship.Provider,
+		ExamDate:         scholarship.ExamDate,
+		ExamTime:         scholarship.ExamTime,
+		Shift:            "",
+		SubjectName:      app.Stream,
 	}
 
-	_ = emailqueue.SendAdmitCardEmail(app.Email, app.FullName, scholarship.Title, pdfBytes)
+	if err := emailqueue.EnqueueSendAdmitCard(payload); err != nil {
+		logger.Error("sendAdmitCard: failed to enqueue admit card task",
+			"to", app.Email, "roll", app.RollNumber, "error", err)
+	}
 }
 
 func (s *Service) GetApplication(id uint, userID uint) (*ScholarshipApplication, error) {
@@ -1312,7 +1286,6 @@ func (s *PaymentService) sendAdmitCard(app *ScholarshipApplication, payment *Pay
 		return nil
 	}
 
-	// Build admit card data from the application
 	dobStr := ""
 	if !app.DateOfBirthAD.IsZero() {
 		dobStr = app.DateOfBirthAD.Format("02-Jan-2006")
@@ -1320,55 +1293,33 @@ func (s *PaymentService) sendAdmitCard(app *ScholarshipApplication, payment *Pay
 		dobStr = app.DateOfBirthBS
 	}
 
-	cardData := AdmitCardData{
+	if app.RollNumber == "" {
+		if seq, err := s.scholarshipRepo.GetNextRollNumber(); err == nil {
+			rn := fmt.Sprintf("PS-%05d", seq)
+			s.scholarshipRepo.UpdateApplicationRollNumber(app.ID, rn)
+			s.scholarshipRepo.UpdateProviderApplicationRollNumber(app.ID, rn)
+			app.RollNumber = rn
+		}
+	}
+
+	payload := emailqueue.AdmitCardPayload{
+		Email:            app.Email,
 		CandidateName:    app.FullName,
 		DateOfBirth:      dobStr,
 		Gender:           app.Gender,
 		RollNumber:       app.RollNumber,
 		ExamCentre:       app.ExamCenter,
 		Stream:           app.Stream,
-		PhotoURL:         PhotoToBase64(app.PhotoURL),
+		PhotoURL:         app.PhotoURL,
 		ScholarshipTitle: scholarship.Title,
 		Provider:         scholarship.Provider,
 		ExamDate:         scholarship.ExamDate,
 		ExamTime:         scholarship.ExamTime,
+		Shift:            "",
 		SubjectName:      app.Stream,
 	}
 
-	pdfBytes, err := GenerateAdmitCardPDF(cardData, func() string {
-		if seq, err := s.scholarshipRepo.GetNextRollNumber(); err == nil {
-			rn := fmt.Sprintf("PS-%05d", seq)
-			s.scholarshipRepo.UpdateApplicationRollNumber(app.ID, rn)
-			s.scholarshipRepo.UpdateProviderApplicationRollNumber(app.ID, rn)
-			app.RollNumber = rn
-			return rn
-		}
-		return ""
-	})
-	if err != nil {
-		// Fallback: send a plain email if PDF generation fails
-		fmt.Printf("Warning: PDF generation failed: %v — sending plain email\n", err)
-		subject := fmt.Sprintf("Admit Card - %s", scholarship.Title)
-		body := fmt.Sprintf(`Dear %s,
-
-Congratulations! Your application for %s has been confirmed.
-
-Roll Number: %s
-Status: CONFIRMED
-
-Please keep this email for your records.
-
-Best regards,
-%s Team`, app.FullName, scholarship.Title, app.RollNumber, scholarship.Provider)
-
-		if emailqueue.Queue != nil {
-			return emailqueue.EnqueueGenericEmail(app.Email, subject, body)
-		}
-		return nil
-	}
-
-	// Send with PDF attachment
-	return emailqueue.SendAdmitCardEmail(app.Email, app.FullName, scholarship.Title, pdfBytes)
+	return emailqueue.EnqueueSendAdmitCard(payload)
 }
 
 func (s *PaymentService) createApplicationReceivedNotification(app *ScholarshipApplication, scholarshipID uint) {

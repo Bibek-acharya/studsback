@@ -532,6 +532,8 @@ func (s *Service) CreateEntrance(instID uint, req CreateEntranceRequest) (*Insti
 		UpcomingDates:     req.UpcomingDates,
 		ContactPersons:    req.ContactPersons,
 		Faqs:              req.Faqs,
+		ApplicationLink:   req.ApplicationLink,
+		NoticeFile:        req.NoticeFile,
 	}
 
 	if req.Status != "" {
@@ -635,6 +637,12 @@ func (s *Service) UpdateEntrance(instID, id uint, req UpdateEntranceRequest) (*I
 	}
 	if len(req.Faqs) > 0 {
 		entrance.Faqs = req.Faqs
+	}
+	if req.ApplicationLink != "" {
+		entrance.ApplicationLink = req.ApplicationLink
+	}
+	if req.NoticeFile != "" {
+		entrance.NoticeFile = req.NoticeFile
 	}
 
 	if err := s.repo.SaveEntrance(entrance); err != nil {
@@ -1362,6 +1370,32 @@ func (s *Service) GetPublishedAdmissionInstitutions(page, limit int, level strin
 		affiliation, _ := row["affiliation"].(string)
 		verified, _ := row["verified"].(bool)
 
+		featuredPrograms := []FeaturedProgramItem{}
+		if fp, ok := row["featured_programs"]; ok && fp != nil {
+			switch v := fp.(type) {
+			case []byte:
+				json.Unmarshal(v, &featuredPrograms)
+			case string:
+				if s := strings.TrimSpace(v); s != "" {
+					json.Unmarshal([]byte(v), &featuredPrograms)
+				}
+			case []interface{}:
+				for _, item := range v {
+					if m, ok := item.(map[string]interface{}); ok {
+						title, _ := m["title"].(string)
+						status, _ := m["admissionStatus"].(string)
+						featuredPrograms = append(featuredPrograms, FeaturedProgramItem{
+							Title:           strings.TrimSpace(title),
+							AdmissionStatus: strings.TrimSpace(status),
+						})
+					}
+				}
+			}
+		}
+		if len(featuredPrograms) == 0 {
+			featuredPrograms = []FeaturedProgramItem{}
+		}
+
 		colleges[i] = PublishedAdmissionInstitutionItem{
 			ID:               uint(id),
 			Name:             name,
@@ -1372,7 +1406,7 @@ func (s *Service) GetPublishedAdmissionInstitutions(page, limit int, level strin
 			Website:          website,
 			Affiliation:      affiliation,
 			Verified:         verified,
-			FeaturedPrograms: []string{},
+			FeaturedPrograms: featuredPrograms,
 			Programs:         0,
 		}
 	}
@@ -1419,7 +1453,27 @@ func (s *Service) GetPublishedAdmissionInstitutionByID(id uint) (*PublishedAdmis
 		college.Verified = getBool(row, "verified")
 		college.ContactEmail = getString(row, "contact_email")
 		college.ContactPhone = getString(row, "contact_phone")
-		college.FeaturedPrograms = []string{}
+
+		featuredPrograms := []FeaturedProgramItem{}
+		if admissionPage != nil && admissionPage.Data != nil {
+			var pageData struct {
+				ProgramsData []struct {
+					Title           string `json:"title"`
+					AdmissionStatus string `json:"admissionStatus"`
+				} `json:"programs_data"`
+			}
+			if err := json.Unmarshal([]byte(*admissionPage.Data), &pageData); err == nil {
+				for _, p := range pageData.ProgramsData {
+					if t := strings.TrimSpace(p.Title); t != "" {
+						featuredPrograms = append(featuredPrograms, FeaturedProgramItem{
+							Title:           t,
+							AdmissionStatus: strings.TrimSpace(p.AdmissionStatus),
+						})
+					}
+				}
+			}
+		}
+		college.FeaturedPrograms = featuredPrograms
 	}
 	pCount, _ := s.repo.CountProgramsByInstitution(id)
 	college.Programs = int(pCount)

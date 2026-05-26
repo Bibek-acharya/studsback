@@ -326,8 +326,8 @@ func (s *Service) GetFeaturedColleges(limit int) (*FeaturedCollegesResponse, err
 	return &FeaturedCollegesResponse{Colleges: responses}, nil
 }
 
-func (s *Service) GetCollegeFilterCounts() (*CollegeFilterCountsResponse, error) {
-	counts, err := s.repo.GetFilterCounts()
+func (s *Service) GetCollegeFilterCounts(level string) (*CollegeFilterCountsResponse, error) {
+	counts, err := s.repo.GetFilterCounts(level)
 	if err != nil {
 		return nil, errors.New("failed to fetch college filter counts")
 	}

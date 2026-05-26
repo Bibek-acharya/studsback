@@ -1055,45 +1055,34 @@ func (s *Service) sendAdmitCard(application *ProviderApplication, payment *publi
 		dobStr = application.DateOfBirthBS
 	}
 
-	cardData := publicscholarship.AdmitCardData{
+	if application.RollNumber == "" {
+		if seq, err := s.repo.GetNextRollNumber(); err == nil {
+			rn := fmt.Sprintf("PS-%05d", seq)
+			s.repo.UpdateRollNumber(application.ID, rn)
+			application.RollNumber = rn
+		}
+	}
+
+	payload := emailqueue.AdmitCardPayload{
+		Email:            application.Email,
 		CandidateName:    application.FullName,
 		DateOfBirth:      dobStr,
 		Gender:           application.Gender,
 		RollNumber:       application.RollNumber,
 		ExamCentre:       application.ExamCenter,
 		Stream:           application.Stream,
-		PhotoURL:         publicscholarship.PhotoToBase64(application.PhotoURL),
+		PhotoURL:         application.PhotoURL,
 		ScholarshipTitle: scholarship.Title,
 		Provider:         scholarship.Provider,
 		ExamDate:         scholarship.ExamDate,
 		ExamTime:         scholarship.ExamTime,
+		Shift:            "",
 		SubjectName:      application.Stream,
 	}
 
-	if application.RollNumber == "" {
-		if seq, err := s.repo.GetNextRollNumber(); err == nil {
-			rn := fmt.Sprintf("PS-%05d", seq)
-			s.repo.UpdateRollNumber(application.ID, rn)
-			application.RollNumber = rn
-			cardData.RollNumber = rn
-		}
+	if err := emailqueue.EnqueueSendAdmitCard(payload); err != nil {
+		log.Printf("sendAdmitCard: failed to enqueue: %v", err)
 	}
-
-	var pdfBytes []byte
-	for i := 0; i < 3; i++ {
-		pdfBytes, err = publicscholarship.GenerateAdmitCardPDF(cardData, nil)
-		if err == nil {
-			break
-		}
-		log.Printf("sendAdmitCard: attempt %d/3 failed: %v", i+1, err)
-		time.Sleep(1 * time.Second)
-	}
-	if err != nil {
-		_ = emailqueue.SendAdmitCardEmailHTML(application.Email, application.FullName, scholarship.Title, scholarship.Provider, application.RollNumber, application.ExamCenter, application.Stream, scholarship.ExamDate, scholarship.ExamTime, application.Gender, dobStr)
-		return
-	}
-
-	_ = emailqueue.SendAdmitCardEmail(application.Email, application.FullName, scholarship.Title, pdfBytes)
 }
 
 func (s *Service) ResendAdmitCard(providerID, applicationID uint) error {
@@ -1131,28 +1120,27 @@ func (s *Service) ResendAdmitCard(providerID, applicationID uint) error {
 		dobStr = application.DateOfBirthBS
 	}
 
-	cardData := publicscholarship.AdmitCardData{
+	payload := emailqueue.AdmitCardPayload{
+		Email:            application.Email,
 		CandidateName:    application.FullName,
 		DateOfBirth:      dobStr,
 		Gender:           application.Gender,
 		RollNumber:       application.RollNumber,
 		ExamCentre:       application.ExamCenter,
 		Stream:           application.Stream,
-		PhotoURL:         publicscholarship.PhotoToBase64(application.PhotoURL),
+		PhotoURL:         application.PhotoURL,
 		ScholarshipTitle: scholarship.Title,
 		Provider:         scholarship.Provider,
 		ExamDate:         scholarship.ExamDate,
 		ExamTime:         scholarship.ExamTime,
+		Shift:            "",
 		SubjectName:      application.Stream,
 	}
 
-	pdfBytes, err := publicscholarship.GenerateAdmitCardPDF(cardData, nil)
-	if err != nil {
-		_ = emailqueue.SendAdmitCardEmailHTML(application.Email, application.FullName, scholarship.Title, scholarship.Provider, application.RollNumber, application.ExamCenter, application.Stream, scholarship.ExamDate, scholarship.ExamTime, application.Gender, dobStr)
-		return nil
+	if err := emailqueue.EnqueueSendAdmitCard(payload); err != nil {
+		log.Printf("ResendAdmitCard: failed to enqueue: %v", err)
 	}
 
-	_ = emailqueue.SendAdmitCardEmail(application.Email, application.FullName, scholarship.Title, pdfBytes)
 	return nil
 }
 

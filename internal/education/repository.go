@@ -78,15 +78,15 @@ func (r *Repository) FindCoursesFiltered(page, limit int, search, level, field, 
 }
 
 type InstitutionProgramEntry struct {
-	ID               uint   `json:"id"`
-	ProgramName      string `json:"name"`
-	Description      string `json:"description"`
-	Duration         string `json:"duration"`
-	Fee              string `json:"fee"`
-	BannerURL        string `json:"banner_url"`
-	InstitutionName  string `json:"institution_name"`
-	InstitutionLogo  string `json:"institution_logo"`
-	InstitutionLoc   string `json:"institution_location"`
+	ID                  uint   `json:"id"`
+	ProgramName         string `json:"name"`
+	Description         string `json:"description"`
+	Duration            string `json:"duration"`
+	Fee                 string `json:"fee"`
+	BannerURL           string `json:"banner_url"`
+	InstitutionName     string `json:"institution_name"`
+	InstitutionLogo     string `json:"institution_logo"`
+	InstitutionLocation string `gorm:"column:institution_location" json:"institution_location"`
 }
 
 func (r *Repository) FindPublishedInstitutionPrograms(search, level string) ([]InstitutionProgramEntry, error) {
@@ -696,19 +696,24 @@ func (r *Repository) DeleteNews(id string) error {
 }
 
 type InstitutionEntranceEntry struct {
-	ID               uint   `json:"id"`
-	Title            string `json:"title"`
-	Description      string `json:"description"`
-	Date             string `json:"date"`
-	HeroBanner       string `json:"hero_banner"`
-	Status           string `json:"status"`
-	Fee              string `json:"application_fee"`
-	InstitutionName  string `json:"institution_name"`
-	InstitutionLogo  string `json:"institution_logo"`
-	InstitutionLoc   string `json:"institution_location"`
-	InstitutionSite  string `json:"institution_website"`
-	InstitutionEmail string `json:"institution_email"`
-	InstitutionPhone string `json:"institution_phone"`
+	ID                  uint   `json:"id"`
+	Title               string `json:"title"`
+	Description         string `json:"description"`
+	Date                string `json:"date"`
+	HeroBanner          string `json:"hero_banner"`
+	Status              string `json:"status"`
+	Fee                 string `json:"application_fee"`
+	InstitutionName     string `json:"institution_name"`
+	InstitutionLogo     string `json:"institution_logo"`
+	InstitutionLocation string `gorm:"column:institution_location" json:"institution_location"`
+	InstitutionProvince string `gorm:"column:institution_province" json:"institution_province"`
+	InstitutionWebsite  string `gorm:"column:institution_website" json:"institution_website"`
+	InstitutionEmail    string        `json:"institution_email"`
+	InstitutionPhone    string        `json:"institution_phone"`
+	OverviewDetails     []byte        `gorm:"column:overview_details" json:"overview_details"`
+	ExamDateSchedules   []byte        `gorm:"column:exam_date_schedules" json:"exam_date_schedules"`
+	ApplicationLink     string        `json:"application_link"`
+	NoticeFile          string        `json:"notice_file"`
 }
 
 func (r *Repository) GetAllExamEntries(search, level, stream, status string) ([]Exam, error) {
@@ -735,9 +740,12 @@ func (r *Repository) GetPublishedInstitutionEntrances(search string) ([]Institut
 	query := r.db.Table("institution_entrances").
 		Select(`institution_entrances.id, institution_entrances.title, institution_entrances.description, 
 			institution_entrances.date, institution_entrances.hero_banner, institution_entrances.status,
-			institution_entrances.application_fee as fee,
+			institution_entrances.application_fee as fee, institution_entrances.overview_details,
+			institution_entrances.exam_date_schedules, institution_entrances.application_link,
+			institution_entrances.notice_file,
 			iu.institution_name, iu.logo_url as institution_logo, iu.district as institution_location,
-			iu.website_url as institution_website, iu.contact_email as institution_email, iu.contact_phone as institution_phone`).
+			iu.province as institution_province, iu.website_url as institution_website,
+			iu.contact_email as institution_email, iu.contact_phone as institution_phone`).
 		Joins("LEFT JOIN institution_users iu ON iu.id = institution_entrances.institution_id").
 		Where("institution_entrances.status = ?", "published")
 	if search != "" {
@@ -780,9 +788,12 @@ func (r *Repository) GetInstitutionEntranceByID(id string) (*InstitutionEntrance
 	err := r.db.Table("institution_entrances").
 		Select(`institution_entrances.id, institution_entrances.title, institution_entrances.description, 
 			institution_entrances.date, institution_entrances.hero_banner, institution_entrances.status,
-			institution_entrances.application_fee as fee,
+			institution_entrances.application_fee as fee, institution_entrances.overview_details,
+			institution_entrances.exam_date_schedules, institution_entrances.application_link,
+			institution_entrances.notice_file,
 			iu.institution_name, iu.logo_url as institution_logo, iu.district as institution_location,
-			iu.website_url as institution_website, iu.contact_email as institution_email, iu.contact_phone as institution_phone`).
+			iu.province as institution_province, iu.website_url as institution_website,
+			iu.contact_email as institution_email, iu.contact_phone as institution_phone`).
 		Joins("LEFT JOIN institution_users iu ON iu.id = institution_entrances.institution_id").
 		Where("institution_entrances.id = ? AND institution_entrances.status = ?", id, "published").
 		First(&entry).Error

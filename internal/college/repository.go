@@ -1,6 +1,7 @@
 package college
 
 import (
+	"encoding/json"
 	"regexp"
 	"strconv"
 	"strings"
@@ -424,7 +425,22 @@ func parseFloat(s string) (float64, error) {
 	return strconv.ParseFloat(s, 64)
 }
 
-func (r *Repository) GetFilterCounts() (*CollegeFilterCountsResponse, error) {
+func mapAdmissionLevel(level string) string {
+	mapping := map[string]string{
+		"high-school": "+2",
+		"a-level":     "A-Level",
+		"diploma":     "Diploma/CTEVT",
+		"ctevt":       "Diploma/CTEVT",
+		"bachelor":    "Bachelor",
+		"master":      "Master",
+	}
+	if mapped, ok := mapping[level]; ok {
+		return mapped
+	}
+	return level
+}
+
+func (r *Repository) GetFilterCounts(level string) (*CollegeFilterCountsResponse, error) {
 	resp := &CollegeFilterCountsResponse{
 		TypeCounts:      map[string]int64{},
 		TypeCountsByID:  map[string]int64{},
@@ -537,19 +553,32 @@ func (r *Repository) GetFilterCounts() (*CollegeFilterCountsResponse, error) {
 		"5+ Years":       {"5 years", "5+ years", "five years"},
 	}
 
-	if err := r.db.Model(&College{}).Count(&resp.Total).Error; err != nil {
+	totalQuery := r.db.Model(&College{})
+	featuredQuery := r.db.Model(&College{}).Where("featured = ?", true)
+	verifiedQuery := r.db.Model(&College{}).Where("verified = ?", true)
+	popularQuery := r.db.Model(&College{}).Where("popular = ?", true)
+	if level != "" {
+		mappedLevel := mapAdmissionLevel(level)
+		joinClause := "JOIN institution_users iu ON iu.college_id = colleges.id AND iu.deleted_at IS NULL JOIN admission_pages ap ON ap.institution_id = iu.id AND ap.status = 'published' AND ap.deleted_at IS NULL AND ap.data->'overview_data'->>'level' = ?"
+		totalQuery = totalQuery.Joins(joinClause, mappedLevel)
+		featuredQuery = featuredQuery.Joins(joinClause, mappedLevel)
+		verifiedQuery = verifiedQuery.Joins(joinClause, mappedLevel)
+		popularQuery = popularQuery.Joins(joinClause, mappedLevel)
+	}
+
+	if err := totalQuery.Count(&resp.Total).Error; err != nil {
 		return nil, err
 	}
 
-	if err := r.db.Model(&College{}).Where("featured = ?", true).Count(&resp.Featured).Error; err != nil {
+	if err := featuredQuery.Count(&resp.Featured).Error; err != nil {
 		return nil, err
 	}
 
-	if err := r.db.Model(&College{}).Where("verified = ?", true).Count(&resp.Verified).Error; err != nil {
+	if err := verifiedQuery.Count(&resp.Verified).Error; err != nil {
 		return nil, err
 	}
 
-	if err := r.db.Model(&College{}).Where("popular = ?", true).Count(&resp.Popular).Error; err != nil {
+	if err := popularQuery.Count(&resp.Popular).Error; err != nil {
 		return nil, err
 	}
 
@@ -559,10 +588,14 @@ func (r *Repository) GetFilterCounts() (*CollegeFilterCountsResponse, error) {
 	}
 
 	var rows []typeCountRow
-	if err := r.db.Model(&College{}).
+	typeQuery := r.db.Model(&College{}).
 		Select("college_type, COUNT(*) as count").
-		Group("college_type").
-		Scan(&rows).Error; err != nil {
+		Group("college_type")
+	if level != "" {
+		mappedLevel := mapAdmissionLevel(level)
+		typeQuery = typeQuery.Joins("JOIN institution_users iu ON iu.college_id = colleges.id AND iu.deleted_at IS NULL JOIN admission_pages ap ON ap.institution_id = iu.id AND ap.status = 'published' AND ap.deleted_at IS NULL AND ap.data->'overview_data'->>'level' = ?", mappedLevel)
+	}
+	if err := typeQuery.Scan(&rows).Error; err != nil {
 		return nil, err
 	}
 
@@ -585,16 +618,45 @@ func (r *Repository) GetFilterCounts() (*CollegeFilterCountsResponse, error) {
 		FeaturedPrograms []byte
 		Courses          []byte
 		ProgramsList     []byte
+		ProgramsData     string
 	}
 
 	var facetRows []collegeFacetRow
-	if err := r.db.Model(&College{}).
-		Select("location, affiliation, college_type, featured_programs, courses, programs_list").
-		Scan(&facetRows).Error; err != nil {
-		return nil, err
+	if level != "" {
+		mappedLevel := mapAdmissionLevel(level)
+		if err := r.db.Raw(`SELECT 
+			c.location, c.affiliation, c.college_type, c.featured_programs, c.courses, c.programs_list,
+			COALESCE(ap.data->>'programs_data', '[]') AS programs_data
+			FROM admission_pages ap
+			JOIN institution_users iu ON iu.id = ap.institution_id AND iu.deleted_at IS NULL
+			JOIN colleges c ON c.id = iu.college_id AND c.deleted_at IS NULL
+			WHERE ap.status = 'published' AND ap.deleted_at IS NULL
+			AND ap.data->'overview_data'->>'level' = ?`, mappedLevel).Scan(&facetRows).Error; err != nil {
+			return nil, err
+		}
+	} else {
+		if err := r.db.Model(&College{}).
+			Select("location, affiliation, college_type, featured_programs, courses, programs_list, '[]' AS programs_data").
+			Scan(&facetRows).Error; err != nil {
+			return nil, err
+		}
 	}
 
 	for _, row := range facetRows {
+		programTitles := ""
+		var progData []struct {
+			Title string `json:"title"`
+		}
+		if err := json.Unmarshal([]byte(row.ProgramsData), &progData); err == nil {
+			parts := make([]string, 0, len(progData))
+			for _, p := range progData {
+				if p.Title != "" {
+					parts = append(parts, p.Title)
+				}
+			}
+			programTitles = strings.Join(parts, " ")
+		}
+
 		searchText := strings.ToLower(strings.Join([]string{
 			row.Location,
 			row.Affiliation,
@@ -602,6 +664,7 @@ func (r *Repository) GetFilterCounts() (*CollegeFilterCountsResponse, error) {
 			string(row.FeaturedPrograms),
 			string(row.Courses),
 			string(row.ProgramsList),
+			programTitles,
 		}, " "))
 
 		for facetID, keywords := range facetKeywordsByID {

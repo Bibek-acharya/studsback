@@ -15,9 +15,19 @@ import (
 	"studsphere/backend/internal/shared/logger"
 )
 
-var Mux *asynq.Server
+var (
+	Mux              *asynq.Server
+	extraHandlers    map[string]func(context.Context, *asynq.Task) error
+)
 
 const concurrency = 10
+
+func RegisterHandler(pattern string, handler func(context.Context, *asynq.Task) error) {
+	if extraHandlers == nil {
+		extraHandlers = make(map[string]func(context.Context, *asynq.Task) error)
+	}
+	extraHandlers[pattern] = handler
+}
 
 func StartWorker() error {
 	redisAddr := getEnv("REDIS_ADDR", "localhost:6379")
@@ -40,6 +50,10 @@ func StartWorker() error {
 	mux.HandleFunc(TypeSendWelcomeEmail, handleWelcomeTask)
 	mux.HandleFunc(TypeSendGenericHTML, handleGenericTask)
 	mux.HandleFunc(TypeSendReviewEmail, handleReviewTask)
+
+	for pattern, handler := range extraHandlers {
+		mux.HandleFunc(pattern, handler)
+	}
 
 	if err := srv.Start(mux); err != nil {
 		return fmt.Errorf("failed to start asynq worker: %w", err)

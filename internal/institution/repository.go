@@ -775,7 +775,17 @@ func (r *Repository) FindPublishedAdmissionInstitutions(page, limit int, level s
 		0.0 AS rating,
 		COALESCE(iu.website_url, '') AS website,
 		COALESCE(iu.affiliation, '') AS affiliation,
-		COALESCE(iu.verified, false) AS verified
+		COALESCE(iu.verified, false) AS verified,
+		COALESCE(
+			(SELECT json_agg(json_build_object('title', pg->>'title', 'admissionStatus', pg->>'admissionStatus'))::jsonb FROM (
+				SELECT jsonb_array_elements(sub.pd) AS pg
+				FROM (SELECT ap.data->'programs_data' AS pd FROM admission_pages ap
+					WHERE ap.institution_id = iu.id AND ap.status = 'published' AND ap.deleted_at IS NULL
+					ORDER BY ap.published_at DESC LIMIT 1
+				) sub
+			) sub2),
+			'[]'::jsonb
+		) AS featured_programs
 		FROM institution_users iu
 		WHERE iu.id IN (` + subQuery + `)
 		AND iu.deleted_at IS NULL

@@ -14,6 +14,8 @@ import (
 	"github.com/minio/minio-go/v7/pkg/credentials"
 )
 
+var defaultGetCtx = context.Background()
+
 var Client *minio.Client
 
 func Init() error {
@@ -77,10 +79,13 @@ type ObjectInfo struct {
 }
 
 func Get(objectPath string) (io.Reader, *ObjectInfo, error) {
+	return GetWithContext(defaultGetCtx, objectPath)
+}
+
+func GetWithContext(ctx context.Context, objectPath string) (io.Reader, *ObjectInfo, error) {
 	if err := requireClient(); err != nil {
 		return nil, nil, err
 	}
-	ctx := context.Background()
 	bucket := config.AppConfig.MinioBucket
 
 	obj, err := Client.GetObject(ctx, bucket, objectPath, minio.GetObjectOptions{})
