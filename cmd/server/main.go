@@ -14,6 +14,7 @@ import (
 
 	"studsphere/backend/internal/admission"
 	"studsphere/backend/internal/auth"
+	"studsphere/backend/internal/chat"
 	"studsphere/backend/internal/college"
 	"studsphere/backend/internal/counselling"
 	"studsphere/backend/internal/education"
@@ -138,6 +139,7 @@ func main() {
 		&system.Ad{},
 		&system.CarouselSlide{},
 		&system.PublicNotification{},
+		&chat.SitePage{},
 	); err != nil {
 		logger.Fatal("Failed to migrate database", "error", err)
 	} else {
@@ -190,6 +192,8 @@ func main() {
 	} else {
 		logger.Info("Database seeding completed")
 	}
+
+	chat.SeedSitePages(db)
 
 	logger.Info("Initializing module handlers...")
 	systemRepo := system.NewRepository(db)
