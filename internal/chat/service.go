@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -179,6 +180,9 @@ func (s *Service) callGemini(stream io.Writer, systemMsg string, req ChatRequest
 	model := config.AppConfig.GeminiModel
 	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:streamGenerateContent?alt=sse&key=%s", model, apiKey)
 
+	// Gemini with ?alt=sse returns SSE lines: "data: {...}\n\n"
+	// We parse line-by-line stripping the "data: " prefix.
+
 	systemInstruction := map[string]interface{}{
 		"parts": []map[string]string{{"text": systemMsg}},
 	}
@@ -238,8 +242,18 @@ func (s *Service) callGemini(stream io.Writer, systemMsg string, req ChatRequest
 	}
 
 	var fullResponse strings.Builder
-	decoder := json.NewDecoder(resp.Body)
-	for {
+	scanner := bufio.NewScanner(resp.Body)
+	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if !strings.HasPrefix(line, "data: ") {
+			continue
+		}
+		raw := strings.TrimPrefix(line, "data: ")
+		if raw == "" {
+			continue
+		}
+
 		var geminiResp struct {
 			Candidates []struct {
 				Content struct {
@@ -250,10 +264,7 @@ func (s *Service) callGemini(stream io.Writer, systemMsg string, req ChatRequest
 				FinishReason string `json:"finishReason"`
 			} `json:"candidates"`
 		}
-		if err := decoder.Decode(&geminiResp); err != nil {
-			if err == io.EOF {
-				break
-			}
+		if err := json.Unmarshal([]byte(raw), &geminiResp); err != nil {
 			continue
 		}
 
