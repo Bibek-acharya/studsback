@@ -554,9 +554,9 @@ func (r *Repository) GetFilterCounts(level string) (*CollegeFilterCountsResponse
 	}
 
 	totalQuery := r.db.Model(&College{})
-	featuredQuery := r.db.Model(&College{}).Where("featured = ?", true)
-	verifiedQuery := r.db.Model(&College{}).Where("verified = ?", true)
-	popularQuery := r.db.Model(&College{}).Where("popular = ?", true)
+	featuredQuery := r.db.Model(&College{}).Where("colleges.featured = ?", true)
+	verifiedQuery := r.db.Model(&College{}).Where("colleges.verified = ?", true)
+	popularQuery := r.db.Model(&College{}).Where("colleges.popular = ?", true)
 	if level != "" {
 		mappedLevel := mapAdmissionLevel(level)
 		joinClause := "JOIN institution_users iu ON iu.college_id = colleges.id AND iu.deleted_at IS NULL JOIN admission_pages ap ON ap.institution_id = iu.id AND ap.status = 'published' AND ap.deleted_at IS NULL AND ap.data->'overview_data'->>'level' = ?"
@@ -589,8 +589,8 @@ func (r *Repository) GetFilterCounts(level string) (*CollegeFilterCountsResponse
 
 	var rows []typeCountRow
 	typeQuery := r.db.Model(&College{}).
-		Select("college_type, COUNT(*) as count").
-		Group("college_type")
+		Select("colleges.college_type, COUNT(*) as count").
+		Group("colleges.college_type")
 	if level != "" {
 		mappedLevel := mapAdmissionLevel(level)
 		typeQuery = typeQuery.Joins("JOIN institution_users iu ON iu.college_id = colleges.id AND iu.deleted_at IS NULL JOIN admission_pages ap ON ap.institution_id = iu.id AND ap.status = 'published' AND ap.deleted_at IS NULL AND ap.data->'overview_data'->>'level' = ?", mappedLevel)

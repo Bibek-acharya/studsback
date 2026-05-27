@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"math"
 	"mime/multipart"
 	"strings"
@@ -329,6 +330,7 @@ func (s *Service) GetFeaturedColleges(limit int) (*FeaturedCollegesResponse, err
 func (s *Service) GetCollegeFilterCounts(level string) (*CollegeFilterCountsResponse, error) {
 	counts, err := s.repo.GetFilterCounts(level)
 	if err != nil {
+		log.Printf("GetCollegeFilterCounts error (level=%q): %v", level, err)
 		return nil, errors.New("failed to fetch college filter counts")
 	}
 
