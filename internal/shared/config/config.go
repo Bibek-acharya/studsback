@@ -46,6 +46,9 @@ type Config struct {
 	VectorDimension    int
 	EmbeddingBatchSize int
 
+	GeminiAPIKey string
+	GeminiModel  string
+
 	MinioEndpoint  string
 	MinioAccessKey string
 	MinioSecretKey string
@@ -108,6 +111,9 @@ func Load() {
 		EmbeddingModel:     getEnv("EMBEDDING_MODEL", "text-embedding-3-small"),
 		VectorDimension:    getEnvInt("VECTOR_DIMENSION", 1536),
 		EmbeddingBatchSize: getEnvInt("EMBEDDING_BATCH_SIZE", 20),
+
+		GeminiAPIKey: getEnv("GEMINI_API_KEY", ""),
+		GeminiModel:  getEnv("GEMINI_MODEL", "gemini-2.0-flash-lite"),
 
 		MinioEndpoint:  getEnv("MINIO_ENDPOINT", ""),
 		MinioAccessKey: getEnv("MINIO_ACCESS_KEY", ""),
