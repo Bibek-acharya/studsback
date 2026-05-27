@@ -57,7 +57,7 @@ type embeddingResponse struct {
 }
 
 func IsEnabled() bool {
-	return config.AppConfig.EmbeddingEnabled && config.AppConfig.EmbeddingAPIKey != ""
+	return config.AppConfig.EmbeddingEnabled
 }
 
 func GenerateEmbedding(text string) ([]float32, error) {
@@ -230,7 +230,7 @@ func reindexTable(db *gorm.DB, table string, batchSize int) error {
 				continue
 			}
 
-			vectorStr := float32SliceToPgVector(vec)
+			vectorStr := Float32SliceToPgVector(vec)
 			id := row["id"]
 			sql := fmt.Sprintf("UPDATE %s SET embedding = '%s'::vector WHERE id = ?", table, vectorStr)
 			if err := db.Exec(sql, id).Error; err != nil {
@@ -347,7 +347,7 @@ func getStr(m map[string]interface{}, key string) string {
 	return ""
 }
 
-func float32SliceToPgVector(v []float32) string {
+func Float32SliceToPgVector(v []float32) string {
 	var b strings.Builder
 	b.WriteString("[")
 	for i, val := range v {

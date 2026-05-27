@@ -260,3 +260,20 @@ func (s *Service) ReorderCarouselSlides(items []struct {
 func (s *Service) GetActivePublicNotifications() ([]PublicNotification, error) {
 	return s.repo.FindActivePublicNotifications()
 }
+
+func (s *Service) CreatePublicNotification(title, message, notifType, link, icon, color, bgColor string) (*PublicNotification, error) {
+	n := &PublicNotification{
+		Title:   title,
+		Message: message,
+		Type:    notifType,
+		Link:    link,
+		Active:  true,
+		Icon:    icon,
+		Color:   color,
+		BgColor: bgColor,
+	}
+	if err := s.repo.CreatePublicNotification(n); err != nil {
+		return nil, err
+	}
+	return n, nil
+}

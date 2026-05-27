@@ -255,3 +255,7 @@ func (r *Repository) FindActivePublicNotifications() ([]PublicNotification, erro
 	}
 	return notifications, nil
 }
+
+func (r *Repository) CreatePublicNotification(n *PublicNotification) error {
+	return r.db.Create(n).Error
+}

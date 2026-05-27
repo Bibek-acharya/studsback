@@ -152,6 +152,12 @@ func main() {
 			logger.Warn("Failed to cleanup dangling sub-users", "error", err)
 		}
 		logger.Info("Database migrations completed successfully")
+
+		if err := initVectorSearch(db); err != nil {
+			logger.Warn("Failed to initialize vector search", "error", err)
+		} else {
+			logger.Info("Vector search initialized successfully")
+		}
 	}
 
 	logger.Info("Seeding super admin account...")
@@ -186,17 +192,28 @@ func main() {
 	}
 
 	logger.Info("Initializing module handlers...")
+	systemRepo := system.NewRepository(db)
+	systemSvc := system.NewService(systemRepo)
+
 	admissionHandler := initModule(admission.NewRepository(db), admission.NewService, admission.NewHandler)
 	authHandler := initModule(auth.NewRepository(db), auth.NewService, auth.NewHandler)
 	collegeHandler := initModule(college.NewRepository(db), college.NewService, college.NewHandler)
 	counsellingHandler := initModule(counselling.NewRepository(db), counselling.NewService, counselling.NewHandler)
-	educationHandler := initModule(education.NewRepository(db), education.NewService, education.NewHandler)
+
+	educationRepo := education.NewRepository(db)
+	educationSvc := education.NewService(educationRepo, systemSvc)
+	educationHandler := education.NewHandler(educationSvc)
+
 	forumHandler := initModule(forum.NewRepository(db), forum.NewService, forum.NewHandler)
-	institutionHandler := initModule(institution.NewRepository(db), institution.NewService, institution.NewHandler)
+
+	institutionRepo := institution.NewRepository(db)
+	institutionSvc := institution.NewService(institutionRepo, systemSvc)
+	institutionHandler := institution.NewHandler(institutionSvc)
+
 	projectShikshaHandler := initModule(projectshiksha.NewRepository(db), projectshiksha.NewService, projectshiksha.NewHandler)
 	reviewHandler := initModule(review.NewRepository(db), review.NewService, review.NewHandler)
 	scholarshipRepo := scholarship.NewRepository(db)
-	scholarshipSvc := scholarship.NewService(scholarshipRepo, db)
+	scholarshipSvc := scholarship.NewService(scholarshipRepo, db, systemSvc)
 	scholarshipHandler := scholarship.NewHandler(scholarshipSvc, scholarship.NewPaymentService(db))
 
 	go func() {
@@ -219,7 +236,7 @@ func main() {
 
 	auth.SetScholarshipProviderHandler(scholarshipPHandler)
 	studentDashHandler := initModule(studentdashboard.NewRepository(db), studentdashboard.NewService, studentdashboard.NewHandler)
-	systemHandler := initModule(system.NewRepository(db), system.NewService, system.NewHandler)
+	systemHandler := system.NewHandler(systemSvc)
 	toolsHandler := initModule(tools.NewRepository(db), tools.NewService, tools.NewHandler)
 	universityHandler := initModule(university.NewRepository(db), university.NewService, university.NewHandler)
 	searchHandler := search.NewHandler(search.NewService(db))
@@ -476,6 +493,29 @@ func fixMissingColumns(db *gorm.DB) error {
 	db.Exec(`UPDATE scholarships SET slug = 'scholarship-' || id WHERE slug IS NULL OR slug = ''`)
 	db.Exec(`UPDATE provider_scholarships SET slug = 'provider-scholarship-' || id WHERE slug IS NULL OR slug = ''`)
 	db.Exec(`UPDATE provider_volunteers SET slug = 'volunteer-' || id WHERE slug IS NULL OR slug = ''`)
+	return nil
+}
+
+func initVectorSearch(db *gorm.DB) error {
+	if config.IsSQLite {
+		logger.Info("SQLite does not support pgvector, skipping vector search init")
+		return nil
+	}
+	if err := db.Exec("CREATE EXTENSION IF NOT EXISTS vector").Error; err != nil {
+		return fmt.Errorf("failed to create vector extension: %w", err)
+	}
+	dim := config.AppConfig.VectorDimension
+	tables := []string{"colleges", "courses", "exams", "scholarships", "news", "events", "blogs"}
+	for _, table := range tables {
+		var colType string
+		db.Raw(fmt.Sprintf("SELECT data_type FROM information_schema.columns WHERE table_name = '%s' AND column_name = 'embedding'", table)).Scan(&colType)
+		if colType == "" {
+			if err := db.Exec(fmt.Sprintf("ALTER TABLE %s ADD COLUMN embedding vector(%d)", table, dim)).Error; err != nil {
+				return fmt.Errorf("failed to add embedding column to %s: %w", table, err)
+			}
+			logger.Info("Added embedding column", "table", table, "dim", dim)
+		}
+	}
 	return nil
 }
 

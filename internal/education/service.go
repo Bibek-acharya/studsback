@@ -9,16 +9,18 @@ import (
 	"time"
 
 	"studsphere/backend/internal/shared/utils"
+	"studsphere/backend/internal/system"
 
 	"gorm.io/gorm"
 )
 
 type Service struct {
-	repo *Repository
+	repo      *Repository
+	systemSvc *system.Service
 }
 
-func NewService(repo *Repository) *Service {
-	return &Service{repo: repo}
+func NewService(repo *Repository, systemSvc *system.Service) *Service {
+	return &Service{repo: repo, systemSvc: systemSvc}
 }
 
 func parseStringArrayField(data []byte) []string {
@@ -626,6 +628,16 @@ func (s *Service) CreateEvent(req EventRequest) (*EventResponse, error) {
 		return nil, err
 	}
 
+	s.systemSvc.CreatePublicNotification(
+		"New Event: "+event.Title,
+		event.Excerpt,
+		"event",
+		fmt.Sprintf("/events/%d", event.ID),
+		"fa-calendar",
+		"text-purple-600",
+		"bg-purple-100",
+	)
+
 	resp := buildEventResponse(*event)
 	return &resp, nil
 }
@@ -819,6 +831,16 @@ func (s *Service) CreateBlog(req CreateBlogRequest) (*BlogResponse, error) {
 	if err := s.repo.CreateBlog(&blog); err != nil {
 		return nil, err
 	}
+
+	s.systemSvc.CreatePublicNotification(
+		"New Blog: "+blog.Title,
+		blog.Excerpt,
+		"blog",
+		fmt.Sprintf("/blog/%d", blog.ID),
+		"fa-blog",
+		"text-green-600",
+		"bg-green-100",
+	)
 
 	resp := buildBlogResponse(blog)
 	return &resp, nil
@@ -1065,6 +1087,16 @@ func (s *Service) CreateNewsAdmin(req CreateNewsRequest) (*AdminNewsResponse, er
 	if err := s.repo.CreateNews(&news); err != nil {
 		return nil, err
 	}
+
+	s.systemSvc.CreatePublicNotification(
+		"New News: "+news.Title,
+		news.Excerpt,
+		"news",
+		fmt.Sprintf("/news/%d", news.ID),
+		"fa-newspaper",
+		"text-blue-600",
+		"bg-blue-100",
+	)
 
 	resp := buildAdminNewsResponse(news)
 	return &resp, nil

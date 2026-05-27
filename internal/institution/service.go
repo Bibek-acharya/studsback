@@ -3,16 +3,20 @@ package institution
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
+
+	"studsphere/backend/internal/system"
 )
 
 type Service struct {
-	repo *Repository
+	repo      *Repository
+	systemSvc *system.Service
 }
 
-func NewService(repo *Repository) *Service {
-	return &Service{repo: repo}
+func NewService(repo *Repository, systemSvc *system.Service) *Service {
+	return &Service{repo: repo, systemSvc: systemSvc}
 }
 
 func (s *Service) GetDashboard(instID uint) (*DashboardResponse, error) {
@@ -550,6 +554,16 @@ func (s *Service) CreateEntrance(instID uint, req CreateEntranceRequest) (*Insti
 		return nil, err
 	}
 
+	s.systemSvc.CreatePublicNotification(
+		"New Entrance: "+entrance.Title,
+		entrance.Description,
+		"entrance",
+		fmt.Sprintf("/entrance/%d", entrance.ID),
+		"fa-pencil-alt",
+		"text-red-600",
+		"bg-red-100",
+	)
+
 	return entrance, nil
 }
 
@@ -693,6 +707,16 @@ func (s *Service) CreateEvent(instID uint, req CreateEventRequest) (*Institution
 		return nil, err
 	}
 
+	s.systemSvc.CreatePublicNotification(
+		"New Event: "+event.Title,
+		event.Description,
+		"event",
+		fmt.Sprintf("/events/%d", event.ID),
+		"fa-calendar",
+		"text-purple-600",
+		"bg-purple-100",
+	)
+
 	return event, nil
 }
 
@@ -757,6 +781,16 @@ func (s *Service) CreateNews(instID uint, req CreateNewsRequest) (*InstitutionNe
 		return nil, err
 	}
 
+	s.systemSvc.CreatePublicNotification(
+		"New News: "+news.Title,
+		news.Excerpt,
+		"news",
+		fmt.Sprintf("/news/%d", news.ID),
+		"fa-newspaper",
+		"text-blue-600",
+		"bg-blue-100",
+	)
+
 	return news, nil
 }
 
@@ -815,6 +849,16 @@ func (s *Service) CreateBlog(instID uint, req CreateBlogRequest) (*InstitutionBl
 	if err := s.repo.CreateBlog(blog); err != nil {
 		return nil, err
 	}
+
+	s.systemSvc.CreatePublicNotification(
+		"New Blog: "+blog.Title,
+		blog.Excerpt,
+		"blog",
+		fmt.Sprintf("/blog/%d", blog.ID),
+		"fa-blog",
+		"text-green-600",
+		"bg-green-100",
+	)
 
 	return blog, nil
 }
@@ -1267,6 +1311,18 @@ func (s *Service) CreateAdmissionPage(instID uint, req CreateAdmissionPageReques
 		return nil, err
 	}
 
+	if page.Status == "published" {
+		s.systemSvc.CreatePublicNotification(
+			"Admission Open: "+page.Title,
+			"New admission opening available",
+			"admission",
+			fmt.Sprintf("/admissions/%d", page.ID),
+			"fa-door-open",
+			"text-orange-600",
+			"bg-orange-100",
+		)
+	}
+
 	return toAdmissionPageResponse(page), nil
 }
 
@@ -1297,6 +1353,8 @@ func (s *Service) UpdateAdmissionPage(instID, id uint, req UpdateAdmissionPageRe
 		return nil, err
 	}
 
+	wasPublished := page.Status == "published"
+
 	if req.Data != nil {
 		dataStr := string(req.Data)
 		page.Data = &dataStr
@@ -1315,6 +1373,18 @@ func (s *Service) UpdateAdmissionPage(instID, id uint, req UpdateAdmissionPageRe
 
 	if err := s.repo.SaveAdmissionPage(page); err != nil {
 		return nil, err
+	}
+
+	if page.Status == "published" && !wasPublished {
+		s.systemSvc.CreatePublicNotification(
+			"Admission Open: "+page.Title,
+			"New admission opening available",
+			"admission",
+			fmt.Sprintf("/admissions/%d", page.ID),
+			"fa-door-open",
+			"text-orange-600",
+			"bg-orange-100",
+		)
 	}
 
 	return toAdmissionPageResponse(page), nil

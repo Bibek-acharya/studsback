@@ -20,11 +20,17 @@ import (
 	"studsphere/backend/internal/shared/config"
 	"studsphere/backend/internal/shared/logger"
 	"studsphere/backend/internal/shared/storage"
+	"studsphere/backend/internal/system"
 )
 
 type Service struct {
 	repo       *Repository
 	providerDB *gorm.DB
+	systemSvc  *system.Service
+}
+
+func NewService(repo *Repository, providerDB *gorm.DB, systemSvc *system.Service) *Service {
+	return &Service{repo: repo, providerDB: providerDB, systemSvc: systemSvc}
 }
 
 type PaymentService struct {
@@ -37,10 +43,6 @@ func NewPaymentService(db *gorm.DB) *PaymentService {
 		repo:            NewPaymentRepository(db),
 		scholarshipRepo: NewRepository(db),
 	}
-}
-
-func NewService(repo *Repository, providerDB *gorm.DB) *Service {
-	return &Service{repo: repo, providerDB: providerDB}
 }
 
 func (s *Service) GetScholarships(search, categoryFilter, typeFilter, locationFilter, levelFilter, statusFilter, sortBy, order string) ([]Scholarship, []CategoryResponse, error) {
@@ -433,7 +435,7 @@ func (s *Service) ApplyScholarship(scholarshipID uint, userID *uint, req Scholar
 		return nil, errors.New("an application with this email already exists")
 	}
 
-	if !scholarship.Deadline.IsZero() && scholarship.Deadline.Before(time.Now()) {
+	if !scholarship.Deadline.IsZero() && scholarship.Deadline.Before(time.Now().Truncate(24*time.Hour)) {
 		return nil, errors.New("scholarship application deadline has passed")
 	}
 
@@ -812,6 +814,16 @@ func (s *Service) AdminCreateScholarship(req CreateScholarshipRequest) (*Scholar
 	if err := s.repo.Create(scholarship); err != nil {
 		return nil, errors.New("failed to create scholarship")
 	}
+
+	s.systemSvc.CreatePublicNotification(
+		"New Scholarship: "+scholarship.Title,
+		scholarship.Description,
+		"scholarship",
+		fmt.Sprintf("/scholarships/%d", scholarship.ID),
+		"fa-trophy",
+		"text-yellow-600",
+		"bg-yellow-100",
+	)
 
 	return scholarship, nil
 }

@@ -1,8 +1,11 @@
 package search
 
 import (
+	"fmt"
 	"math"
 	"strings"
+
+	"studsphere/backend/internal/embedding"
 
 	"gorm.io/gorm"
 )
@@ -19,7 +22,12 @@ func (s *Service) Search(q string, cat string, page int, limit int) (*SearchResp
 	categoryKey := resolveCategoryKey(q, cat)
 
 	var items []SearchItem
-	items = s.keywordSearch(q, categoryKey)
+	if q != "" && embedding.IsEnabled() {
+		items = s.vectorSearch(q, categoryKey)
+	}
+	if len(items) == 0 {
+		items = s.keywordSearch(q, categoryKey)
+	}
 
 	total := int64(len(items))
 	pages := int64(math.Ceil(float64(total) / float64(limit)))
@@ -58,6 +66,31 @@ func (s *Service) Search(q string, cat string, page int, limit int) (*SearchResp
 			Pages: int(pages),
 		},
 	}, nil
+}
+
+func (s *Service) vectorSearch(q string, categoryKey string) []SearchItem {
+	vec, err := embedding.GenerateEmbedding(q)
+	if err != nil || len(vec) == 0 {
+		return nil
+	}
+
+	vectorStr := embedding.Float32SliceToPgVector(vec)
+	tables := categoryTables(categoryKey)
+
+	var items []SearchItem
+	for _, table := range tables {
+		selectSQL := searchSelectForTable(table)
+		if selectSQL == "" {
+			continue
+		}
+		var results []SearchItem
+		sql := fmt.Sprintf("SELECT %s FROM %s WHERE embedding IS NOT NULL ORDER BY embedding <=> '%s'::vector LIMIT 30", selectSQL, table, vectorStr)
+		if err := s.db.Raw(sql).Scan(&results).Error; err != nil {
+			continue
+		}
+		items = append(items, results...)
+	}
+	return items
 }
 
 func (s *Service) keywordSearch(q string, categoryKey string) []SearchItem {
@@ -196,6 +229,27 @@ func categoryToTable(categoryKey string) string {
 
 func allTables() []string {
 	return []string{"colleges", "courses", "exams", "scholarships", "news", "events", "blogs"}
+}
+
+func searchSelectForTable(table string) string {
+	switch table {
+	case "colleges":
+		return searchSelectColleges()
+	case "courses":
+		return searchSelectCourses()
+	case "exams":
+		return searchSelectExams()
+	case "scholarships":
+		return searchSelectScholarships()
+	case "news":
+		return searchSelectNews()
+	case "events":
+		return searchSelectEvents()
+	case "blogs":
+		return searchSelectBlogs()
+	default:
+		return ""
+	}
 }
 
 func searchSelectColleges() string {
