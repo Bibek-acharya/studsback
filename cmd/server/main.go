@@ -193,7 +193,11 @@ func main() {
 		logger.Info("Database seeding completed")
 	}
 
-	chat.SeedSitePages(db)
+	if err := chat.SeedSitePages(db); err != nil {
+		logger.Warn("Failed to seed site pages", "error", err)
+	} else {
+		logger.Info("Site pages seeded successfully")
+	}
 
 	logger.Info("Initializing module handlers...")
 	systemRepo := system.NewRepository(db)

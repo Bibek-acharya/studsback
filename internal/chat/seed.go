@@ -1,12 +1,13 @@
 package chat
 
 import (
+	"errors"
 	"log"
 
 	"gorm.io/gorm"
 )
 
-func SeedSitePages(db *gorm.DB) {
+func SeedSitePages(db *gorm.DB) error {
 	pages := []SitePage{
 		{
 			Slug:  "about-us",
@@ -46,20 +47,29 @@ func SeedSitePages(db *gorm.DB) {
 		},
 	}
 
+	var lastErr error
 	for _, page := range pages {
 		var existing SitePage
 		result := db.Where("slug = ?", page.Slug).First(&existing)
-		if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			if err := db.Create(&page).Error; err != nil {
 				log.Printf("Failed to seed site_page %s: %v", page.Slug, err)
+				lastErr = err
 			} else {
 				log.Printf("Seeded site_page: %s", page.Slug)
 			}
+		} else if result.Error != nil {
+			log.Printf("Failed to check site_page %s: %v", page.Slug, result.Error)
+			lastErr = result.Error
 		} else {
-			db.Model(&existing).Updates(map[string]interface{}{
+			if err := db.Model(&existing).Updates(map[string]interface{}{
 				"title":   page.Title,
 				"content": page.Content,
-			})
+			}).Error; err != nil {
+				log.Printf("Failed to update site_page %s: %v", page.Slug, err)
+				lastErr = err
+			}
 		}
 	}
+	return lastErr
 }
