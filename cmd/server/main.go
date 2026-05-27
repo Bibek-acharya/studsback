@@ -248,6 +248,8 @@ func main() {
 	toolsHandler := initModule(tools.NewRepository(db), tools.NewService, tools.NewHandler)
 	universityHandler := initModule(university.NewRepository(db), university.NewService, university.NewHandler)
 	searchHandler := search.NewHandler(search.NewService(db))
+	chatService := chat.NewService(db)
+	chatHandler := chat.NewHandler(chatService)
 	logger.Info("All module handlers initialized")
 
 	logger.Info("Setting up router...")
@@ -364,6 +366,7 @@ func main() {
 	tools.RegisterRoutes(router, authMW, roleMW, toolsHandler)
 	university.RegisterRoutes(router, authMW, roleMW, universityHandler)
 	search.RegisterRoutes(router, authMW, roleMW, searchHandler)
+	chat.RegisterRoutes(router, chatHandler)
 
 	logger.Info("All routes registered", "port", config.AppConfig.Port)
 
