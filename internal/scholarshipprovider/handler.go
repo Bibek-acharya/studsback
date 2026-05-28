@@ -416,6 +416,37 @@ func (h *Handler) ExportApplications(c *gin.Context) {
 	}
 }
 
+func (h *Handler) ExportFilteredApplications(c *gin.Context) {
+	providerID := getProviderID(c)
+
+	status := c.Query("status")
+	scholarshipID := c.Query("scholarship_id")
+	search := c.Query("search")
+	gender := c.Query("gender")
+	ethnicity := c.Query("ethnicity")
+	province := c.Query("province")
+	district := c.Query("district")
+	schoolType := c.Query("school_type")
+	stream := c.Query("stream")
+	examCenter := c.Query("exam_center")
+	paymentStatus := c.Query("payment_status")
+
+	applications, err := h.service.ExportFilteredApplications(providerID, status, scholarshipID, search, gender, ethnicity, province, district, schoolType, stream, examCenter, paymentStatus)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch applications for export")
+		return
+	}
+
+	responses := make([]ApplicationResponse, len(applications))
+	for i, a := range applications {
+		responses[i] = toApplicationResponse(&a)
+	}
+
+	response.Success(c, http.StatusOK, "Applications retrieved successfully", gin.H{
+		"applications": responses,
+	})
+}
+
 func (h *Handler) GetApplicationByID(c *gin.Context) {
 	providerID := getProviderID(c)
 	idStr := c.Param("id")

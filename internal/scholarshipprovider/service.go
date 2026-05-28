@@ -930,6 +930,14 @@ func (s *Service) GetApplications(providerID uint, page, limit int, status, scho
 	return applications, total, nil
 }
 
+func (s *Service) ExportFilteredApplications(providerID uint, status, scholarshipID, search, gender, ethnicity, province, district, schoolType, stream, examCenter, paymentStatus string) ([]ProviderApplication, error) {
+	applications, _, err := s.repo.GetApplicationsByProvider(providerID, 1, 10000, status, scholarshipID, search, gender, ethnicity, province, district, schoolType, stream, examCenter, paymentStatus)
+	if err != nil {
+		return nil, err
+	}
+	return applications, nil
+}
+
 func (s *Service) GetApplicationByID(providerID, id uint) (*ProviderApplication, error) {
 	app, err := s.repo.GetApplicationByIDAndProvider(id, providerID)
 	if err != nil {

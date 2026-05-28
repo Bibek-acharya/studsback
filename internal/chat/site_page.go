@@ -14,7 +14,7 @@ type SitePage struct {
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
-	Embedding []float32      `gorm:"type:vector(768)" json:"-"`
+	Embedding []float32      `gorm:"-" json:"-"`
 }
 
 func (SitePage) TableName() string {

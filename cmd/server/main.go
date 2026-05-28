@@ -63,6 +63,12 @@ func main() {
 
 	db := config.GetDB()
 
+	if !config.IsSQLite {
+		if err := db.Exec("CREATE EXTENSION IF NOT EXISTS vector").Error; err != nil {
+			logger.Warn("pgvector extension not available, vector search will be disabled", "error", err)
+		}
+	}
+
 	logger.Info("Running database migrations...")
 	if err := db.AutoMigrate(
 		&auth.User{},
@@ -513,10 +519,11 @@ func initVectorSearch(db *gorm.DB) error {
 		return nil
 	}
 	if err := db.Exec("CREATE EXTENSION IF NOT EXISTS vector").Error; err != nil {
-		return fmt.Errorf("failed to create vector extension: %w", err)
+		logger.Warn("pgvector extension not available, skipping vector search init", "error", err)
+		return nil
 	}
 	dim := config.AppConfig.VectorDimension
-	tables := []string{"colleges", "courses", "exams", "scholarships", "news", "events", "blogs"}
+	tables := []string{"colleges", "courses", "exams", "scholarships", "news", "events", "blogs", "site_pages"}
 	for _, table := range tables {
 		var colType string
 		db.Raw(fmt.Sprintf("SELECT data_type FROM information_schema.columns WHERE table_name = '%s' AND column_name = 'embedding'", table)).Scan(&colType)
