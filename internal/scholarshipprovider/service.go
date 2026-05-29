@@ -918,8 +918,11 @@ func (s *Service) GetApplications(providerID uint, page, limit int, status, scho
 	if page < 1 {
 		page = 1
 	}
-	if limit < 1 || limit > 50 {
+	if limit < 1 {
 		limit = 10
+	}
+	if limit > 10000 {
+		limit = 10000
 	}
 
 	applications, total, err := s.repo.GetApplicationsByProvider(providerID, page, limit, status, scholarshipID, search, gender, ethnicity, province, district, schoolType, stream, examCenter, paymentStatus)
