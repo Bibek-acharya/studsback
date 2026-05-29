@@ -1241,14 +1241,24 @@ func toCalendarEventResponse(e *ProviderCalendarEvent) CalendarEventResponse {
 }
 
 func toWrittenExamResultResponse(r *WrittenExamResult) WrittenExamResultResponse {
-	return WrittenExamResultResponse{
-		ID:            r.ID,
-		CreatedAt:     r.CreatedAt,
-		WrittenExamID: r.WrittenExamID,
-		ApplicationID: r.ApplicationID,
-		MarksObtained: r.MarksObtained,
-		Remarks:       r.Remarks,
+	resp := WrittenExamResultResponse{
+		ID:                r.ID,
+		CreatedAt:         r.CreatedAt,
+		WrittenExamID:     r.WrittenExamID,
+		ApplicationID:     r.ApplicationID,
+		MarksObtained:     r.MarksObtained,
+		Remarks:           r.Remarks,
+		InterviewLocation: r.InterviewLocation,
+		InterviewDate:     r.InterviewDate,
+		ReportingTime:     r.ReportingTime,
 	}
+	if len(r.RequiredDocuments) > 0 {
+		var docs []string
+		if err := json.Unmarshal(r.RequiredDocuments, &docs); err == nil {
+			resp.RequiredDocuments = docs
+		}
+	}
+	return resp
 }
 
 func toWrittenExamResponse(e *WrittenExam) WrittenExamResponse {
@@ -2003,8 +2013,15 @@ func (h *Handler) GetResults(c *gin.Context) {
 
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	scholarshipIDStr := c.Query("scholarship_id")
+	var scholarshipID uint
+	if scholarshipIDStr != "" {
+		if sid, err := strconv.ParseUint(scholarshipIDStr, 10, 32); err == nil {
+			scholarshipID = uint(sid)
+		}
+	}
 
-	results, total, err := h.service.GetResults(providerID, page, limit)
+	results, total, err := h.service.GetResults(providerID, page, limit, scholarshipID)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "Failed to fetch results")
 		return
@@ -2089,6 +2106,48 @@ func (h *Handler) DeleteResult(c *gin.Context) {
 	}
 
 	response.Success(c, http.StatusOK, "Result deleted successfully", nil)
+}
+
+func (h *Handler) GetPublishedResultScholarships(c *gin.Context) {
+	scholarships, err := h.service.GetPublishedResultScholarships()
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch scholarships")
+		return
+	}
+	responses := make([]ScholarshipResponse, len(scholarships))
+	for i, s := range scholarships {
+		responses[i] = toScholarshipResponse(&s)
+	}
+	response.Success(c, http.StatusOK, "Scholarships retrieved successfully", responses)
+}
+
+func (h *Handler) CheckStudentResult(c *gin.Context) {
+	scholarshipIDStr := c.Query("scholarship_id")
+	rollNumber := c.Query("roll_number")
+
+	if scholarshipIDStr == "" || rollNumber == "" {
+		response.Error(c, http.StatusBadRequest, "scholarship_id and roll_number are required")
+		return
+	}
+
+	scholarshipID, err := strconv.ParseUint(scholarshipIDStr, 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid scholarship_id")
+		return
+	}
+
+	result, err := h.service.CheckStudentResult(uint(scholarshipID), rollNumber)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to check result")
+		return
+	}
+
+	if result == nil {
+		response.Success(c, http.StatusOK, "No result found", nil)
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Result found", result)
 }
 
 func (h *Handler) CreateAccess(c *gin.Context) {

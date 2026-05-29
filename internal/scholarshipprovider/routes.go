@@ -21,6 +21,8 @@ func RegisterPublicRoutes(r *gin.Engine, h *Handler) {
 			public.GET("/volunteers", h.GetPublicVolunteers)
 			public.GET("/volunteers/:id", h.GetPublicVolunteerByID)
 			public.POST("/volunteers/:id/apply", h.ApplyVolunteer)
+			public.GET("/results/scholarships", h.GetPublishedResultScholarships)
+			public.GET("/results/check", h.CheckStudentResult)
 		}
 	}
 }

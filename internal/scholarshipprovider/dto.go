@@ -826,16 +826,20 @@ type UpdateWrittenExamResultRequest struct {
 }
 
 type WrittenExamResultResponse struct {
-	ID            uint      `json:"id"`
-	CreatedAt     time.Time `json:"created_at"`
-	WrittenExamID uint      `json:"written_exam_id"`
-	ApplicationID uint      `json:"application_id"`
-	MarksObtained int       `json:"marks_obtained"`
-	Remarks       string    `json:"remarks"`
-	StudentName   string    `json:"student_name,omitempty"`
-	Stream        string    `json:"stream,omitempty"`
-	ExamCenter    string    `json:"exam_center,omitempty"`
-	RollNo        string    `json:"roll_no,omitempty"`
+	ID                 uint      `json:"id"`
+	CreatedAt          time.Time `json:"created_at"`
+	WrittenExamID      uint      `json:"written_exam_id"`
+	ApplicationID      uint      `json:"application_id"`
+	MarksObtained      int       `json:"marks_obtained"`
+	Remarks            string    `json:"remarks"`
+	StudentName        string    `json:"student_name,omitempty"`
+	Stream             string    `json:"stream,omitempty"`
+	ExamCenter         string    `json:"exam_center,omitempty"`
+	RollNo             string    `json:"roll_no,omitempty"`
+	InterviewLocation  string    `json:"interview_location,omitempty"`
+	InterviewDate      string    `json:"interview_date,omitempty"`
+	ReportingTime      string    `json:"reporting_time,omitempty"`
+	RequiredDocuments  []string  `json:"required_documents,omitempty"`
 }
 
 type CreateResultRequest struct {
@@ -1149,8 +1153,12 @@ type CreateReviewRequest struct {
 }
 
 type BatchImportWrittenExamResultItem struct {
-	RollNumber string `json:"roll_number" binding:"required"`
-	Marks      int    `json:"marks" binding:"required"`
+	RollNumber        string   `json:"roll_number" binding:"required"`
+	Marks             int      `json:"marks" binding:"required"`
+	InterviewLocation string   `json:"interview_location"`
+	InterviewDate     string   `json:"interview_date"`
+	ReportingTime     string   `json:"reporting_time"`
+	RequiredDocuments []string `json:"required_documents"`
 }
 
 type BatchImportWrittenExamResultsRequest struct {

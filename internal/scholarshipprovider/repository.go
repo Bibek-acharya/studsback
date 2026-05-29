@@ -1,6 +1,7 @@
 package scholarshipprovider
 
 import (
+	"encoding/json"
 	"log"
 	"strings"
 	"studsphere/backend/internal/scholarship"
@@ -746,16 +747,20 @@ func (r *Repository) CreateResult(result *ProviderResult) error {
 	return r.db.Create(result).Error
 }
 
-func (r *Repository) GetResultsByProvider(providerID uint, page, limit int) ([]ProviderResult, int64, error) {
+func (r *Repository) GetResultsByProvider(providerID uint, page, limit int, scholarshipID ...uint) ([]ProviderResult, int64, error) {
+	query := r.db.Model(&ProviderResult{}).Where("provider_id = ?", providerID)
+	if len(scholarshipID) > 0 && scholarshipID[0] > 0 {
+		query = query.Where("scholarship_id = ?", scholarshipID[0])
+	}
+
 	var total int64
-	if err := r.db.Model(&ProviderResult{}).Where("provider_id = ?", providerID).Count(&total).Error; err != nil {
+	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
 	var results []ProviderResult
 	offset := (page - 1) * limit
-	if err := r.db.Where("provider_id = ?", providerID).
-		Order("created_at desc").Offset(offset).Limit(limit).Find(&results).Error; err != nil {
+	if err := query.Order("created_at desc").Offset(offset).Limit(limit).Find(&results).Error; err != nil {
 		return nil, 0, err
 	}
 
@@ -783,6 +788,42 @@ func (r *Repository) DeleteResult(id uint, providerID uint) error {
 		return gorm.ErrRecordNotFound
 	}
 	return nil
+}
+
+func (r *Repository) GetScholarshipsWithPublishedResults() ([]ProviderScholarship, error) {
+	var scholarships []ProviderScholarship
+	err := r.db.Raw(`
+		SELECT DISTINCT ps.* FROM provider_scholarships ps
+		INNER JOIN provider_results pr ON pr.scholarship_id = ps.id
+		WHERE pr.status = 'published'
+	`).Scan(&scholarships).Error
+	return scholarships, err
+}
+
+func (r *Repository) CheckStudentResult(scholarshipID uint, rollNumber string) (map[string]interface{}, error) {
+	var resultJSON string
+	err := r.db.Raw(`
+		SELECT elem.value::text
+		FROM provider_results pr,
+		     jsonb_array_elements(pr.results) AS elem
+		WHERE pr.scholarship_id = ?
+		  AND pr.status = 'published'
+		  AND elem->>'roll_number' = ?
+		ORDER BY pr.created_at DESC
+		LIMIT 1
+	`, scholarshipID, rollNumber).Scan(&resultJSON).Error
+	if err != nil {
+		return nil, err
+	}
+	if resultJSON == "" {
+		return nil, nil
+	}
+
+	var result map[string]interface{}
+	if err := json.Unmarshal([]byte(resultJSON), &result); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 func (r *Repository) CreateWrittenExam(exam *WrittenExam) error {
@@ -899,13 +940,20 @@ func (r *Repository) BulkUpsertWrittenExamResults(results []WrittenExamResult) e
 	for _, result := range results {
 		err := r.db.Exec(`
 			INSERT INTO written_exam_results
-				(written_exam_id, application_id, marks_obtained, remarks, created_at, updated_at, deleted_at)
-			VALUES (?, ?, ?, '', NOW(), NOW(), NULL)
+				(written_exam_id, application_id, marks_obtained, remarks,
+				 interview_location, interview_date, reporting_time, required_documents,
+				 created_at, updated_at, deleted_at)
+			VALUES (?, ?, ?, '', ?, ?, ?, ?::jsonb, NOW(), NOW(), NULL)
 			ON CONFLICT (written_exam_id, application_id)
 			DO UPDATE SET marks_obtained = EXCLUDED.marks_obtained,
 			              updated_at = NOW(),
-			              deleted_at = NULL
-		`, result.WrittenExamID, result.ApplicationID, result.MarksObtained).Error
+			              deleted_at = NULL,
+			              interview_location = EXCLUDED.interview_location,
+			              interview_date = EXCLUDED.interview_date,
+			              reporting_time = EXCLUDED.reporting_time,
+			              required_documents = EXCLUDED.required_documents
+		`, result.WrittenExamID, result.ApplicationID, result.MarksObtained,
+			result.InterviewLocation, result.InterviewDate, result.ReportingTime, string(result.RequiredDocuments)).Error
 		if err != nil {
 			return err
 		}

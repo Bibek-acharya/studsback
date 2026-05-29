@@ -348,14 +348,18 @@ type WrittenExam struct {
 }
 
 type WrittenExamResult struct {
-	ID            uint           `gorm:"primarykey" json:"id"`
-	CreatedAt     time.Time      `json:"created_at"`
-	UpdatedAt     time.Time      `json:"updated_at"`
-	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
-	WrittenExamID uint           `gorm:"uniqueIndex:idx_written_exam_result_exam_app;not null" json:"written_exam_id"`
-	ApplicationID uint           `gorm:"uniqueIndex:idx_written_exam_result_exam_app;not null" json:"application_id"`
-	MarksObtained int            `json:"marks_obtained"`
-	Remarks       string         `json:"remarks"`
+	ID                 uint           `gorm:"primarykey" json:"id"`
+	CreatedAt          time.Time      `json:"created_at"`
+	UpdatedAt          time.Time      `json:"updated_at"`
+	DeletedAt          gorm.DeletedAt `gorm:"index" json:"-"`
+	WrittenExamID      uint           `gorm:"uniqueIndex:idx_written_exam_result_exam_app;not null" json:"written_exam_id"`
+	ApplicationID      uint           `gorm:"uniqueIndex:idx_written_exam_result_exam_app;not null" json:"application_id"`
+	MarksObtained      int            `json:"marks_obtained"`
+	Remarks            string         `json:"remarks"`
+	InterviewLocation  string         `json:"interview_location,omitempty"`
+	InterviewDate      string         `json:"interview_date,omitempty"`
+	ReportingTime      string         `json:"reporting_time,omitempty"`
+	RequiredDocuments  []byte         `gorm:"type:jsonb" json:"required_documents,omitempty"`
 }
 
 type ProviderAccess struct {

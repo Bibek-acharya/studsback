@@ -2255,10 +2255,15 @@ func (s *Service) BatchImportWrittenExamResults(examID, providerID uint, req Bat
 			continue
 		}
 
+		docsJSON, _ := json.Marshal(item.RequiredDocuments)
 		toUpsert = append(toUpsert, WrittenExamResult{
-			WrittenExamID: examID,
-			ApplicationID: appID,
-			MarksObtained: item.Marks,
+			WrittenExamID:      examID,
+			ApplicationID:      appID,
+			MarksObtained:      item.Marks,
+			InterviewLocation:  item.InterviewLocation,
+			InterviewDate:      item.InterviewDate,
+			ReportingTime:      item.ReportingTime,
+			RequiredDocuments:  docsJSON,
 		})
 
 		if existingAppIDs[appID] {
@@ -2313,7 +2318,7 @@ func (s *Service) CreateResult(providerID uint, req CreateResultRequest) (*Provi
 	return result, nil
 }
 
-func (s *Service) GetResults(providerID uint, page, limit int) ([]ProviderResult, int64, error) {
+func (s *Service) GetResults(providerID uint, page, limit int, scholarshipID ...uint) ([]ProviderResult, int64, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -2321,7 +2326,7 @@ func (s *Service) GetResults(providerID uint, page, limit int) ([]ProviderResult
 		limit = 10
 	}
 
-	return s.repo.GetResultsByProvider(providerID, page, limit)
+	return s.repo.GetResultsByProvider(providerID, page, limit, scholarshipID...)
 }
 
 func (s *Service) GetResultByID(providerID, id uint) (*ProviderResult, error) {
@@ -2357,6 +2362,14 @@ func (s *Service) UpdateResult(providerID, id uint, req CreateResultRequest) (*P
 
 func (s *Service) DeleteResult(providerID, id uint) error {
 	return s.repo.DeleteResult(id, providerID)
+}
+
+func (s *Service) GetPublishedResultScholarships() ([]ProviderScholarship, error) {
+	return s.repo.GetScholarshipsWithPublishedResults()
+}
+
+func (s *Service) CheckStudentResult(scholarshipID uint, rollNumber string) (map[string]interface{}, error) {
+	return s.repo.CheckStudentResult(scholarshipID, rollNumber)
 }
 
 func (s *Service) CreateAccess(providerID uint, req CreateAccessRequest) (*ProviderAccess, error) {
