@@ -1,6 +1,7 @@
 package scholarshipprovider
 
 import (
+	"log"
 	"strings"
 	"studsphere/backend/internal/scholarship"
 	"time"
@@ -833,11 +834,29 @@ func (r *Repository) DeleteWrittenExam(id, providerID uint) error {
 	return nil
 }
 
+func (r *Repository) CleanupSoftDeletedResults(examID uint) error {
+	return r.db.Exec(`DELETE FROM written_exam_results WHERE written_exam_id = ? AND deleted_at IS NOT NULL`, examID).Error
+}
+
+func (r *Repository) RawCount(count *int64, examID uint) error {
+	return r.db.Raw("SELECT COUNT(*) FROM written_exam_results WHERE written_exam_id = ?", examID).Scan(count).Error
+}
+
+func (r *Repository) RawDeletedCount(count *int64, examID uint) error {
+	return r.db.Raw("SELECT COUNT(*) FROM written_exam_results WHERE written_exam_id = ? AND deleted_at IS NOT NULL", examID).Scan(count).Error
+}
+
+func (r *Repository) RawFullCount(count *int64, examID uint) error {
+	return r.db.Raw("SELECT COUNT(*) FROM written_exam_results WHERE written_exam_id = ? AND deleted_at IS NULL", examID).Scan(count).Error
+}
+
 func (r *Repository) GetWrittenExamResults(examID uint) ([]WrittenExamResult, error) {
 	var results []WrittenExamResult
 	if err := r.db.Where("written_exam_id = ?", examID).Order("id asc").Find(&results).Error; err != nil {
+		log.Printf("GetWrittenExamResults error for exam=%d: %v", examID, err)
 		return nil, err
 	}
+	log.Printf("GetWrittenExamResults: exam=%d count=%d", examID, len(results))
 	return results, nil
 }
 
@@ -868,6 +887,31 @@ func (r *Repository) DeleteWrittenExamResult(id, examID uint) error {
 	return nil
 }
 
+func (r *Repository) GetApplicationsByScholarship(scholarshipID uint) ([]ProviderApplication, error) {
+	var apps []ProviderApplication
+	if err := r.db.Where("scholarship_id = ?", scholarshipID).Find(&apps).Error; err != nil {
+		return nil, err
+	}
+	return apps, nil
+}
+
+func (r *Repository) BulkUpsertWrittenExamResults(results []WrittenExamResult) error {
+	for _, result := range results {
+		err := r.db.Exec(`
+			INSERT INTO written_exam_results
+				(written_exam_id, application_id, marks_obtained, remarks, created_at, updated_at, deleted_at)
+			VALUES (?, ?, ?, '', NOW(), NOW(), NULL)
+			ON CONFLICT (written_exam_id, application_id)
+			DO UPDATE SET marks_obtained = EXCLUDED.marks_obtained,
+			              updated_at = NOW(),
+			              deleted_at = NULL
+		`, result.WrittenExamID, result.ApplicationID, result.MarksObtained).Error
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 func (r *Repository) CreateAccess(access *ProviderAccess) error {
 	return r.db.Create(access).Error

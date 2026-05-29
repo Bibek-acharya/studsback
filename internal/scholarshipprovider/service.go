@@ -2204,6 +2204,89 @@ func (s *Service) DeleteWrittenExamResult(examID, resultID, providerID uint) err
 	return s.repo.DeleteWrittenExamResult(resultID, examID)
 }
 
+func normalizeRollNumber(roll string) string {
+	roll = strings.TrimSpace(roll)
+	parts := strings.Split(roll, "-")
+	return parts[len(parts)-1]
+}
+
+func (s *Service) BatchImportWrittenExamResults(examID, providerID uint, req BatchImportWrittenExamResultsRequest) (*BatchImportResponse, error) {
+	exam, err := s.repo.GetWrittenExamByIDAndProvider(examID, providerID)
+	if err != nil {
+		return nil, errors.New("exam not found")
+	}
+
+	apps, err := s.repo.GetApplicationsByScholarship(exam.ScholarshipID)
+	if err != nil {
+		return nil, err
+	}
+
+	appsByRoll := make(map[string]uint)
+	for _, app := range apps {
+		normalized := normalizeRollNumber(app.RollNumber)
+		if normalized != "" {
+			appsByRoll[normalized] = app.ID
+		}
+	}
+
+	// Build set of existing app IDs for this exam (for counting only, upsert handles the write)
+	existingResults, err := s.repo.GetWrittenExamResults(examID)
+	if err != nil {
+		return nil, err
+	}
+	existingAppIDs := make(map[uint]bool)
+	for _, r := range existingResults {
+		existingAppIDs[r.ApplicationID] = true
+	}
+
+	var toUpsert []WrittenExamResult
+	failed := make([]FailedRow, 0)
+	summary := BatchImportSummary{}
+
+	for _, item := range req.Results {
+		normalized := strings.TrimSpace(item.RollNumber)
+		appID, found := appsByRoll[normalized]
+		if !found {
+			failed = append(failed, FailedRow{
+				RollNumber: item.RollNumber,
+				Reason:     "Applicant not found",
+			})
+			summary.Skipped++
+			continue
+		}
+
+		toUpsert = append(toUpsert, WrittenExamResult{
+			WrittenExamID: examID,
+			ApplicationID: appID,
+			MarksObtained: item.Marks,
+		})
+
+		if existingAppIDs[appID] {
+			summary.Overwritten++
+		} else {
+			summary.Imported++
+		}
+	}
+
+	if len(toUpsert) > 0 {
+		// First clean up any soft-deleted ghost records for this exam
+		if err := s.repo.CleanupSoftDeletedResults(examID); err != nil {
+			log.Printf("Cleanup failed: %v", err)
+		}
+		if err := s.repo.BulkUpsertWrittenExamResults(toUpsert); err != nil {
+			log.Printf("BulkUpsert failed: %v", err)
+			return nil, err
+		}
+	}
+
+	log.Printf("BatchImport: exam=%d upserted=%d skipped=%d", examID, len(toUpsert), summary.Skipped)
+
+	return &BatchImportResponse{
+		Summary:    summary,
+		FailedRows: failed,
+	}, nil
+}
+
 func (s *Service) CreateResult(providerID uint, req CreateResultRequest) (*ProviderResult, error) {
 	status := "draft"
 	if req.Status != "" {

@@ -352,8 +352,8 @@ type WrittenExamResult struct {
 	CreatedAt     time.Time      `json:"created_at"`
 	UpdatedAt     time.Time      `json:"updated_at"`
 	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
-	WrittenExamID uint           `gorm:"index;not null" json:"written_exam_id"`
-	ApplicationID uint           `gorm:"index;not null" json:"application_id"`
+	WrittenExamID uint           `gorm:"uniqueIndex:idx_written_exam_result_exam_app;not null" json:"written_exam_id"`
+	ApplicationID uint           `gorm:"uniqueIndex:idx_written_exam_result_exam_app;not null" json:"application_id"`
 	MarksObtained int            `json:"marks_obtained"`
 	Remarks       string         `json:"remarks"`
 }

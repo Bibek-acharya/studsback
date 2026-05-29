@@ -180,6 +180,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			scholarshipProvider.POST("/written-exams/:id/results", h.AddWrittenExamResult)
 			scholarshipProvider.PUT("/written-exams/:id/results/:resultId", h.UpdateWrittenExamResult)
 			scholarshipProvider.DELETE("/written-exams/:id/results/:resultId", h.DeleteWrittenExamResult)
+			scholarshipProvider.POST("/written-exams/:id/results/batch-import", h.BatchImportWrittenExamResults)
 
 			scholarshipProvider.POST("/access", h.CreateAccess)
 			scholarshipProvider.GET("/access", h.GetAccess)

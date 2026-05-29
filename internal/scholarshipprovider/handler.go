@@ -1817,7 +1817,9 @@ func (h *Handler) GetWrittenExamByID(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, http.StatusOK, "Written exam retrieved successfully", toWrittenExamResponse(exam))
+	resp := toWrittenExamResponse(exam)
+	log.Printf("GetWrittenExamByID: exam=%d results_count=%d", exam.ID, len(exam.Results))
+	response.Success(c, http.StatusOK, "Written exam retrieved successfully", resp)
 }
 
 func (h *Handler) UpdateWrittenExam(c *gin.Context) {
@@ -1950,6 +1952,32 @@ func (h *Handler) DeleteWrittenExamResult(c *gin.Context) {
 	}
 
 	response.Success(c, http.StatusOK, "Result deleted successfully", nil)
+}
+
+func (h *Handler) BatchImportWrittenExamResults(c *gin.Context) {
+	providerID := getProviderID(c)
+	examIDStr := c.Param("id")
+
+	examID, err := strconv.ParseUint(examIDStr, 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid exam ID")
+		return
+	}
+
+	var req BatchImportWrittenExamResultsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	result, err := h.service.BatchImportWrittenExamResults(uint(examID), providerID, req)
+	if err != nil {
+		log.Printf("BatchImportWrittenExamResults error: %v", err)
+		response.Error(c, http.StatusInternalServerError, "Failed to import results")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Results imported successfully", result)
 }
 
 func (h *Handler) CreateResult(c *gin.Context) {

@@ -1147,3 +1147,28 @@ type CreateReviewRequest struct {
 	Cons       string `json:"cons"`
 	Status     string `json:"status"`
 }
+
+type BatchImportWrittenExamResultItem struct {
+	RollNumber string `json:"roll_number" binding:"required"`
+	Marks      int    `json:"marks" binding:"required"`
+}
+
+type BatchImportWrittenExamResultsRequest struct {
+	Results []BatchImportWrittenExamResultItem `json:"results" binding:"required"`
+}
+
+type FailedRow struct {
+	RollNumber string `json:"roll_number"`
+	Reason     string `json:"reason"`
+}
+
+type BatchImportSummary struct {
+	Imported    int `json:"imported"`
+	Overwritten int `json:"overwritten"`
+	Skipped     int `json:"skipped"`
+}
+
+type BatchImportResponse struct {
+	Summary    BatchImportSummary `json:"summary"`
+	FailedRows []FailedRow        `json:"failed_rows"`
+}
