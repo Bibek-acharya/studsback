@@ -2207,7 +2207,13 @@ func (s *Service) DeleteWrittenExamResult(examID, resultID, providerID uint) err
 func normalizeRollNumber(roll string) string {
 	roll = strings.TrimSpace(roll)
 	parts := strings.Split(roll, "-")
-	return parts[len(parts)-1]
+	last := parts[len(parts)-1]
+	// strip leading zeros for numeric comparison
+	last = strings.TrimLeft(last, "0")
+	if last == "" {
+		return "0"
+	}
+	return last
 }
 
 func (s *Service) BatchImportWrittenExamResults(examID, providerID uint, req BatchImportWrittenExamResultsRequest) (*BatchImportResponse, error) {
@@ -2244,7 +2250,7 @@ func (s *Service) BatchImportWrittenExamResults(examID, providerID uint, req Bat
 	summary := BatchImportSummary{}
 
 	for _, item := range req.Results {
-		normalized := strings.TrimSpace(item.RollNumber)
+		normalized := normalizeRollNumber(item.RollNumber)
 		appID, found := appsByRoll[normalized]
 		if !found {
 			failed = append(failed, FailedRow{
