@@ -826,6 +826,54 @@ func (r *Repository) CheckStudentResult(scholarshipID uint, rollNumber string) (
 	return result, nil
 }
 
+func (r *Repository) GetWrittenExamResultsFiltered(examID uint, filters map[string]interface{}, page, limit int, sortBy, sortOrder string) ([]WrittenExamResult, int64, error) {
+	query := r.db.Table("written_exam_results").
+		Joins("JOIN provider_applications ON provider_applications.id = written_exam_results.application_id").
+		Where("written_exam_results.written_exam_id = ?", examID)
+
+	if v, ok := filters["marks_min"]; ok {
+		query = query.Where("written_exam_results.marks_obtained >= ?", v)
+	}
+	if v, ok := filters["marks_max"]; ok {
+		query = query.Where("written_exam_results.marks_obtained <= ?", v)
+	}
+	if v, ok := filters["school_type"]; ok && v != "" {
+		query = query.Where("provider_applications.school_type = ?", v)
+	}
+	if v, ok := filters["gender"]; ok && v != "" {
+		query = query.Where("provider_applications.gender = ?", v)
+	}
+	if v, ok := filters["exam_center"]; ok && v != "" {
+		query = query.Where("provider_applications.exam_center = ?", v)
+	}
+	if v, ok := filters["search"]; ok && v != "" {
+		searchTerm := "%" + strings.ToLower(v.(string)) + "%"
+		query = query.Where("(LOWER(COALESCE(provider_applications.full_name,'') || ' ' || COALESCE(provider_applications.first_name,'') || ' ' || COALESCE(provider_applications.last_name,'')) LIKE ? OR LOWER(provider_applications.roll_number) LIKE ?)", searchTerm, searchTerm)
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	orderClause := "written_exam_results.id ASC"
+	if sortBy == "marks_obtained" {
+		if sortOrder == "desc" {
+			orderClause = "written_exam_results.marks_obtained DESC"
+		} else {
+			orderClause = "written_exam_results.marks_obtained ASC"
+		}
+	}
+
+	var results []WrittenExamResult
+	offset := (page - 1) * limit
+	if err := query.Select("written_exam_results.*").Order(orderClause).Offset(offset).Limit(limit).Find(&results).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return results, total, nil
+}
+
 func (r *Repository) CreateWrittenExam(exam *WrittenExam) error {
 	return r.db.Create(exam).Error
 }

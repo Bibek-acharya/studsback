@@ -1180,3 +1180,8 @@ type BatchImportResponse struct {
 	Summary    BatchImportSummary `json:"summary"`
 	FailedRows []FailedRow        `json:"failed_rows"`
 }
+
+type PaginatedWrittenExamResultsResponse struct {
+	Results []WrittenExamResultResponse `json:"results"`
+	Meta    PaginationMeta              `json:"meta"`
+}

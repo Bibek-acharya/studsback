@@ -1964,6 +1964,73 @@ func (h *Handler) DeleteWrittenExamResult(c *gin.Context) {
 	response.Success(c, http.StatusOK, "Result deleted successfully", nil)
 }
 
+func (h *Handler) GetWrittenExamResultsPaginated(c *gin.Context) {
+	providerID := getProviderID(c)
+	examIDStr := c.Param("id")
+
+	examID, err := strconv.ParseUint(examIDStr, 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid exam ID")
+		return
+	}
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	sortBy := c.DefaultQuery("sort_by", "id")
+	sortOrder := c.DefaultQuery("sort_order", "asc")
+	marksMin := c.Query("marks_min")
+	marksMax := c.Query("marks_max")
+	schoolType := c.Query("school_type")
+	gender := c.Query("gender")
+	examCenter := c.Query("exam_center")
+	search := c.Query("search")
+
+	filters := make(map[string]interface{})
+	if search != "" {
+		filters["search"] = search
+	}
+	if marksMin != "" {
+		if v, err := strconv.Atoi(marksMin); err == nil {
+			filters["marks_min"] = v
+		}
+	}
+	if marksMax != "" {
+		if v, err := strconv.Atoi(marksMax); err == nil {
+			filters["marks_max"] = v
+		}
+	}
+	if schoolType != "" {
+		filters["school_type"] = schoolType
+	}
+	if gender != "" {
+		filters["gender"] = gender
+	}
+	if examCenter != "" {
+		filters["exam_center"] = examCenter
+	}
+
+	results, total, err := h.service.GetWrittenExamResultsFiltered(uint(examID), providerID, filters, page, limit, sortBy, sortOrder)
+	if err != nil {
+		log.Printf("GetWrittenExamResultsPaginated error: %v", err)
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch results")
+		return
+	}
+
+	responses := make([]WrittenExamResultResponse, len(results))
+	for i, r := range results {
+		responses[i] = toWrittenExamResultResponse(&r)
+	}
+
+	response.Success(c, http.StatusOK, "Results retrieved successfully", PaginatedWrittenExamResultsResponse{
+		Results: responses,
+		Meta: PaginationMeta{
+			Total: total,
+			Page:  page,
+			Limit: limit,
+		},
+	})
+}
+
 func (h *Handler) BatchImportWrittenExamResults(c *gin.Context) {
 	providerID := getProviderID(c)
 	examIDStr := c.Param("id")
