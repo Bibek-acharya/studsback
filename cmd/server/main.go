@@ -422,6 +422,24 @@ func fixMissingColumns(db *gorm.DB) error {
 	if err := db.Exec(`ALTER TABLE institution_users ADD COLUMN IF NOT EXISTS contact_phone TEXT DEFAULT ''`).Error; err != nil {
 		return err
 	}
+	if err := db.Exec(`ALTER TABLE institution_users ADD COLUMN IF NOT EXISTS map_url TEXT DEFAULT ''`).Error; err != nil {
+		return err
+	}
+	if err := db.Exec(`ALTER TABLE institution_users ADD COLUMN IF NOT EXISTS facebook_url TEXT DEFAULT ''`).Error; err != nil {
+		return err
+	}
+	if err := db.Exec(`ALTER TABLE institution_users ADD COLUMN IF NOT EXISTS instagram_url TEXT DEFAULT ''`).Error; err != nil {
+		return err
+	}
+	if err := db.Exec(`ALTER TABLE institution_users ADD COLUMN IF NOT EXISTS tiktok_url TEXT DEFAULT ''`).Error; err != nil {
+		return err
+	}
+	if err := db.Exec(`ALTER TABLE institution_users ADD COLUMN IF NOT EXISTS youtube_url TEXT DEFAULT ''`).Error; err != nil {
+		return err
+	}
+	if err := db.Exec(`ALTER TABLE institution_users ADD COLUMN IF NOT EXISTS linkedin_url TEXT DEFAULT ''`).Error; err != nil {
+		return err
+	}
 	// Fix missing columns for scholarship_provider_users
 	if err := db.Exec(`ALTER TABLE scholarship_provider_users ADD COLUMN IF NOT EXISTS about_text TEXT DEFAULT ''`).Error; err != nil {
 		return err

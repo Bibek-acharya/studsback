@@ -350,6 +350,11 @@ type CreateMessageRequest struct {
 	Content string `json:"content" binding:"required"`
 }
 
+type CreateInquiryRequest struct {
+	Subject string `json:"subject" binding:"required"`
+	Content string `json:"content" binding:"required"`
+}
+
 type MessageResponse struct {
 	ID            uint   `json:"id"`
 	CreatedAt     string `json:"created_at"`
@@ -416,20 +421,29 @@ type ProgramDataItem struct {
 type FacilityDataItem struct {
 	Heading      string `json:"heading"`
 	FacilityIcon string `json:"facilityIcon"`
+	Icon         string `json:"icon"`
 	Description  string `json:"description"`
+	Desc         string `json:"desc"`
 }
 
 type CourseDataItem struct {
 	CourseName      string `json:"courseName"`
+	Name            string `json:"name"`
 	CurriculumLink  string `json:"curriculumLink"`
 	FeesText        string `json:"feesText"`
+	Fees            string `json:"fees"`
+	Duration        string `json:"duration"`
+	Eligibility     string `json:"eligibility"`
 	ApplicationDate string `json:"applicationDate"`
 	ApplyLink       string `json:"applyLink"`
 }
 
 type DownloadDataItem struct {
 	Title       string `json:"title"`
+	Name        string `json:"name"`
 	Description string `json:"description"`
+	File        string `json:"file"`
+	Size        string `json:"size"`
 }
 
 type FaqDataItem struct {
@@ -518,6 +532,12 @@ type UpdateProfileRequest struct {
 	Website              string                `json:"website"`
 	ContactEmail         string                `json:"contact_email"`
 	ContactPhone         string                `json:"contact_phone"`
+	MapURL               string                `json:"map_url"`
+	FacebookURL          string                `json:"facebook_url"`
+	InstagramURL         string                `json:"instagram_url"`
+	TiktokURL            string                `json:"tiktok_url"`
+	YoutubeURL           string                `json:"youtube_url"`
+	LinkedinURL          string                `json:"linkedin_url"`
 	LogoURL              string                `json:"logo_url"`
 	BannerURL            string                `json:"banner_url"`
 	About                string                `json:"about"`
@@ -552,6 +572,12 @@ type ProfileResponse struct {
 	Website               string                `json:"website,omitempty"`
 	ContactEmail          string                `json:"contact_email,omitempty"`
 	ContactPhone          string                `json:"contact_phone,omitempty"`
+	MapURL                string                `json:"map_url,omitempty"`
+	FacebookURL           string                `json:"facebook_url,omitempty"`
+	InstagramURL          string                `json:"instagram_url,omitempty"`
+	TiktokURL             string                `json:"tiktok_url,omitempty"`
+	YoutubeURL            string                `json:"youtube_url,omitempty"`
+	LinkedinURL           string                `json:"linkedin_url,omitempty"`
 	LogoURL               string                `json:"logo_url,omitempty"`
 	BannerURL             string                `json:"banner_url,omitempty"`
 	About                 string                `json:"about,omitempty"`
@@ -719,26 +745,40 @@ type PublicInstitutionResponse struct {
 }
 
 type PublicInstitutionDetailResponse struct {
-	ID                 uint                `json:"id"`
-	InstitutionName    string              `json:"institution_name"`
-	Claimed            bool                `json:"claimed"`
-	Featured           bool                `json:"featured"`
-	LogoURL            string              `json:"logo_url,omitempty"`
-	BannerURL          string              `json:"banner_url,omitempty"`
-	About              string              `json:"about,omitempty"`
-	Vision             string              `json:"vision,omitempty"`
-	Mission            string              `json:"mission,omitempty"`
-	District           string              `json:"district,omitempty"`
-	WebsiteURL         string              `json:"website_url,omitempty"`
-	Videos             interface{}         `json:"videos,omitempty"`
-	OverviewData       interface{}         `json:"overview_data,omitempty"`
-	LeadershipData     interface{}         `json:"leadership_data,omitempty"`
-	CoursesData        []CourseDataItem    `json:"courses_data,omitempty"`
-	ProgramsData       []ProgramDataItem   `json:"programs_data,omitempty"`
-	FacilitiesData     []FacilityDataItem  `json:"facilities_data,omitempty"`
-	AlumniData         interface{}         `json:"alumni_data,omitempty"`
-	GalleryData        interface{}         `json:"gallery_data,omitempty"`
-	DownloadsData      []DownloadDataItem  `json:"downloads_data,omitempty"`
+	ID                   uint                `json:"id"`
+	InstitutionName      string              `json:"institution_name"`
+	Claimed              bool                `json:"claimed"`
+	Featured             bool                `json:"featured"`
+	LogoURL              string              `json:"logo_url,omitempty"`
+	BannerURL            string              `json:"banner_url,omitempty"`
+	About                string              `json:"about,omitempty"`
+	Vision               string              `json:"vision,omitempty"`
+	Mission              string              `json:"mission,omitempty"`
+	District             string              `json:"district,omitempty"`
+	WebsiteURL           string              `json:"website_url,omitempty"`
+	Videos               interface{}         `json:"videos,omitempty"`
+	OverviewData         interface{}         `json:"overview_data,omitempty"`
+	LeadershipData       interface{}         `json:"leadership_data,omitempty"`
+	CoursesData          []CourseDataItem    `json:"courses_data,omitempty"`
+	ProgramsData         []ProgramDataItem   `json:"programs_data,omitempty"`
+	FacilitiesData       []FacilityDataItem  `json:"facilities_data,omitempty"`
+	AlumniData           interface{}         `json:"alumni_data,omitempty"`
+	GalleryData          interface{}         `json:"gallery_data,omitempty"`
+	DownloadsData        []DownloadDataItem  `json:"downloads_data,omitempty"`
+	InstitutionPrograms  []ProgramResponse   `json:"institution_programs,omitempty"`
+	InstitutionEvents    []EventResponse     `json:"institution_events,omitempty"`
+	InstitutionNews      []NewsResponse      `json:"institution_news,omitempty"`
+	InstitutionScholarships []ScholarshipResponse `json:"institution_scholarships,omitempty"`
+	AdmissionPageData    json.RawMessage     `json:"admission_page_data,omitempty"`
+	ContactEmail         string              `json:"contact_email,omitempty"`
+	ContactPhone         string              `json:"contact_phone,omitempty"`
+	MapURL               string              `json:"map_url,omitempty"`
+	FacebookURL          string              `json:"facebook_url,omitempty"`
+	InstagramURL         string              `json:"instagram_url,omitempty"`
+	TiktokURL            string              `json:"tiktok_url,omitempty"`
+	YoutubeURL           string              `json:"youtube_url,omitempty"`
+	LinkedinURL          string              `json:"linkedin_url,omitempty"`
+	BrochureData         *BrochureData        `json:"brochure_data,omitempty"`
 }
 
 // --- Admission Page DTOs ---

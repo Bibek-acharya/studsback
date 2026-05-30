@@ -218,6 +218,12 @@ type InstitutionUser struct {
 	CollegeID          uint           `gorm:"default:0" json:"college_id"`
 	ContactEmail       string         `gorm:"default:''" json:"contact_email"`
 	ContactPhone       string         `gorm:"default:''" json:"contact_phone"`
+	MapURL             string         `gorm:"default:''" json:"map_url"`
+	FacebookURL        string         `gorm:"default:''" json:"facebook_url"`
+	InstagramURL       string         `gorm:"default:''" json:"instagram_url"`
+	TiktokURL          string         `gorm:"default:''" json:"tiktok_url"`
+	YoutubeURL         string         `gorm:"default:''" json:"youtube_url"`
+	LinkedinURL        string         `gorm:"default:''" json:"linkedin_url"`
 	ProfileData        *string        `gorm:"type:jsonb;default:'{}'" json:"profile_data"`
 	Featured           bool           `gorm:"default:false" json:"featured"`
 }

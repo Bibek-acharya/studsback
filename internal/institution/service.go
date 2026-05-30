@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"studsphere/backend/internal/shared/utils"
 	"studsphere/backend/internal/system"
 )
 
@@ -120,6 +121,12 @@ func (s *Service) GetProfile(instID uint) (*ProfileResponse, error) {
 		Website:               user.WebsiteURL,
 		ContactEmail:          user.ContactEmail,
 		ContactPhone:          user.ContactPhone,
+		MapURL:                user.MapURL,
+		FacebookURL:           user.FacebookURL,
+		InstagramURL:          user.InstagramURL,
+		TiktokURL:             user.TiktokURL,
+		YoutubeURL:            user.YoutubeURL,
+		LinkedinURL:           user.LinkedinURL,
 		LogoURL:               user.LogoURL,
 		BannerURL:             user.BannerURL,
 		About:                 user.About,
@@ -163,10 +170,26 @@ func (s *Service) UpdateProfile(instID uint, req UpdateProfileRequest) (*Profile
 		user.WebsiteURL = req.Website
 	}
 	if req.LogoURL != "" {
-		user.LogoURL = req.LogoURL
+		if utils.IsDataURI(req.LogoURL) {
+			url, err := utils.SaveDataURI(req.LogoURL, "institution/logo")
+			if err != nil {
+				return nil, fmt.Errorf("failed to save logo data URI: %w", err)
+			}
+			user.LogoURL = url
+		} else {
+			user.LogoURL = req.LogoURL
+		}
 	}
 	if req.BannerURL != "" {
-		user.BannerURL = req.BannerURL
+		if utils.IsDataURI(req.BannerURL) {
+			url, err := utils.SaveDataURI(req.BannerURL, "institution/banner")
+			if err != nil {
+				return nil, fmt.Errorf("failed to save banner data URI: %w", err)
+			}
+			user.BannerURL = url
+		} else {
+			user.BannerURL = req.BannerURL
+		}
 	}
 	if req.About != "" {
 		user.About = req.About
@@ -182,6 +205,24 @@ func (s *Service) UpdateProfile(instID uint, req UpdateProfileRequest) (*Profile
 	}
 	if req.ContactPhone != "" {
 		user.ContactPhone = req.ContactPhone
+	}
+	if req.MapURL != "" {
+		user.MapURL = req.MapURL
+	}
+	if req.FacebookURL != "" {
+		user.FacebookURL = req.FacebookURL
+	}
+	if req.InstagramURL != "" {
+		user.InstagramURL = req.InstagramURL
+	}
+	if req.TiktokURL != "" {
+		user.TiktokURL = req.TiktokURL
+	}
+	if req.YoutubeURL != "" {
+		user.YoutubeURL = req.YoutubeURL
+	}
+	if req.LinkedinURL != "" {
+		user.LinkedinURL = req.LinkedinURL
 	}
 	if req.Videos != nil || req.OverviewData != nil || req.LeadershipData != nil ||
 		req.CoursesData != nil || req.ProgramsData != nil || req.FacilitiesData != nil ||
@@ -990,6 +1031,20 @@ func (s *Service) CreateMessage(instID uint, req CreateMessageRequest) (*Institu
 	return message, nil
 }
 
+func (s *Service) CreateInquiry(instID uint, userID uint, req CreateInquiryRequest) (*InstitutionMessage, error) {
+	message := &InstitutionMessage{
+		InstitutionID: instID,
+		UserID:        userID,
+		Subject:       req.Subject,
+		Content:       req.Content,
+		Direction:     "inbound",
+	}
+	if err := s.repo.CreateMessage(message); err != nil {
+		return nil, err
+	}
+	return message, nil
+}
+
 func (s *Service) GetMessageStudents(instID uint) ([]StudentContact, error) {
 	messages, err := s.repo.FindAllMessagesByInstitution(instID)
 	if err != nil {
@@ -1721,26 +1776,137 @@ func (s *Service) GetPublicInstitution(id uint) (*PublicInstitutionDetailRespons
 		bannerURL = ""
 	}
 
+	programs, _ := s.repo.FindAllProgramsByInstitution(id)
+	programResponses := make([]ProgramResponse, 0, len(programs))
+	for _, p := range programs {
+		var data interface{}
+		if p.Data != nil {
+			json.Unmarshal([]byte(*p.Data), &data)
+		}
+		programResponses = append(programResponses, ProgramResponse{
+			ID:            p.ID,
+			CreatedAt:     p.CreatedAt.Format(time.RFC3339),
+			UpdatedAt:     p.UpdatedAt.Format(time.RFC3339),
+			InstitutionID: p.InstitutionID,
+			Name:          p.Name,
+			Description:   p.Description,
+			Duration:      p.Duration,
+			Fee:           p.Fee,
+			Eligibility:   p.Eligibility,
+			Capacity:      p.Capacity,
+			BannerURL:     p.BannerURL,
+			Data:          data,
+			Status:        p.Status,
+		})
+	}
+
+	events, _, _ := s.repo.FindEventsByInstitution(id, 1, 100)
+	eventResponses := make([]EventResponse, 0, len(events))
+	for _, e := range events {
+		if e.Status == "upcoming" || e.Status == "published" {
+			eventResponses = append(eventResponses, EventResponse{
+				ID:            e.ID,
+				CreatedAt:     e.CreatedAt.Format(time.RFC3339),
+				UpdatedAt:     e.UpdatedAt.Format(time.RFC3339),
+				InstitutionID: e.InstitutionID,
+				Title:         e.Title,
+				Description:   e.Description,
+				Date:          e.Date.Format("2006-01-02"),
+				Location:      e.Location,
+				Image:         e.Image,
+				Status:        e.Status,
+			})
+		}
+	}
+
+	newsList, _, _ := s.repo.FindNewsByInstitution(id, 1, 100)
+	newsResponses := make([]NewsResponse, 0, len(newsList))
+	for _, n := range newsList {
+		if n.Published {
+			newsResponses = append(newsResponses, NewsResponse{
+				ID:            n.ID,
+				CreatedAt:     n.CreatedAt.Format(time.RFC3339),
+				UpdatedAt:     n.UpdatedAt.Format(time.RFC3339),
+				InstitutionID: n.InstitutionID,
+				Title:         n.Title,
+				Content:       n.Content,
+				Excerpt:       n.Excerpt,
+				Image:         n.Image,
+				Category:      n.Category,
+				Published:     n.Published,
+			})
+		}
+	}
+
+	var scholarshipResponses []ScholarshipResponse
+	college, err := s.repo.FindCollegeByUniversityID(id)
+	if err == nil && college != nil {
+		scholarships, _ := s.repo.FindScholarshipsByLocation("%" + college.Name + "%")
+		scholarshipResponses = make([]ScholarshipResponse, 0, len(scholarships))
+		for _, sch := range scholarships {
+			var fos []string
+			if sch.FieldOfStudy != nil {
+				json.Unmarshal(sch.FieldOfStudy, &fos)
+			}
+			scholarshipResponses = append(scholarshipResponses, ScholarshipResponse{
+				ID:              sch.ID,
+				CreatedAt:       sch.CreatedAt.Format(time.RFC3339),
+				UpdatedAt:       sch.UpdatedAt.Format(time.RFC3339),
+				Title:           sch.Title,
+				Provider:        sch.Provider,
+				Location:        sch.Location,
+				Value:           sch.Value,
+				Deadline:        sch.Deadline.Format("2006-01-02"),
+				DegreeLevel:     sch.DegreeLevel,
+				FundingType:     sch.FundingType,
+				ScholarshipType: sch.ScholarshipType,
+				Description:     sch.Description,
+				ImageURL:        sch.ImageURL,
+				FieldOfStudy:    fos,
+			})
+		}
+	}
+
+	var admissionPageData json.RawMessage
+	admissionPage, err := s.repo.FindPublishedAdmissionByInstitutionID(id)
+	if err == nil && admissionPage != nil && admissionPage.Data != nil {
+		admissionPageData = json.RawMessage(*admissionPage.Data)
+	}
+
 	return &PublicInstitutionDetailResponse{
-		ID:              user.ID,
-		InstitutionName: user.InstitutionName,
-		Claimed:         user.Claimed,
-		Featured:        user.Featured,
-		LogoURL:         logoURL,
-		BannerURL:       bannerURL,
-		About:           user.About,
-		Vision:          user.Vision,
-		Mission:         user.Mission,
-		District:        user.District,
-		WebsiteURL:      user.WebsiteURL,
-		Videos:          pd.Videos,
-		OverviewData:    pd.OverviewData,
-		LeadershipData:  pd.LeadershipData,
-		CoursesData:     pd.CoursesData,
-		ProgramsData:    pd.ProgramsData,
-		FacilitiesData:  pd.FacilitiesData,
-		AlumniData:      pd.AlumniData,
-		GalleryData:     pd.GalleryData,
-		DownloadsData:   pd.DownloadsData,
+		ID:                     user.ID,
+		InstitutionName:        user.InstitutionName,
+		Claimed:                user.Claimed,
+		Featured:               user.Featured,
+		LogoURL:                logoURL,
+		BannerURL:              bannerURL,
+		About:                  user.About,
+		Vision:                 user.Vision,
+		Mission:                user.Mission,
+		District:               user.District,
+		WebsiteURL:             user.WebsiteURL,
+		Videos:                 pd.Videos,
+		OverviewData:           pd.OverviewData,
+		LeadershipData:         pd.LeadershipData,
+		CoursesData:            pd.CoursesData,
+		ProgramsData:           pd.ProgramsData,
+		FacilitiesData:         pd.FacilitiesData,
+		AlumniData:             pd.AlumniData,
+		GalleryData:            pd.GalleryData,
+		DownloadsData:          pd.DownloadsData,
+		InstitutionPrograms:    programResponses,
+		InstitutionEvents:      eventResponses,
+		InstitutionNews:        newsResponses,
+		InstitutionScholarships: scholarshipResponses,
+		AdmissionPageData:      admissionPageData,
+		ContactEmail:           user.ContactEmail,
+		ContactPhone:           user.ContactPhone,
+		MapURL:                 user.MapURL,
+		FacebookURL:            user.FacebookURL,
+		InstagramURL:           user.InstagramURL,
+		TiktokURL:              user.TiktokURL,
+		YoutubeURL:             user.YoutubeURL,
+		LinkedinURL:            user.LinkedinURL,
+		BrochureData:           pd.BrochureData,
 	}, nil
 }

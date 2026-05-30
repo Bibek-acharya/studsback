@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"encoding/base64"
 	"fmt"
 	"io"
 	"mime"
@@ -181,4 +182,67 @@ func ReadLatestUploadedImage(folder string) ([]byte, string, error) {
 	}
 
 	return data, ct, nil
+}
+
+func IsDataURI(s string) bool {
+	return strings.HasPrefix(s, "data:")
+}
+
+func SaveDataURI(dataURI string, folder string) (string, error) {
+	if !IsDataURI(dataURI) {
+		return "", fmt.Errorf("not a data URI")
+	}
+
+	cleanFolder, err := sanitizeUploadFolder(folder)
+	if err != nil {
+		return "", err
+	}
+
+	parts := strings.SplitN(dataURI, ",", 2)
+	if len(parts) != 2 {
+		return "", fmt.Errorf("invalid data URI format")
+	}
+
+	header := parts[0]
+	data := parts[1]
+
+	var contentType string
+	if strings.Contains(header, ";") {
+		headerParts := strings.SplitN(header, ";", 2)
+		contentType = strings.TrimPrefix(headerParts[0], "data:")
+	} else {
+		contentType = strings.TrimPrefix(header, "data:")
+	}
+	if contentType == "" {
+		contentType = "image/png"
+	}
+
+	raw, err := base64.StdEncoding.DecodeString(data)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode base64 data: %w", err)
+	}
+
+	ext := ""
+	switch contentType {
+	case "image/png":
+		ext = ".png"
+	case "image/jpeg":
+		ext = ".jpg"
+	case "image/gif":
+		ext = ".gif"
+	case "image/webp":
+		ext = ".webp"
+	case "image/svg+xml":
+		ext = ".svg"
+	default:
+		ext = ".png"
+	}
+
+	filename := fmt.Sprintf("%d%s", time.Now().UnixNano(), ext)
+
+	if err := storage.UploadBytes(cleanFolder+"/"+filename, raw, contentType); err != nil {
+		return "", fmt.Errorf("failed to upload data URI to MinIO: %w", err)
+	}
+
+	return "/uploads/" + cleanFolder + "/" + filename, nil
 }

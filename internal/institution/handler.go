@@ -1010,6 +1010,35 @@ func (h *Handler) CreateMessage(c *gin.Context) {
 	response.Success(c, http.StatusCreated, "Message sent successfully", toMessageResponse(*message))
 }
 
+func (h *Handler) CreateInquiry(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid institution ID")
+		return
+	}
+
+	userID, exists := c.Get("user_id")
+	if !exists {
+		response.Error(c, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+
+	var req CreateInquiryRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	message, err := h.service.CreateInquiry(uint(id), userID.(uint), req)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to send inquiry")
+		return
+	}
+
+	response.Success(c, http.StatusCreated, "Inquiry sent successfully", toMessageResponse(*message))
+}
+
 func (h *Handler) GetMessageStudents(c *gin.Context) {
 	instID := getInstID(c)
 

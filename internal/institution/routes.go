@@ -24,6 +24,13 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			publicBooking.POST("/counselling/sessions/book", h.CreatePublicCounsellingBooking)
 		}
 
+		// Public inquiry (auth only, no role check)
+		publicInquiry := v1.Group("")
+		publicInquiry.Use(authMW)
+		{
+			publicInquiry.POST("/institutions/:id/inquiry", h.CreateInquiry)
+		}
+
 		institution := v1.Group("/institution")
 		institution.Use(authMW)
 		institution.Use(roleMW)
