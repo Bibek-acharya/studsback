@@ -1494,6 +1494,7 @@ func (s *Service) GetPublishedAdmissionInstitutions(page, limit int, level strin
 		website, _ := row["website"].(string)
 		affiliation, _ := row["affiliation"].(string)
 		verified, _ := row["verified"].(bool)
+		heroBanner, _ := row["hero_banner"].(string)
 
 		featuredPrograms := []FeaturedProgramItem{}
 		if fp, ok := row["featured_programs"]; ok && fp != nil {
@@ -1533,6 +1534,7 @@ func (s *Service) GetPublishedAdmissionInstitutions(page, limit int, level strin
 			Verified:         verified,
 			FeaturedPrograms: featuredPrograms,
 			Programs:         0,
+			HeroBanner:       heroBanner,
 		}
 	}
 

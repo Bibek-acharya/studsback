@@ -848,6 +848,7 @@ type PublishedAdmissionInstitutionItem struct {
 	Programs         int                   `json:"programs"`
 	ContactEmail     string                `json:"contact_email,omitempty"`
 	ContactPhone     string                `json:"contact_phone,omitempty"`
+	HeroBanner       string                `json:"hero_banner,omitempty"`
 }
 
 type PublishedAdmissionInstitutionListResponse struct {
