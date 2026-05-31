@@ -446,6 +446,14 @@ type DownloadDataItem struct {
 	Size        string `json:"size"`
 }
 
+type AlumniDataItem struct {
+	Photo    string `json:"photo"`
+	Name     string `json:"name"`
+	Job      string `json:"job"`
+	Batch    string `json:"batch"`
+	Linkedin string `json:"linkedin"`
+}
+
 type FaqDataItem struct {
 	Question string `json:"question"`
 	Answer   string `json:"answer"`
@@ -513,7 +521,7 @@ type ProfileData struct {
 	CoursesData         []CourseDataItem       `json:"courses_data"`
 	ProgramsData        []ProgramDataItem      `json:"programs_data"`
 	FacilitiesData      []FacilityDataItem     `json:"facilities_data"`
-	AlumniData          interface{}            `json:"alumni_data"`
+	AlumniData          []AlumniDataItem      `json:"alumni_data"`
 	DownloadsData       []DownloadDataItem     `json:"downloads_data"`
 	GalleryData         interface{}            `json:"gallery_data"`
 	WhatsNewData        *WhatsNewData          `json:"whats_new_data"`
@@ -549,7 +557,7 @@ type UpdateProfileRequest struct {
 	CoursesData          []CourseDataItem      `json:"courses_data"`
 	ProgramsData         []ProgramDataItem     `json:"programs_data"`
 	FacilitiesData       []FacilityDataItem    `json:"facilities_data"`
-	AlumniData           interface{}           `json:"alumni_data"`
+	AlumniData           []AlumniDataItem      `json:"alumni_data"`
 	DownloadsData        []DownloadDataItem    `json:"downloads_data"`
 	GalleryData          interface{}           `json:"gallery_data"`
 	WhatsNewData         *WhatsNewData         `json:"whats_new_data"`
