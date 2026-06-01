@@ -745,6 +745,7 @@ type PublicInstitutionResponse struct {
 	InstitutionName string `json:"institution_name"`
 	Verified        bool   `json:"verified"`
 	Claimed         bool   `json:"claimed"`
+	Affiliation     string `json:"affiliation,omitempty"`
 	LogoURL         string `json:"logo_url,omitempty"`
 	BannerURL       string `json:"banner_url,omitempty"`
 	About           string `json:"about,omitempty"`

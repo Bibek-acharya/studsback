@@ -1748,6 +1748,7 @@ func (s *Service) ListPublicInstitutions(page, limit int, search, location strin
 			InstitutionName: u.InstitutionName,
 			Verified:        u.Verified,
 			Claimed:         u.Claimed,
+			Affiliation:     u.Affiliation,
 			LogoURL:         logoURL,
 			BannerURL:       bannerURL,
 			About:           u.About,
