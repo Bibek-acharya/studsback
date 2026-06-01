@@ -622,6 +622,7 @@ func (s *Service) CreateInstitution(req CreateInstitutionRequest) (*InstitutionU
 		Status:             "approved",
 		Level:              req.Level,
 		Affiliation:        req.Affiliation,
+		Verified:           false,
 		Claimed:            false,
 		District:           req.Location,
 		WebsiteURL:         req.Website,
