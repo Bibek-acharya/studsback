@@ -1746,6 +1746,8 @@ func (s *Service) ListPublicInstitutions(page, limit int, search, location strin
 		results[i] = PublicInstitutionResponse{
 			ID:              u.ID,
 			InstitutionName: u.InstitutionName,
+			Verified:        u.Verified,
+			Claimed:         u.Claimed,
 			LogoURL:         logoURL,
 			BannerURL:       bannerURL,
 			About:           u.About,
