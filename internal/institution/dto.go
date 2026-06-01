@@ -755,6 +755,7 @@ type PublicInstitutionResponse struct {
 type PublicInstitutionDetailResponse struct {
 	ID                   uint                `json:"id"`
 	InstitutionName      string              `json:"institution_name"`
+	Verified             bool                `json:"verified"`
 	Claimed              bool                `json:"claimed"`
 	Featured             bool                `json:"featured"`
 	LogoURL              string              `json:"logo_url,omitempty"`

@@ -215,6 +215,7 @@ type InstitutionUser struct {
 	Vision             string         `gorm:"type:text" json:"vision"`
 	Mission            string         `gorm:"type:text" json:"mission"`
 	Claimed            bool           `gorm:"default:false" json:"claimed"`
+	Verified           bool           `gorm:"default:false" json:"verified"`
 	CollegeID          uint           `gorm:"default:0" json:"college_id"`
 	ContactEmail       string         `gorm:"default:''" json:"contact_email"`
 	ContactPhone       string         `gorm:"default:''" json:"contact_phone"`
