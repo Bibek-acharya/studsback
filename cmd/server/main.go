@@ -19,6 +19,7 @@ import (
 	"studsphere/backend/internal/counselling"
 	"studsphere/backend/internal/education"
 	"studsphere/backend/internal/emailqueue"
+	"studsphere/backend/internal/feedback"
 	"studsphere/backend/internal/forum"
 	"studsphere/backend/internal/institution"
 	"studsphere/backend/internal/projectshiksha"
@@ -146,6 +147,7 @@ func main() {
 		&system.CarouselSlide{},
 		&system.PublicNotification{},
 		&chat.SitePage{},
+		&feedback.Feedback{},
 	); err != nil {
 		logger.Fatal("Failed to migrate database", "error", err)
 	} else {
@@ -217,6 +219,8 @@ func main() {
 	educationRepo := education.NewRepository(db)
 	educationSvc := education.NewService(educationRepo, systemSvc)
 	educationHandler := education.NewHandler(educationSvc)
+
+	feedbackHandler := initModule(feedback.NewRepository(db), feedback.NewService, feedback.NewHandler)
 
 	forumHandler := initModule(forum.NewRepository(db), forum.NewService, forum.NewHandler)
 
@@ -359,6 +363,7 @@ func main() {
 	college.RegisterRoutes(router, authMW, roleMW, collegeHandler)
 	counselling.RegisterRoutes(router, authMW, roleMW, counsellingHandler)
 	education.RegisterRoutes(router, authMW, roleMW, educationHandler)
+	feedback.RegisterRoutes(router, authMW, roleMW, feedbackHandler)
 	forum.RegisterRoutes(router, authMW, roleMW, forumHandler)
 	institution.RegisterRoutes(router, authMW, roleMW, institutionHandler)
 	projectshiksha.RegisterRoutes(router, authMW, roleMW, projectShikshaHandler)
