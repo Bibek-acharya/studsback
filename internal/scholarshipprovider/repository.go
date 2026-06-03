@@ -874,6 +874,48 @@ func (r *Repository) GetWrittenExamResultsFiltered(examID uint, filters map[stri
 	return results, total, nil
 }
 
+func (r *Repository) GetWrittenExamResultsFilteredAll(examID uint, filters map[string]interface{}, sortBy, sortOrder string) ([]WrittenExamResult, error) {
+	query := r.db.Table("written_exam_results").
+		Joins("JOIN provider_applications ON provider_applications.id = written_exam_results.application_id").
+		Where("written_exam_results.written_exam_id = ?", examID)
+
+	if v, ok := filters["marks_min"]; ok {
+		query = query.Where("written_exam_results.marks_obtained >= ?", v)
+	}
+	if v, ok := filters["marks_max"]; ok {
+		query = query.Where("written_exam_results.marks_obtained <= ?", v)
+	}
+	if v, ok := filters["school_type"]; ok && v != "" {
+		query = query.Where("provider_applications.school_type = ?", v)
+	}
+	if v, ok := filters["gender"]; ok && v != "" {
+		query = query.Where("provider_applications.gender = ?", v)
+	}
+	if v, ok := filters["exam_center"]; ok && v != "" {
+		query = query.Where("provider_applications.exam_center = ?", v)
+	}
+	if v, ok := filters["search"]; ok && v != "" {
+		searchTerm := "%" + strings.ToLower(v.(string)) + "%"
+		query = query.Where("(LOWER(COALESCE(provider_applications.full_name,'') || ' ' || COALESCE(provider_applications.first_name,'') || ' ' || COALESCE(provider_applications.last_name,'')) LIKE ? OR LOWER(provider_applications.roll_number) LIKE ?)", searchTerm, searchTerm)
+	}
+
+	orderClause := "written_exam_results.id ASC"
+	if sortBy == "marks_obtained" {
+		if sortOrder == "desc" {
+			orderClause = "written_exam_results.marks_obtained DESC"
+		} else {
+			orderClause = "written_exam_results.marks_obtained ASC"
+		}
+	}
+
+	var results []WrittenExamResult
+	if err := query.Select("written_exam_results.*").Order(orderClause).Find(&results).Error; err != nil {
+		return nil, err
+	}
+
+	return results, nil
+}
+
 func (r *Repository) CreateWrittenExam(exam *WrittenExam) error {
 	return r.db.Create(exam).Error
 }

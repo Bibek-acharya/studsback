@@ -2031,6 +2031,67 @@ func (h *Handler) GetWrittenExamResultsPaginated(c *gin.Context) {
 	})
 }
 
+func (h *Handler) ExportWrittenExamResults(c *gin.Context) {
+	providerID := getProviderID(c)
+	examIDStr := c.Param("id")
+
+	examID, err := strconv.ParseUint(examIDStr, 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid exam ID")
+		return
+	}
+
+	sortBy := c.DefaultQuery("sort_by", "id")
+	sortOrder := c.DefaultQuery("sort_order", "asc")
+	marksMin := c.Query("marks_min")
+	marksMax := c.Query("marks_max")
+	schoolType := c.Query("school_type")
+	gender := c.Query("gender")
+	examCenter := c.Query("exam_center")
+	search := c.Query("search")
+
+	filters := make(map[string]interface{})
+	if search != "" {
+		filters["search"] = search
+	}
+	if marksMin != "" {
+		if v, err := strconv.Atoi(marksMin); err == nil {
+			filters["marks_min"] = v
+		}
+	}
+	if marksMax != "" {
+		if v, err := strconv.Atoi(marksMax); err == nil {
+			filters["marks_max"] = v
+		}
+	}
+	if schoolType != "" {
+		filters["school_type"] = schoolType
+	}
+	if gender != "" {
+		filters["gender"] = gender
+	}
+	if examCenter != "" {
+		filters["exam_center"] = examCenter
+	}
+
+	results, err := h.service.ExportWrittenExamResultsFiltered(uint(examID), providerID, filters, sortBy, sortOrder)
+	if err != nil {
+		log.Printf("ExportWrittenExamResults error: %v", err)
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch results")
+		return
+	}
+
+	responses := make([]WrittenExamResultResponse, len(results))
+	for i, r := range results {
+		responses[i] = toWrittenExamResultResponse(&r)
+	}
+
+	response.Success(c, http.StatusOK, "Results exported successfully", gin.H{
+		"results": responses,
+		"total":   len(responses),
+	})
+}
+
 func (h *Handler) BatchImportWrittenExamResults(c *gin.Context) {
 	providerID := getProviderID(c)
 	examIDStr := c.Param("id")

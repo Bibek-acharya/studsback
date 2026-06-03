@@ -2139,6 +2139,19 @@ func (s *Service) GetWrittenExamResultsFiltered(examID, providerID uint, filters
 	return s.repo.GetWrittenExamResultsFiltered(examID, filters, page, limit, sortBy, sortOrder)
 }
 
+func (s *Service) ExportWrittenExamResultsFiltered(examID, providerID uint, filters map[string]interface{}, sortBy, sortOrder string) ([]WrittenExamResult, error) {
+	if _, err := s.repo.GetWrittenExamByIDAndProvider(examID, providerID); err != nil {
+		return nil, err
+	}
+	if sortBy == "" {
+		sortBy = "id"
+	}
+	if sortOrder == "" {
+		sortOrder = "asc"
+	}
+	return s.repo.GetWrittenExamResultsFilteredAll(examID, filters, sortBy, sortOrder)
+}
+
 func (s *Service) UpdateWrittenExam(providerID, id uint, req UpdateWrittenExamRequest) (*WrittenExam, error) {
 	exam, err := s.repo.GetWrittenExamByIDAndProvider(id, providerID)
 	if err != nil {
