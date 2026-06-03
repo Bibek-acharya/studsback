@@ -181,6 +181,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			scholarshipProvider.DELETE("/written-exams/:id", h.DeleteWrittenExam)
 			scholarshipProvider.GET("/written-exams/:id/results", h.GetWrittenExamResultsPaginated)
 			scholarshipProvider.GET("/written-exams/:id/results/export", h.ExportWrittenExamResults)
+			scholarshipProvider.GET("/written-exams/:id/filter-options", h.GetWrittenExamFilterOptions)
 			scholarshipProvider.POST("/written-exams/:id/results", h.AddWrittenExamResult)
 			scholarshipProvider.PUT("/written-exams/:id/results/:resultId", h.UpdateWrittenExamResult)
 			scholarshipProvider.DELETE("/written-exams/:id/results/:resultId", h.DeleteWrittenExamResult)

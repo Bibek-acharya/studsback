@@ -826,7 +826,7 @@ func (r *Repository) CheckStudentResult(scholarshipID uint, rollNumber string) (
 	return result, nil
 }
 
-func (r *Repository) GetWrittenExamResultsFiltered(examID uint, filters map[string]interface{}, page, limit int, sortBy, sortOrder string) ([]WrittenExamResult, int64, error) {
+func (r *Repository) GetWrittenExamResultsFiltered(examID uint, filters map[string]interface{}, page, limit int, sortBy, sortOrder string) ([]WrittenExamResultWithApp, int64, error) {
 	query := r.db.Table("written_exam_results").
 		Joins("JOIN provider_applications ON provider_applications.id = written_exam_results.application_id").
 		Where("written_exam_results.written_exam_id = ?", examID)
@@ -865,16 +865,17 @@ func (r *Repository) GetWrittenExamResultsFiltered(examID uint, filters map[stri
 		}
 	}
 
-	var results []WrittenExamResult
+	var results []WrittenExamResultWithApp
 	offset := (page - 1) * limit
-	if err := query.Select("written_exam_results.*").Order(orderClause).Offset(offset).Limit(limit).Find(&results).Error; err != nil {
+	selectCols := "written_exam_results.*, provider_applications.first_name as app_first_name, provider_applications.last_name as app_last_name, provider_applications.roll_number as app_roll_number, provider_applications.stream as app_stream, provider_applications.gender as app_gender, provider_applications.school_type as app_school_type, provider_applications.exam_center as app_exam_center, provider_applications.gpa as app_gpa"
+	if err := query.Select(selectCols).Order(orderClause).Offset(offset).Limit(limit).Find(&results).Error; err != nil {
 		return nil, 0, err
 	}
 
 	return results, total, nil
 }
 
-func (r *Repository) GetWrittenExamResultsFilteredAll(examID uint, filters map[string]interface{}, sortBy, sortOrder string) ([]WrittenExamResult, error) {
+func (r *Repository) GetWrittenExamResultsFilteredAll(examID uint, filters map[string]interface{}, sortBy, sortOrder string) ([]WrittenExamResultWithApp, error) {
 	query := r.db.Table("written_exam_results").
 		Joins("JOIN provider_applications ON provider_applications.id = written_exam_results.application_id").
 		Where("written_exam_results.written_exam_id = ?", examID)
@@ -908,12 +909,49 @@ func (r *Repository) GetWrittenExamResultsFilteredAll(examID uint, filters map[s
 		}
 	}
 
-	var results []WrittenExamResult
-	if err := query.Select("written_exam_results.*").Order(orderClause).Find(&results).Error; err != nil {
+	var results []WrittenExamResultWithApp
+	selectCols := "written_exam_results.*, provider_applications.first_name as app_first_name, provider_applications.last_name as app_last_name, provider_applications.roll_number as app_roll_number, provider_applications.stream as app_stream, provider_applications.gender as app_gender, provider_applications.school_type as app_school_type, provider_applications.exam_center as app_exam_center, provider_applications.gpa as app_gpa"
+	if err := query.Select(selectCols).Order(orderClause).Find(&results).Error; err != nil {
 		return nil, err
 	}
 
 	return results, nil
+}
+
+type WrittenExamFilterOptions struct {
+	SchoolTypes []string `json:"school_types"`
+	Genders     []string `json:"genders"`
+	ExamCenters []string `json:"exam_centers"`
+}
+
+func (r *Repository) GetWrittenExamFilterOptions(examID uint) (*WrittenExamFilterOptions, error) {
+	opts := &WrittenExamFilterOptions{}
+
+	if err := r.db.Table("written_exam_results").
+		Joins("JOIN provider_applications ON provider_applications.id = written_exam_results.application_id").
+		Where("written_exam_results.written_exam_id = ? AND provider_applications.school_type != ''", examID).
+		Distinct("provider_applications.school_type").
+		Pluck("provider_applications.school_type", &opts.SchoolTypes).Error; err != nil {
+		return nil, err
+	}
+
+	if err := r.db.Table("written_exam_results").
+		Joins("JOIN provider_applications ON provider_applications.id = written_exam_results.application_id").
+		Where("written_exam_results.written_exam_id = ? AND provider_applications.gender != ''", examID).
+		Distinct("provider_applications.gender").
+		Pluck("provider_applications.gender", &opts.Genders).Error; err != nil {
+		return nil, err
+	}
+
+	if err := r.db.Table("written_exam_results").
+		Joins("JOIN provider_applications ON provider_applications.id = written_exam_results.application_id").
+		Where("written_exam_results.written_exam_id = ? AND provider_applications.exam_center != ''", examID).
+		Distinct("provider_applications.exam_center").
+		Pluck("provider_applications.exam_center", &opts.ExamCenters).Error; err != nil {
+		return nil, err
+	}
+
+	return opts, nil
 }
 
 func (r *Repository) CreateWrittenExam(exam *WrittenExam) error {

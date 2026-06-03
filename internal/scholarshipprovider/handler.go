@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/xuri/excelize/v2"
@@ -1261,6 +1262,34 @@ func toWrittenExamResultResponse(r *WrittenExamResult) WrittenExamResultResponse
 	return resp
 }
 
+func toWrittenExamResultWithAppResponse(r *WrittenExamResultWithApp) WrittenExamResultResponse {
+	resp := WrittenExamResultResponse{
+		ID:                r.ID,
+		CreatedAt:         r.CreatedAt,
+		WrittenExamID:     r.WrittenExamID,
+		ApplicationID:     r.ApplicationID,
+		MarksObtained:     r.MarksObtained,
+		Remarks:           r.Remarks,
+		StudentName:       strings.TrimSpace(r.AppFirstName + " " + r.AppLastName),
+		Stream:            r.AppStream,
+		ExamCenter:        r.AppExamCenter,
+		RollNo:            r.AppRollNumber,
+		Gender:            r.AppGender,
+		SchoolType:        r.AppSchoolType,
+		GPA:               r.AppGPA,
+		InterviewLocation: r.InterviewLocation,
+		InterviewDate:     r.InterviewDate,
+		ReportingTime:     r.ReportingTime,
+	}
+	if len(r.RequiredDocuments) > 0 {
+		var docs []string
+		if err := json.Unmarshal(r.RequiredDocuments, &docs); err == nil {
+			resp.RequiredDocuments = docs
+		}
+	}
+	return resp
+}
+
 func toWrittenExamResponse(e *WrittenExam) WrittenExamResponse {
 	resp := WrittenExamResponse{
 		ID:            e.ID,
@@ -2018,7 +2047,7 @@ func (h *Handler) GetWrittenExamResultsPaginated(c *gin.Context) {
 
 	responses := make([]WrittenExamResultResponse, len(results))
 	for i, r := range results {
-		responses[i] = toWrittenExamResultResponse(&r)
+		responses[i] = toWrittenExamResultWithAppResponse(&r)
 	}
 
 	response.Success(c, http.StatusOK, "Results retrieved successfully", PaginatedWrittenExamResultsResponse{
@@ -2083,13 +2112,33 @@ func (h *Handler) ExportWrittenExamResults(c *gin.Context) {
 
 	responses := make([]WrittenExamResultResponse, len(results))
 	for i, r := range results {
-		responses[i] = toWrittenExamResultResponse(&r)
+		responses[i] = toWrittenExamResultWithAppResponse(&r)
 	}
 
 	response.Success(c, http.StatusOK, "Results exported successfully", gin.H{
 		"results": responses,
 		"total":   len(responses),
 	})
+}
+
+func (h *Handler) GetWrittenExamFilterOptions(c *gin.Context) {
+	providerID := getProviderID(c)
+	examIDStr := c.Param("id")
+
+	examID, err := strconv.ParseUint(examIDStr, 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid exam ID")
+		return
+	}
+
+	opts, err := h.service.GetWrittenExamFilterOptions(uint(examID), providerID)
+	if err != nil {
+		log.Printf("GetWrittenExamFilterOptions error: %v", err)
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch filter options")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Filter options retrieved successfully", opts)
 }
 
 func (h *Handler) BatchImportWrittenExamResults(c *gin.Context) {

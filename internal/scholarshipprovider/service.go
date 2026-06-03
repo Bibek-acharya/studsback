@@ -2120,7 +2120,7 @@ func (s *Service) GetWrittenExamByID(providerID, id uint) (*WrittenExam, error) 
 	return exam, nil
 }
 
-func (s *Service) GetWrittenExamResultsFiltered(examID, providerID uint, filters map[string]interface{}, page, limit int, sortBy, sortOrder string) ([]WrittenExamResult, int64, error) {
+func (s *Service) GetWrittenExamResultsFiltered(examID, providerID uint, filters map[string]interface{}, page, limit int, sortBy, sortOrder string) ([]WrittenExamResultWithApp, int64, error) {
 	if _, err := s.repo.GetWrittenExamByIDAndProvider(examID, providerID); err != nil {
 		return nil, 0, err
 	}
@@ -2139,7 +2139,7 @@ func (s *Service) GetWrittenExamResultsFiltered(examID, providerID uint, filters
 	return s.repo.GetWrittenExamResultsFiltered(examID, filters, page, limit, sortBy, sortOrder)
 }
 
-func (s *Service) ExportWrittenExamResultsFiltered(examID, providerID uint, filters map[string]interface{}, sortBy, sortOrder string) ([]WrittenExamResult, error) {
+func (s *Service) ExportWrittenExamResultsFiltered(examID, providerID uint, filters map[string]interface{}, sortBy, sortOrder string) ([]WrittenExamResultWithApp, error) {
 	if _, err := s.repo.GetWrittenExamByIDAndProvider(examID, providerID); err != nil {
 		return nil, err
 	}
@@ -2150,6 +2150,13 @@ func (s *Service) ExportWrittenExamResultsFiltered(examID, providerID uint, filt
 		sortOrder = "asc"
 	}
 	return s.repo.GetWrittenExamResultsFilteredAll(examID, filters, sortBy, sortOrder)
+}
+
+func (s *Service) GetWrittenExamFilterOptions(examID, providerID uint) (*WrittenExamFilterOptions, error) {
+	if _, err := s.repo.GetWrittenExamByIDAndProvider(examID, providerID); err != nil {
+		return nil, err
+	}
+	return s.repo.GetWrittenExamFilterOptions(examID)
 }
 
 func (s *Service) UpdateWrittenExam(providerID, id uint, req UpdateWrittenExamRequest) (*WrittenExam, error) {

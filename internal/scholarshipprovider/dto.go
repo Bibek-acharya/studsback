@@ -836,6 +836,9 @@ type WrittenExamResultResponse struct {
 	Stream             string    `json:"stream,omitempty"`
 	ExamCenter         string    `json:"exam_center,omitempty"`
 	RollNo             string    `json:"roll_no,omitempty"`
+	Gender             string    `json:"gender,omitempty"`
+	SchoolType         string    `json:"school_type,omitempty"`
+	GPA                float64   `json:"gpa,omitempty"`
 	InterviewLocation  string    `json:"interview_location,omitempty"`
 	InterviewDate      string    `json:"interview_date,omitempty"`
 	ReportingTime      string    `json:"reporting_time,omitempty"`

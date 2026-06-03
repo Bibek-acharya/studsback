@@ -362,6 +362,18 @@ type WrittenExamResult struct {
 	RequiredDocuments  []byte         `gorm:"type:jsonb" json:"required_documents,omitempty"`
 }
 
+type WrittenExamResultWithApp struct {
+	WrittenExamResult
+	AppFirstName  string  `gorm:"column:app_first_name"`
+	AppLastName   string  `gorm:"column:app_last_name"`
+	AppRollNumber string  `gorm:"column:app_roll_number"`
+	AppStream     string  `gorm:"column:app_stream"`
+	AppGender     string  `gorm:"column:app_gender"`
+	AppSchoolType string  `gorm:"column:app_school_type"`
+	AppExamCenter string  `gorm:"column:app_exam_center"`
+	AppGPA        float64 `gorm:"column:app_gpa"`
+}
+
 type ProviderAccess struct {
 	ID         uint           `gorm:"primarykey" json:"id"`
 	CreatedAt  time.Time      `json:"created_at"`
