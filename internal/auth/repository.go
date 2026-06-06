@@ -3,7 +3,9 @@ package auth
 import (
 	"errors"
 
+	"studsphere/backend/internal/college"
 	"studsphere/backend/internal/institution"
+
 	"gorm.io/gorm"
 )
 
@@ -58,6 +60,15 @@ func (r *Repository) FindInstitutionUserByEmail(email string) (*InstitutionUser,
 func (r *Repository) FindInstitutionUserByRegistrationNumber(reg string) (*InstitutionUser, error) {
 	var user InstitutionUser
 	err := r.db.Where("registration_number = ?", reg).First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (r *Repository) FindClaimedInstitutionByCollegeID(collegeID uint) (*InstitutionUser, error) {
+	var user InstitutionUser
+	err := r.db.Where("college_id = ? AND claimed = ?", collegeID, true).First(&user).Error
 	if err != nil {
 		return nil, err
 	}
@@ -308,4 +319,12 @@ func (r *Repository) FindInstitutionUsersByStatusAndCollegeID(status string, col
 
 func (r *Repository) UpdateCollegeClaimed(collegeID uint, claimed bool) error {
 	return r.db.Table("colleges").Where("id = ?", collegeID).Update("claimed", claimed).Error
+}
+
+func (r *Repository) FindCollegeByID(id uint) (*college.College, error) {
+	var c college.College
+	if err := r.db.First(&c, id).Error; err != nil {
+		return nil, err
+	}
+	return &c, nil
 }

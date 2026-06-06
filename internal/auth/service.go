@@ -173,6 +173,13 @@ func (s *Service) VerifyOTP(email, otp string) (*LoginResponse, error) {
 			return nil, errors.New("Failed to create institution account")
 		}
 
+		settings := institution.InstitutionSettings{
+			InstitutionID: institutionUser.ID,
+			PublicProfile: institutionUser.CollegeID > 0,
+			EmailNotifs:   true,
+		}
+		_ = s.repo.CreateInstitutionSettings(&settings)
+
 		return &LoginResponse{
 			User:  institutionUser,
 			Token: "",
@@ -824,6 +831,12 @@ func (s *Service) ApproveClaimRequest(institutionID uint) error {
 		return errors.New("Institution is already claimed")
 	}
 
+	if institution.CollegeID > 0 {
+		if existing, _ := s.repo.FindClaimedInstitutionByCollegeID(institution.CollegeID); existing != nil && existing.ID != institution.ID {
+			return errors.New("This college has already been claimed by another institution")
+		}
+	}
+
 	password, err := utils.GenerateRandomPassword(12)
 	if err != nil {
 		return errors.New("Failed to generate password")
@@ -831,6 +844,41 @@ func (s *Service) ApproveClaimRequest(institutionID uint) error {
 
 	if err := institution.HashPassword(password); err != nil {
 		return errors.New("Failed to hash password")
+	}
+
+	if institution.CollegeID > 0 {
+		if college, cerr := s.repo.FindCollegeByID(institution.CollegeID); cerr == nil {
+			if institution.InstitutionName == "" || institution.InstitutionName == college.Name {
+				institution.InstitutionName = college.Name
+			}
+			if institution.District == "" {
+				institution.District = college.Location
+			}
+			if institution.WebsiteURL == "" {
+				institution.WebsiteURL = college.Website
+			}
+			if institution.LogoURL == "" {
+				institution.LogoURL = college.ImageURL
+			}
+			if institution.About == "" {
+				institution.About = college.Description
+			}
+			if institution.Affiliation == "" {
+				institution.Affiliation = college.Affiliation
+			}
+			if institution.OrganizationType == "" {
+				institution.OrganizationType = college.CollegeType
+			}
+			if !institution.Verified {
+				institution.Verified = college.Verified
+			}
+			if institution.ContactEmail == "" {
+				institution.ContactEmail = college.Email
+			}
+			if institution.ContactPhone == "" {
+				institution.ContactPhone = college.Phone
+			}
+		}
 	}
 
 	institution.Claimed = true
@@ -873,6 +921,11 @@ func (s *Service) ClaimRegister(req ClaimRegisterRequest) (*RegisterResponse, er
 	}
 	if exists, _ := s.repo.FindInstitutionUserByRegistrationNumber(req.RegistrationNumber); exists != nil {
 		return nil, errors.New("Registration number already exists")
+	}
+	if req.CollegeID > 0 {
+		if claimed, _ := s.repo.FindClaimedInstitutionByCollegeID(req.CollegeID); claimed != nil {
+			return nil, errors.New("This college has already been claimed")
+		}
 	}
 
 	institutionUser := InstitutionUser{

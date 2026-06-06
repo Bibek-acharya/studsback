@@ -1837,3 +1837,13 @@ func toScholarshipApplicationResponse(a ScholarshipApplication) ScholarshipAppli
 		User:          userResp,
 	}
 }
+
+func (h *Handler) GetPublicInstitutionFilterCounts(c *gin.Context) {
+	result, err := h.service.GetPublicInstitutionFilterCounts()
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch institution filter counts")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Institution filter counts retrieved successfully", result)
+}

@@ -753,6 +753,7 @@ type PublicInstitutionResponse struct {
 	WebsiteURL      string `json:"website_url,omitempty"`
 	Status          string `json:"status"`
 	Featured        bool   `json:"featured"`
+	CollegeID       uint   `json:"college_id"`
 }
 
 type PublicInstitutionDetailResponse struct {
@@ -876,4 +877,14 @@ type PublishedAdmissionInstitutionDetailResponse struct {
 	CreatedAt   string                             `json:"created_at"`
 	UpdatedAt   string                             `json:"updated_at"`
 	PublishedAt *string                            `json:"published_at,omitempty"`
+}
+
+type PublicInstitutionFilterCountsResponse struct {
+	Total           int64            `json:"total"`
+	TypeCounts      map[string]int64 `json:"type_counts"`
+	TypeCountsByID  map[string]int64 `json:"type_counts_by_id"`
+	FacetCountsByID map[string]int64 `json:"facet_counts_by_id"`
+	Featured        int64            `json:"featured"`
+	Verified        int64            `json:"verified"`
+	Popular         int64            `json:"popular"`
 }

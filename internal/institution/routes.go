@@ -10,6 +10,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 	v1 := r.Group("/api/v1")
 	{
 		// Public institution routes (no auth)
+		v1.GET("/institutions/public/filter-counts", h.GetPublicInstitutionFilterCounts)
 		v1.GET("/institutions/public", h.ListPublicInstitutions)
 		v1.GET("/institutions/public/:id", h.GetPublicInstitution)
 		v1.GET("/institutions/public/:id/counselling-sessions", h.GetPublicCounsellingSessions)

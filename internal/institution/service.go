@@ -1756,6 +1756,7 @@ func (s *Service) ListPublicInstitutions(page, limit int, search, location strin
 			WebsiteURL:      u.WebsiteURL,
 			Status:          u.Status,
 			Featured:        u.Featured,
+			CollegeID:       u.CollegeID,
 		}
 	}
 	return results, total, nil
@@ -1915,4 +1916,8 @@ func (s *Service) GetPublicInstitution(id uint) (*PublicInstitutionDetailRespons
 		LinkedinURL:            user.LinkedinURL,
 		BrochureData:           pd.BrochureData,
 	}, nil
+}
+
+func (s *Service) GetPublicInstitutionFilterCounts() (*PublicInstitutionFilterCountsResponse, error) {
+	return s.repo.GetPublicFilterCounts()
 }

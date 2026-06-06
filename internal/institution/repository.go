@@ -1,6 +1,7 @@
 package institution
 
 import (
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -134,7 +135,8 @@ func (r *Repository) FindPublicInstitutions(page, pageSize int, search, location
 	query := r.db.Model(&InstitutionUser{}).
 		Joins("LEFT JOIN institution_settings ON institution_settings.institution_id = institution_users.id").
 		Where("(institution_settings.public_profile = ? OR institution_settings.id IS NULL)", true).
-		Where("institution_users.deleted_at IS NULL")
+		Where("institution_users.deleted_at IS NULL").
+		Where("institution_users.status = ?", "approved")
 
 	if search != "" {
 		like := "%" + search + "%"
@@ -804,4 +806,176 @@ func (r *Repository) FindPublishedAdmissionInstitutions(page, limit int, level s
 	}
 
 	return results, total, nil
+}
+
+func (r *Repository) GetPublicFilterCounts() (*PublicInstitutionFilterCountsResponse, error) {
+	resp := &PublicInstitutionFilterCountsResponse{
+		TypeCounts:      map[string]int64{},
+		TypeCountsByID:  map[string]int64{},
+		FacetCountsByID: map[string]int64{},
+	}
+
+	baseQuery := r.db.Model(&InstitutionUser{}).
+		Joins("LEFT JOIN institution_settings ON institution_settings.institution_id = institution_users.id").
+		Where("(institution_settings.public_profile = ? OR institution_settings.id IS NULL)", true).
+		Where("institution_users.deleted_at IS NULL").
+		Where("institution_users.status = ?", "approved")
+
+	if err := baseQuery.Count(&resp.Total).Error; err != nil {
+		return nil, err
+	}
+
+	featuredQuery := r.db.Model(&InstitutionUser{}).
+		Joins("LEFT JOIN institution_settings ON institution_settings.institution_id = institution_users.id").
+		Where("(institution_settings.public_profile = ? OR institution_settings.id IS NULL)", true).
+		Where("institution_users.featured = ?", true).
+		Where("institution_users.deleted_at IS NULL").
+		Where("institution_users.status = ?", "approved")
+	if err := featuredQuery.Count(&resp.Featured).Error; err != nil {
+		return nil, err
+	}
+
+	verifiedQuery := r.db.Model(&InstitutionUser{}).
+		Joins("LEFT JOIN institution_settings ON institution_settings.institution_id = institution_users.id").
+		Where("(institution_settings.public_profile = ? OR institution_settings.id IS NULL)", true).
+		Where("institution_users.verified = ?", true).
+		Where("institution_users.deleted_at IS NULL").
+		Where("institution_users.status = ?", "approved")
+	if err := verifiedQuery.Count(&resp.Verified).Error; err != nil {
+		return nil, err
+	}
+
+	resp.TypeCounts["Public / Govt"] = resp.Total
+	resp.TypeCountsByID["ct_public"] = resp.Total
+
+	facetKeywordsByID := map[string][]string{
+		"plus2":          {"+2", "higher secondary", "10+2", "neb"},
+		"alevel":         {"a level", "alevel"},
+		"bachelor":       {"bachelor", "bsc", "be ", "bba", "bbs", "bim", "mbbs", "bds"},
+		"master":         {"master", "msc", "mba", "mbs", "mca", "mit"},
+		"diploma":        {"diploma", "ctevt", "pcl", "health assistant", "ha "},
+		"p2_sci":         {"science"},
+		"p2_mgmt":        {"management"},
+		"p2_hum":         {"humanities"},
+		"p2_edu":         {"education"},
+		"p2_law":         {"law"},
+		"al_sci":         {"a level - science", "a level science"},
+		"al_nonsci":      {"a level - non-science", "a level - non-science/mgmt", "a level management"},
+		"b_it":           {"information technology", "computer science", "it", "cs"},
+		"b_eng":          {"engineering"},
+		"b_biz":          {"business", "management"},
+		"b_med":          {"medical", "healthcare", "nursing", "pharmacy"},
+		"b_hum":          {"humanities", "social sciences"},
+		"b_agr":          {"agriculture", "forestry"},
+		"m_biz":          {"master business", "mba", "mbs"},
+		"m_it":           {"mca", "mit", "msc csit", "master it"},
+		"m_eng":          {"master engineering", "m.e", "meng"},
+		"m_hum":          {"master humanities", "master social sciences"},
+		"d_eng":          {"diploma engineering", "ctevt engineering"},
+		"d_med":          {"pcl nursing", "ha", "diploma medical", "ctevt nursing"},
+		"d_hm":           {"hotel management", "tourism"},
+		"d_agr":          {"diploma agriculture", "diploma forestry", "ctevt agriculture"},
+		"c_bsc_csit":     {"bsc csit"},
+		"c_bca":          {"bca"},
+		"c_bit":          {"bit"},
+		"c_bim":          {"bim"},
+		"c_civil":        {"civil engineering"},
+		"c_comp":         {"computer engineering"},
+		"c_arch":         {"architecture"},
+		"c_elec":         {"electrical", "electronics"},
+		"c_bba":          {"bba"},
+		"c_bbs":          {"bbs"},
+		"c_bbm":          {"bbm"},
+		"c_bhm":          {"bhm", "hotel management"},
+		"c_mbbs":         {"mbbs"},
+		"c_bds":          {"bds"},
+		"c_nursing":      {"bsc nursing", "nursing"},
+		"c_pharma":       {"pharmacy", "pharma"},
+		"c_bsc_ag":       {"bsc agriculture"},
+		"c_bsc_forestry": {"bsc forestry"},
+		"c_mba":          {"mba"},
+		"c_mbs":          {"mbs"},
+		"c_msc_csit":     {"msc csit"},
+		"c_mca":          {"mca"},
+		"c_mit":          {"mit"},
+		"c_dip_civil":    {"diploma in civil", "diploma civil"},
+		"c_dip_comp":     {"diploma in computer", "diploma computer"},
+		"c_pcl_nurs":     {"pcl nursing"},
+		"c_ha":           {"health assistant", "ha (general medicine)", " ha "},
+		"prov_koshi":     {"koshi"},
+		"prov_madhesh":   {"madhesh"},
+		"prov_bagmati":   {"bagmati"},
+		"prov_gandaki":   {"gandaki"},
+		"prov_lumbini":   {"lumbini"},
+		"prov_karnali":   {"karnali"},
+		"prov_sudur":     {"sudurpashchim"},
+		"d_jhapa":        {"jhapa"},
+		"d_morang":       {"morang"},
+		"d_sunsari":      {"sunsari"},
+		"d_dhanusha":     {"dhanusha"},
+		"d_parsa":        {"parsa"},
+		"d_bhaktapur":    {"bhaktapur"},
+		"d_chitwan":      {"chitwan"},
+		"d_kathmandu":    {"kathmandu"},
+		"d_lalitpur":     {"lalitpur"},
+		"d_kavre":        {"kavrepalanchok", "kavre"},
+		"d_kaski":        {"kaski"},
+		"d_nawalpur":     {"nawalpur"},
+		"d_tanahun":      {"tanahun"},
+		"d_banke":        {"banke"},
+		"d_rupandehi":    {"rupandehi"},
+		"d_dang":         {"dang"},
+		"d_surkhet":      {"surkhet"},
+		"d_jumla":        {"jumla"},
+		"d_kailali":      {"kailali"},
+		"d_kanchanpur":   {"kanchanpur"},
+		"u_tu":           {"tribhuvan university"},
+		"u_ku":           {"kathmandu university"},
+		"u_pu":           {"pokhara university"},
+		"u_purbanchal":   {"purbanchal university"},
+		"u_mwu":          {"mid-western university"},
+		"u_fwu":          {"far-western university"},
+		"u_afu":          {"agriculture & forestry university", "agriculture and forestry university"},
+		"u_lincoln":      {"lincoln university"},
+		"u_london_met":   {"london metropolitan university"},
+		"u_west_england": {"university of the west of england"},
+		"1 Year":         {"1 year", "one year"},
+		"2 Years":        {"2 years", "two years"},
+		"3 Years":        {"3 years", "three years"},
+		"4 Years":        {"4 years", "four years"},
+		"5+ Years":       {"5 years", "5+ years", "five years"},
+	}
+
+	var facetRows []struct {
+		District    string
+		Affiliation string
+	}
+
+	if err := r.db.Model(&InstitutionUser{}).
+		Select("district, affiliation").
+		Joins("LEFT JOIN institution_settings ON institution_settings.institution_id = institution_users.id").
+		Where("(institution_settings.public_profile = ? OR institution_settings.id IS NULL)", true).
+		Where("institution_users.deleted_at IS NULL").
+		Where("institution_users.status = ?", "approved").
+		Scan(&facetRows).Error; err != nil {
+		return nil, err
+	}
+
+	for _, row := range facetRows {
+		searchText := strings.ToLower(row.District + " " + row.Affiliation)
+
+		for facetID, keywords := range facetKeywordsByID {
+			for _, keyword := range keywords {
+				if keyword == "" {
+					continue
+				}
+				if strings.Contains(searchText, strings.ToLower(keyword)) {
+					resp.FacetCountsByID[facetID]++
+					break
+				}
+			}
+		}
+	}
+
+	return resp, nil
 }
