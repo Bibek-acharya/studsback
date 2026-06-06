@@ -55,6 +55,12 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 		superadmin := v1.Group("/superadmin")
 		superadmin.Use(authMW, superadminOnly())
 		{
+			superadmin.GET("/dashboard/stats", h.GetDashboardStats)
+			superadmin.GET("/users", h.ListAllUsers)
+			superadmin.GET("/users/:id/education", h.GetUserEducation)
+			superadmin.GET("/users/:id", h.GetUserDetail)
+			superadmin.PUT("/users/:id/suspend", h.SuspendUser)
+			superadmin.PUT("/users/:id/reinstate", h.ReinstateUser)
 			superadmin.GET("/pending-providers", h.ListPendingScholarshipProviders)
 			superadmin.GET("/providers", h.ListVerifiedScholarshipProviders)
 			superadmin.POST("/providers/approve", h.ApproveScholarshipProvider)

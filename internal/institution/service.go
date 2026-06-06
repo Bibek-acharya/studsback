@@ -132,6 +132,7 @@ func (s *Service) GetProfile(instID uint) (*ProfileResponse, error) {
 		About:                 user.About,
 		Vision:                user.Vision,
 		Mission:               user.Mission,
+		Affiliation:           user.Affiliation,
 		Videos:                pd.Videos,
 		OverviewData:          pd.OverviewData,
 		LeadershipData:        pd.LeadershipData,
@@ -205,6 +206,9 @@ func (s *Service) UpdateProfile(instID uint, req UpdateProfileRequest) (*Profile
 	}
 	if req.ContactPhone != "" {
 		user.ContactPhone = req.ContactPhone
+	}
+	if req.Affiliation != "" {
+		user.Affiliation = req.Affiliation
 	}
 	if req.MapURL != "" {
 		user.MapURL = req.MapURL

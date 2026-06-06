@@ -10,6 +10,7 @@ type CreateUniversityRequest struct {
 	ReviewCount    int         `json:"review_count"`
 	Verified       bool        `json:"verified"`
 	Popular        bool        `json:"popular"`
+	Status         string      `json:"status"`
 	Description    string      `json:"description"`
 	Established    string      `json:"established"`
 	Students       string      `json:"students"`
@@ -45,6 +46,7 @@ type UpdateUniversityRequest struct {
 	ReviewCount    *int        `json:"review_count"`
 	Verified       *bool       `json:"verified"`
 	Popular        *bool       `json:"popular"`
+	Status         *string     `json:"status"`
 	Description    *string     `json:"description"`
 	Established    *string     `json:"established"`
 	Students       *string     `json:"students"`
@@ -81,6 +83,7 @@ type UniversityResponse struct {
 	Rank            int      `json:"rank"`
 	Verified        bool     `json:"verified"`
 	IsPopular       bool     `json:"isPopular"`
+	Status          string   `json:"status"`
 	ProgramsCount   int      `json:"programsCount"`
 	CollegesCount   int      `json:"collegesCount"`
 	PopularPrograms []string `json:"popularPrograms"`

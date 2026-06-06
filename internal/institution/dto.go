@@ -540,6 +540,7 @@ type UpdateProfileRequest struct {
 	Website              string                `json:"website"`
 	ContactEmail         string                `json:"contact_email"`
 	ContactPhone         string                `json:"contact_phone"`
+	Affiliation          string                `json:"affiliation"`
 	MapURL               string                `json:"map_url"`
 	FacebookURL          string                `json:"facebook_url"`
 	InstagramURL         string                `json:"instagram_url"`
@@ -591,6 +592,7 @@ type ProfileResponse struct {
 	About                 string                `json:"about,omitempty"`
 	Vision                string                `json:"vision,omitempty"`
 	Mission               string                `json:"mission,omitempty"`
+	Affiliation           string                `json:"affiliation,omitempty"`
 	Videos                interface{}           `json:"videos,omitempty"`
 	OverviewData          interface{}           `json:"overview_data,omitempty"`
 	LeadershipData        interface{}           `json:"leadership_data,omitempty"`

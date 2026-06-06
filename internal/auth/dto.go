@@ -267,3 +267,11 @@ type InstitutionFilter struct {
 	Province      string `form:"province"`
 	Level         string `form:"level"`
 }
+
+type SuperadminDashboardStats struct {
+	TotalStudents      int64 `json:"total_students"`
+	TotalInstitutions  int64 `json:"total_institutions"`
+	TotalProviders     int64 `json:"total_providers"`
+	PendingInstitutions int64 `json:"pending_institutions"`
+	PendingProviders   int64 `json:"pending_providers"`
+}

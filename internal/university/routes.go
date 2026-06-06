@@ -19,7 +19,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 	admin.Use(roleMW)
 	{
 		admin.GET("/universities", h.GetUniversities)
-		admin.GET("/universities/:id", h.GetUniversityByID)
+		admin.GET("/universities/:id", h.AdminGetUniversityByID)
 		admin.POST("/universities", h.CreateUniversity)
 		admin.PUT("/universities/:id", h.UpdateUniversity)
 		admin.DELETE("/universities/:id", h.DeleteUniversity)

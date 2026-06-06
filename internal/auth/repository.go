@@ -328,3 +328,63 @@ func (r *Repository) FindCollegeByID(id uint) (*college.College, error) {
 	}
 	return &c, nil
 }
+
+func (r *Repository) CountDashboardStats() (*SuperadminDashboardStats, error) {
+	stats := &SuperadminDashboardStats{}
+
+	if err := r.db.Table("users").Where("role = ? AND deleted_at IS NULL", "student").Count(&stats.TotalStudents).Error; err != nil {
+		return nil, err
+	}
+	if err := r.db.Table("institution_users").Where("status = ? AND deleted_at IS NULL", "approved").Count(&stats.TotalInstitutions).Error; err != nil {
+		return nil, err
+	}
+	if err := r.db.Table("scholarship_provider_users").Where("status = ? AND deleted_at IS NULL", "approved").Count(&stats.TotalProviders).Error; err != nil {
+		return nil, err
+	}
+	if err := r.db.Table("institution_users").Where("status = ? AND deleted_at IS NULL", "pending").Count(&stats.PendingInstitutions).Error; err != nil {
+		return nil, err
+	}
+	if err := r.db.Table("scholarship_provider_users").Where("status = ? AND deleted_at IS NULL", "pending").Count(&stats.PendingProviders).Error; err != nil {
+		return nil, err
+	}
+
+	return stats, nil
+}
+
+func (r *Repository) FindAllUsers(search string, page, limit int) ([]User, int64, error) {
+	var users []User
+	var total int64
+
+	query := r.db.Model(&User{}).Where("role = ? AND deleted_at IS NULL", "student")
+	if search != "" {
+		like := "%" + search + "%"
+		query = query.Where("(first_name ILIKE ? OR last_name ILIKE ? OR email ILIKE ?)", like, like, like)
+	}
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * limit
+	if err := query.Order("created_at desc").Offset(offset).Limit(limit).Find(&users).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return users, total, nil
+}
+
+func (r *Repository) UpdateUserStatus(userID uint, status string) error {
+	return r.db.Model(&User{}).Where("id = ?", userID).Update("status", status).Error
+}
+
+func (r *Repository) FindUserByIDWithStatus(userID uint) (*User, error) {
+	var user User
+	if err := r.db.Where("id = ? AND deleted_at IS NULL", userID).First(&user).Error; err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (r *Repository) UpdateInstitutionUserStatus(instID uint, status string) error {
+	return r.db.Model(&InstitutionUser{}).Where("id = ?", instID).Update("status", status).Error
+}

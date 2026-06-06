@@ -12,7 +12,7 @@ func NewRepository(db *gorm.DB) *Repository {
 	return &Repository{db: db}
 }
 
-func (r *Repository) FindAll(search, uniType string, popular bool) ([]University, error) {
+func (r *Repository) FindAll(search, uniType, status string, popular bool) ([]University, error) {
 	var universities []University
 	query := r.db.Model(&University{})
 
@@ -22,6 +22,10 @@ func (r *Repository) FindAll(search, uniType string, popular bool) ([]University
 
 	if uniType != "" {
 		query = query.Where("type = ?", uniType)
+	}
+
+	if status != "" {
+		query = query.Where("status = ?", status)
 	}
 
 	if popular {

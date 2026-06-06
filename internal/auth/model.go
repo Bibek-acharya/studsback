@@ -33,6 +33,8 @@ type User struct {
 	GoogleID    *string        `gorm:"uniqueIndex;default:null" json:"google_id"`
 	ImageURL    string         `gorm:"default:''" json:"image_url"`
 	Role        string         `gorm:"default:'student'" json:"role"`
+	Status      string         `gorm:"default:'active'" json:"status"`
+	LastLoginAt *time.Time     `json:"last_login_at"`
 	Preferences *Preferences   `gorm:"type:jsonb;serializer:json;default:'null'" json:"preferences,omitempty"`
 }
 

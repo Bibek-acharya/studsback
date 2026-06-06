@@ -92,6 +92,14 @@ func (s *Service) Login(req LoginRequest) (*LoginResponse, error) {
 		return nil, errors.New("Invalid email or password")
 	}
 
+	if user.Status == "suspended" {
+		return nil, errors.New("Your account has been suspended. Please contact support.")
+	}
+
+	now := time.Now()
+	user.LastLoginAt = &now
+	s.repo.SaveUser(user)
+
 	token, err := utils.GenerateToken(user.ID, user.Email, user.Role, 0)
 	if err != nil {
 		return nil, errors.New("Failed to generate token")
@@ -1007,6 +1015,40 @@ func (s *Service) ListVerifiedInstitutionsFiltered(filter InstitutionFilter) ([]
 
 func (s *Service) ListRejectedInstitutions() ([]InstitutionUser, error) {
 	return s.repo.FindInstitutionUsersByStatus("rejected")
+}
+
+func (s *Service) GetDashboardStats() (*SuperadminDashboardStats, error) {
+	return s.repo.CountDashboardStats()
+}
+
+func (s *Service) ListAllUsers(search string, page, limit int) ([]User, int64, error) {
+	return s.repo.FindAllUsers(search, page, limit)
+}
+
+func (s *Service) SuspendUser(userID uint) error {
+	user, err := s.repo.FindUserByID(userID)
+	if err != nil {
+		return errors.New("user not found")
+	}
+	if user.Role != "student" {
+		return errors.New("can only suspend student users")
+	}
+	return s.repo.UpdateUserStatus(userID, "suspended")
+}
+
+func (s *Service) ReinstateUser(userID uint) error {
+	if _, err := s.repo.FindUserByID(userID); err != nil {
+		return errors.New("user not found")
+	}
+	return s.repo.UpdateUserStatus(userID, "active")
+}
+
+func (s *Service) GetUserDetail(userID uint) (*User, error) {
+	user, err := s.repo.FindUserByID(userID)
+	if err != nil {
+		return nil, errors.New("user not found")
+	}
+	return user, nil
 }
 
 func (s *Service) ApproveInstitution(institutionID uint) error {

@@ -20,6 +20,7 @@ type University struct {
 	ReviewCount    int            `json:"review_count"`
 	Verified       bool           `gorm:"default:false" json:"verified"`
 	Popular        bool           `gorm:"default:false" json:"popular"`
+	Status         string         `gorm:"default:'published'" json:"status,omitempty"`
 	Description    string         `gorm:"type:text" json:"description,omitempty"`
 	Established    string         `json:"established,omitempty"`
 	Students       string         `json:"students,omitempty"`

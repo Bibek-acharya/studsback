@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -1316,4 +1317,105 @@ func (h *Handler) SuperadminUploadFile(c *gin.Context) {
 func (h *Handler) Logout(c *gin.Context) {
 	middleware.ClearAuthCookie(c)
 	response.Success(c, 200, "Logged out successfully", nil)
+}
+
+func (h *Handler) GetDashboardStats(c *gin.Context) {
+	stats, err := h.service.GetDashboardStats()
+	if err != nil {
+		response.Error(c, 500, "Failed to fetch dashboard stats")
+		return
+	}
+
+	response.Success(c, 200, "Dashboard stats retrieved successfully", stats)
+}
+
+func (h *Handler) ListAllUsers(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	search := c.Query("search")
+
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 20
+	}
+
+	users, total, err := h.service.ListAllUsers(search, page, limit)
+	if err != nil {
+		response.Error(c, 500, "Failed to fetch users")
+		return
+	}
+
+	response.Success(c, 200, "Users retrieved successfully", gin.H{
+		"users": users,
+		"pagination": gin.H{
+			"total":      total,
+			"page":       page,
+			"limit":      limit,
+			"totalPages": int(math.Ceil(float64(total) / float64(limit))),
+		},
+	})
+}
+
+func (h *Handler) GetUserDetail(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, 400, "Invalid user ID")
+		return
+	}
+
+	user, err := h.service.GetUserDetail(uint(id))
+	if err != nil {
+		response.Error(c, 404, "User not found")
+		return
+	}
+
+	response.Success(c, 200, "User retrieved successfully", user)
+}
+
+func (h *Handler) SuspendUser(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, 400, "Invalid user ID")
+		return
+	}
+
+	if err := h.service.SuspendUser(uint(id)); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+
+	response.Success(c, 200, "User suspended successfully", nil)
+}
+
+func (h *Handler) ReinstateUser(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, 400, "Invalid user ID")
+		return
+	}
+
+	if err := h.service.ReinstateUser(uint(id)); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+
+	response.Success(c, 200, "User reinstated successfully", nil)
+}
+
+func (h *Handler) GetUserEducation(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, 400, "Invalid user ID")
+		return
+	}
+
+	entries, err := h.service.GetEducationEntries(uint(id))
+	if err != nil {
+		response.Error(c, 500, "Failed to fetch education entries")
+		return
+	}
+
+	response.Success(c, 200, "Education entries retrieved successfully", entries)
 }

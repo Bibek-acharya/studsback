@@ -20,9 +20,10 @@ func NewHandler(service *Service) *Handler {
 func (h *Handler) GetUniversities(c *gin.Context) {
 	search := strings.TrimSpace(c.Query("search"))
 	uniType := strings.TrimSpace(c.Query("type"))
+	status := strings.TrimSpace(c.Query("status"))
 	popular := c.Query("popular") == "true"
 
-	results, err := h.service.GetUniversities(search, uniType, popular)
+	results, err := h.service.GetUniversities(search, uniType, status, popular)
 	if err != nil {
 		response.Error(c, 500, "Failed to fetch universities")
 		return
@@ -41,6 +42,25 @@ func (h *Handler) GetUniversityByID(c *gin.Context) {
 	}
 
 	uni, colleges, err := h.service.GetUniversityByID(uint(id))
+	if err != nil {
+		response.Error(c, 404, "University not found")
+		return
+	}
+
+	response.Success(c, 200, "University retrieved successfully", gin.H{
+		"university": uni,
+		"colleges":   colleges,
+	})
+}
+
+func (h *Handler) AdminGetUniversityByID(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		response.Error(c, 400, "Invalid university ID")
+		return
+	}
+
+	uni, colleges, err := h.service.AdminGetUniversityByID(uint(id))
 	if err != nil {
 		response.Error(c, 404, "University not found")
 		return

@@ -55,6 +55,7 @@ func toUniversityResponse(uni University, colleges []College) UniversityResponse
 		Rank:            uni.Rank,
 		Verified:        uni.Verified,
 		IsPopular:       uni.Popular,
+		Status:          uni.Status,
 		ProgramsCount:   programsCount,
 		CollegesCount:   collegesCount,
 		PopularPrograms: popularPrograms,
@@ -92,8 +93,8 @@ func NewService(repo *Repository) *Service {
 	return &Service{repo: repo}
 }
 
-func (s *Service) GetUniversities(search, uniType string, popular bool) ([]UniversityResponse, error) {
-	universities, err := s.repo.FindAll(search, uniType, popular)
+func (s *Service) GetUniversities(search, uniType, status string, popular bool) ([]UniversityResponse, error) {
+	universities, err := s.repo.FindAll(search, uniType, status, popular)
 	if err != nil {
 		return nil, err
 	}
@@ -112,6 +113,35 @@ func (s *Service) GetUniversities(search, uniType string, popular bool) ([]Unive
 
 func (s *Service) GetUniversityByID(id uint) (*UniversityResponse, []UniversityCollegeResponse, error) {
 	uni, err := s.repo.FindByID(id)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	colleges, err := s.repo.FindCollegesByUniversityID(uni.ID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	collegeResponses := make([]UniversityCollegeResponse, 0, len(colleges))
+	for _, college := range colleges {
+		collegeResponses = append(collegeResponses, UniversityCollegeResponse{
+			ID:           college.ID,
+			UniversityID: college.UniversityID,
+			Name:         college.Name,
+			Logo:         college.ImageURL,
+			Rating:       college.Rating,
+			Reviews:      college.Reviews,
+			Affiliation:  uni.Name,
+			Type:         college.CollegeType,
+		})
+	}
+
+	response := toUniversityResponse(*uni, colleges)
+	return &response, collegeResponses, nil
+}
+
+func (s *Service) AdminGetUniversityByID(id uint) (*UniversityResponse, []UniversityCollegeResponse, error) {
+	uni, err := s.repo.FindByIDFull(id)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -159,6 +189,7 @@ func (s *Service) CreateUniversity(req CreateUniversityRequest) (*University, er
 		ReviewCount:    req.ReviewCount,
 		Verified:       req.Verified,
 		Popular:        req.Popular,
+		Status:         req.Status,
 		Description:    strings.TrimSpace(req.Description),
 		Established:    strings.TrimSpace(req.Established),
 		Students:       strings.TrimSpace(req.Students),
@@ -285,6 +316,9 @@ func (s *Service) UpdateUniversity(id uint, req UpdateUniversityRequest) (*Unive
 	}
 	if req.Popular != nil {
 		uni.Popular = *req.Popular
+	}
+	if req.Status != nil {
+		uni.Status = *req.Status
 	}
 	if req.Description != nil {
 		uni.Description = strings.TrimSpace(*req.Description)
