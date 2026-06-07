@@ -198,7 +198,7 @@ type ScholarshipProviderRegisterRequest struct {
 	RegistrationNumber string `json:"registration_number" binding:"required"`
 	Email              string `json:"email" binding:"required,email"`
 	ContactNumber      string `json:"contact_number"`
-	PANNumber          string `json:"pan_number"`
+	PANNumber                string `json:"pan_number" binding:"omitempty,len=9,numeric"`
 	WebsiteURL         string `json:"website_url"`
 }
 
