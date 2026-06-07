@@ -15,6 +15,7 @@ type University struct {
 	Logo           string         `json:"logo,omitempty"`
 	Location       string         `json:"location,omitempty"`
 	Type           string         `json:"type,omitempty"`
+	IsNepali       bool           `gorm:"default:true" json:"is_nepali"`
 	Rank           int            `json:"rank"`
 	Rating         float64        `json:"rating"`
 	ReviewCount    int            `json:"review_count"`

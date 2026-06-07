@@ -14,6 +14,7 @@ import (
 
 	"studsphere/backend/internal/admission"
 	"studsphere/backend/internal/auth"
+	"studsphere/backend/internal/ai"
 	"studsphere/backend/internal/chat"
 	"studsphere/backend/internal/college"
 	"studsphere/backend/internal/counselling"
@@ -260,6 +261,8 @@ func main() {
 	searchHandler := search.NewHandler(search.NewService(db))
 	chatService := chat.NewService(db)
 	chatHandler := chat.NewHandler(chatService)
+	aiService := ai.NewService(db)
+	aiHandler := ai.NewHandler(aiService)
 	logger.Info("All module handlers initialized")
 
 	logger.Info("Setting up router...")
@@ -378,6 +381,7 @@ func main() {
 	university.RegisterRoutes(router, authMW, roleMW, universityHandler)
 	search.RegisterRoutes(router, authMW, roleMW, searchHandler)
 	chat.RegisterRoutes(router, chatHandler)
+	ai.RegisterRoutes(router, aiHandler)
 
 	logger.Info("All routes registered", "port", config.AppConfig.Port)
 

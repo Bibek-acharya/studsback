@@ -508,3 +508,25 @@ func parseGPA(gpa string) float64 {
 	_, _ = fmt.Sscanf(gpa, "%f", &f)
 	return f
 }
+
+func (r *Repository) FindAllForRecommendation() ([]Scholarship, error) {
+	var scholarships []Scholarship
+	err := r.db.Model(&Scholarship{}).
+		Where("status NOT IN ?", []string{"draft", "closed"}).
+		Where("deleted_at IS NULL").
+		Preload("ProviderScholarshipID", func(db *gorm.DB) *gorm.DB {
+			return db.Select("id")
+		}).
+		Order("deadline ASC").
+		Find(&scholarships).Error
+	return scholarships, err
+}
+
+func (r *Repository) FindProviderScholarshipsForRecommendation() ([]ProviderScholarship, error) {
+	var scholarships []ProviderScholarship
+	err := r.db.Table("provider_scholarships").
+		Where("status IN ?", []string{"published", "active"}).
+		Where("deleted_at IS NULL").
+		Find(&scholarships).Error
+	return scholarships, err
+}

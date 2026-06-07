@@ -150,3 +150,35 @@ type CollegeFilterCountsResponse struct {
 	Verified        int64            `json:"verified"`
 	Popular         int64            `json:"popular"`
 }
+
+type CollegeRecommenderRequest struct {
+	StudentType         string `json:"student_type"`
+	KnowsCourse         string `json:"knows_course"`
+	PreferredField      string `json:"preferred_field"`
+	ReputationImportance string `json:"reputation_importance"`
+	FinancialSupport    string `json:"financial_support"`
+	YearlyBudget        string `json:"yearly_budget"`
+	Province            string `json:"province"`
+	District            string `json:"district"`
+	Setting             string `json:"setting"`
+	DistanceFromHome    string `json:"distance_from_home"`
+	ClassSize           string `json:"class_size"`
+	AcademicsVsCampus   string `json:"academics_vs_campus"`
+	ActivitiesImportance string `json:"activities_importance"`
+	FacilityChoice      string `json:"facility_choice"`
+	TuitionFactor       string `json:"tuition_factor"`
+}
+
+type CollegeRecommendationResult struct {
+	ID         uint     `json:"id"`
+	Name       string   `json:"name"`
+	Location   string   `json:"location"`
+	Type       string   `json:"type"`
+	Tuiton     string   `json:"tuition"`
+	MatchScore int      `json:"match_score"`
+	Reasons    []string `json:"reasons"`
+}
+
+type CollegeRecommendResponse struct {
+	Recommendations []CollegeRecommendationResult `json:"recommendations"`
+}

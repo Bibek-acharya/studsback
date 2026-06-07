@@ -10,6 +10,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 	universities := r.Group("/api/v1/universities")
 	{
 		universities.GET("", h.GetUniversities)
+		universities.GET("/filter-counts", h.GetUniversityFilterCounts)
 		universities.GET("/:id", h.GetUniversityByID)
 		universities.GET("/:id/:tab", h.GetUniversityTab)
 	}

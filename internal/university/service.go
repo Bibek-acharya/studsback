@@ -52,6 +52,7 @@ func toUniversityResponse(uni University, colleges []College) UniversityResponse
 		Rating:          rating,
 		ReviewCount:     uni.ReviewCount,
 		Type:            uni.Type,
+		IsNepali:        uni.IsNepali,
 		Rank:            uni.Rank,
 		Verified:        uni.Verified,
 		IsPopular:       uni.Popular,
@@ -93,8 +94,8 @@ func NewService(repo *Repository) *Service {
 	return &Service{repo: repo}
 }
 
-func (s *Service) GetUniversities(search, uniType, status string, popular bool) ([]UniversityResponse, error) {
-	universities, err := s.repo.FindAll(search, uniType, status, popular)
+func (s *Service) GetUniversities(search, uniType, status string, popular bool, isNepali string) ([]UniversityResponse, error) {
+	universities, err := s.repo.FindAll(search, uniType, status, popular, isNepali)
 	if err != nil {
 		return nil, err
 	}
@@ -169,6 +170,10 @@ func (s *Service) AdminGetUniversityByID(id uint) (*UniversityResponse, []Univer
 	return &response, collegeResponses, nil
 }
 
+func (s *Service) GetUniversityFilterCounts(isNepali string) (*UniversityFilterCountsResponse, error) {
+	return s.repo.GetFilterCounts(isNepali)
+}
+
 func (s *Service) GetUniversityTab(id uint, tab string) ([]byte, error) {
 	return s.repo.GetTabData(id, tab)
 }
@@ -184,6 +189,7 @@ func (s *Service) CreateUniversity(req CreateUniversityRequest) (*University, er
 		Logo:           strings.TrimSpace(req.Logo),
 		Location:       strings.TrimSpace(req.Location),
 		Type:           strings.TrimSpace(req.Type),
+		IsNepali:       req.IsNepali,
 		Rank:           req.Rank,
 		Rating:         req.Rating,
 		ReviewCount:    req.ReviewCount,
@@ -301,6 +307,9 @@ func (s *Service) UpdateUniversity(id uint, req UpdateUniversityRequest) (*Unive
 	}
 	if req.Type != nil {
 		uni.Type = strings.TrimSpace(*req.Type)
+	}
+	if req.IsNepali != nil {
+		uni.IsNepali = *req.IsNepali
 	}
 	if req.Rank != nil {
 		uni.Rank = *req.Rank

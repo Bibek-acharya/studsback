@@ -46,6 +46,11 @@ type Config struct {
 	VectorDimension    int
 	EmbeddingBatchSize int
 
+	LLMEnabled bool
+	LLMBaseURL string
+	LLMModel   string
+	LLMAPIKey  string
+
 	GeminiAPIKey string
 	GeminiModel  string
 
@@ -111,6 +116,11 @@ func Load() {
 		EmbeddingModel:     getEnv("EMBEDDING_MODEL", "text-embedding-3-small"),
 		VectorDimension:    getEnvInt("VECTOR_DIMENSION", 1536),
 		EmbeddingBatchSize: getEnvInt("EMBEDDING_BATCH_SIZE", 20),
+
+		LLMEnabled: getEnv("LLM_ENABLED", "false") == "true",
+		LLMBaseURL: getEnv("LLM_BASE_URL", "http://localhost:11434/v1"),
+		LLMModel:   getEnv("LLM_MODEL", "llama3.1:8b"),
+		LLMAPIKey:  getEnv("LLM_API_KEY", ""),
 
 		GeminiAPIKey: getEnv("GEMINI_API_KEY", ""),
 		GeminiModel:  getEnv("GEMINI_MODEL", "gemini-2.0-flash-lite"),

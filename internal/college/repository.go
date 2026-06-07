@@ -298,6 +298,17 @@ func (r *Repository) UniversityExists(id uint) bool {
 	return count > 0
 }
 
+func (r *Repository) FindAllForRecommendation(limit int) ([]College, error) {
+	var colleges []College
+	err := r.db.Model(&College{}).
+		Where("deleted_at IS NULL").
+		Preload("University").
+		Order("rating DESC NULLS LAST, reviews DESC").
+		Limit(limit).
+		Find(&colleges).Error
+	return colleges, err
+}
+
 func (r *Repository) FindUniversityByName(name string) (*University, error) {
 	var university University
 	err := r.db.Where("LOWER(name) = LOWER(?)", name).First(&university).Error

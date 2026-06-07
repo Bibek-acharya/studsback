@@ -75,6 +75,24 @@ func (h *Handler) GetScholarshipByID(c *gin.Context) {
 	response.Success(c, 200, "Scholarship details retrieved successfully", resp)
 }
 
+func (h *Handler) RecommendScholarships(c *gin.Context) {
+	var req ScholarshipRecommendRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, "Invalid request: "+err.Error())
+		return
+	}
+
+	results, err := h.service.RecommendScholarships(req)
+	if err != nil {
+		response.Error(c, 500, "Failed to get recommendations")
+		return
+	}
+
+	response.Success(c, 200, "Recommendations retrieved successfully", ScholarshipRecommendResponse{
+		Scholarships: results,
+	})
+}
+
 func (h *Handler) GetSimilarScholarships(c *gin.Context) {
 	param := c.Param("id")
 

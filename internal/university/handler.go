@@ -17,13 +17,30 @@ func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
 }
 
+func (h *Handler) GetUniversityFilterCounts(c *gin.Context) {
+	isNepali := ""
+	if v := c.Query("isNepali"); v != "" {
+		isNepali = v
+	}
+	result, err := h.service.GetUniversityFilterCounts(isNepali)
+	if err != nil {
+		response.Error(c, 500, "Failed to fetch university filter counts")
+		return
+	}
+	response.Success(c, 200, "University filter counts retrieved successfully", result)
+}
+
 func (h *Handler) GetUniversities(c *gin.Context) {
 	search := strings.TrimSpace(c.Query("search"))
 	uniType := strings.TrimSpace(c.Query("type"))
 	status := strings.TrimSpace(c.Query("status"))
 	popular := c.Query("popular") == "true"
+	isNepali := ""
+	if v := c.Query("isNepali"); v != "" {
+		isNepali = v
+	}
 
-	results, err := h.service.GetUniversities(search, uniType, status, popular)
+	results, err := h.service.GetUniversities(search, uniType, status, popular, isNepali)
 	if err != nil {
 		response.Error(c, 500, "Failed to fetch universities")
 		return

@@ -299,3 +299,44 @@ type PartnerEntryResponse struct {
 	Logo    string `json:"logo"`
 }
 
+type ScholarshipRecommendRequest struct {
+	EducationLevel    string   `json:"educationLevel"`
+	StudyMode         string   `json:"studyMode"`
+	AcademicScoreType string   `json:"academicScoreType"`
+	AcademicScore     string   `json:"academicScore"`
+	FieldOfStudy      string   `json:"fieldOfStudy"`
+	WillingEssay      string   `json:"willingEssay"`
+	WillingInterview  string   `json:"willingInterview"`
+	WillingGpa        string   `json:"willingGpa"`
+	Province          string   `json:"province"`
+	District          string   `json:"district"`
+	StudyLocation     string   `json:"studyLocation"`
+	Category          string   `json:"category"`
+	Gender            string   `json:"gender"`
+	Income            string   `json:"income"`
+	Talents           []string `json:"talents"`
+	Achievements      []string `json:"achievements"`
+	Involvement       []string `json:"involvement"`
+}
+
+type ScholarshipRecommendResponse struct {
+	Scholarships []RecommendResult `json:"scholarships"`
+}
+
+type RecommendResult struct {
+	ID            uint   `json:"id"`
+	Slug          string `json:"slug"`
+	Title         string `json:"title"`
+	Provider      string `json:"provider"`
+	ProviderType  string `json:"providerType"`
+	Coverage      string `json:"coverage"`
+	Deadline      string `json:"deadline"`
+	Description   string `json:"description"`
+	DegreeLevel   string `json:"degreeLevel"`
+	FundingType   string `json:"fundingType"`
+	ScholarshipType string `json:"scholarshipType"`
+	ImageURL      string `json:"imageUrl"`
+	TagColorClass string `json:"tagColorClass"`
+	Score         int    `json:"score"`
+}
+

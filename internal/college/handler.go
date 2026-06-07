@@ -208,3 +208,21 @@ func (h *Handler) GetCollegeFilterCounts(c *gin.Context) {
 
 	response.Success(c, 200, "College filter counts retrieved successfully", result)
 }
+
+func (h *Handler) RecommendColleges(c *gin.Context) {
+	var req CollegeRecommenderRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, "Invalid request: "+err.Error())
+		return
+	}
+
+	recommendations, err := h.service.RecommendColleges(req)
+	if err != nil {
+		response.Error(c, 500, "Failed to get recommendations")
+		return
+	}
+
+	response.Success(c, 200, "Recommendations retrieved successfully", CollegeRecommendResponse{
+		Recommendations: recommendations,
+	})
+}

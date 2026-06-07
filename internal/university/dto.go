@@ -5,6 +5,7 @@ type CreateUniversityRequest struct {
 	Logo           string      `json:"logo"`
 	Location       string      `json:"location"`
 	Type           string      `json:"type"`
+	IsNepali       bool        `json:"is_nepali"`
 	Rank           int         `json:"rank"`
 	Rating         float64     `json:"rating"`
 	ReviewCount    int         `json:"review_count"`
@@ -41,6 +42,7 @@ type UpdateUniversityRequest struct {
 	Logo           *string     `json:"logo"`
 	Location       *string     `json:"location"`
 	Type           *string     `json:"type"`
+	IsNepali       *bool       `json:"is_nepali"`
 	Rank           *int        `json:"rank"`
 	Rating         *float64    `json:"rating"`
 	ReviewCount    *int        `json:"review_count"`
@@ -80,6 +82,7 @@ type UniversityResponse struct {
 	Rating          float64  `json:"rating"`
 	ReviewCount     int      `json:"review_count"`
 	Type            string   `json:"type"`
+	IsNepali        bool     `json:"is_nepali"`
 	Rank            int      `json:"rank"`
 	Verified        bool     `json:"verified"`
 	IsPopular       bool     `json:"isPopular"`
@@ -126,4 +129,12 @@ type UniversityCollegeResponse struct {
 type UniversityTabResponse struct {
 	Tab  string `json:"tab"`
 	Data []byte `json:"data,omitempty"`
+}
+
+type UniversityFilterCountsResponse struct {
+	Total          int64            `json:"total"`
+	TypeCounts     map[string]int64 `json:"type_counts"`
+	TypeCountsByID map[string]int64 `json:"type_counts_by_id"`
+	RatingCounts   map[string]int64 `json:"rating_counts"`
+	AcademicCounts map[string]int64 `json:"academic_counts"`
 }
