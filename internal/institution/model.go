@@ -116,17 +116,28 @@ type InstitutionEntranceApplicant struct {
 }
 
 type InstitutionEvent struct {
-	ID            uint           `gorm:"primarykey" json:"id"`
-	CreatedAt     time.Time      `json:"created_at"`
-	UpdatedAt     time.Time      `json:"updated_at"`
-	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
-	InstitutionID uint           `gorm:"index;not null" json:"institution_id"`
-	Title         string         `gorm:"not null" json:"title"`
-	Description   string         `gorm:"type:text" json:"description"`
-	Date          time.Time      `json:"date"`
-	Location      string         `json:"location"`
-	Image         string         `json:"image"`
-	Status        string         `gorm:"default:'upcoming'" json:"status"`
+	ID                uint           `gorm:"primarykey" json:"id"`
+	CreatedAt         time.Time      `json:"created_at"`
+	UpdatedAt         time.Time      `json:"updated_at"`
+	DeletedAt         gorm.DeletedAt `gorm:"index" json:"-"`
+	InstitutionID     uint           `gorm:"index;not null" json:"institution_id"`
+	Name              string         `gorm:"not null" json:"name"`
+	ShortDesc         string         `gorm:"type:text" json:"short_desc"`
+	Description       string         `gorm:"type:text" json:"description"`
+	ImageURL          string         `json:"image_url"`
+	EventType         string         `json:"event_type"`
+	Category          string         `json:"category"`
+	MaxParticipants   int            `json:"max_participants"`
+	OnlineLink        string         `json:"online_link"`
+	OrganizedBy       string         `json:"organized_by"`
+	ContactPerson     string         `json:"contact_person"`
+	ContactEmail      string         `json:"contact_email"`
+	StartDate         *time.Time     `json:"start_date"`
+	EndDate           *time.Time     `json:"end_date"`
+	Location          string         `json:"location"`
+	Tags              *string        `gorm:"type:jsonb;default:'[]'" json:"tags"`
+	EnableRegistration bool          `gorm:"default:false" json:"enable_registration"`
+	Status            string         `gorm:"default:'draft'" json:"status"`
 }
 
 type InstitutionNews struct {
@@ -136,11 +147,16 @@ type InstitutionNews struct {
 	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
 	InstitutionID uint           `gorm:"index;not null" json:"institution_id"`
 	Title         string         `gorm:"not null" json:"title"`
+	ShortDesc     string         `gorm:"type:text" json:"short_desc"`
 	Content       string         `gorm:"type:text" json:"content"`
-	Excerpt       string         `json:"excerpt"`
-	Image         string         `json:"image"`
-	Category      string         `json:"category"`
-	Published     bool           `gorm:"default:true" json:"published"`
+	ImageURL      string         `json:"image_url"`
+	NewsType      string         `json:"news_type"`
+	PublishedBy   string         `json:"published_by"`
+	PublishDate   *string        `json:"publish_date"`
+	Tags          *string        `gorm:"type:jsonb;default:'[]'" json:"tags"`
+	AllowComments bool           `gorm:"default:false" json:"allow_comments"`
+	Status        string         `gorm:"default:'draft'" json:"status"`
+	PublishedAt   *time.Time     `json:"published_at"`
 }
 
 type InstitutionBlog struct {
@@ -254,20 +270,24 @@ type College struct {
 }
 
 type Scholarship struct {
-	ID              uint      `gorm:"primarykey" json:"id"`
-	CreatedAt       time.Time `json:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at"`
-	Title           string    `gorm:"not null" json:"title"`
-	Provider        string    `json:"provider"`
-	Location        string    `json:"location"`
-	Value           string    `json:"value"`
-	Deadline        time.Time `json:"deadline"`
-	DegreeLevel     string    `json:"degree_level"`
-	FundingType     string    `json:"funding_type"`
-	ScholarshipType string    `json:"scholarship_type"`
-	Description     string    `gorm:"type:text" json:"description"`
-	ImageURL        string    `json:"image_url"`
-	FieldOfStudy    []byte    `gorm:"type:jsonb" json:"field_of_study"`
+	ID              uint           `gorm:"primarykey" json:"id"`
+	CreatedAt       time.Time      `json:"created_at"`
+	UpdatedAt       time.Time      `json:"updated_at"`
+	DeletedAt       gorm.DeletedAt `gorm:"index" json:"-"`
+	InstitutionID   uint           `gorm:"index;not null" json:"institution_id"`
+	Title           string         `gorm:"not null" json:"title"`
+	ShortDesc       string         `gorm:"type:text" json:"short_desc"`
+	Provider        string         `json:"provider"`
+	Location        string         `json:"location"`
+	Value           string         `json:"value"`
+	Deadline        time.Time      `json:"deadline"`
+	DegreeLevel     string         `json:"degree_level"`
+	FundingType     string         `json:"funding_type"`
+	ScholarshipType string         `json:"scholarship_type"`
+	Description     string         `gorm:"type:text" json:"description"`
+	ImageURL        string         `json:"image_url"`
+	FieldOfStudy    []byte         `gorm:"type:jsonb" json:"field_of_study"`
+	Status          string         `gorm:"default:'draft'" json:"status"`
 }
 
 type ScholarshipApplication struct {

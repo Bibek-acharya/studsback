@@ -732,20 +732,55 @@ func (s *Service) GetEventByID(instID, id uint) (*InstitutionEvent, error) {
 	return s.repo.FindEventByIDAndInstitution(id, instID)
 }
 
-func (s *Service) CreateEvent(instID uint, req CreateEventRequest) (*InstitutionEvent, error) {
-	date, err := time.Parse("2006-01-02", req.Date)
+func parseEventTime(s string) *time.Time {
+	if s == "" {
+		return nil
+	}
+	t, err := time.Parse(time.RFC3339, s)
 	if err != nil {
-		return nil, errors.New("invalid date format")
+		t, err = time.Parse("2006-01-02T15:04:05", s)
+	}
+	if err != nil {
+		t, err = time.Parse("2006-01-02", s)
+	}
+	if err != nil {
+		return nil
+	}
+	return &t
+}
+
+func (s *Service) CreateEvent(instID uint, req CreateEventRequest) (*InstitutionEvent, error) {
+	var tagsJSON *string
+	if req.Tags != nil {
+		b, _ := json.Marshal(req.Tags)
+		t := string(b)
+		tagsJSON = &t
 	}
 
 	event := &InstitutionEvent{
-		InstitutionID: instID,
-		Title:         req.Title,
-		Description:   req.Description,
-		Date:          date,
-		Location:      req.Location,
-		Image:         req.Image,
-		Status:        "upcoming",
+		InstitutionID:      instID,
+		Name:               req.Name,
+		ShortDesc:          req.ShortDesc,
+		Description:        req.Description,
+		ImageURL:           req.ImageURL,
+		EventType:          req.EventType,
+		Category:           req.Category,
+		MaxParticipants:    req.MaxParticipants,
+		OnlineLink:         req.OnlineLink,
+		OrganizedBy:        req.OrganizedBy,
+		ContactPerson:      req.ContactPerson,
+		ContactEmail:       req.ContactEmail,
+		Location:           req.Location,
+		Tags:               tagsJSON,
+		EnableRegistration: req.EnableRegistration,
+		Status:             "draft",
+	}
+
+	event.StartDate = parseEventTime(req.StartDate)
+	event.EndDate = parseEventTime(req.EndDate)
+
+	if req.Status == "upcoming" || req.Status == "published" {
+		event.Status = req.Status
 	}
 
 	if err := s.repo.CreateEvent(event); err != nil {
@@ -753,8 +788,8 @@ func (s *Service) CreateEvent(instID uint, req CreateEventRequest) (*Institution
 	}
 
 	s.systemSvc.CreatePublicNotification(
-		"New Event: "+event.Title,
-		event.Description,
+		"New Event: "+event.Name,
+		event.ShortDesc,
 		"event",
 		fmt.Sprintf("/events/%d", event.ID),
 		"fa-calendar",
@@ -771,23 +806,54 @@ func (s *Service) UpdateEvent(instID, id uint, req UpdateEventRequest) (*Institu
 		return nil, errors.New("event not found")
 	}
 
-	if req.Title != "" {
-		event.Title = req.Title
+	if req.Name != "" {
+		event.Name = req.Name
+	}
+	if req.ShortDesc != "" {
+		event.ShortDesc = req.ShortDesc
 	}
 	if req.Description != "" {
 		event.Description = req.Description
 	}
-	if req.Date != "" {
-		if t, err := time.Parse("2006-01-02", req.Date); err == nil {
-			event.Date = t
-		}
+	if req.ImageURL != "" {
+		event.ImageURL = req.ImageURL
+	}
+	if req.EventType != "" {
+		event.EventType = req.EventType
+	}
+	if req.Category != "" {
+		event.Category = req.Category
+	}
+	if req.OnlineLink != "" {
+		event.OnlineLink = req.OnlineLink
+	}
+	if req.OrganizedBy != "" {
+		event.OrganizedBy = req.OrganizedBy
+	}
+	if req.ContactPerson != "" {
+		event.ContactPerson = req.ContactPerson
+	}
+	if req.ContactEmail != "" {
+		event.ContactEmail = req.ContactEmail
 	}
 	if req.Location != "" {
 		event.Location = req.Location
 	}
-	if req.Image != "" {
-		event.Image = req.Image
+	if req.StartDate != "" {
+		event.StartDate = parseEventTime(req.StartDate)
 	}
+	if req.EndDate != "" {
+		event.EndDate = parseEventTime(req.EndDate)
+	}
+	if req.MaxParticipants > 0 {
+		event.MaxParticipants = req.MaxParticipants
+	}
+	if req.Tags != nil {
+		b, _ := json.Marshal(req.Tags)
+		t := string(b)
+		event.Tags = &t
+	}
+	event.EnableRegistration = req.EnableRegistration
 	if req.Status != "" {
 		event.Status = req.Status
 	}
@@ -796,6 +862,29 @@ func (s *Service) UpdateEvent(instID, id uint, req UpdateEventRequest) (*Institu
 		return nil, err
 	}
 
+	return event, nil
+}
+
+func (s *Service) ListPublicEvents(page, limit int) ([]EventResponse, int64, error) {
+	events, total, err := s.repo.FindAllPublishedEvents(page, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+	var resp []EventResponse
+	for _, e := range events {
+		resp = append(resp, toEventResponse(e))
+	}
+	return resp, total, nil
+}
+
+func (s *Service) GetPublicEventByID(id uint) (*InstitutionEvent, error) {
+	event, err := s.repo.FindPublishedEventByID(id)
+	if err != nil {
+		return nil, err
+	}
+	if event.Status != "upcoming" && event.Status != "published" {
+		return nil, errors.New("event not found")
+	}
 	return event, nil
 }
 
@@ -811,15 +900,56 @@ func (s *Service) GetNewsByID(instID, id uint) (*InstitutionNews, error) {
 	return s.repo.FindNewsByIDAndInstitution(id, instID)
 }
 
+func (s *Service) ListPublicNews(page, limit int) ([]NewsResponse, int64, error) {
+	news, total, err := s.repo.FindAllPublishedNews(page, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+	var resp []NewsResponse
+	for _, n := range news {
+		resp = append(resp, toNewsResponse(n))
+	}
+	return resp, total, nil
+}
+
+func (s *Service) GetPublicNewsByID(id uint) (*InstitutionNews, error) {
+	return s.repo.FindPublishedNewsByID(id)
+}
+
 func (s *Service) CreateNews(instID uint, req CreateNewsRequest) (*InstitutionNews, error) {
+	var tagsJSON *string
+	if req.Tags != nil {
+		b, _ := json.Marshal(req.Tags)
+		t := string(b)
+		tagsJSON = &t
+	}
+
+	now := time.Now()
+
 	news := &InstitutionNews{
 		InstitutionID: instID,
 		Title:         req.Title,
+		ShortDesc:     req.ShortDesc,
 		Content:       req.Content,
-		Excerpt:       req.Excerpt,
-		Image:         req.Image,
-		Category:      req.Category,
-		Published:     true,
+		ImageURL:      req.ImageURL,
+		NewsType:      req.NewsType,
+		PublishedBy:   req.PublishedBy,
+		Tags:          tagsJSON,
+		AllowComments: req.AllowComments,
+		Status:        "draft",
+	}
+
+	if req.PublishDate != "" {
+		news.PublishDate = &req.PublishDate
+	}
+
+	if req.Status == "published" {
+		news.Status = "published"
+		news.PublishedAt = &now
+	}
+
+	if req.PublishedBy == "" {
+		news.PublishedBy = "Admin"
 	}
 
 	if err := s.repo.CreateNews(news); err != nil {
@@ -828,7 +958,7 @@ func (s *Service) CreateNews(instID uint, req CreateNewsRequest) (*InstitutionNe
 
 	s.systemSvc.CreatePublicNotification(
 		"New News: "+news.Title,
-		news.Excerpt,
+		news.ShortDesc,
 		"news",
 		fmt.Sprintf("/news/%d", news.ID),
 		"fa-newspaper",
@@ -851,14 +981,33 @@ func (s *Service) UpdateNews(instID, id uint, req UpdateNewsRequest) (*Instituti
 	if req.Content != "" {
 		news.Content = req.Content
 	}
-	if req.Excerpt != "" {
-		news.Excerpt = req.Excerpt
+	if req.ShortDesc != "" {
+		news.ShortDesc = req.ShortDesc
 	}
-	if req.Image != "" {
-		news.Image = req.Image
+	if req.ImageURL != "" {
+		news.ImageURL = req.ImageURL
 	}
-	if req.Category != "" {
-		news.Category = req.Category
+	if req.NewsType != "" {
+		news.NewsType = req.NewsType
+	}
+	if req.PublishedBy != "" {
+		news.PublishedBy = req.PublishedBy
+	}
+	if req.PublishDate != "" {
+		news.PublishDate = &req.PublishDate
+	}
+	if req.Tags != nil {
+		b, _ := json.Marshal(req.Tags)
+		t := string(b)
+		news.Tags = &t
+	}
+	news.AllowComments = req.AllowComments
+	if req.Status != "" {
+		news.Status = req.Status
+		if req.Status == "published" && news.PublishedAt == nil {
+			now := time.Now()
+			news.PublishedAt = &now
+		}
 	}
 
 	if err := s.repo.SaveNews(news); err != nil {
@@ -1131,22 +1280,13 @@ func (s *Service) UpdateSettings(instID uint, req UpdateSettingsRequest) (*Setti
 }
 
 func (s *Service) GetScholarships(instID uint) ([]Scholarship, error) {
-	college, err := s.repo.FindCollegeByUniversityID(instID)
-	if err != nil {
-		return nil, errors.New("no college found for this institution")
-	}
-
-	return s.repo.FindScholarshipsByLocation("%" + college.Name + "%")
+	return s.repo.FindScholarshipsByInstitution(instID)
 }
 
 func (s *Service) CreateScholarship(instID uint, req CreateScholarshipRequest) (*Scholarship, error) {
-	college, err := s.repo.FindCollegeByUniversityID(instID)
-	if err != nil {
-		return nil, errors.New("no college found for this institution")
-	}
-
 	var deadline time.Time
 	if req.Deadline != "" {
+		var err error
 		deadline, err = time.Parse("2006-01-02", req.Deadline)
 		if err != nil {
 			return nil, errors.New("invalid deadline format (expected YYYY-MM-DD)")
@@ -1155,9 +1295,16 @@ func (s *Service) CreateScholarship(instID uint, req CreateScholarshipRequest) (
 
 	fieldOfStudy, _ := json.Marshal(req.FieldOfStudy)
 
+	status := req.Status
+	if status == "" {
+		status = "draft"
+	}
+
 	scholarship := &Scholarship{
+		InstitutionID:   instID,
 		Title:           req.Title,
-		Provider:        college.Name,
+		ShortDesc:       req.ShortDesc,
+		Provider:        req.Provider,
 		Location:        req.Location,
 		Value:           req.Value,
 		Deadline:        deadline,
@@ -1167,6 +1314,7 @@ func (s *Service) CreateScholarship(instID uint, req CreateScholarshipRequest) (
 		Description:     req.Description,
 		ImageURL:        req.ImageURL,
 		FieldOfStudy:    fieldOfStudy,
+		Status:          status,
 	}
 
 	if err := s.repo.CreateScholarship(scholarship); err != nil {
@@ -1177,22 +1325,16 @@ func (s *Service) CreateScholarship(instID uint, req CreateScholarshipRequest) (
 }
 
 func (s *Service) UpdateScholarship(instID, id uint, req UpdateScholarshipRequest) (*Scholarship, error) {
-	college, err := s.repo.FindCollegeByUniversityID(instID)
-	if err != nil {
-		return nil, errors.New("no college found for this institution")
-	}
-
-	scholarship, err := s.repo.FindScholarshipByID(id)
+	scholarship, err := s.repo.FindScholarshipByIDAndInstitution(id, instID)
 	if err != nil {
 		return nil, errors.New("scholarship not found")
 	}
 
-	if scholarship.Provider != college.Name {
-		return nil, errors.New("you can only update your own scholarships")
-	}
-
 	if req.Title != "" {
 		scholarship.Title = req.Title
+	}
+	if req.ShortDesc != "" {
+		scholarship.ShortDesc = req.ShortDesc
 	}
 	if req.Provider != "" {
 		scholarship.Provider = req.Provider
@@ -1228,6 +1370,9 @@ func (s *Service) UpdateScholarship(instID, id uint, req UpdateScholarshipReques
 			scholarship.FieldOfStudy = data
 		}
 	}
+	if req.Status != "" {
+		scholarship.Status = req.Status
+	}
 
 	if err := s.repo.SaveScholarship(scholarship); err != nil {
 		return nil, err
@@ -1237,21 +1382,27 @@ func (s *Service) UpdateScholarship(instID, id uint, req UpdateScholarshipReques
 }
 
 func (s *Service) DeleteScholarship(instID, id uint) error {
-	college, err := s.repo.FindCollegeByUniversityID(instID)
-	if err != nil {
-		return errors.New("no college found for this institution")
-	}
-
-	scholarship, err := s.repo.FindScholarshipByID(id)
+	_, err := s.repo.FindScholarshipByIDAndInstitution(id, instID)
 	if err != nil {
 		return errors.New("scholarship not found")
 	}
-
-	if scholarship.Provider != college.Name {
-		return errors.New("you can only delete your own scholarships")
-	}
-
 	return s.repo.DeleteScholarship(id)
+}
+
+func (s *Service) ListPublicScholarships(page, limit int) ([]ScholarshipResponse, int64, error) {
+	scholarships, total, err := s.repo.FindAllPublishedScholarships(page, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+	var resp []ScholarshipResponse
+	for _, sch := range scholarships {
+		resp = append(resp, toScholarshipResponse(sch))
+	}
+	return resp, total, nil
+}
+
+func (s *Service) GetPublicScholarshipByID(id uint) (*Scholarship, error) {
+	return s.repo.FindPublishedScholarshipByID(id)
 }
 
 func (s *Service) GetAdmissions(instID uint, status string) ([]Admission, error) {
@@ -1814,37 +1965,15 @@ func (s *Service) GetPublicInstitution(id uint) (*PublicInstitutionDetailRespons
 	eventResponses := make([]EventResponse, 0, len(events))
 	for _, e := range events {
 		if e.Status == "upcoming" || e.Status == "published" {
-			eventResponses = append(eventResponses, EventResponse{
-				ID:            e.ID,
-				CreatedAt:     e.CreatedAt.Format(time.RFC3339),
-				UpdatedAt:     e.UpdatedAt.Format(time.RFC3339),
-				InstitutionID: e.InstitutionID,
-				Title:         e.Title,
-				Description:   e.Description,
-				Date:          e.Date.Format("2006-01-02"),
-				Location:      e.Location,
-				Image:         e.Image,
-				Status:        e.Status,
-			})
+			eventResponses = append(eventResponses, toEventResponse(e))
 		}
 	}
 
 	newsList, _, _ := s.repo.FindNewsByInstitution(id, 1, 100)
 	newsResponses := make([]NewsResponse, 0, len(newsList))
 	for _, n := range newsList {
-		if n.Published {
-			newsResponses = append(newsResponses, NewsResponse{
-				ID:            n.ID,
-				CreatedAt:     n.CreatedAt.Format(time.RFC3339),
-				UpdatedAt:     n.UpdatedAt.Format(time.RFC3339),
-				InstitutionID: n.InstitutionID,
-				Title:         n.Title,
-				Content:       n.Content,
-				Excerpt:       n.Excerpt,
-				Image:         n.Image,
-				Category:      n.Category,
-				Published:     n.Published,
-			})
+		if n.Status == "published" {
+			newsResponses = append(newsResponses, toNewsResponse(n))
 		}
 	}
 
@@ -1854,26 +1983,10 @@ func (s *Service) GetPublicInstitution(id uint) (*PublicInstitutionDetailRespons
 		scholarships, _ := s.repo.FindScholarshipsByLocation("%" + college.Name + "%")
 		scholarshipResponses = make([]ScholarshipResponse, 0, len(scholarships))
 		for _, sch := range scholarships {
-			var fos []string
-			if sch.FieldOfStudy != nil {
-				json.Unmarshal(sch.FieldOfStudy, &fos)
+			if sch.Status != "published" {
+				continue
 			}
-			scholarshipResponses = append(scholarshipResponses, ScholarshipResponse{
-				ID:              sch.ID,
-				CreatedAt:       sch.CreatedAt.Format(time.RFC3339),
-				UpdatedAt:       sch.UpdatedAt.Format(time.RFC3339),
-				Title:           sch.Title,
-				Provider:        sch.Provider,
-				Location:        sch.Location,
-				Value:           sch.Value,
-				Deadline:        sch.Deadline.Format("2006-01-02"),
-				DegreeLevel:     sch.DegreeLevel,
-				FundingType:     sch.FundingType,
-				ScholarshipType: sch.ScholarshipType,
-				Description:     sch.Description,
-				ImageURL:        sch.ImageURL,
-				FieldOfStudy:    fos,
-			})
+			scholarshipResponses = append(scholarshipResponses, toScholarshipResponse(sch))
 		}
 	}
 

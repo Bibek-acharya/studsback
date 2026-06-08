@@ -659,6 +659,108 @@ func (h *Handler) GetNewsByID(c *gin.Context) {
 	response.Success(c, http.StatusOK, "News retrieved successfully", toNewsResponse(*news))
 }
 
+func (h *Handler) ListPublicNews(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	if page < 1 { page = 1 }
+	if limit < 1 || limit > 50 { limit = 10 }
+
+	news, total, err := h.service.ListPublicNews(page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch news")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "News retrieved successfully", gin.H{
+		"news": news,
+		"meta": gin.H{"total": total, "page": page, "limit": limit},
+	})
+}
+
+func (h *Handler) ListPublicEvents(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	if page < 1 { page = 1 }
+	if limit < 1 || limit > 50 { limit = 10 }
+
+	events, total, err := h.service.ListPublicEvents(page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch events")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Events retrieved successfully", gin.H{
+		"events": events,
+		"meta": gin.H{"total": total, "page": page, "limit": limit},
+	})
+}
+
+func (h *Handler) GetPublicEventByID(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid event ID")
+		return
+	}
+
+	event, err := h.service.GetPublicEventByID(uint(id))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Event not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Event retrieved successfully", toEventResponse(*event))
+}
+
+func (h *Handler) ListPublicScholarships(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	if page < 1 { page = 1 }
+	if limit < 1 || limit > 50 { limit = 10 }
+
+	scholarships, total, err := h.service.ListPublicScholarships(page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch scholarships")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Scholarships retrieved successfully", gin.H{
+		"scholarships": scholarships,
+		"meta": gin.H{"total": total, "page": page, "limit": limit},
+	})
+}
+
+func (h *Handler) GetPublicScholarshipByID(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid scholarship ID")
+		return
+	}
+
+	scholarship, err := h.service.GetPublicScholarshipByID(uint(id))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Scholarship not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Scholarship retrieved successfully", toScholarshipResponse(*scholarship))
+}
+
+func (h *Handler) GetPublicNewsByID(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid news ID")
+		return
+	}
+
+	news, err := h.service.GetPublicNewsByID(uint(id))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "News not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "News retrieved successfully", toNewsResponse(*news))
+}
+
 func (h *Handler) CreateNews(c *gin.Context) {
 	instID := getInstID(c)
 
@@ -1660,32 +1762,76 @@ func toEntranceApplicantResponse(a InstitutionEntranceApplicant) EntranceApplica
 }
 
 func toEventResponse(e InstitutionEvent) EventResponse {
+	var tags []string
+	if e.Tags != nil && *e.Tags != "" {
+		json.Unmarshal([]byte(*e.Tags), &tags)
+	}
+	var startDate *string
+	if e.StartDate != nil {
+		t := e.StartDate.Format(time.RFC3339)
+		startDate = &t
+	}
+	var endDate *string
+	if e.EndDate != nil {
+		t := e.EndDate.Format(time.RFC3339)
+		endDate = &t
+	}
 	return EventResponse{
-		ID:            e.ID,
-		CreatedAt:     e.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:     e.UpdatedAt.Format(time.RFC3339),
-		InstitutionID: e.InstitutionID,
-		Title:         e.Title,
-		Description:   e.Description,
-		Date:          e.Date.Format(time.RFC3339),
-		Location:      e.Location,
-		Image:         e.Image,
-		Status:        e.Status,
+		ID:                 e.ID,
+		CreatedAt:          e.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:          e.UpdatedAt.Format(time.RFC3339),
+		InstitutionID:      e.InstitutionID,
+		Name:               e.Name,
+		ShortDesc:          e.ShortDesc,
+		Description:        e.Description,
+		ImageURL:           e.ImageURL,
+		EventType:          e.EventType,
+		Category:           e.Category,
+		MaxParticipants:    e.MaxParticipants,
+		OnlineLink:         e.OnlineLink,
+		OrganizedBy:        e.OrganizedBy,
+		ContactPerson:      e.ContactPerson,
+		ContactEmail:       e.ContactEmail,
+		StartDate:          startDate,
+		EndDate:            endDate,
+		Location:           e.Location,
+		Tags:               tags,
+		EnableRegistration: e.EnableRegistration,
+		Status:             e.Status,
 	}
 }
 
 func toNewsResponse(n InstitutionNews) NewsResponse {
+	var tags []string
+	if n.Tags != nil && *n.Tags != "" {
+		json.Unmarshal([]byte(*n.Tags), &tags)
+	}
+	var publishedAt *string
+	if n.PublishedAt != nil {
+		t := n.PublishedAt.Format(time.RFC3339)
+		publishedAt = &t
+	}
+	var publishDate *string
+	if n.PublishDate != nil {
+		pd := *n.PublishDate
+		publishDate = &pd
+	}
 	return NewsResponse{
 		ID:            n.ID,
 		CreatedAt:     n.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:     n.UpdatedAt.Format(time.RFC3339),
 		InstitutionID: n.InstitutionID,
 		Title:         n.Title,
+		ShortDesc:     n.ShortDesc,
 		Content:       n.Content,
-		Excerpt:       n.Excerpt,
-		Image:         n.Image,
-		Category:      n.Category,
-		Published:     n.Published,
+		ImageURL:      n.ImageURL,
+		NewsType:      n.NewsType,
+		PublishedBy:   n.PublishedBy,
+		PublishDate:   publishDate,
+		Tags:          tags,
+		AllowComments: n.AllowComments,
+		Status:        n.Status,
+		PublishedAt:   publishedAt,
 	}
 }
 
@@ -1743,7 +1889,9 @@ func toScholarshipResponse(s Scholarship) ScholarshipResponse {
 		ID:              s.ID,
 		CreatedAt:       s.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:       s.UpdatedAt.Format(time.RFC3339),
+		InstitutionID:   s.InstitutionID,
 		Title:           s.Title,
+		ShortDesc:       s.ShortDesc,
 		Provider:        s.Provider,
 		Location:        s.Location,
 		Value:           s.Value,
@@ -1754,6 +1902,7 @@ func toScholarshipResponse(s Scholarship) ScholarshipResponse {
 		Description:     s.Description,
 		ImageURL:        s.ImageURL,
 		FieldOfStudy:    fieldOfStudy,
+		Status:          s.Status,
 	}
 }
 

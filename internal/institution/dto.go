@@ -229,62 +229,112 @@ type EntranceApplicantResponse struct {
 }
 
 type CreateEventRequest struct {
-	Title       string `json:"title" binding:"required"`
-	Description string `json:"description"`
-	Date        string `json:"date" binding:"required"`
-	Location    string `json:"location"`
-	Image       string `json:"image"`
+	Name              string   `json:"name" binding:"required"`
+	ShortDesc         string   `json:"short_desc"`
+	Description       string   `json:"description"`
+	ImageURL          string   `json:"image_url"`
+	EventType         string   `json:"event_type"`
+	Category          string   `json:"category"`
+	MaxParticipants   int      `json:"max_participants"`
+	OnlineLink        string   `json:"online_link"`
+	OrganizedBy       string   `json:"organized_by"`
+	ContactPerson     string   `json:"contact_person"`
+	ContactEmail      string   `json:"contact_email"`
+	StartDate         string   `json:"start_date" binding:"required"`
+	EndDate           string   `json:"end_date"`
+	Location          string   `json:"location"`
+	Tags              []string `json:"tags"`
+	EnableRegistration bool   `json:"enable_registration"`
+	Status            string   `json:"status"`
 }
 
 type UpdateEventRequest struct {
-	Title       string `json:"title"`
-	Description string `json:"description"`
-	Date        string `json:"date"`
-	Location    string `json:"location"`
-	Image       string `json:"image"`
-	Status      string `json:"status"`
+	Name              string   `json:"name"`
+	ShortDesc         string   `json:"short_desc"`
+	Description       string   `json:"description"`
+	ImageURL          string   `json:"image_url"`
+	EventType         string   `json:"event_type"`
+	Category          string   `json:"category"`
+	MaxParticipants   int      `json:"max_participants"`
+	OnlineLink        string   `json:"online_link"`
+	OrganizedBy       string   `json:"organized_by"`
+	ContactPerson     string   `json:"contact_person"`
+	ContactEmail      string   `json:"contact_email"`
+	StartDate         string   `json:"start_date"`
+	EndDate           string   `json:"end_date"`
+	Location          string   `json:"location"`
+	Tags              []string `json:"tags"`
+	EnableRegistration bool   `json:"enable_registration"`
+	Status            string   `json:"status"`
 }
 
 type EventResponse struct {
-	ID            uint   `json:"id"`
-	CreatedAt     string `json:"created_at"`
-	UpdatedAt     string `json:"updated_at"`
-	InstitutionID uint   `json:"institution_id"`
-	Title         string `json:"title"`
-	Description   string `json:"description"`
-	Date          string `json:"date"`
-	Location      string `json:"location"`
-	Image         string `json:"image"`
-	Status        string `json:"status"`
+	ID                uint     `json:"id"`
+	CreatedAt         string   `json:"created_at"`
+	UpdatedAt         string   `json:"updated_at"`
+	InstitutionID     uint     `json:"institution_id"`
+	Name              string   `json:"name"`
+	ShortDesc         string   `json:"short_desc"`
+	Description       string   `json:"description"`
+	ImageURL          string   `json:"image_url"`
+	EventType         string   `json:"event_type"`
+	Category          string   `json:"category"`
+	MaxParticipants   int      `json:"max_participants"`
+	OnlineLink        string   `json:"online_link"`
+	OrganizedBy       string   `json:"organized_by"`
+	ContactPerson     string   `json:"contact_person"`
+	ContactEmail      string   `json:"contact_email"`
+	StartDate         *string  `json:"start_date"`
+	EndDate           *string  `json:"end_date"`
+	Location          string   `json:"location"`
+	Tags              []string `json:"tags"`
+	EnableRegistration bool   `json:"enable_registration"`
+	Status            string   `json:"status"`
+	Attendees         int      `json:"attendees"`
 }
 
 type CreateNewsRequest struct {
-	Title    string `json:"title" binding:"required"`
-	Content  string `json:"content"`
-	Excerpt  string `json:"excerpt"`
-	Image    string `json:"image"`
-	Category string `json:"category"`
+	Title         string   `json:"title" binding:"required"`
+	ShortDesc     string   `json:"short_desc"`
+	Content       string   `json:"content"`
+	ImageURL      string   `json:"image_url"`
+	NewsType      string   `json:"news_type"`
+	PublishedBy   string   `json:"published_by"`
+	PublishDate   string   `json:"publish_date"`
+	Tags          []string `json:"tags"`
+	AllowComments bool     `json:"allow_comments"`
+	Status        string   `json:"status"`
 }
 
 type UpdateNewsRequest struct {
-	Title    string `json:"title"`
-	Content  string `json:"content"`
-	Excerpt  string `json:"excerpt"`
-	Image    string `json:"image"`
-	Category string `json:"category"`
+	Title         string   `json:"title"`
+	ShortDesc     string   `json:"short_desc"`
+	Content       string   `json:"content"`
+	ImageURL      string   `json:"image_url"`
+	NewsType      string   `json:"news_type"`
+	PublishedBy   string   `json:"published_by"`
+	PublishDate   string   `json:"publish_date"`
+	Tags          []string `json:"tags"`
+	AllowComments bool     `json:"allow_comments"`
+	Status        string   `json:"status"`
 }
 
 type NewsResponse struct {
-	ID            uint   `json:"id"`
-	CreatedAt     string `json:"created_at"`
-	UpdatedAt     string `json:"updated_at"`
-	InstitutionID uint   `json:"institution_id"`
-	Title         string `json:"title"`
-	Content       string `json:"content"`
-	Excerpt       string `json:"excerpt"`
-	Image         string `json:"image"`
-	Category      string `json:"category"`
-	Published     bool   `json:"published"`
+	ID            uint    `json:"id"`
+	CreatedAt     string  `json:"created_at"`
+	UpdatedAt     string  `json:"updated_at"`
+	InstitutionID uint    `json:"institution_id"`
+	Title         string  `json:"title"`
+	ShortDesc     string  `json:"short_desc"`
+	Content       string  `json:"content"`
+	ImageURL      string  `json:"image_url"`
+	NewsType      string  `json:"news_type"`
+	PublishedBy   string  `json:"published_by"`
+	PublishDate   *string `json:"publish_date"`
+	Tags          []string `json:"tags"`
+	AllowComments bool    `json:"allow_comments"`
+	Status        string  `json:"status"`
+	PublishedAt   *string `json:"published_at"`
 }
 
 type CreateBlogRequest struct {
@@ -434,6 +484,7 @@ type CourseDataItem struct {
 	Fees            string `json:"fees"`
 	Duration        string `json:"duration"`
 	Eligibility     string `json:"eligibility"`
+	Seats           string `json:"seats"`
 	ApplicationDate string `json:"applicationDate"`
 	ApplyLink       string `json:"applyLink"`
 }
@@ -638,6 +689,7 @@ type AnalyticsResponse struct {
 
 type CreateScholarshipRequest struct {
 	Title           string   `json:"title" binding:"required"`
+	ShortDesc       string   `json:"short_desc"`
 	Provider        string   `json:"provider"`
 	Location        string   `json:"location"`
 	Value           string   `json:"value"`
@@ -648,10 +700,12 @@ type CreateScholarshipRequest struct {
 	Description     string   `json:"description"`
 	ImageURL        string   `json:"image_url"`
 	FieldOfStudy    []string `json:"field_of_study"`
+	Status          string   `json:"status"`
 }
 
 type UpdateScholarshipRequest struct {
 	Title           string   `json:"title"`
+	ShortDesc       string   `json:"short_desc"`
 	Provider        string   `json:"provider"`
 	Location        string   `json:"location"`
 	Value           string   `json:"value"`
@@ -662,13 +716,16 @@ type UpdateScholarshipRequest struct {
 	Description     string   `json:"description"`
 	ImageURL        string   `json:"image_url"`
 	FieldOfStudy    []string `json:"field_of_study"`
+	Status          string   `json:"status"`
 }
 
 type ScholarshipResponse struct {
 	ID              uint     `json:"id"`
 	CreatedAt       string   `json:"created_at"`
 	UpdatedAt       string   `json:"updated_at"`
+	InstitutionID   uint     `json:"institution_id"`
 	Title           string   `json:"title"`
+	ShortDesc       string   `json:"short_desc"`
 	Provider        string   `json:"provider"`
 	Location        string   `json:"location"`
 	Value           string   `json:"value"`
@@ -679,6 +736,7 @@ type ScholarshipResponse struct {
 	Description     string   `json:"description"`
 	ImageURL        string   `json:"image_url"`
 	FieldOfStudy    []string `json:"field_of_study"`
+	Status          string   `json:"status"`
 }
 
 type AdmissionResponse struct {

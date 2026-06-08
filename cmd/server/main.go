@@ -434,6 +434,40 @@ func fixMissingColumns(db *gorm.DB) error {
 	if err := db.Exec(`ALTER TABLE institution_users ADD COLUMN IF NOT EXISTS map_url TEXT DEFAULT ''`).Error; err != nil {
 		return err
 	}
+	// Drop old columns renamed/removed in model refactors
+	if err := db.Exec(`ALTER TABLE institution_events DROP COLUMN IF EXISTS title`).Error; err != nil {
+		return err
+	}
+	if err := db.Exec(`ALTER TABLE institution_events DROP COLUMN IF EXISTS date`).Error; err != nil {
+		return err
+	}
+	if err := db.Exec(`ALTER TABLE institution_events DROP COLUMN IF EXISTS image`).Error; err != nil {
+		return err
+	}
+	if err := db.Exec(`ALTER TABLE scholarships ADD COLUMN IF NOT EXISTS institution_id INTEGER DEFAULT 0`).Error; err != nil {
+		return err
+	}
+	if err := db.Exec(`ALTER TABLE scholarships ADD COLUMN IF NOT EXISTS short_desc TEXT DEFAULT ''`).Error; err != nil {
+		return err
+	}
+	if err := db.Exec(`ALTER TABLE scholarships ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'draft'`).Error; err != nil {
+		return err
+	}
+	if err := db.Exec(`ALTER TABLE scholarships ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP`).Error; err != nil {
+		return err
+	}
+	if err := db.Exec(`ALTER TABLE institution_news DROP COLUMN IF EXISTS excerpt`).Error; err != nil {
+		return err
+	}
+	if err := db.Exec(`ALTER TABLE institution_news DROP COLUMN IF EXISTS image`).Error; err != nil {
+		return err
+	}
+	if err := db.Exec(`ALTER TABLE institution_news DROP COLUMN IF EXISTS category`).Error; err != nil {
+		return err
+	}
+	if err := db.Exec(`ALTER TABLE institution_news DROP COLUMN IF EXISTS published`).Error; err != nil {
+		return err
+	}
 	if err := db.Exec(`ALTER TABLE institution_users ADD COLUMN IF NOT EXISTS facebook_url TEXT DEFAULT ''`).Error; err != nil {
 		return err
 	}

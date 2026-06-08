@@ -330,6 +330,27 @@ func (r *Repository) FindEntranceApplicants(entranceID uint) ([]InstitutionEntra
 	return applicants, err
 }
 
+func (r *Repository) FindAllPublishedEvents(page, limit int) ([]InstitutionEvent, int64, error) {
+	var events []InstitutionEvent
+	var total int64
+	offset := (page - 1) * limit
+	if err := r.db.Model(&InstitutionEvent{}).Where("status IN ?", []string{"upcoming", "published"}).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	err := r.db.Where("status IN ?", []string{"upcoming", "published"}).
+		Order("created_at desc").Offset(offset).Limit(limit).Find(&events).Error
+	return events, total, err
+}
+
+func (r *Repository) FindPublishedEventByID(id uint) (*InstitutionEvent, error) {
+	var event InstitutionEvent
+	err := r.db.Where("id = ? AND status IN ?", id, []string{"upcoming", "published"}).First(&event).Error
+	if err != nil {
+		return nil, err
+	}
+	return &event, nil
+}
+
 func (r *Repository) FindEventsByInstitution(instID uint, page, limit int) ([]InstitutionEvent, int64, error) {
 	var events []InstitutionEvent
 	var total int64
@@ -340,7 +361,7 @@ func (r *Repository) FindEventsByInstitution(instID uint, page, limit int) ([]In
 
 	offset := (page - 1) * limit
 	err := r.db.Where("institution_id = ?", instID).
-		Order("date desc").Offset(offset).Limit(limit).Find(&events).Error
+		Order("start_date desc").Offset(offset).Limit(limit).Find(&events).Error
 	return events, total, err
 }
 
@@ -370,6 +391,27 @@ func (r *Repository) DeleteEvent(id uint, instID uint) error {
 		return gorm.ErrRecordNotFound
 	}
 	return nil
+}
+
+func (r *Repository) FindAllPublishedNews(page, limit int) ([]InstitutionNews, int64, error) {
+	var news []InstitutionNews
+	var total int64
+	offset := (page - 1) * limit
+	if err := r.db.Model(&InstitutionNews{}).Where("status = ?", "published").Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	err := r.db.Where("status = ?", "published").
+		Order("created_at desc").Offset(offset).Limit(limit).Find(&news).Error
+	return news, total, err
+}
+
+func (r *Repository) FindPublishedNewsByID(id uint) (*InstitutionNews, error) {
+	var news InstitutionNews
+	err := r.db.Where("id = ? AND status = ?", id, "published").First(&news).Error
+	if err != nil {
+		return nil, err
+	}
+	return &news, nil
 }
 
 func (r *Repository) FindNewsByInstitution(instID uint, page, limit int) ([]InstitutionNews, int64, error) {
@@ -572,6 +614,42 @@ func (r *Repository) FindScholarshipsByLocation(like string) ([]Scholarship, err
 	var scholarships []Scholarship
 	err := r.db.Where("location ILIKE ?", like).Find(&scholarships).Error
 	return scholarships, err
+}
+
+func (r *Repository) FindScholarshipsByInstitution(instID uint) ([]Scholarship, error) {
+	var scholarships []Scholarship
+	err := r.db.Where("institution_id = ?", instID).Order("created_at desc").Find(&scholarships).Error
+	return scholarships, err
+}
+
+func (r *Repository) FindScholarshipByIDAndInstitution(id, instID uint) (*Scholarship, error) {
+	var scholarship Scholarship
+	err := r.db.Where("id = ? AND institution_id = ?", id, instID).First(&scholarship).Error
+	if err != nil {
+		return nil, err
+	}
+	return &scholarship, nil
+}
+
+func (r *Repository) FindAllPublishedScholarships(page, limit int) ([]Scholarship, int64, error) {
+	var scholarships []Scholarship
+	var total int64
+	offset := (page - 1) * limit
+	if err := r.db.Model(&Scholarship{}).Where("status = ?", "published").Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	err := r.db.Where("status = ?", "published").
+		Order("created_at desc").Offset(offset).Limit(limit).Find(&scholarships).Error
+	return scholarships, total, err
+}
+
+func (r *Repository) FindPublishedScholarshipByID(id uint) (*Scholarship, error) {
+	var scholarship Scholarship
+	err := r.db.Where("id = ? AND status = ?", id, "published").First(&scholarship).Error
+	if err != nil {
+		return nil, err
+	}
+	return &scholarship, nil
 }
 
 func (r *Repository) CreateScholarship(scholarship *Scholarship) error {
