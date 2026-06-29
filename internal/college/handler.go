@@ -216,7 +216,14 @@ func (h *Handler) RecommendColleges(c *gin.Context) {
 		return
 	}
 
-	recommendations, err := h.service.RecommendColleges(req)
+	var userID *uint
+	if uid, exists := c.Get("user_id"); exists && uid != nil {
+		if id, ok := uid.(uint); ok && id > 0 {
+			userID = &id
+		}
+	}
+
+	recommendations, err := h.service.RecommendColleges(req, userID)
 	if err != nil {
 		response.Error(c, 500, "Failed to get recommendations")
 		return

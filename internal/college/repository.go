@@ -436,6 +436,71 @@ func parseFloat(s string) (float64, error) {
 	return strconv.ParseFloat(s, 64)
 }
 
+func (r *Repository) GetCollegeProfileForRecommendation(userID uint) (*CollegeProfileData, error) {
+	type rawEntry struct {
+		Level  string
+		Stream string
+		Grade  string
+	}
+	var entries []rawEntry
+	if err := r.db.Table("education_entries").
+		Where("user_id = ?", userID).
+		Select("level, stream, grade").
+		Find(&entries).Error; err != nil {
+		return nil, err
+	}
+
+	type rawUser struct {
+		Preferences []byte
+	}
+	var user rawUser
+	if err := r.db.Table("users").
+		Select("preferences").
+		Where("id = ?", userID).
+		First(&user).Error; err != nil {
+		return nil, err
+	}
+
+	type bookmarkRow struct {
+		Field string
+	}
+	var bookmarks []bookmarkRow
+	r.db.Table("bookmarks").
+		Select("DISTINCT field").
+		Where("user_id = ? AND entity_type = 'college'", userID).
+		Scan(&bookmarks)
+
+	eduEntries := make([]CollegeEducationEntry, 0, len(entries))
+	for _, e := range entries {
+		eduEntries = append(eduEntries, CollegeEducationEntry{
+			Level:  e.Level,
+			Stream: e.Stream,
+			Grade:  e.Grade,
+		})
+	}
+
+	var prefs *CollegePreferences
+	if len(user.Preferences) > 0 {
+		var p CollegePreferences
+		if err := json.Unmarshal(user.Preferences, &p); err == nil {
+			prefs = &p
+		}
+	}
+
+	fields := make([]string, 0, len(bookmarks))
+	for _, b := range bookmarks {
+		if b.Field != "" {
+			fields = append(fields, b.Field)
+		}
+	}
+
+	return &CollegeProfileData{
+		EducationEntries: eduEntries,
+		Preferences:      prefs,
+		BookmarkedFields: fields,
+	}, nil
+}
+
 func mapAdmissionLevel(level string) string {
 	mapping := map[string]string{
 		"high-school": "+2",

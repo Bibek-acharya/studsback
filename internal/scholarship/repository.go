@@ -1,6 +1,7 @@
 package scholarship
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -529,4 +530,73 @@ func (r *Repository) FindProviderScholarshipsForRecommendation() ([]ProviderScho
 		Where("deleted_at IS NULL").
 		Find(&scholarships).Error
 	return scholarships, err
+}
+
+func (r *Repository) GetUserProfileForRecommendation(userID uint) (*ProfileData, error) {
+	type eduRow struct {
+		Level           string
+		Stream          string
+		Grade           string
+		GradingSystem   string `gorm:"column:grading_system"`
+		InstitutionName string `gorm:"column:institution_name"`
+	}
+	var entries []eduRow
+	if err := r.db.Table("education_entries").
+		Select("level, stream, grade, grading_system, institution_name").
+		Where("user_id = ?", userID).
+		Find(&entries).Error; err != nil {
+		return nil, err
+	}
+
+	eduData := make([]EducationEntryData, len(entries))
+	for i, e := range entries {
+		eduData[i] = EducationEntryData{
+			Level:           e.Level,
+			Stream:          e.Stream,
+			Grade:           e.Grade,
+			GradingSystem:   e.GradingSystem,
+			InstitutionName: e.InstitutionName,
+		}
+	}
+
+	type prefsRow struct {
+		Preferences []byte `gorm:"column:preferences"`
+	}
+	var pRow prefsRow
+	if err := r.db.Table("users").
+		Select("preferences").
+		Where("id = ?", userID).
+		First(&pRow).Error; err != nil {
+		return nil, err
+	}
+
+	var prefs *PreferencesData
+	if len(pRow.Preferences) > 0 {
+		var p PreferencesData
+		if err := json.Unmarshal(pRow.Preferences, &p); err == nil {
+			prefs = &p
+		}
+	}
+
+	type bookmarkRow struct {
+		Field string
+	}
+	var bookmarks []bookmarkRow
+	r.db.Table("bookmarks").
+		Select("DISTINCT field").
+		Where("user_id = ? AND entity_type = 'scholarship'", userID).
+		Scan(&bookmarks)
+
+	fields := make([]string, 0, len(bookmarks))
+	for _, b := range bookmarks {
+		if b.Field != "" {
+			fields = append(fields, b.Field)
+		}
+	}
+
+	return &ProfileData{
+		EducationEntries: eduData,
+		Preferences:      prefs,
+		BookmarkedFields: fields,
+	}, nil
 }

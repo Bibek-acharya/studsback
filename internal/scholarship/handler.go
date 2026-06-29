@@ -82,7 +82,14 @@ func (h *Handler) RecommendScholarships(c *gin.Context) {
 		return
 	}
 
-	results, err := h.service.RecommendScholarships(req)
+	var userID *uint
+	if uid, exists := c.Get("user_id"); exists && uid != nil {
+		if id, ok := uid.(uint); ok && id > 0 {
+			userID = &id
+		}
+	}
+
+	results, err := h.service.RecommendScholarships(req, userID)
 	if err != nil {
 		response.Error(c, 500, "Failed to get recommendations")
 		return

@@ -1,8 +1,8 @@
 package college
 
 import (
-	"encoding/json"
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 )
@@ -27,25 +27,51 @@ var budgetRanges = map[string]int{
 	"Over NPR. 50,000 / year":          1000000,
 }
 
-type scoredCollege struct {
-	College College
-	Score   int
-	Reasons []string
+type CollegeProfileData struct {
+	EducationEntries []CollegeEducationEntry
+	Preferences      *CollegePreferences
+	BookmarkedFields []string
 }
 
-func (s *Service) RecommendColleges(req CollegeRecommenderRequest) ([]CollegeRecommendationResult, error) {
+type CollegeEducationEntry struct {
+	Level  string
+	Stream string
+	Grade  string
+}
+
+type CollegePreferences struct {
+	Preferences map[string]interface{}
+}
+
+type scoredCollege struct {
+	College   College
+	Score     int
+	Reasons   []string
+	Breakdown CollegeRecommendationBreakdown
+}
+
+func (s *Service) RecommendColleges(req CollegeRecommenderRequest, userID *uint) ([]CollegeRecommendationResult, error) {
 	colleges, err := s.repo.FindAllForRecommendation(500)
 	if err != nil {
 		return nil, err
 	}
 
+	var profileData *CollegeProfileData
+	if userID != nil {
+		pd, err := s.repo.GetCollegeProfileForRecommendation(*userID)
+		if err == nil {
+			profileData = pd
+		}
+	}
+
 	scored := make([]scoredCollege, 0, len(colleges))
 	for _, c := range colleges {
-		score, reasons := scoreCollege(c, req)
+		score, reasons, breakdown := scoreCollege(c, req, profileData)
 		scored = append(scored, scoredCollege{
-			College: c,
-			Score:   score,
-			Reasons: reasons,
+			College:   c,
+			Score:     score,
+			Reasons:   reasons,
+			Breakdown: breakdown,
 		})
 	}
 
@@ -64,53 +90,107 @@ func (s *Service) RecommendColleges(req CollegeRecommenderRequest) ([]CollegeRec
 	results := make([]CollegeRecommendationResult, 0, limit)
 	for i := 0; i < limit; i++ {
 		sc := scored[i]
-		results = append(results, toCollegeRecommendation(sc.College, sc.Score, sc.Reasons))
+		results = append(results, toCollegeRecommendation(sc.College, sc.Score, sc.Reasons, sc.Breakdown))
 	}
 
 	return results, nil
 }
 
-func scoreCollege(c College, req CollegeRecommenderRequest) (int, []string) {
-	score := 0
+func scoreCollege(c College, req CollegeRecommenderRequest, profile *CollegeProfileData) (int, []string, CollegeRecommendationBreakdown) {
+	breakdown := CollegeRecommendationBreakdown{}
 	reasons := make([]string, 0, 8)
 
+	dimValues := []struct {
+		score   int
+		reasons []string
+		target  *int
+	}{
+		{0, nil, &breakdown.StudentType},
+		{0, nil, &breakdown.PreferredField},
+		{0, nil, &breakdown.Location},
+		{0, nil, &breakdown.Budget},
+		{0, nil, &breakdown.FinancialAid},
+		{0, nil, &breakdown.AcademicsVsCampus},
+		{0, nil, &breakdown.Activities},
+		{0, nil, &breakdown.Facilities},
+		{0, nil, &breakdown.Reputation},
+	}
+
 	s, r := scoreStudentTypeFit(c, req.StudentType)
-	score += s
+	dimValues[0].score = s
+	dimValues[0].reasons = r
 	reasons = append(reasons, r...)
 
 	s, r = scorePreferredField(c, req.PreferredField)
-	score += s
+	dimValues[1].score = s
+	dimValues[1].reasons = r
 	reasons = append(reasons, r...)
 
 	s, r = scoreLocation(c, req.Province, req.District, req.Setting)
-	score += s
+	dimValues[2].score = s
+	dimValues[2].reasons = r
 	reasons = append(reasons, r...)
 
 	s, r = scoreBudget(c, req.YearlyBudget, req.TuitionFactor)
-	score += s
+	dimValues[3].score = s
+	dimValues[3].reasons = r
 	reasons = append(reasons, r...)
 
 	s, r = scoreFinancialAid(c, req.FinancialSupport)
-	score += s
+	dimValues[4].score = s
+	dimValues[4].reasons = r
 	reasons = append(reasons, r...)
 
 	s, r = scoreAcademicsVsCampus(c, req.AcademicsVsCampus)
-	score += s
+	dimValues[5].score = s
+	dimValues[5].reasons = r
 	reasons = append(reasons, r...)
 
 	s, r = scoreActivities(c, req.ActivitiesImportance)
-	score += s
+	dimValues[6].score = s
+	dimValues[6].reasons = r
 	reasons = append(reasons, r...)
 
 	s, r = scoreFacilities(c, req.FacilityChoice)
-	score += s
+	dimValues[7].score = s
+	dimValues[7].reasons = r
 	reasons = append(reasons, r...)
 
 	s, r = scoreReputation(c, req.ReputationImportance)
-	score += s
+	dimValues[8].score = s
+	dimValues[8].reasons = r
 	reasons = append(reasons, r...)
 
-	return score, reasons
+	raw := make([]float64, 0, 11)
+	for i := range dimValues {
+		raw = append(raw, float64(dimValues[i].score))
+		*dimValues[i].target = dimValues[i].score
+	}
+
+	s, _ = scoreDistanceFromHome(c, req.DistanceFromHome)
+	breakdown.DistanceFromHome = s
+	raw = append(raw, float64(s))
+
+	s, _ = scoreClassSize(c, req.ClassSize)
+	breakdown.ClassSize = s
+	raw = append(raw, float64(s))
+
+	hasProfile := profile != nil && len(profile.EducationEntries) > 0
+	if hasProfile {
+		ps := scoreCollegeProfileCompatibility(c, profile)
+		breakdown.ProfileCompatibility = ps
+		raw = append(raw, float64(ps))
+	}
+
+	norm := normalizePercentile(raw)
+	weights := getCollegeDimensionWeights(hasProfile)
+
+	var totalScore float64
+	for i := range norm {
+		totalScore += norm[i] * weights[i]
+	}
+
+	return int(math.Round(totalScore * 100)), reasons, breakdown
 }
 
 func scoreStudentTypeFit(c College, studentType string) (int, []string) {
@@ -459,7 +539,7 @@ func scoreReputation(c College, importance string) (int, []string) {
 	return score, reasons
 }
 
-func toCollegeRecommendation(c College, score int, reasons []string) CollegeRecommendationResult {
+func toCollegeRecommendation(c College, score int, reasons []string, breakdown CollegeRecommendationBreakdown) CollegeRecommendationResult {
 	if len(reasons) > 4 {
 		reasons = reasons[:4]
 	}
@@ -477,7 +557,122 @@ func toCollegeRecommendation(c College, score int, reasons []string) CollegeReco
 		Tuiton:     tuition,
 		MatchScore: score,
 		Reasons:    reasons,
+		Breakdown:  breakdown,
 	}
+}
+
+func normalizePercentile(scores []float64) []float64 {
+	if len(scores) == 0 {
+		return nil
+	}
+	min, max := scores[0], scores[0]
+	for _, s := range scores {
+		if s < min {
+			min = s
+		}
+		if s > max {
+			max = s
+		}
+	}
+	result := make([]float64, len(scores))
+	if max == min {
+		for i := range result {
+			result[i] = 0.5
+		}
+		return result
+	}
+	for i, s := range scores {
+		result[i] = (s - min) / (max - min)
+	}
+	return result
+}
+
+func getCollegeDimensionWeights(hasProfile bool) []float64 {
+	if hasProfile {
+		return []float64{0.15, 0.12, 0.12, 0.10, 0.05, 0.05, 0.05, 0.05, 0.03, 0.03, 0.03, 0.12}
+	}
+	return []float64{0.18, 0.14, 0.14, 0.12, 0.06, 0.06, 0.06, 0.06, 0.06, 0.04, 0.04}
+}
+
+var distanceScores = map[string]int{
+	"Less than 10 km":  5,
+	"10–20 km":         4,
+	"20–50 km":         3,
+	"More than 50 km":  2,
+	"No preference":    3,
+}
+
+func scoreDistanceFromHome(c College, distance string) (int, []string) {
+	if distance == "" {
+		return 2, nil
+	}
+	score, ok := distanceScores[distance]
+	if !ok {
+		return 2, nil
+	}
+	if score >= 4 {
+		return score, []string{"Convenient location from home"}
+	}
+	return score, nil
+}
+
+var classSizeScores = map[string]int{
+	"Small classes (< 30)":   5,
+	"Medium classes (30–50)": 4,
+	"Large classes (50+)":    2,
+	"No preference":          3,
+}
+
+func scoreClassSize(c College, classSize string) (int, []string) {
+	if classSize == "" {
+		return 2, nil
+	}
+	score, ok := classSizeScores[classSize]
+	if !ok {
+		return 2, nil
+	}
+	if score >= 4 {
+		return score, []string{"Preferred class size"}
+	}
+	return score, nil
+}
+
+func scoreCollegeProfileCompatibility(c College, profile *CollegeProfileData) int {
+	if profile == nil || len(profile.EducationEntries) == 0 {
+		return 0
+	}
+	score := 0
+	combined := strings.ToLower(c.Name + " " + c.Description + " " + string(c.FeaturedPrograms) + " " + string(c.Courses) + " " + string(c.ProgramsList))
+
+	for _, e := range profile.EducationEntries {
+		stream := strings.ToLower(e.Stream)
+		if strings.Contains(combined, stream) {
+			score += 3
+		}
+	}
+
+	if profile.Preferences != nil && profile.Preferences.Preferences != nil {
+		if fields, ok := profile.Preferences.Preferences["fields"].([]interface{}); ok {
+			for _, f := range fields {
+				fs := strings.ToLower(fmt.Sprintf("%v", f))
+				if strings.Contains(combined, fs) {
+					score += 2
+				}
+			}
+		}
+	}
+
+	for _, bf := range profile.BookmarkedFields {
+		bfLower := strings.ToLower(bf)
+		if strings.Contains(combined, bfLower) {
+			score += 1
+		}
+	}
+
+	if score > 20 {
+		score = 20
+	}
+	return score
 }
 
 func extractTuitionString(c College) string {
@@ -508,4 +703,4 @@ func formatNPR(amount int) string {
 	return result
 }
 
-var _ = json.Unmarshal
+

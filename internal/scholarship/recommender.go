@@ -2,7 +2,9 @@ package scholarship
 
 import (
 	"encoding/json"
+	"fmt"
 	"math"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -26,6 +28,15 @@ var fieldOfStudyMap = map[string][]string{
 	"law":        {"law", "legal", "political science", "criminal justice", "international relations", "llb", "ba llb"},
 }
 
+var fieldAliases = map[string][]string{
+	"cs":         {"computer science", "it", "information technology", "computing", "software", "programming", "data science"},
+	"business":   {"management", "commerce", "finance", "economics", "accounting"},
+	"engineering": {"civil", "mechanical", "electrical", "electronics"},
+	"medicine":   {"medical", "health", "nursing", "pharmacy", "dentistry"},
+	"arts":       {"humanities", "social science", "literature", "history", "philosophy", "fine arts", "music"},
+	"law":        {"legal", "political science", "criminal justice"},
+}
+
 var providerTypeMap = map[string]string{
 	"Government":          "Government",
 	"NGO":                 "NGO",
@@ -39,10 +50,37 @@ var providerTypeMap = map[string]string{
 type scoredScholarship struct {
 	Scholarship  Scholarship
 	Score        int
+	Breakdown    RecommendResultBreakdown
 	ProviderType string
 }
 
-func (s *Service) RecommendScholarships(req ScholarshipRecommendRequest) ([]RecommendResult, error) {
+type EducationEntryData struct {
+	Level           string
+	Stream          string
+	Grade           string
+	GradingSystem   string
+	InstitutionName string
+}
+
+type PreferencesData struct {
+	Preferences map[string]interface{} `json:"preferences"`
+}
+
+type ProfileData struct {
+	EducationEntries []EducationEntryData
+	Preferences      *PreferencesData
+	BookmarkedFields []string
+}
+
+func (s *Service) RecommendScholarships(req ScholarshipRecommendRequest, userID *uint) ([]RecommendResult, error) {
+	var profileData *ProfileData
+	if userID != nil {
+		pd, err := s.repo.GetUserProfileForRecommendation(*userID)
+		if err == nil {
+			profileData = pd
+		}
+	}
+
 	platformScholarships, err := s.repo.FindAllForRecommendation()
 	if err != nil {
 		return nil, err
@@ -56,23 +94,25 @@ func (s *Service) RecommendScholarships(req ScholarshipRecommendRequest) ([]Reco
 	var scored []scoredScholarship
 
 	for _, sch := range platformScholarships {
-		score, providerType := scoreScholarship(sch, req)
+		score, breakdown, providerType := scoreScholarship(sch, req, profileData)
 		scored = append(scored, scoredScholarship{
 			Scholarship:  sch,
 			Score:        score,
+			Breakdown:    breakdown,
 			ProviderType: providerType,
 		})
 	}
 
 	for _, ps := range providerScholarships {
 		sch, providerType := providerScholarshipToRecommendScholarship(ps)
-		score, pt := scoreScholarship(sch, req)
+		score, breakdown, pt := scoreScholarship(sch, req, profileData)
 		if pt != "" {
 			providerType = pt
 		}
 		scored = append(scored, scoredScholarship{
 			Scholarship:  sch,
 			Score:        score,
+			Breakdown:    breakdown,
 			ProviderType: providerType,
 		})
 	}
@@ -89,27 +129,81 @@ func (s *Service) RecommendScholarships(req ScholarshipRecommendRequest) ([]Reco
 	results := make([]RecommendResult, 0, limit)
 	for i := 0; i < limit; i++ {
 		sc := scored[i]
-		results = append(results, toRecommendResult(sc.Scholarship, sc.Score, sc.ProviderType))
+		results = append(results, toRecommendResult(sc.Scholarship, sc.Score, sc.Breakdown, sc.ProviderType))
 	}
 
 	return results, nil
 }
 
-func scoreScholarship(s Scholarship, req ScholarshipRecommendRequest) (int, string) {
-	score := 0
+func normalizePercentile(scores []float64) []float64 {
+	if len(scores) == 0 {
+		return nil
+	}
+	min, max := scores[0], scores[0]
+	for _, s := range scores {
+		if s < min {
+			min = s
+		}
+		if s > max {
+			max = s
+		}
+	}
+	result := make([]float64, len(scores))
+	if max == min {
+		for i := range result {
+			result[i] = 0.5
+		}
+		return result
+	}
+	for i, s := range scores {
+		result[i] = (s - min) / (max - min)
+	}
+	return result
+}
 
-	score += scoreEducationLevel(s, req.EducationLevel)
-	score += scoreFieldOfStudy(s, req.FieldOfStudy)
-	score += scoreLocation(s, req.Province, req.District)
-	score += scoreFinancialFit(s, req.Income)
-	score += scoreStudyLocation(s, req.StudyLocation)
-	score += scoreCategoryGender(s, req.Category, req.Gender)
-	score += scoreGPAMatch(s, req.AcademicScoreType, req.AcademicScore)
-	score += scoreWillingness(s, req.WillingEssay, req.WillingInterview, req.WillingGpa)
+func scoreScholarship(s Scholarship, req ScholarshipRecommendRequest, profile *ProfileData) (int, RecommendResultBreakdown, string) {
+	breakdown := RecommendResultBreakdown{}
+
+	dimValues := []struct {
+		score  int
+		target *int
+	}{
+		{scoreEducationLevel(s, req.EducationLevel), &breakdown.EducationLevel},
+		{scoreFieldOfStudy(s, req.FieldOfStudy), &breakdown.FieldOfStudy},
+		{scoreLocation(s, req.Province, req.District), &breakdown.Location},
+		{scoreFinancialFit(s, req.Income), &breakdown.FinancialFit},
+		{scoreStudyLocation(s, req.StudyLocation), &breakdown.StudyLocation},
+		{scoreCategoryGender(s, req.Category, req.Gender), &breakdown.CategoryGender},
+		{scoreGPAMatch(s, req.AcademicScoreType, req.AcademicScore), &breakdown.GPAMatch},
+		{scoreWillingness(s, req.WillingEssay, req.WillingInterview, req.WillingGpa), &breakdown.Willingness},
+		{scoreTalents(s, req.Talents), &breakdown.Talents},
+		{scoreAchievements(s, req.Achievements), &breakdown.Achievements},
+	}
+
+	raw := make([]float64, len(dimValues))
+	for i, d := range dimValues {
+		raw[i] = float64(d.score)
+		*d.target = d.score
+	}
+
+	hasProfile := profile != nil && len(profile.EducationEntries) > 0
+	weights := []float64{0.15, 0.15, 0.10, 0.10, 0.05, 0.05, 0.10, 0.05, 0.05, 0.05}
+
+	if hasProfile {
+		profileScore := scoreProfileCompatibility(s, profile.EducationEntries, profile.Preferences, profile.BookmarkedFields)
+		breakdown.ProfileCompatibility = profileScore
+		raw = append(raw, float64(profileScore))
+		weights = []float64{0.12, 0.12, 0.08, 0.08, 0.04, 0.04, 0.08, 0.03, 0.04, 0.04, 0.17}
+	}
+
+	norm := normalizePercentile(raw)
+	var totalScore float64
+	for i := range norm {
+		totalScore += norm[i] * weights[i]
+	}
 
 	providerType := determineProviderType(s.Provider, s.FundingType, s.ScholarshipType)
-
-	return score, providerType
+	return int(math.Round(totalScore * 100)), breakdown, providerType
 }
 
 func scoreEducationLevel(s Scholarship, userLevel string) int {
@@ -124,7 +218,7 @@ func scoreEducationLevel(s Scholarship, userLevel string) int {
 
 	schLevels := strings.ToLower(s.DegreeLevel)
 	for _, term := range mapped {
-		if strings.Contains(schLevels, term) {
+		if fuzzyMatch(schLevels, term) {
 			return 30
 		}
 	}
@@ -132,7 +226,7 @@ func scoreEducationLevel(s Scholarship, userLevel string) int {
 	if s.EducationLevel != "" {
 		eduLevel := strings.ToLower(s.EducationLevel)
 		for _, term := range mapped {
-			if strings.Contains(eduLevel, term) {
+			if fuzzyMatch(eduLevel, term) {
 				return 30
 			}
 		}
@@ -155,7 +249,7 @@ func scoreFieldOfStudy(s Scholarship, userField string) int {
 	for _, f := range fieldOfStudyData {
 		fLower := strings.ToLower(f)
 		for _, term := range mapped {
-			if strings.Contains(fLower, term) {
+			if fuzzyMatch(fLower, term) {
 				return 25
 			}
 		}
@@ -163,14 +257,14 @@ func scoreFieldOfStudy(s Scholarship, userField string) int {
 
 	desc := strings.ToLower(s.Description)
 	for _, term := range mapped {
-		if strings.Contains(desc, term) {
+		if fuzzyMatch(desc, term) {
 			return 15
 		}
 	}
 
 	title := strings.ToLower(s.Title)
 	for _, term := range mapped {
-		if strings.Contains(title, term) {
+		if fuzzyMatch(title, term) {
 			return 10
 		}
 	}
@@ -189,17 +283,17 @@ func scoreLocation(s Scholarship, province, district string) int {
 
 	score := 0
 
-	if strings.Contains(combined, strings.ToLower(province)) {
+	if fuzzyMatch(combined, province) {
 		score += 8
 	}
-	if district != "" && strings.Contains(combined, strings.ToLower(district)) {
+	if district != "" && fuzzyMatch(combined, district) {
 		score += 7
 	}
 
 	if province != "" {
 		excluded := parseStringArray(s.ExcludedRegions)
 		for _, ex := range excluded {
-			if strings.Contains(strings.ToLower(ex), strings.ToLower(province)) {
+			if fuzzyMatch(strings.ToLower(ex), province) {
 				score -= 5
 				break
 			}
@@ -221,11 +315,11 @@ func scoreFinancialFit(s Scholarship, income string) int {
 	fundingType := strings.ToLower(s.FundingType)
 	combined := scholarshipType + " " + fundingType
 
-	isNeedBased := strings.Contains(combined, "need") || strings.Contains(combined, "need-based") ||
-		strings.Contains(combined, "need_based") || strings.Contains(combined, "fully funded") ||
-		strings.Contains(combined, "scholarship for underprivileged")
-	isMeritBased := strings.Contains(combined, "merit") || strings.Contains(combined, "merit-based") ||
-		strings.Contains(combined, "merit_based") || strings.Contains(combined, "excellence")
+	isNeedBased := fuzzyMatch(combined, "need") || fuzzyMatch(combined, "need-based") ||
+		fuzzyMatch(combined, "need_based") || fuzzyMatch(combined, "fully funded") ||
+		fuzzyMatch(combined, "scholarship for underprivileged")
+	isMeritBased := fuzzyMatch(combined, "merit") || fuzzyMatch(combined, "merit-based") ||
+		fuzzyMatch(combined, "merit_based") || fuzzyMatch(combined, "excellence")
 
 	switch income {
 	case "below_2":
@@ -261,18 +355,18 @@ func scoreFinancialFit(s Scholarship, income string) int {
 
 func scoreStudyLocation(s Scholarship, studyLocation string) int {
 	loc := strings.ToLower(s.Location)
-	isNepal := strings.Contains(loc, "nepal") ||
-		strings.Contains(loc, "kathmandu") ||
-		strings.Contains(loc, "pokhara") ||
-		strings.Contains(loc, "lalitpur") ||
-		strings.Contains(loc, "bhaktapur") ||
-		strings.Contains(loc, "chitwan") ||
-		strings.Contains(loc, "biratnagar") ||
-		strings.Contains(loc, "butwal") ||
-		strings.Contains(loc, "dharan") ||
-		strings.Contains(loc, "janakpur") ||
-		strings.Contains(loc, "nepalgunj") ||
-		strings.Contains(loc, "hetauda")
+	isNepal := fuzzyMatch(loc, "nepal") ||
+		fuzzyMatch(loc, "kathmandu") ||
+		fuzzyMatch(loc, "pokhara") ||
+		fuzzyMatch(loc, "lalitpur") ||
+		fuzzyMatch(loc, "bhaktapur") ||
+		fuzzyMatch(loc, "chitwan") ||
+		fuzzyMatch(loc, "biratnagar") ||
+		fuzzyMatch(loc, "butwal") ||
+		fuzzyMatch(loc, "dharan") ||
+		fuzzyMatch(loc, "janakpur") ||
+		fuzzyMatch(loc, "nepalgunj") ||
+		fuzzyMatch(loc, "hetauda")
 
 	switch studyLocation {
 	case "inside":
@@ -309,14 +403,14 @@ func scoreCategoryGender(s Scholarship, category, gender string) int {
 	}
 
 	if mapped, ok := categoryMap[category]; ok {
-		if strings.Contains(combined, mapped) {
+		if fuzzyMatch(combined, mapped) {
 			score += 3
 		}
 	}
 
 	if gender == "female" {
-		if strings.Contains(combined, "women") || strings.Contains(combined, "female") ||
-			strings.Contains(combined, "girl") || strings.Contains(combined, "mother") {
+		if fuzzyMatch(combined, "women") || fuzzyMatch(combined, "female") ||
+			fuzzyMatch(combined, "girl") || fuzzyMatch(combined, "mother") {
 			score += 2
 		}
 	}
@@ -426,6 +520,125 @@ func scoreWillingness(s Scholarship, willingEssay, willingInterview, willingGpa 
 		score += 1
 	}
 
+	return score
+}
+
+func scoreTalents(s Scholarship, talents []string) int {
+	if len(talents) == 0 {
+		return 0
+	}
+	text := strings.ToLower(s.Description + " " + s.Title)
+	score := 0
+	talentKeywords := map[string][]string{
+		"programming":    {"programming", "coding", "software", "developer", "tech"},
+		"public_speaking": {"public speaking", "debate", "orator", "presentation"},
+		"arts":           {"arts", "creative", "writing", "design", "music", "performing"},
+		"athletics":      {"sports", "athletics", "sportsperson", "physical"},
+	}
+	for range talents {
+		for _, kw := range talentKeywords {
+			for _, word := range kw {
+				if strings.Contains(text, word) {
+					score += 1
+					break
+				}
+			}
+		}
+	}
+	if score > 5 {
+		score = 5
+	}
+	return score
+}
+
+func scoreAchievements(s Scholarship, achievements []string) int {
+	if len(achievements) == 0 {
+		return 0
+	}
+	text := strings.ToLower(s.Description + " " + s.Title)
+	score := 0
+	achievementKeywords := map[string][]string{
+		"academic_excellence": {"academic", "excellence", "scholar", "top", "rank"},
+		"national_sports":     {"national", "sports", "athlete", "tournament"},
+		"leadership":          {"leadership", "captain", "president", "head"},
+		"olympiad":            {"olympiad", "science", "math", "competition"},
+	}
+	for range achievements {
+		for _, kw := range achievementKeywords {
+			for _, word := range kw {
+				if strings.Contains(text, word) {
+					score += 1
+					break
+				}
+			}
+		}
+	}
+	if score > 5 {
+		score = 5
+	}
+	return score
+}
+
+func scoreInvolvement(s Scholarship, involvement []string) int {
+	if len(involvement) == 0 {
+		return 0
+	}
+	text := strings.ToLower(s.Description + " " + s.Title)
+	score := 0
+	for _, inv := range involvement {
+		if strings.Contains(text, strings.ToLower(inv)) {
+			score += 1
+		}
+	}
+	if score > 3 {
+		score = 3
+	}
+	return score
+}
+
+func scoreProfileCompatibility(s Scholarship, entries []EducationEntryData, prefs *PreferencesData, bookmarkedFields []string) int {
+	score := 0
+
+	fos := parseStringArray(s.FieldOfStudy)
+	fosText := strings.ToLower(strings.Join(fos, " "))
+
+	for _, e := range entries {
+		stream := strings.ToLower(e.Stream)
+		if fosText != "" && (strings.Contains(fosText, stream) || strings.Contains(stream, fosText)) {
+			score += 4
+		}
+		if e.Grade != "" {
+			grade, err := strconv.ParseFloat(e.Grade, 64)
+			if err == nil {
+				minGpa := extractMinGPAFromText(s.Description + " " + string(s.BasicEligibilityCriteria))
+				if minGpa > 0 && grade >= minGpa {
+					score += 3
+				}
+			}
+		}
+	}
+
+	if prefs != nil && prefs.Preferences != nil {
+		if fields, ok := prefs.Preferences["fields"].([]interface{}); ok {
+			for _, f := range fields {
+				fs := strings.ToLower(fmt.Sprintf("%v", f))
+				if fosText != "" && strings.Contains(fosText, fs) {
+					score += 2
+				}
+			}
+		}
+	}
+
+	for _, bf := range bookmarkedFields {
+		bfLower := strings.ToLower(bf)
+		if fosText != "" && strings.Contains(fosText, bfLower) {
+			score += 1
+		}
+	}
+
+	if score > 20 {
+		score = 20
+	}
 	return score
 }
 
@@ -559,7 +772,7 @@ func providerScholarshipToRecommendScholarship(ps ProviderScholarship) (Scholars
 	}, providerType
 }
 
-func toRecommendResult(s Scholarship, score int, providerType string) RecommendResult {
+func toRecommendResult(s Scholarship, score int, breakdown RecommendResultBreakdown, providerType string) RecommendResult {
 	tagClass := determineTagColorClass(s)
 
 	shortDesc := s.Description
@@ -575,32 +788,75 @@ func toRecommendResult(s Scholarship, score int, providerType string) RecommendR
 	}
 
 	return RecommendResult{
-		ID:             s.ID,
-		Slug:           s.Slug,
-		Title:          s.Title,
-		Provider:       s.Provider,
-		ProviderType:   providerType,
-		Coverage:       determineCoverage(s),
-		Deadline:       formatDeadline(s.Deadline),
-		Description:    shortDesc,
-		DegreeLevel:    s.DegreeLevel,
-		FundingType:    s.FundingType,
+		ID:              s.ID,
+		Slug:            s.Slug,
+		Title:           s.Title,
+		Provider:        s.Provider,
+		ProviderType:    providerType,
+		Coverage:        determineCoverage(s),
+		Deadline:        formatDeadline(s.Deadline),
+		Description:     shortDesc,
+		DegreeLevel:     s.DegreeLevel,
+		FundingType:     s.FundingType,
 		ScholarshipType: s.ScholarshipType,
-		ImageURL:       s.ImageURL,
-		TagColorClass:  tagClass,
-		Score:          score,
+		ImageURL:        s.ImageURL,
+		TagColorClass:   tagClass,
+		Score:           score,
+		Breakdown:       breakdown,
 	}
 }
 
-func scoreScholarshipMath(s Scholarship, req ScholarshipRecommendRequest) int {
-	total := scoreEducationLevel(s, req.EducationLevel) +
-		scoreFieldOfStudy(s, req.FieldOfStudy) +
-		scoreLocation(s, req.Province, req.District) +
-		scoreFinancialFit(s, req.Income) +
-		scoreStudyLocation(s, req.StudyLocation) +
-		scoreCategoryGender(s, req.Category, req.Gender) +
-		scoreGPAMatch(s, req.AcademicScoreType, req.AcademicScore) +
-		scoreWillingness(s, req.WillingEssay, req.WillingInterview, req.WillingGpa)
+func fuzzyMatch(text, keyword string) bool {
+	text = strings.ToLower(strings.TrimSpace(text))
 
-	return int(math.Min(float64(total), 100))
+	if strings.Contains(text, strings.ToLower(keyword)) {
+		return true
+	}
+
+	if aliases, ok := fieldAliases[keyword]; ok {
+		for _, alias := range aliases {
+			if strings.Contains(text, alias) {
+				return true
+			}
+		}
+	}
+
+	words := strings.Fields(text)
+	stemmed := make([]string, len(words))
+	for i, w := range words {
+		stemmed[i] = stemWord(w)
+	}
+	kwStemmed := stemWord(strings.ToLower(keyword))
+	for _, s := range stemmed {
+		if s == kwStemmed {
+			return true
+		}
+	}
+
+	return false
 }
+
+func stemWord(w string) string {
+	w = strings.ToLower(w)
+	suffixes := []string{"'s", "s", "ing", "ed", "tion", "ment", "al"}
+	for _, s := range suffixes {
+		if strings.HasSuffix(w, s) && len(w)-len(s) >= 3 {
+			return w[:len(w)-len(s)]
+		}
+	}
+	return w
+}
+
+func extractMinGPAFromText(text string) float64 {
+	text = strings.ToLower(text)
+	re := regexp.MustCompile(`\b(\d+\.\d+)\b`)
+	matches := re.FindAllStringSubmatch(text, -1)
+	for _, m := range matches {
+		val, _ := strconv.ParseFloat(m[1], 64)
+		if val >= 2.0 && val <= 4.0 {
+			return val
+		}
+	}
+	return 0
+}
+

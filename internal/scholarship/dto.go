@@ -323,20 +323,35 @@ type ScholarshipRecommendResponse struct {
 	Scholarships []RecommendResult `json:"scholarships"`
 }
 
+type RecommendResultBreakdown struct {
+	EducationLevel       int `json:"educationLevel"`
+	FieldOfStudy         int `json:"fieldOfStudy"`
+	Location             int `json:"location"`
+	FinancialFit         int `json:"financialFit"`
+	StudyLocation        int `json:"studyLocation"`
+	CategoryGender       int `json:"categoryGender"`
+	GPAMatch             int `json:"gpaMatch"`
+	Willingness          int `json:"willingness"`
+	Talents              int `json:"talents"`
+	Achievements         int `json:"achievements"`
+	ProfileCompatibility int `json:"profileCompatibility,omitempty"`
+}
+
 type RecommendResult struct {
-	ID            uint   `json:"id"`
-	Slug          string `json:"slug"`
-	Title         string `json:"title"`
-	Provider      string `json:"provider"`
-	ProviderType  string `json:"providerType"`
-	Coverage      string `json:"coverage"`
-	Deadline      string `json:"deadline"`
-	Description   string `json:"description"`
-	DegreeLevel   string `json:"degreeLevel"`
-	FundingType   string `json:"fundingType"`
-	ScholarshipType string `json:"scholarshipType"`
-	ImageURL      string `json:"imageUrl"`
-	TagColorClass string `json:"tagColorClass"`
-	Score         int    `json:"score"`
+	ID              uint                    `json:"id"`
+	Slug            string                  `json:"slug"`
+	Title           string                  `json:"title"`
+	Provider        string                  `json:"provider"`
+	ProviderType    string                  `json:"providerType"`
+	Coverage        string                  `json:"coverage"`
+	Deadline        string                  `json:"deadline"`
+	Description     string                  `json:"description"`
+	DegreeLevel     string                  `json:"degreeLevel"`
+	FundingType     string                  `json:"fundingType"`
+	ScholarshipType string                  `json:"scholarshipType"`
+	ImageURL        string                  `json:"imageUrl"`
+	TagColorClass   string                  `json:"tagColorClass"`
+	Score           int                     `json:"score"`
+	Breakdown       RecommendResultBreakdown `json:"breakdown"`
 }
 

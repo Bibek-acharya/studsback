@@ -36,6 +36,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			protected.GET("/scholarships/applications/:id", h.GetApplication)
 			protected.PUT("/scholarships/applications/:id", h.UpdateApplication)
 			protected.DELETE("/scholarships/applications/:id", h.DeleteApplication)
+			protected.GET("/profile/recommendation-context", h.GetRecommendationContext)
 		}
 
 		provider := v1.Group("/providers")

@@ -1,5 +1,20 @@
 package college
 
+type CollegeRecommendationBreakdown struct {
+	StudentType          int `json:"studentType"`
+	PreferredField       int `json:"preferredField"`
+	Location             int `json:"location"`
+	Budget               int `json:"budget"`
+	FinancialAid         int `json:"financialAid"`
+	AcademicsVsCampus    int `json:"academicsVsCampus"`
+	Activities           int `json:"activities"`
+	Facilities           int `json:"facilities"`
+	Reputation           int `json:"reputation"`
+	DistanceFromHome     int `json:"distanceFromHome,omitempty"`
+	ClassSize            int `json:"classSize,omitempty"`
+	ProfileCompatibility int `json:"profileCompatibility,omitempty"`
+}
+
 type CreateCollegeRequest struct {
 	UniversityID     uint     `json:"university_id" binding:"required"`
 	Name             string   `json:"name" binding:"required"`
@@ -170,13 +185,14 @@ type CollegeRecommenderRequest struct {
 }
 
 type CollegeRecommendationResult struct {
-	ID         uint     `json:"id"`
-	Name       string   `json:"name"`
-	Location   string   `json:"location"`
-	Type       string   `json:"type"`
-	Tuiton     string   `json:"tuition"`
-	MatchScore int      `json:"match_score"`
-	Reasons    []string `json:"reasons"`
+	ID         uint                          `json:"id"`
+	Name       string                        `json:"name"`
+	Location   string                        `json:"location"`
+	Type       string                        `json:"type"`
+	Tuiton     string                        `json:"tuition"`
+	MatchScore int                           `json:"match_score"`
+	Reasons    []string                      `json:"reasons"`
+	Breakdown  CollegeRecommendationBreakdown `json:"breakdown,omitempty"`
 }
 
 type CollegeRecommendResponse struct {
