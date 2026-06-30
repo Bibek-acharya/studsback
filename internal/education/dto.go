@@ -209,8 +209,8 @@ type CreateBlogRequest struct {
 	Author    string   `json:"author" binding:"required"`
 	Category  string   `json:"category" binding:"required"`
 	Tags      []string `json:"tags"`
-	Featured  bool     `json:"featured"`
-	Published bool     `json:"published"`
+	Featured  *bool    `json:"featured"`
+	Published *bool    `json:"published"`
 }
 
 // ─── Entrance DTOs ─────────────────────────────────────────────────────────
@@ -226,31 +226,31 @@ type EntranceFilterRequest struct {
 }
 
 type PublicEntranceResponse struct {
-	ID           uint     `json:"id"`
-	Slug         string   `json:"slug"`
-	Title        string   `json:"title"`
-	Board        string   `json:"board"`
-	Badges       []string `json:"badges"`
-	Level        string   `json:"level"`
-	Type         string   `json:"type"`
-	ExamDate     string   `json:"examDate"`
-	FormDeadline string   `json:"formDeadline"`
-	Fee          string   `json:"fee"`
-	Description  string   `json:"description"`
-	Status       string   `json:"status"`
-	ImageUrl     string   `json:"imageUrl"`
-	University   string   `json:"university"`
-	Faculty      string   `json:"faculty"`
-	NepaliDate   string   `json:"nepaliDate"`
-	Overview     string   `json:"overview"`
-	Phone        string   `json:"phone,omitempty"`
-	Email        string   `json:"email,omitempty"`
-	Website      string   `json:"website,omitempty"`
-	Location     string   `json:"location,omitempty"`
-	InstitutionLogo  string            `json:"institutionLogo,omitempty"`
-	OverviewDetails  []interface{} `json:"overview_details,omitempty"`
-	ApplicationLink  string        `json:"application_link,omitempty"`
-	NoticeFile       string        `json:"notice_file,omitempty"`
+	ID              uint          `json:"id"`
+	Slug            string        `json:"slug"`
+	Title           string        `json:"title"`
+	Board           string        `json:"board"`
+	Badges          []string      `json:"badges"`
+	Level           string        `json:"level"`
+	Type            string        `json:"type"`
+	ExamDate        string        `json:"examDate"`
+	FormDeadline    string        `json:"formDeadline"`
+	Fee             string        `json:"fee"`
+	Description     string        `json:"description"`
+	Status          string        `json:"status"`
+	ImageUrl        string        `json:"imageUrl"`
+	University      string        `json:"university"`
+	Faculty         string        `json:"faculty"`
+	NepaliDate      string        `json:"nepaliDate"`
+	Overview        string        `json:"overview"`
+	Phone           string        `json:"phone,omitempty"`
+	Email           string        `json:"email,omitempty"`
+	Website         string        `json:"website,omitempty"`
+	Location        string        `json:"location,omitempty"`
+	InstitutionLogo string        `json:"institutionLogo,omitempty"`
+	OverviewDetails []interface{} `json:"overview_details,omitempty"`
+	ApplicationLink string        `json:"application_link,omitempty"`
+	NoticeFile      string        `json:"notice_file,omitempty"`
 }
 
 type EntranceFilterCountsResponse struct {

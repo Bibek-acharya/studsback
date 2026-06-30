@@ -768,6 +768,15 @@ func (s *Service) IncrementBlogView(id string) error {
 
 // ─── Admin CRUD ──────────────────────────────────────────────────────────────
 
+func (s *Service) GetBlogByIDAdmin(id string) (*BlogResponse, error) {
+	blog, err := s.repo.FindBlogByIDAdmin(id)
+	if err != nil {
+		return nil, err
+	}
+	resp := buildBlogResponse(*blog)
+	return &resp, nil
+}
+
 func (s *Service) GetAllBlogsAdmin(page, limit int, category, search, sort string) ([]BlogResponse, PaginationMeta, error) {
 	blogs, total, err := s.repo.FindAllBlogsAdmin(page, limit, category, search, sort)
 	if err != nil {
@@ -815,6 +824,15 @@ func generateSlug(title string) string {
 func (s *Service) CreateBlog(req CreateBlogRequest) (*BlogResponse, error) {
 	tagsJSON, _ := json.Marshal(req.Tags)
 
+	published := true
+	if req.Published != nil {
+		published = *req.Published
+	}
+	featured := false
+	if req.Featured != nil {
+		featured = *req.Featured
+	}
+
 	blog := Blog{
 		Title:     req.Title,
 		Slug:      generateSlug(req.Title),
@@ -824,8 +842,8 @@ func (s *Service) CreateBlog(req CreateBlogRequest) (*BlogResponse, error) {
 		Author:    req.Author,
 		Category:  req.Category,
 		Tags:      tagsJSON,
-		Featured:  req.Featured,
-		Published: req.Published,
+		Featured:  featured,
+		Published: published,
 	}
 
 	if err := s.repo.CreateBlog(&blog); err != nil {
@@ -1237,24 +1255,24 @@ func (s *Service) GetPublicEntrances(page, limit int, search, level, stream, sta
 			}
 		}
 		allResponses = append(allResponses, PublicEntranceResponse{
-			FormDeadline: deadline,
-			ID:               ie.ID,
-			Title:            ie.Title,
-			Description:      ie.Description,
-			ExamDate:         ie.Date,
-			ImageUrl:         ie.HeroBanner,
-			Status:           ie.Status,
-			Fee:              ie.Fee,
-			University:       ie.InstitutionName,
-			Board:            ie.InstitutionName,
-			Phone:            ie.InstitutionPhone,
-			Email:            ie.InstitutionEmail,
-			Website:          ie.InstitutionWebsite,
-			Location:         loc,
-			InstitutionLogo:  ie.InstitutionLogo,
-			OverviewDetails:  overviewDetails,
-			ApplicationLink:  ie.ApplicationLink,
-			NoticeFile:       ie.NoticeFile,
+			FormDeadline:    deadline,
+			ID:              ie.ID,
+			Title:           ie.Title,
+			Description:     ie.Description,
+			ExamDate:        ie.Date,
+			ImageUrl:        ie.HeroBanner,
+			Status:          ie.Status,
+			Fee:             ie.Fee,
+			University:      ie.InstitutionName,
+			Board:           ie.InstitutionName,
+			Phone:           ie.InstitutionPhone,
+			Email:           ie.InstitutionEmail,
+			Website:         ie.InstitutionWebsite,
+			Location:        loc,
+			InstitutionLogo: ie.InstitutionLogo,
+			OverviewDetails: overviewDetails,
+			ApplicationLink: ie.ApplicationLink,
+			NoticeFile:      ie.NoticeFile,
 		})
 	}
 
@@ -1304,23 +1322,23 @@ func (s *Service) GetPublicEntranceByID(id string) (*PublicEntranceResponse, err
 			json.Unmarshal(instEntrance.OverviewDetails, &overviewDetails)
 		}
 		return &PublicEntranceResponse{
-			ID:               instEntrance.ID,
-			Title:            instEntrance.Title,
-			Description:      instEntrance.Description,
-			ExamDate:         instEntrance.Date,
-			ImageUrl:         instEntrance.HeroBanner,
-			Status:           instEntrance.Status,
-			Fee:              instEntrance.Fee,
-			University:       instEntrance.InstitutionName,
-			Board:            instEntrance.InstitutionName,
-			Phone:            instEntrance.InstitutionPhone,
-			Email:            instEntrance.InstitutionEmail,
-			Website:          instEntrance.InstitutionWebsite,
-			Location:         loc,
-			InstitutionLogo:  instEntrance.InstitutionLogo,
-			OverviewDetails:  overviewDetails,
-			ApplicationLink:  instEntrance.ApplicationLink,
-			NoticeFile:       instEntrance.NoticeFile,
+			ID:              instEntrance.ID,
+			Title:           instEntrance.Title,
+			Description:     instEntrance.Description,
+			ExamDate:        instEntrance.Date,
+			ImageUrl:        instEntrance.HeroBanner,
+			Status:          instEntrance.Status,
+			Fee:             instEntrance.Fee,
+			University:      instEntrance.InstitutionName,
+			Board:           instEntrance.InstitutionName,
+			Phone:           instEntrance.InstitutionPhone,
+			Email:           instEntrance.InstitutionEmail,
+			Website:         instEntrance.InstitutionWebsite,
+			Location:        loc,
+			InstitutionLogo: instEntrance.InstitutionLogo,
+			OverviewDetails: overviewDetails,
+			ApplicationLink: instEntrance.ApplicationLink,
+			NoticeFile:      instEntrance.NoticeFile,
 		}, nil
 	}
 

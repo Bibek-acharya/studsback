@@ -365,6 +365,17 @@ func (h *Handler) AdminGetBlogs(c *gin.Context) {
 	})
 }
 
+func (h *Handler) AdminGetBlogByID(c *gin.Context) {
+	id := c.Param("id")
+	blog, err := h.service.GetBlogByIDAdmin(id)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Blog not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Blog retrieved successfully", blog)
+}
+
 func (h *Handler) CreateBlog(c *gin.Context) {
 	var req CreateBlogRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

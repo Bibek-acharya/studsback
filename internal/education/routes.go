@@ -44,6 +44,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 		adminBlogs.Use(roleMW)
 		{
 			adminBlogs.GET("", h.AdminGetBlogs)
+			adminBlogs.GET("/:id", h.AdminGetBlogByID)
 			adminBlogs.POST("", h.CreateBlog)
 			adminBlogs.PUT("/:id", h.UpdateBlog)
 			adminBlogs.DELETE("/:id", h.DeleteBlog)
