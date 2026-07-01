@@ -272,20 +272,32 @@ func (s *Service) GetCourseFilterCounts() (*CourseFilterCounts, error) {
 	return s.repo.GetCourseFilterCounts()
 }
 
+func programIDFromParam(id string) (uint, bool) {
+	if strings.HasPrefix(id, "inst-") {
+		n, err := strconv.ParseUint(id[5:], 10, 64)
+		if err == nil {
+			return uint(n), true
+		}
+	}
+	return 0, false
+}
+
 func (s *Service) GetEducationCourseByID(id string) (*CourseResponse, error) {
-	if program, err := s.repo.FindPublishedInstitutionProgramByID(id); err == nil && program != nil {
-		return &CourseResponse{
-			ID:              fmt.Sprintf("inst-%d", program.ID),
-			Title:           program.ProgramName,
-			Affiliation:     program.InstitutionName,
-			Duration:        program.Duration,
-			EstFee:          program.Fee,
-			Description:     program.Description,
-			Location:        program.InstitutionLocation,
-			Source:          "institution",
-			InstitutionName: program.InstitutionName,
-			Image:           program.BannerURL,
-		}, nil
+	if pid, ok := programIDFromParam(id); ok {
+		if program, err := s.repo.FindPublishedInstitutionProgramByID(pid); err == nil && program != nil {
+			return &CourseResponse{
+				ID:              fmt.Sprintf("inst-%d", program.ID),
+				Title:           program.ProgramName,
+				Affiliation:     program.InstitutionName,
+				Duration:        program.Duration,
+				EstFee:          program.Fee,
+				Description:     program.Description,
+				Location:        program.InstitutionLocation,
+				Source:          "institution",
+				InstitutionName: program.InstitutionName,
+				Image:           program.BannerURL,
+			}, nil
+		}
 	}
 
 	course, err := s.repo.FindCourseByID(id)
@@ -304,26 +316,28 @@ func (s *Service) GetEducationCourseByID(id string) (*CourseResponse, error) {
 }
 
 func (s *Service) GetEducationCourseDetailsByID(id string) (*CourseDetailsResponse, error) {
-	if program, err := s.repo.FindPublishedInstitutionProgramByID(id); err == nil && program != nil {
-		return &CourseDetailsResponse{
-			Course: CourseResponse{
-				ID:              fmt.Sprintf("inst-%d", program.ID),
-				Title:           program.ProgramName,
-				Affiliation:     program.InstitutionName,
-				Duration:        program.Duration,
-				EstFee:          program.Fee,
-				Description:     program.Description,
-				Location:        program.InstitutionLocation,
-				Source:          "institution",
-				InstitutionName: program.InstitutionName,
-				Image:           program.BannerURL,
-			},
-			About:                 []string{program.Description},
-			Mode:                  "On-Campus",
-			DegreeLabel:           "Program",
-			AdmissionRequirements: []string{"As per institution criteria"},
-			Universities:          []string{program.InstitutionName},
-		}, nil
+	if pid, ok := programIDFromParam(id); ok {
+		if program, err := s.repo.FindPublishedInstitutionProgramByID(pid); err == nil && program != nil {
+			return &CourseDetailsResponse{
+				Course: CourseResponse{
+					ID:              fmt.Sprintf("inst-%d", program.ID),
+					Title:           program.ProgramName,
+					Affiliation:     program.InstitutionName,
+					Duration:        program.Duration,
+					EstFee:          program.Fee,
+					Description:     program.Description,
+					Location:        program.InstitutionLocation,
+					Source:          "institution",
+					InstitutionName: program.InstitutionName,
+					Image:           program.BannerURL,
+				},
+				About:                 []string{program.Description},
+				Mode:                  "On-Campus",
+				DegreeLabel:           "Program",
+				AdmissionRequirements: []string{"As per institution criteria"},
+				Universities:          []string{program.InstitutionName},
+			}, nil
+		}
 	}
 
 	course, err := s.repo.FindCourseByID(id)

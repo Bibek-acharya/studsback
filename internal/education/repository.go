@@ -104,7 +104,7 @@ func (r *Repository) FindPublishedInstitutionPrograms(search, level string) ([]I
 	return entries, err
 }
 
-func (r *Repository) FindPublishedInstitutionProgramByID(id string) (*InstitutionProgramEntry, error) {
+func (r *Repository) FindPublishedInstitutionProgramByID(id uint) (*InstitutionProgramEntry, error) {
 	var entry InstitutionProgramEntry
 	err := r.db.Table("institution_programs").
 		Select(`institution_programs.id, institution_programs.name as program_name, institution_programs.description,
@@ -708,12 +708,12 @@ type InstitutionEntranceEntry struct {
 	InstitutionLocation string `gorm:"column:institution_location" json:"institution_location"`
 	InstitutionProvince string `gorm:"column:institution_province" json:"institution_province"`
 	InstitutionWebsite  string `gorm:"column:institution_website" json:"institution_website"`
-	InstitutionEmail    string        `json:"institution_email"`
-	InstitutionPhone    string        `json:"institution_phone"`
-	OverviewDetails     []byte        `gorm:"column:overview_details" json:"overview_details"`
-	ExamDateSchedules   []byte        `gorm:"column:exam_date_schedules" json:"exam_date_schedules"`
-	ApplicationLink     string        `json:"application_link"`
-	NoticeFile          string        `json:"notice_file"`
+	InstitutionEmail    string `json:"institution_email"`
+	InstitutionPhone    string `json:"institution_phone"`
+	OverviewDetails     []byte `gorm:"column:overview_details" json:"overview_details"`
+	ExamDateSchedules   []byte `gorm:"column:exam_date_schedules" json:"exam_date_schedules"`
+	ApplicationLink     string `json:"application_link"`
+	NoticeFile          string `json:"notice_file"`
 }
 
 func (r *Repository) GetAllExamEntries(search, level, stream, status string) ([]Exam, error) {
