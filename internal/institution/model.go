@@ -68,39 +68,39 @@ type InstitutionCounsellingBooking struct {
 }
 
 type InstitutionEntrance struct {
-	ID               uint           `gorm:"primarykey" json:"id"`
-	CreatedAt        time.Time      `json:"created_at"`
-	UpdatedAt        time.Time      `json:"updated_at"`
-	DeletedAt        gorm.DeletedAt `gorm:"index" json:"-"`
-	InstitutionID    uint           `gorm:"index;not null" json:"institution_id"`
-	Title            string         `gorm:"not null" json:"title"`
-	Description      string         `gorm:"type:text" json:"description"`
-	Program          string         `json:"program"`
-	Date             time.Time      `json:"date"`
-	StartTime        string         `json:"start_time"`
-	EndTime          string         `json:"end_time"`
-	Duration         int            `json:"duration"`
-	TotalMarks       int            `json:"total_marks"`
-	PassingMarks     int            `json:"passing_marks"`
-	TotalSeats       int            `json:"total_seats"`
-	FilledSeats      int            `gorm:"default:0" json:"filled_seats"`
-	Instructions     string         `gorm:"type:text" json:"instructions"`
-	HeroBanner       string         `json:"hero_banner"`
-	Questions        *string        `gorm:"type:jsonb" json:"questions"`
-	Status           string         `gorm:"default:'upcoming'" json:"status"`
-	ApplicationFee   string         `json:"application_fee"`
-	OverviewDetails  []byte         `gorm:"type:jsonb;default:'[]'" json:"overview_details"`
-	ExamDateSchedules []byte        `gorm:"type:jsonb;default:'[]'" json:"exam_date_schedules"`
-	EligibilityList  []byte         `gorm:"type:jsonb;default:'[]'" json:"eligibility_list"`
-	ApplicationSteps []byte         `gorm:"type:jsonb;default:'[]'" json:"application_steps"`
-	ExamPattern      []byte         `gorm:"type:jsonb;default:'[]'" json:"exam_pattern"`
-	SubjectMarks     []byte         `gorm:"type:jsonb;default:'[]'" json:"subject_marks"`
-	ModelSets        []byte         `gorm:"type:jsonb;default:'[]'" json:"model_sets"`
-	UpcomingDates    []byte         `gorm:"type:jsonb;default:'[]'" json:"upcoming_dates"`
-	ContactPersons   []byte         `gorm:"type:jsonb;default:'[]'" json:"contact_persons"`
-	Faqs             []byte         `gorm:"type:jsonb;default:'[]'" json:"faqs"`
-	ApplicationLink  string         `json:"application_link"`
-	NoticeFile       string         `json:"notice_file"`
+	ID                uint           `gorm:"primarykey" json:"id"`
+	CreatedAt         time.Time      `json:"created_at"`
+	UpdatedAt         time.Time      `json:"updated_at"`
+	DeletedAt         gorm.DeletedAt `gorm:"index" json:"-"`
+	InstitutionID     uint           `gorm:"index;not null" json:"institution_id"`
+	Title             string         `gorm:"not null" json:"title"`
+	Description       string         `gorm:"type:text" json:"description"`
+	Program           string         `json:"program"`
+	Date              time.Time      `json:"date"`
+	StartTime         string         `json:"start_time"`
+	EndTime           string         `json:"end_time"`
+	Duration          int            `json:"duration"`
+	TotalMarks        int            `json:"total_marks"`
+	PassingMarks      int            `json:"passing_marks"`
+	TotalSeats        int            `json:"total_seats"`
+	FilledSeats       int            `gorm:"default:0" json:"filled_seats"`
+	Instructions      string         `gorm:"type:text" json:"instructions"`
+	HeroBanner        string         `json:"hero_banner"`
+	Questions         *string        `gorm:"type:jsonb" json:"questions"`
+	Status            string         `gorm:"default:'upcoming'" json:"status"`
+	ApplicationFee    string         `json:"application_fee"`
+	OverviewDetails   []byte         `gorm:"type:jsonb;default:'[]'" json:"overview_details"`
+	ExamDateSchedules []byte         `gorm:"type:jsonb;default:'[]'" json:"exam_date_schedules"`
+	EligibilityList   []byte         `gorm:"type:jsonb;default:'[]'" json:"eligibility_list"`
+	ApplicationSteps  []byte         `gorm:"type:jsonb;default:'[]'" json:"application_steps"`
+	ExamPattern       []byte         `gorm:"type:jsonb;default:'[]'" json:"exam_pattern"`
+	SubjectMarks      []byte         `gorm:"type:jsonb;default:'[]'" json:"subject_marks"`
+	ModelSets         []byte         `gorm:"type:jsonb;default:'[]'" json:"model_sets"`
+	UpcomingDates     []byte         `gorm:"type:jsonb;default:'[]'" json:"upcoming_dates"`
+	ContactPersons    []byte         `gorm:"type:jsonb;default:'[]'" json:"contact_persons"`
+	Faqs              []byte         `gorm:"type:jsonb;default:'[]'" json:"faqs"`
+	ApplicationLink   string         `json:"application_link"`
+	NoticeFile        string         `json:"notice_file"`
 }
 
 type InstitutionEntranceApplicant struct {
@@ -116,28 +116,28 @@ type InstitutionEntranceApplicant struct {
 }
 
 type InstitutionEvent struct {
-	ID                uint           `gorm:"primarykey" json:"id"`
-	CreatedAt         time.Time      `json:"created_at"`
-	UpdatedAt         time.Time      `json:"updated_at"`
-	DeletedAt         gorm.DeletedAt `gorm:"index" json:"-"`
-	InstitutionID     uint           `gorm:"index;not null" json:"institution_id"`
-	Name              string         `gorm:"not null" json:"name"`
-	ShortDesc         string         `gorm:"type:text" json:"short_desc"`
-	Description       string         `gorm:"type:text" json:"description"`
-	ImageURL          string         `json:"image_url"`
-	EventType         string         `json:"event_type"`
-	Category          string         `json:"category"`
-	MaxParticipants   int            `json:"max_participants"`
-	OnlineLink        string         `json:"online_link"`
-	OrganizedBy       string         `json:"organized_by"`
-	ContactPerson     string         `json:"contact_person"`
-	ContactEmail      string         `json:"contact_email"`
-	StartDate         *time.Time     `json:"start_date"`
-	EndDate           *time.Time     `json:"end_date"`
-	Location          string         `json:"location"`
-	Tags              *string        `gorm:"type:jsonb;default:'[]'" json:"tags"`
-	EnableRegistration bool          `gorm:"default:false" json:"enable_registration"`
-	Status            string         `gorm:"default:'draft'" json:"status"`
+	ID                 uint           `gorm:"primarykey" json:"id"`
+	CreatedAt          time.Time      `json:"created_at"`
+	UpdatedAt          time.Time      `json:"updated_at"`
+	DeletedAt          gorm.DeletedAt `gorm:"index" json:"-"`
+	InstitutionID      uint           `gorm:"index;not null" json:"institution_id"`
+	Name               string         `gorm:"not null" json:"name"`
+	ShortDesc          string         `gorm:"type:text" json:"short_desc"`
+	Description        string         `gorm:"type:text" json:"description"`
+	ImageURL           string         `json:"image_url"`
+	EventType          string         `json:"event_type"`
+	Category           string         `json:"category"`
+	MaxParticipants    int            `json:"max_participants"`
+	OnlineLink         string         `json:"online_link"`
+	OrganizedBy        string         `json:"organized_by"`
+	ContactPerson      string         `json:"contact_person"`
+	ContactEmail       string         `json:"contact_email"`
+	StartDate          *time.Time     `json:"start_date"`
+	EndDate            *time.Time     `json:"end_date"`
+	Location           string         `json:"location"`
+	Tags               *string        `gorm:"type:jsonb;default:'[]'" json:"tags"`
+	EnableRegistration bool           `gorm:"default:false" json:"enable_registration"`
+	Status             string         `gorm:"default:'draft'" json:"status"`
 }
 
 type InstitutionNews struct {
@@ -242,6 +242,7 @@ type InstitutionUser struct {
 	TiktokURL          string         `gorm:"default:''" json:"tiktok_url"`
 	YoutubeURL         string         `gorm:"default:''" json:"youtube_url"`
 	LinkedinURL        string         `gorm:"default:''" json:"linkedin_url"`
+	OrganizationType   string         `gorm:"default:''" json:"organization_type"`
 	ProfileData        *string        `gorm:"type:jsonb;default:'{}'" json:"profile_data"`
 	Featured           bool           `gorm:"default:false" json:"featured"`
 }

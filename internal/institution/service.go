@@ -1895,8 +1895,8 @@ func (s *Service) UpdateScholarshipApplicationStatus(instID, id uint, req Update
 	return application, nil
 }
 
-func (s *Service) ListPublicInstitutions(page, limit int, search, location string) ([]PublicInstitutionResponse, int64, error) {
-	users, total, err := s.repo.FindPublicInstitutions(page, limit, search, location)
+func (s *Service) ListPublicInstitutions(page, limit int, search, location, instType string) ([]PublicInstitutionResponse, int64, error) {
+	users, total, err := s.repo.FindPublicInstitutions(page, limit, search, location, instType)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -1925,6 +1925,7 @@ func (s *Service) ListPublicInstitutions(page, limit int, search, location strin
 			Status:          u.Status,
 			Featured:        u.Featured,
 			CollegeID:       u.CollegeID,
+			Type:            u.OrganizationType,
 		}
 	}
 	return results, total, nil
@@ -2045,6 +2046,7 @@ func (s *Service) GetPublicInstitution(id uint) (*PublicInstitutionDetailRespons
 		YoutubeURL:              user.YoutubeURL,
 		LinkedinURL:             user.LinkedinURL,
 		BrochureData:            pd.BrochureData,
+		Type:                    user.OrganizationType,
 	}, nil
 }
 

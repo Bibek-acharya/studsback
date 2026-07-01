@@ -662,8 +662,12 @@ func (h *Handler) GetNewsByID(c *gin.Context) {
 func (h *Handler) ListPublicNews(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
-	if page < 1 { page = 1 }
-	if limit < 1 || limit > 50 { limit = 10 }
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50 {
+		limit = 10
+	}
 
 	news, total, err := h.service.ListPublicNews(page, limit)
 	if err != nil {
@@ -680,8 +684,12 @@ func (h *Handler) ListPublicNews(c *gin.Context) {
 func (h *Handler) ListPublicEvents(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
-	if page < 1 { page = 1 }
-	if limit < 1 || limit > 50 { limit = 10 }
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50 {
+		limit = 10
+	}
 
 	events, total, err := h.service.ListPublicEvents(page, limit)
 	if err != nil {
@@ -691,7 +699,7 @@ func (h *Handler) ListPublicEvents(c *gin.Context) {
 
 	response.Success(c, http.StatusOK, "Events retrieved successfully", gin.H{
 		"events": events,
-		"meta": gin.H{"total": total, "page": page, "limit": limit},
+		"meta":   gin.H{"total": total, "page": page, "limit": limit},
 	})
 }
 
@@ -714,8 +722,12 @@ func (h *Handler) GetPublicEventByID(c *gin.Context) {
 func (h *Handler) ListPublicScholarships(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
-	if page < 1 { page = 1 }
-	if limit < 1 || limit > 50 { limit = 10 }
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50 {
+		limit = 10
+	}
 
 	scholarships, total, err := h.service.ListPublicScholarships(page, limit)
 	if err != nil {
@@ -725,7 +737,7 @@ func (h *Handler) ListPublicScholarships(c *gin.Context) {
 
 	response.Success(c, http.StatusOK, "Scholarships retrieved successfully", gin.H{
 		"scholarships": scholarships,
-		"meta": gin.H{"total": total, "page": page, "limit": limit},
+		"meta":         gin.H{"total": total, "page": page, "limit": limit},
 	})
 }
 
@@ -1218,8 +1230,9 @@ func (h *Handler) ListPublicInstitutions(c *gin.Context) {
 
 	search := c.Query("search")
 	location := c.Query("location")
+	instType := c.Query("type")
 
-	results, total, err := h.service.ListPublicInstitutions(page, limit, search, location)
+	results, total, err := h.service.ListPublicInstitutions(page, limit, search, location, instType)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "Failed to fetch institutions")
 		return
@@ -1713,38 +1726,38 @@ func toEntranceResponse(e InstitutionEntrance) EntranceResponse {
 		json.Unmarshal([]byte(*e.Questions), &questions)
 	}
 	return EntranceResponse{
-		ID:               e.ID,
-		CreatedAt:        e.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:        e.UpdatedAt.Format(time.RFC3339),
-		InstitutionID:    e.InstitutionID,
-		Title:            e.Title,
-		Description:      e.Description,
-		Program:          e.Program,
-		Date:             e.Date.Format("2006-01-02"),
-		StartTime:        e.StartTime,
-		EndTime:          e.EndTime,
-		Duration:         e.Duration,
-		TotalMarks:       e.TotalMarks,
-		PassingMarks:     e.PassingMarks,
-		TotalSeats:       e.TotalSeats,
-		FilledSeats:      e.FilledSeats,
-		Instructions:     e.Instructions,
-		HeroBanner:       e.HeroBanner,
-		Questions:        questions,
-		Status:           e.Status,
-		ApplicationFee:   e.ApplicationFee,
-		OverviewDetails:  json.RawMessage(e.OverviewDetails),
+		ID:                e.ID,
+		CreatedAt:         e.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:         e.UpdatedAt.Format(time.RFC3339),
+		InstitutionID:     e.InstitutionID,
+		Title:             e.Title,
+		Description:       e.Description,
+		Program:           e.Program,
+		Date:              e.Date.Format("2006-01-02"),
+		StartTime:         e.StartTime,
+		EndTime:           e.EndTime,
+		Duration:          e.Duration,
+		TotalMarks:        e.TotalMarks,
+		PassingMarks:      e.PassingMarks,
+		TotalSeats:        e.TotalSeats,
+		FilledSeats:       e.FilledSeats,
+		Instructions:      e.Instructions,
+		HeroBanner:        e.HeroBanner,
+		Questions:         questions,
+		Status:            e.Status,
+		ApplicationFee:    e.ApplicationFee,
+		OverviewDetails:   json.RawMessage(e.OverviewDetails),
 		ExamDateSchedules: json.RawMessage(e.ExamDateSchedules),
-		EligibilityList:  json.RawMessage(e.EligibilityList),
-		ApplicationSteps: json.RawMessage(e.ApplicationSteps),
-		ExamPattern:      json.RawMessage(e.ExamPattern),
-		SubjectMarks:     json.RawMessage(e.SubjectMarks),
-		ModelSets:        json.RawMessage(e.ModelSets),
-		UpcomingDates:    json.RawMessage(e.UpcomingDates),
-		ContactPersons:   json.RawMessage(e.ContactPersons),
-		Faqs:             json.RawMessage(e.Faqs),
-		ApplicationLink:  e.ApplicationLink,
-		NoticeFile:       e.NoticeFile,
+		EligibilityList:   json.RawMessage(e.EligibilityList),
+		ApplicationSteps:  json.RawMessage(e.ApplicationSteps),
+		ExamPattern:       json.RawMessage(e.ExamPattern),
+		SubjectMarks:      json.RawMessage(e.SubjectMarks),
+		ModelSets:         json.RawMessage(e.ModelSets),
+		UpcomingDates:     json.RawMessage(e.UpcomingDates),
+		ContactPersons:    json.RawMessage(e.ContactPersons),
+		Faqs:              json.RawMessage(e.Faqs),
+		ApplicationLink:   e.ApplicationLink,
+		NoticeFile:        e.NoticeFile,
 	}
 }
 

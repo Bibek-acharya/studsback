@@ -815,6 +815,7 @@ type PublicInstitutionResponse struct {
 	Status          string `json:"status"`
 	Featured        bool   `json:"featured"`
 	CollegeID       uint   `json:"college_id"`
+	Type            string `json:"type"`
 }
 
 type PublicInstitutionDetailResponse struct {
@@ -853,6 +854,7 @@ type PublicInstitutionDetailResponse struct {
 	YoutubeURL              string                `json:"youtube_url,omitempty"`
 	LinkedinURL             string                `json:"linkedin_url,omitempty"`
 	BrochureData            *BrochureData         `json:"brochure_data,omitempty"`
+	Type                    string                `json:"type"`
 }
 
 // --- Admission Page DTOs ---

@@ -128,7 +128,7 @@ func (r *Repository) SaveInstitutionUser(user *InstitutionUser) error {
 	return r.db.Save(user).Error
 }
 
-func (r *Repository) FindPublicInstitutions(page, pageSize int, search, location string) ([]InstitutionUser, int64, error) {
+func (r *Repository) FindPublicInstitutions(page, pageSize int, search, location, instType string) ([]InstitutionUser, int64, error) {
 	var users []InstitutionUser
 	var total int64
 
@@ -144,6 +144,9 @@ func (r *Repository) FindPublicInstitutions(page, pageSize int, search, location
 	}
 	if location != "" {
 		query = query.Where("institution_users.district ILIKE ?", "%"+location+"%")
+	}
+	if instType != "" {
+		query = query.Where("institution_users.organization_type = ?", instType)
 	}
 
 	if err := query.Count(&total).Error; err != nil {
@@ -934,8 +937,27 @@ func (r *Repository) GetPublicFilterCounts() (*PublicInstitutionFilterCountsResp
 		return nil, err
 	}
 
-	resp.TypeCounts["Public / Govt"] = resp.Total
-	resp.TypeCountsByID["ct_public"] = resp.Total
+	typeMapping := map[string]struct{ id, label string }{
+		"Private":            {"ct_private", "Private"},
+		"Public / Govt":      {"ct_public", "Public / Govt"},
+		"Community":          {"ct_community", "Community"},
+		"Constituent":        {"ct_constituent", "Constituent"},
+		"Foreign Affiliated": {"ct_foreign", "Foreign Affiliated"},
+	}
+	for orgType, entry := range typeMapping {
+		var count int64
+		typeQuery := r.db.Model(&InstitutionUser{}).
+			Joins("LEFT JOIN institution_settings ON institution_settings.institution_id = institution_users.id").
+			Where("(institution_settings.public_profile = ? OR institution_settings.id IS NULL)", true).
+			Where("institution_users.deleted_at IS NULL").
+			Where("institution_users.status = ?", "approved").
+			Where("institution_users.organization_type = ?", orgType)
+		if err := typeQuery.Count(&count).Error; err != nil {
+			return nil, err
+		}
+		resp.TypeCounts[entry.label] = count
+		resp.TypeCountsByID[entry.id] = count
+	}
 
 	facetKeywordsByID := map[string][]string{
 		"plus2":          {"+2", "higher secondary", "10+2", "neb"},
