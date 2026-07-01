@@ -95,6 +95,7 @@ func (r *Repository) FindPublishedInstitutionPrograms(search, level string) ([]I
 	query := r.db.Table("institution_programs").
 		Select(`institution_programs.id, institution_programs.name as program_name, institution_programs.description,
 			institution_programs.duration, institution_programs.fee, institution_programs.banner_url,
+			institution_programs.data,
 			iu.institution_name, iu.logo_url as institution_logo, iu.district as institution_location`).
 		Joins("LEFT JOIN institution_users iu ON iu.id = institution_programs.institution_id").
 		Where("institution_programs.status = ?", "active")

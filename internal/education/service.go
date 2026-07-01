@@ -194,9 +194,11 @@ func (s *Service) GetEducationCourses() ([]CourseResponse, error) {
 
 	instPrograms, _ := s.repo.FindPublishedInstitutionPrograms("", "")
 	for _, p := range instPrograms {
+		level := extractLevelFromProgramData(p.Data)
 		responses = append(responses, CourseResponse{
 			ID:              fmt.Sprintf("inst-%d", p.ID),
 			Title:           p.ProgramName,
+			Level:           level,
 			Affiliation:     p.InstitutionName,
 			Duration:        p.Duration,
 			EstFee:          p.Fee,
@@ -229,9 +231,11 @@ func (s *Service) GetEducationCoursesPaginated(page, limit int, search, level, f
 
 	instPrograms, _ := s.repo.FindPublishedInstitutionPrograms(search, level)
 	for _, p := range instPrograms {
+		level := extractLevelFromProgramData(p.Data)
 		allResponses = append(allResponses, CourseResponse{
 			ID:              fmt.Sprintf("inst-%d", p.ID),
 			Title:           p.ProgramName,
+			Level:           level,
 			Affiliation:     p.InstitutionName,
 			Duration:        p.Duration,
 			EstFee:          p.Fee,
@@ -270,6 +274,19 @@ func (s *Service) GetEducationCoursesPaginated(page, limit int, search, level, f
 
 func (s *Service) GetCourseFilterCounts() (*CourseFilterCounts, error) {
 	return s.repo.GetCourseFilterCounts()
+}
+
+func extractLevelFromProgramData(data *string) string {
+	if data == nil || *data == "" {
+		return ""
+	}
+	var parsed struct {
+		Level string `json:"level"`
+	}
+	if err := json.Unmarshal([]byte(*data), &parsed); err != nil {
+		return ""
+	}
+	return parsed.Level
 }
 
 func programIDFromParam(id string) (uint, bool) {
