@@ -11,7 +11,7 @@ services:
       - |
         ollama serve &
         # Wait for ollama server to be ready
-        until curl -s http://localhost:11434/api/tags > /dev/null 2>&1; do
+        until ollama list > /dev/null 2>&1; do
           echo "Waiting for ollama server..."
           sleep 2
         done
@@ -23,11 +23,11 @@ services:
         echo "Model pulled successfully"
         wait
     healthcheck:
-      test: ["CMD-SHELL", "ollama list | grep -q nomic-embed-text"]
+      test: ["CMD", "ollama", "list"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 60s
+      start_period: 180s
     restart: unless-stopped
 
   ollama-llm:
@@ -41,7 +41,7 @@ services:
     command:
       - |
         ollama serve &
-        until curl -s http://localhost:11434/api/tags > /dev/null 2>&1; do
+        until ollama list > /dev/null 2>&1; do
           echo "Waiting for ollama-llm server..."
           sleep 2
         done
@@ -53,11 +53,11 @@ services:
         echo "Model pulled successfully"
         wait
     healthcheck:
-      test: ["CMD-SHELL", "ollama list | grep -q llama3.1:8b"]
+      test: ["CMD", "ollama", "list"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 120s
+      start_period: 600s
     restart: unless-stopped
 
   backend:
