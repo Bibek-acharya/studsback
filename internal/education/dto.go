@@ -94,6 +94,7 @@ type CourseDetailsResponse struct {
 	HighlightsDuration    string                     `json:"highlightsDuration"`
 	HighlightsDegreeLevel string                     `json:"highlightsDegreeLevel"`
 	OfferingCollegesCount int                        `json:"offeringCollegesCount"`
+	Data                  interface{}                `json:"data,omitempty"`
 }
 
 type NewsResponse struct {

@@ -78,15 +78,16 @@ func (r *Repository) FindCoursesFiltered(page, limit int, search, level, field, 
 }
 
 type InstitutionProgramEntry struct {
-	ID                  uint   `json:"id"`
-	ProgramName         string `json:"name"`
-	Description         string `json:"description"`
-	Duration            string `json:"duration"`
-	Fee                 string `json:"fee"`
-	BannerURL           string `json:"banner_url"`
-	InstitutionName     string `json:"institution_name"`
-	InstitutionLogo     string `json:"institution_logo"`
-	InstitutionLocation string `gorm:"column:institution_location" json:"institution_location"`
+	ID                  uint    `json:"id"`
+	ProgramName         string  `json:"name"`
+	Description         string  `json:"description"`
+	Duration            string  `json:"duration"`
+	Fee                 string  `json:"fee"`
+	BannerURL           string  `json:"banner_url"`
+	InstitutionName     string  `json:"institution_name"`
+	InstitutionLogo     string  `json:"institution_logo"`
+	InstitutionLocation string  `gorm:"column:institution_location" json:"institution_location"`
+	Data                *string `gorm:"column:data" json:"data"`
 }
 
 func (r *Repository) FindPublishedInstitutionPrograms(search, level string) ([]InstitutionProgramEntry, error) {
@@ -109,6 +110,7 @@ func (r *Repository) FindPublishedInstitutionProgramByID(id uint) (*InstitutionP
 	err := r.db.Table("institution_programs").
 		Select(`institution_programs.id, institution_programs.name as program_name, institution_programs.description,
 			institution_programs.duration, institution_programs.fee, institution_programs.banner_url,
+			institution_programs.data,
 			iu.institution_name, iu.logo_url as institution_logo, iu.district as institution_location`).
 		Joins("LEFT JOIN institution_users iu ON iu.id = institution_programs.institution_id").
 		Where("institution_programs.id = ? AND institution_programs.status = ?", id, "active").

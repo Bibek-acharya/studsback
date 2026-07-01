@@ -318,6 +318,10 @@ func (s *Service) GetEducationCourseByID(id string) (*CourseResponse, error) {
 func (s *Service) GetEducationCourseDetailsByID(id string) (*CourseDetailsResponse, error) {
 	if pid, ok := programIDFromParam(id); ok {
 		if program, err := s.repo.FindPublishedInstitutionProgramByID(pid); err == nil && program != nil {
+			var programData interface{}
+			if program.Data != nil {
+				json.Unmarshal([]byte(*program.Data), &programData)
+			}
 			return &CourseDetailsResponse{
 				Course: CourseResponse{
 					ID:              fmt.Sprintf("inst-%d", program.ID),
@@ -336,6 +340,7 @@ func (s *Service) GetEducationCourseDetailsByID(id string) (*CourseDetailsRespon
 				DegreeLabel:           "Program",
 				AdmissionRequirements: []string{"As per institution criteria"},
 				Universities:          []string{program.InstitutionName},
+				Data:                  programData,
 			}, nil
 		}
 	}
