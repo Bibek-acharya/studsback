@@ -1,9 +1,10 @@
 package studentdashboard
 
 import (
+	"fmt"
 	"studsphere/backend/internal/admission"
-	"studsphere/backend/internal/scholarship"
 	"studsphere/backend/internal/auth"
+	"studsphere/backend/internal/scholarship"
 	"time"
 
 	"gorm.io/gorm"
@@ -46,6 +47,21 @@ func (r *Repository) CreateMessage(message *Message) error {
 	return r.db.Create(message).Error
 }
 
+func (r *Repository) CreateInstitutionMessage(userID, receiverID uint, subject, content string) error {
+	var instID uint
+	r.db.Table("institution_users").Where("id = ?", receiverID).Select("id").Take(&instID)
+	if instID == 0 {
+		return nil
+	}
+	return r.db.Table("institution_messages").Create(map[string]interface{}{
+		"institution_id": instID,
+		"user_id":        userID,
+		"subject":        subject,
+		"content":        content,
+		"direction":      "inbound",
+	}).Error
+}
+
 func (r *Repository) GetMessageForReply(msgID uint) (*Message, error) {
 	var message Message
 	if err := r.db.Where("id = ?", msgID).First(&message).Error; err != nil {
@@ -76,9 +92,20 @@ func (r *Repository) GetContacts(userID uint) ([]Contact, error) {
 				LastName  string
 			}
 			r.db.Model(&User{}).Where("id = ?", contactID).First(&user)
+			name := user.FirstName + " " + user.LastName
+			if name == " " {
+				var instUser struct {
+					InstitutionName string
+				}
+				r.db.Table("institution_users").Where("id = ?", contactID).First(&instUser)
+				name = instUser.InstitutionName
+				if name == "" {
+					name = fmt.Sprintf("User #%d", contactID)
+				}
+			}
 			contactMap[contactID] = &Contact{
 				UserID:      contactID,
-				Name:        user.FirstName + " " + user.LastName,
+				Name:        name,
 				LastMessage: msg.Content,
 			}
 		}

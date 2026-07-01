@@ -65,6 +65,8 @@ func (s *Service) CreateMessage(userID, receiverID uint, subject, content string
 		return nil, err
 	}
 
+	go s.repo.CreateInstitutionMessage(userID, receiverID, subject, content)
+
 	return message, nil
 }
 

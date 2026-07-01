@@ -567,6 +567,17 @@ func (r *Repository) CreateMessage(message *InstitutionMessage) error {
 	return r.db.Create(message).Error
 }
 
+func (r *Repository) CreateUserMessage(senderID, receiverID uint, subject, content, direction string) error {
+	return r.db.Table("messages").Create(map[string]interface{}{
+		"sender_id":   senderID,
+		"receiver_id": receiverID,
+		"subject":     subject,
+		"content":     content,
+		"direction":   direction,
+		"read":        false,
+	}).Error
+}
+
 func (r *Repository) FindAllMessagesByInstitution(instID uint) ([]InstitutionMessage, error) {
 	var messages []InstitutionMessage
 	err := r.db.Where("institution_id = ?", instID).Order("created_at desc").Find(&messages).Error

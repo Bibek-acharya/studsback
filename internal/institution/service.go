@@ -111,44 +111,44 @@ func (s *Service) GetProfile(instID uint) (*ProfileResponse, error) {
 	}
 
 	return &ProfileResponse{
-		SubscriptionType: subType,
-		ID:                    user.ID,
-		InstitutionName:       user.InstitutionName,
-		Email:                 user.Email,
-		RegistrationNumber:    user.RegistrationNumber,
-		Role:                  user.Role,
-		Location:              user.District,
-		Website:               user.WebsiteURL,
-		ContactEmail:          user.ContactEmail,
-		ContactPhone:          user.ContactPhone,
-		MapURL:                user.MapURL,
-		FacebookURL:           user.FacebookURL,
-		InstagramURL:          user.InstagramURL,
-		TiktokURL:             user.TiktokURL,
-		YoutubeURL:            user.YoutubeURL,
-		LinkedinURL:           user.LinkedinURL,
-		LogoURL:               user.LogoURL,
-		BannerURL:             user.BannerURL,
-		About:                 user.About,
-		Vision:                user.Vision,
-		Mission:               user.Mission,
-		Affiliation:           user.Affiliation,
-		Videos:                pd.Videos,
-		OverviewData:          pd.OverviewData,
-		LeadershipData:        pd.LeadershipData,
-		CoursesData:           pd.CoursesData,
-		ProgramsData:          pd.ProgramsData,
-		FacilitiesData:        pd.FacilitiesData,
-		AlumniData:            pd.AlumniData,
-		DownloadsData:         pd.DownloadsData,
-		GalleryData:           pd.GalleryData,
-		WhatsNewData:          pd.WhatsNewData,
-		EligibilityData:       pd.EligibilityData,
-		AdmissionProcessData:  pd.AdmissionProcessData,
-		ScholarshipsData:      pd.ScholarshipsData,
-		FaqsData:              pd.FaqsData,
-		ContactPersonsData:    pd.ContactPersonsData,
-		BrochureData:          pd.BrochureData,
+		SubscriptionType:     subType,
+		ID:                   user.ID,
+		InstitutionName:      user.InstitutionName,
+		Email:                user.Email,
+		RegistrationNumber:   user.RegistrationNumber,
+		Role:                 user.Role,
+		Location:             user.District,
+		Website:              user.WebsiteURL,
+		ContactEmail:         user.ContactEmail,
+		ContactPhone:         user.ContactPhone,
+		MapURL:               user.MapURL,
+		FacebookURL:          user.FacebookURL,
+		InstagramURL:         user.InstagramURL,
+		TiktokURL:            user.TiktokURL,
+		YoutubeURL:           user.YoutubeURL,
+		LinkedinURL:          user.LinkedinURL,
+		LogoURL:              user.LogoURL,
+		BannerURL:            user.BannerURL,
+		About:                user.About,
+		Vision:               user.Vision,
+		Mission:              user.Mission,
+		Affiliation:          user.Affiliation,
+		Videos:               pd.Videos,
+		OverviewData:         pd.OverviewData,
+		LeadershipData:       pd.LeadershipData,
+		CoursesData:          pd.CoursesData,
+		ProgramsData:         pd.ProgramsData,
+		FacilitiesData:       pd.FacilitiesData,
+		AlumniData:           pd.AlumniData,
+		DownloadsData:        pd.DownloadsData,
+		GalleryData:          pd.GalleryData,
+		WhatsNewData:         pd.WhatsNewData,
+		EligibilityData:      pd.EligibilityData,
+		AdmissionProcessData: pd.AdmissionProcessData,
+		ScholarshipsData:     pd.ScholarshipsData,
+		FaqsData:             pd.FaqsData,
+		ContactPersonsData:   pd.ContactPersonsData,
+		BrochureData:         pd.BrochureData,
 	}, nil
 }
 
@@ -312,6 +312,10 @@ func (s *Service) GetProgramByID(instID, id uint) (*InstitutionProgram, error) {
 }
 
 func (s *Service) CreateProgram(instID uint, req CreateProgramRequest) (*InstitutionProgram, error) {
+	status := "active"
+	if req.Status != "" {
+		status = req.Status
+	}
 	program := &InstitutionProgram{
 		InstitutionID: instID,
 		Name:          req.Name,
@@ -321,7 +325,7 @@ func (s *Service) CreateProgram(instID uint, req CreateProgramRequest) (*Institu
 		Eligibility:   req.Eligibility,
 		Capacity:      req.Capacity,
 		BannerURL:     req.BannerURL,
-		Status:        "active",
+		Status:        status,
 	}
 
 	if req.Data != nil {
@@ -556,22 +560,22 @@ func (s *Service) CreateEntrance(instID uint, req CreateEntranceRequest) (*Insti
 	}
 
 	entrance := &InstitutionEntrance{
-		InstitutionID:  instID,
-		Title:          req.Title,
-		Description:    req.Description,
-		Program:        req.Program,
-		Date:           date,
-		StartTime:      req.StartTime,
-		EndTime:        req.EndTime,
-		Duration:       req.Duration,
-		TotalMarks:     req.TotalMarks,
-		PassingMarks:   req.PassingMarks,
-		TotalSeats:     req.TotalSeats,
-		Instructions:   req.Instructions,
-		HeroBanner:     req.HeroBanner,
-		Status:         "draft",
-		ApplicationFee: req.ApplicationFee,
-		OverviewDetails: req.OverviewDetails,
+		InstitutionID:     instID,
+		Title:             req.Title,
+		Description:       req.Description,
+		Program:           req.Program,
+		Date:              date,
+		StartTime:         req.StartTime,
+		EndTime:           req.EndTime,
+		Duration:          req.Duration,
+		TotalMarks:        req.TotalMarks,
+		PassingMarks:      req.PassingMarks,
+		TotalSeats:        req.TotalSeats,
+		Instructions:      req.Instructions,
+		HeroBanner:        req.HeroBanner,
+		Status:            "draft",
+		ApplicationFee:    req.ApplicationFee,
+		OverviewDetails:   req.OverviewDetails,
 		ExamDateSchedules: req.ExamDateSchedules,
 		EligibilityList:   req.EligibilityList,
 		ApplicationSteps:  req.ApplicationSteps,
@@ -1181,6 +1185,10 @@ func (s *Service) CreateMessage(instID uint, req CreateMessageRequest) (*Institu
 		return nil, err
 	}
 
+	if err := s.repo.CreateUserMessage(instID, req.UserID, req.Subject, req.Content, "received"); err != nil {
+		return nil, err
+	}
+
 	return message, nil
 }
 
@@ -1195,6 +1203,11 @@ func (s *Service) CreateInquiry(instID uint, userID uint, req CreateInquiryReque
 	if err := s.repo.CreateMessage(message); err != nil {
 		return nil, err
 	}
+
+	if err := s.repo.CreateUserMessage(userID, instID, req.Subject, req.Content, "sent"); err != nil {
+		return nil, err
+	}
+
 	return message, nil
 }
 
@@ -1997,41 +2010,41 @@ func (s *Service) GetPublicInstitution(id uint) (*PublicInstitutionDetailRespons
 	}
 
 	return &PublicInstitutionDetailResponse{
-		ID:                     user.ID,
-		InstitutionName:        user.InstitutionName,
-		Verified:               user.Verified,
-		Claimed:                user.Claimed,
-		Featured:               user.Featured,
-		LogoURL:                logoURL,
-		BannerURL:              bannerURL,
-		About:                  user.About,
-		Vision:                 user.Vision,
-		Mission:                user.Mission,
-		District:               user.District,
-		WebsiteURL:             user.WebsiteURL,
-		Videos:                 pd.Videos,
-		OverviewData:           pd.OverviewData,
-		LeadershipData:         pd.LeadershipData,
-		CoursesData:            pd.CoursesData,
-		ProgramsData:           pd.ProgramsData,
-		FacilitiesData:         pd.FacilitiesData,
-		AlumniData:             pd.AlumniData,
-		GalleryData:            pd.GalleryData,
-		DownloadsData:          pd.DownloadsData,
-		InstitutionPrograms:    programResponses,
-		InstitutionEvents:      eventResponses,
-		InstitutionNews:        newsResponses,
+		ID:                      user.ID,
+		InstitutionName:         user.InstitutionName,
+		Verified:                user.Verified,
+		Claimed:                 user.Claimed,
+		Featured:                user.Featured,
+		LogoURL:                 logoURL,
+		BannerURL:               bannerURL,
+		About:                   user.About,
+		Vision:                  user.Vision,
+		Mission:                 user.Mission,
+		District:                user.District,
+		WebsiteURL:              user.WebsiteURL,
+		Videos:                  pd.Videos,
+		OverviewData:            pd.OverviewData,
+		LeadershipData:          pd.LeadershipData,
+		CoursesData:             pd.CoursesData,
+		ProgramsData:            pd.ProgramsData,
+		FacilitiesData:          pd.FacilitiesData,
+		AlumniData:              pd.AlumniData,
+		GalleryData:             pd.GalleryData,
+		DownloadsData:           pd.DownloadsData,
+		InstitutionPrograms:     programResponses,
+		InstitutionEvents:       eventResponses,
+		InstitutionNews:         newsResponses,
 		InstitutionScholarships: scholarshipResponses,
-		AdmissionPageData:      admissionPageData,
-		ContactEmail:           user.ContactEmail,
-		ContactPhone:           user.ContactPhone,
-		MapURL:                 user.MapURL,
-		FacebookURL:            user.FacebookURL,
-		InstagramURL:           user.InstagramURL,
-		TiktokURL:              user.TiktokURL,
-		YoutubeURL:             user.YoutubeURL,
-		LinkedinURL:            user.LinkedinURL,
-		BrochureData:           pd.BrochureData,
+		AdmissionPageData:       admissionPageData,
+		ContactEmail:            user.ContactEmail,
+		ContactPhone:            user.ContactPhone,
+		MapURL:                  user.MapURL,
+		FacebookURL:             user.FacebookURL,
+		InstagramURL:            user.InstagramURL,
+		TiktokURL:               user.TiktokURL,
+		YoutubeURL:              user.YoutubeURL,
+		LinkedinURL:             user.LinkedinURL,
+		BrochureData:            pd.BrochureData,
 	}, nil
 }
 
