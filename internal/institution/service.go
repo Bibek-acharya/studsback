@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"studsphere/backend/internal/shared/slug"
 	"studsphere/backend/internal/shared/utils"
 	"studsphere/backend/internal/system"
 )
@@ -1041,11 +1042,38 @@ func (s *Service) CreateBlog(instID uint, req CreateBlogRequest) (*InstitutionBl
 		Excerpt:       req.Excerpt,
 		Image:         req.Image,
 		Category:      req.Category,
+		ReadTime:      req.ReadTime,
+		Tags:          req.Tags,
 		Published:     true,
 	}
 
 	if err := s.repo.CreateBlog(blog); err != nil {
 		return nil, err
+	}
+
+	// Also create a public education blog record
+	tagsJSON, _ := json.Marshal([]string{})
+	eduSlug := slug.GenerateUnique(blog.Title, func(slug string) bool {
+		var count int64
+		s.repo.db.Table("blogs").Where("slug = ?", slug).Count(&count)
+		return count > 0
+	})
+	eduBlog := map[string]interface{}{
+		"title":     blog.Title,
+		"slug":      eduSlug,
+		"content":   blog.Content,
+		"excerpt":   blog.Excerpt,
+		"image":     blog.Image,
+		"category":  blog.Category,
+		"author":    "Institution",
+		"tags":      tagsJSON,
+		"published": true,
+		"featured":  false,
+		"views":     0,
+	}
+	if err := s.repo.db.Table("blogs").Create(&eduBlog).Error; err != nil {
+		// Log but don't fail — institution blog already saved
+		fmt.Printf("Failed to create public blog record: %v\n", err)
 	}
 
 	s.systemSvc.CreatePublicNotification(
@@ -1081,6 +1109,12 @@ func (s *Service) UpdateBlog(instID, id uint, req UpdateBlogRequest) (*Instituti
 	}
 	if req.Category != "" {
 		blog.Category = req.Category
+	}
+	if req.ReadTime != "" {
+		blog.ReadTime = req.ReadTime
+	}
+	if req.Tags != "" {
+		blog.Tags = req.Tags
 	}
 
 	if err := s.repo.SaveBlog(blog); err != nil {

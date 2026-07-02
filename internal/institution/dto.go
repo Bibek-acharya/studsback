@@ -344,6 +344,8 @@ type CreateBlogRequest struct {
 	Excerpt  string `json:"excerpt"`
 	Image    string `json:"image"`
 	Category string `json:"category"`
+	ReadTime string `json:"read_time"`
+	Tags     string `json:"tags"`
 }
 
 type UpdateBlogRequest struct {
@@ -352,6 +354,8 @@ type UpdateBlogRequest struct {
 	Excerpt  string `json:"excerpt"`
 	Image    string `json:"image"`
 	Category string `json:"category"`
+	ReadTime string `json:"read_time"`
+	Tags     string `json:"tags"`
 }
 
 type BlogResponse struct {
@@ -364,6 +368,8 @@ type BlogResponse struct {
 	Excerpt       string `json:"excerpt"`
 	Image         string `json:"image"`
 	Category      string `json:"category"`
+	ReadTime      string `json:"read_time"`
+	Tags          string `json:"tags"`
 	Published     bool   `json:"published"`
 }
 
@@ -462,7 +468,6 @@ type WhatsNewData struct {
 type ProgramDataItem struct {
 	Title           string   `json:"title"`
 	Subtitle        string   `json:"subtitle"`
-	Affiliation     string   `json:"affiliation"`
 	AdmissionStatus string   `json:"admissionStatus"`
 	ProgramIcon     string   `json:"programIcon"`
 	Description     string   `json:"description"`
