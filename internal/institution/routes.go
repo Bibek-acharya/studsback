@@ -13,6 +13,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 		v1.GET("/institutions/public/filter-counts", h.GetPublicInstitutionFilterCounts)
 		v1.GET("/institutions/public", h.ListPublicInstitutions)
 		v1.GET("/institutions/public/:id", h.GetPublicInstitution)
+		v1.GET("/institutions/public/blogs", h.ListPublicBlogs)
 		v1.GET("/institutions/public/:id/counselling-sessions", h.GetPublicCounsellingSessions)
 		v1.GET("/institutions/public/news", h.ListPublicNews)
 		v1.GET("/institutions/public/news/:id", h.GetPublicNewsByID)

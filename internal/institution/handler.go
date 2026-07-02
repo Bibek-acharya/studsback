@@ -945,6 +945,37 @@ func (h *Handler) DeleteBlog(c *gin.Context) {
 	response.Success(c, http.StatusOK, "Blog deleted successfully", nil)
 }
 
+func (h *Handler) ListPublicBlogs(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
+
+	blogs, total, err := h.service.ListPublicBlogs(page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch blogs")
+		return
+	}
+
+	totalPages := (int(total) + limit - 1) / limit
+	if totalPages < 1 {
+		totalPages = 1
+	}
+
+	var blogResponses []BlogResponse
+	for _, b := range blogs {
+		blogResponses = append(blogResponses, toBlogResponse(b))
+	}
+
+	response.Success(c, http.StatusOK, "Blogs retrieved successfully", gin.H{
+		"blogs": blogResponses,
+		"meta": gin.H{
+			"total":      total,
+			"page":       page,
+			"limit":      limit,
+			"totalPages": totalPages,
+		},
+	})
+}
+
 func (h *Handler) GetQMS(c *gin.Context) {
 	instID := getInstID(c)
 
@@ -1849,6 +1880,11 @@ func toNewsResponse(n InstitutionNews) NewsResponse {
 }
 
 func toBlogResponse(b InstitutionBlog) BlogResponse {
+	var publishedAt *string
+	if b.PublishedAt != nil {
+		s := b.PublishedAt.Format(time.RFC3339)
+		publishedAt = &s
+	}
 	return BlogResponse{
 		ID:            b.ID,
 		CreatedAt:     b.CreatedAt.Format(time.RFC3339),
@@ -1862,7 +1898,8 @@ func toBlogResponse(b InstitutionBlog) BlogResponse {
 		BlogCategory:  b.BlogCategory,
 		ReadTime:      b.ReadTime,
 		Tags:          b.Tags,
-		Published:     b.Published,
+		Status:        b.Status,
+		PublishedAt:   publishedAt,
 	}
 }
 

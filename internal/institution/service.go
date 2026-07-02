@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"studsphere/backend/internal/shared/slug"
 	"studsphere/backend/internal/shared/utils"
 	"studsphere/backend/internal/system"
 )
@@ -1035,6 +1034,16 @@ func (s *Service) GetBlogByID(instID, id uint) (*InstitutionBlog, error) {
 }
 
 func (s *Service) CreateBlog(instID uint, req CreateBlogRequest) (*InstitutionBlog, error) {
+	status := req.Status
+	if status == "" {
+		status = "draft"
+	}
+	var publishedAt *time.Time
+	if status == "published" {
+		now := time.Now()
+		publishedAt = &now
+	}
+
 	blog := &InstitutionBlog{
 		InstitutionID: instID,
 		Title:         req.Title,
@@ -1045,55 +1054,25 @@ func (s *Service) CreateBlog(instID uint, req CreateBlogRequest) (*InstitutionBl
 		BlogCategory:  req.BlogCategory,
 		ReadTime:      req.ReadTime,
 		Tags:          req.Tags,
-		Published:     true,
+		Status:        status,
+		PublishedAt:   publishedAt,
 	}
 
 	if err := s.repo.CreateBlog(blog); err != nil {
 		return nil, err
 	}
 
-	// Also create a public education blog record
-	tagsJSON := "[]"
-	if req.Tags != "" {
-		t, _ := json.Marshal(strings.Split(req.Tags, ","))
-		tagsJSON = string(t)
+	if status == "published" {
+		s.systemSvc.CreatePublicNotification(
+			"New Blog: "+blog.Title,
+			blog.Excerpt,
+			"blog",
+			fmt.Sprintf("/blog/%d", blog.ID),
+			"fa-blog",
+			"text-green-600",
+			"bg-green-100",
+		)
 	}
-	instName := "Institution"
-	if inst, err := s.repo.FindInstitutionUserByID(instID); err == nil {
-		instName = inst.InstitutionName
-	}
-	eduSlug := slug.GenerateUnique(blog.Title, func(slug string) bool {
-		var count int64
-		s.repo.db.Table("blogs").Where("slug = ?", slug).Count(&count)
-		return count > 0
-	})
-	eduBlog := map[string]interface{}{
-		"title":     blog.Title,
-		"slug":      eduSlug,
-		"content":   blog.Content,
-		"excerpt":   blog.Excerpt,
-		"image":     blog.Image,
-		"category":  blog.Category,
-		"read_time": blog.ReadTime,
-		"tags":      tagsJSON,
-		"author":    instName,
-		"published": true,
-		"featured":  false,
-		"views":     0,
-	}
-	if err := s.repo.db.Table("blogs").Create(&eduBlog).Error; err != nil {
-		fmt.Printf("Failed to create public blog record: %v\n", err)
-	}
-
-	s.systemSvc.CreatePublicNotification(
-		"New Blog: "+blog.Title,
-		blog.Excerpt,
-		"blog",
-		fmt.Sprintf("/blog/%d", blog.ID),
-		"fa-blog",
-		"text-green-600",
-		"bg-green-100",
-	)
 
 	return blog, nil
 }
@@ -1128,6 +1107,13 @@ func (s *Service) UpdateBlog(instID, id uint, req UpdateBlogRequest) (*Instituti
 	if req.Tags != "" {
 		blog.Tags = req.Tags
 	}
+	if req.Status != "" {
+		blog.Status = req.Status
+		if req.Status == "published" && blog.PublishedAt == nil {
+			now := time.Now()
+			blog.PublishedAt = &now
+		}
+	}
 
 	if err := s.repo.SaveBlog(blog); err != nil {
 		return nil, err
@@ -1138,6 +1124,10 @@ func (s *Service) UpdateBlog(instID, id uint, req UpdateBlogRequest) (*Instituti
 
 func (s *Service) DeleteBlog(instID, id uint) error {
 	return s.repo.DeleteBlog(id, instID)
+}
+
+func (s *Service) ListPublicBlogs(page, limit int) ([]InstitutionBlog, int64, error) {
+	return s.repo.FindPublishedBlogs(page, limit)
 }
 
 func (s *Service) GetQMS(instID uint, page, limit int) ([]InstitutionQMS, int64, error) {

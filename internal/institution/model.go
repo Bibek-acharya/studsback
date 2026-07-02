@@ -173,7 +173,8 @@ type InstitutionBlog struct {
 	BlogCategory  string         `json:"blog_category"`
 	ReadTime      string         `json:"read_time"`
 	Tags          string         `json:"tags"`
-	Published     bool           `gorm:"default:true" json:"published"`
+	Status        string         `gorm:"default:'draft'" json:"status"`
+	PublishedAt   *time.Time     `json:"published_at"`
 }
 
 type InstitutionQMS struct {

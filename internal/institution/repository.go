@@ -501,6 +501,19 @@ func (r *Repository) DeleteBlog(id uint, instID uint) error {
 	return nil
 }
 
+func (r *Repository) FindPublishedBlogs(page, limit int) ([]InstitutionBlog, int64, error) {
+	var blogs []InstitutionBlog
+	var total int64
+	offset := (page - 1) * limit
+
+	query := r.db.Model(&InstitutionBlog{}).Where("status = ?", "published")
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	err := query.Order("created_at desc").Offset(offset).Limit(limit).Find(&blogs).Error
+	return blogs, total, err
+}
+
 func (r *Repository) FindQMSByInstitution(instID uint, page, limit int) ([]InstitutionQMS, int64, error) {
 	var qms []InstitutionQMS
 	var total int64

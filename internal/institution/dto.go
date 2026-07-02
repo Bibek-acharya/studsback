@@ -347,6 +347,7 @@ type CreateBlogRequest struct {
 	BlogCategory string `json:"blog_category"`
 	ReadTime     string `json:"read_time"`
 	Tags         string `json:"tags"`
+	Status       string `json:"status"`
 }
 
 type UpdateBlogRequest struct {
@@ -358,22 +359,24 @@ type UpdateBlogRequest struct {
 	BlogCategory string `json:"blog_category"`
 	ReadTime     string `json:"read_time"`
 	Tags         string `json:"tags"`
+	Status       string `json:"status"`
 }
 
 type BlogResponse struct {
-	ID            uint   `json:"id"`
-	CreatedAt     string `json:"created_at"`
-	UpdatedAt     string `json:"updated_at"`
-	InstitutionID uint   `json:"institution_id"`
-	Title         string `json:"title"`
-	Content       string `json:"content"`
-	Excerpt       string `json:"excerpt"`
-	Image         string `json:"image"`
-	Category      string `json:"category"`
-	BlogCategory  string `json:"blog_category"`
-	ReadTime      string `json:"read_time"`
-	Tags          string `json:"tags"`
-	Published     bool   `json:"published"`
+	ID            uint    `json:"id"`
+	CreatedAt     string  `json:"created_at"`
+	UpdatedAt     string  `json:"updated_at"`
+	InstitutionID uint    `json:"institution_id"`
+	Title         string  `json:"title"`
+	Content       string  `json:"content"`
+	Excerpt       string  `json:"excerpt"`
+	Image         string  `json:"image"`
+	Category      string  `json:"category"`
+	BlogCategory  string  `json:"blog_category"`
+	ReadTime      string  `json:"read_time"`
+	Tags          string  `json:"tags"`
+	Status        string  `json:"status"`
+	PublishedAt   *string `json:"published_at"`
 }
 
 type CreateQMSRequest struct {
