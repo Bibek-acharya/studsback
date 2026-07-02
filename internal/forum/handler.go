@@ -26,6 +26,22 @@ func (h *Handler) GetForumCommunities(c *gin.Context) {
 	response.Success(c, 200, "Communities retrieved successfully", communities)
 }
 
+func (h *Handler) CreateForumCommunity(c *gin.Context) {
+	var req CreateCommunityRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+
+	community, err := h.service.CreateForumCommunity(req)
+	if err != nil {
+		response.Error(c, 500, err.Error())
+		return
+	}
+
+	response.Success(c, 201, "Community created successfully", community)
+}
+
 func (h *Handler) JoinForumCommunity(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {

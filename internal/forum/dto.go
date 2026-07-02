@@ -1,5 +1,12 @@
 package forum
 
+type CreateCommunityRequest struct {
+	Name        string `json:"name" binding:"required"`
+	Description string `json:"description"`
+	Emoji       string `json:"emoji"`
+	BgColor     string `json:"bg_color"`
+}
+
 type CreatePostRequest struct {
 	CommunityID uint     `json:"community_id"`
 	Category    string   `json:"category" binding:"required"`
@@ -28,6 +35,7 @@ type VotePollRequest struct {
 type CommunityResponse struct {
 	ID          uint   `json:"id"`
 	Name        string `json:"name"`
+	Description string `json:"description"`
 	Emoji       string `json:"emoji"`
 	BgColor     string `json:"bg_color"`
 	MemberCount int    `json:"member_count"`

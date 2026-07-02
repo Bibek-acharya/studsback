@@ -462,6 +462,7 @@ type WhatsNewData struct {
 type ProgramDataItem struct {
 	Title           string   `json:"title"`
 	Subtitle        string   `json:"subtitle"`
+	Affiliation     string   `json:"affiliation"`
 	AdmissionStatus string   `json:"admissionStatus"`
 	ProgramIcon     string   `json:"programIcon"`
 	Description     string   `json:"description"`

@@ -44,6 +44,7 @@ func (s *Service) GetForumCommunities(currentUserID uint) ([]CommunityResponse, 
 		responses = append(responses, CommunityResponse{
 			ID:          c.ID,
 			Name:        c.Name,
+			Description: c.Description,
 			Emoji:       c.Emoji,
 			BgColor:     c.BgColor,
 			MemberCount: int(memberCount),
@@ -53,6 +54,28 @@ func (s *Service) GetForumCommunities(currentUserID uint) ([]CommunityResponse, 
 	}
 
 	return responses, nil
+}
+
+func (s *Service) CreateForumCommunity(req CreateCommunityRequest) (*CommunityResponse, error) {
+	community := &ForumCommunity{
+		Name:        req.Name,
+		Description: req.Description,
+		Emoji:       req.Emoji,
+		BgColor:     req.BgColor,
+	}
+	if err := s.repo.CreateCommunity(community); err != nil {
+		return nil, errors.New("failed to create community")
+	}
+	return &CommunityResponse{
+		ID:          community.ID,
+		Name:        community.Name,
+		Description: community.Description,
+		Emoji:       community.Emoji,
+		BgColor:     community.BgColor,
+		MemberCount: 0,
+		IsMember:    false,
+		PostCount:   0,
+	}, nil
 }
 
 func (s *Service) JoinForumCommunity(communityID uint, userID uint) (*CommunityResponse, error) {

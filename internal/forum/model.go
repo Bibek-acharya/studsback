@@ -12,6 +12,7 @@ type ForumCommunity struct {
 	UpdatedAt   time.Time      `json:"updated_at"`
 	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
 	Name        string         `gorm:"unique;not null" json:"name"`
+	Description string         `gorm:"type:text" json:"description"`
 	Emoji       string         `json:"emoji"`
 	BgColor     string         `json:"bg_color"`
 	MemberCount int            `gorm:"-" json:"member_count"`

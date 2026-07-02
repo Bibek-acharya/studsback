@@ -56,6 +56,10 @@ func (r *Repository) DeleteMembership(member *ForumCommunityMember) error {
 	return r.db.Delete(member).Error
 }
 
+func (r *Repository) CreateCommunity(community *ForumCommunity) error {
+	return r.db.Create(community).Error
+}
+
 func (r *Repository) GetAllPosts(category, communityID string, currentUserID uint) ([]ForumPost, error) {
 	var posts []ForumPost
 	query := r.db.Preload("User").Preload("Community")
