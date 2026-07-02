@@ -1042,6 +1042,7 @@ func (s *Service) CreateBlog(instID uint, req CreateBlogRequest) (*InstitutionBl
 		Excerpt:       req.Excerpt,
 		Image:         req.Image,
 		Category:      req.Category,
+		BlogCategory:  req.BlogCategory,
 		ReadTime:      req.ReadTime,
 		Tags:          req.Tags,
 		Published:     true,
@@ -1052,7 +1053,15 @@ func (s *Service) CreateBlog(instID uint, req CreateBlogRequest) (*InstitutionBl
 	}
 
 	// Also create a public education blog record
-	tagsJSON, _ := json.Marshal([]string{})
+	tagsJSON := "[]"
+	if req.Tags != "" {
+		t, _ := json.Marshal(strings.Split(req.Tags, ","))
+		tagsJSON = string(t)
+	}
+	instName := "Institution"
+	if inst, err := s.repo.FindInstitutionUserByID(instID); err == nil {
+		instName = inst.InstitutionName
+	}
 	eduSlug := slug.GenerateUnique(blog.Title, func(slug string) bool {
 		var count int64
 		s.repo.db.Table("blogs").Where("slug = ?", slug).Count(&count)
@@ -1065,14 +1074,14 @@ func (s *Service) CreateBlog(instID uint, req CreateBlogRequest) (*InstitutionBl
 		"excerpt":   blog.Excerpt,
 		"image":     blog.Image,
 		"category":  blog.Category,
-		"author":    "Institution",
+		"read_time": blog.ReadTime,
 		"tags":      tagsJSON,
+		"author":    instName,
 		"published": true,
 		"featured":  false,
 		"views":     0,
 	}
 	if err := s.repo.db.Table("blogs").Create(&eduBlog).Error; err != nil {
-		// Log but don't fail — institution blog already saved
 		fmt.Printf("Failed to create public blog record: %v\n", err)
 	}
 
@@ -1109,6 +1118,9 @@ func (s *Service) UpdateBlog(instID, id uint, req UpdateBlogRequest) (*Instituti
 	}
 	if req.Category != "" {
 		blog.Category = req.Category
+	}
+	if req.BlogCategory != "" {
+		blog.BlogCategory = req.BlogCategory
 	}
 	if req.ReadTime != "" {
 		blog.ReadTime = req.ReadTime

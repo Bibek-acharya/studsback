@@ -1859,6 +1859,7 @@ func toBlogResponse(b InstitutionBlog) BlogResponse {
 		Excerpt:       b.Excerpt,
 		Image:         b.Image,
 		Category:      b.Category,
+		BlogCategory:  b.BlogCategory,
 		ReadTime:      b.ReadTime,
 		Tags:          b.Tags,
 		Published:     b.Published,

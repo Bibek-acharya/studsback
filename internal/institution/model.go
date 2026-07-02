@@ -170,6 +170,7 @@ type InstitutionBlog struct {
 	Excerpt       string         `json:"excerpt"`
 	Image         string         `json:"image"`
 	Category      string         `json:"category"`
+	BlogCategory  string         `json:"blog_category"`
 	ReadTime      string         `json:"read_time"`
 	Tags          string         `json:"tags"`
 	Published     bool           `gorm:"default:true" json:"published"`
