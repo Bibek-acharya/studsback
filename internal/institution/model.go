@@ -12,7 +12,7 @@ type InstitutionProgram struct {
 	CreatedAt     time.Time      `json:"created_at"`
 	UpdatedAt     time.Time      `json:"updated_at"`
 	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
-	InstitutionID uint           `gorm:"index;not null" json:"institution_id"`
+	InstitutionID uint           `gorm:"index;not null;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"institution_id"`
 	Name          string         `gorm:"not null" json:"name"`
 	Description   string         `gorm:"type:text" json:"description"`
 	Duration      string         `json:"duration"`
@@ -27,7 +27,7 @@ type InstitutionProgram struct {
 type InstitutionMedia struct {
 	ID            uint      `gorm:"primarykey" json:"id"`
 	CreatedAt     time.Time `json:"created_at"`
-	InstitutionID uint      `gorm:"index;not null" json:"institution_id"`
+	InstitutionID uint      `gorm:"index;not null;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"institution_id"`
 	URL           string    `json:"url"`
 	Type          string    `json:"type"`
 	Title         string    `json:"title"`
@@ -38,7 +38,7 @@ type InstitutionCounsellingSession struct {
 	CreatedAt     time.Time      `json:"created_at"`
 	UpdatedAt     time.Time      `json:"updated_at"`
 	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
-	InstitutionID uint           `gorm:"index;not null" json:"institution_id"`
+	InstitutionID uint           `gorm:"index;not null;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"institution_id"`
 	Title         string         `json:"title"`
 	Description   string         `gorm:"type:text" json:"description"`
 	ScheduledAt   time.Time      `json:"scheduled_at"`
@@ -72,7 +72,7 @@ type InstitutionEntrance struct {
 	CreatedAt         time.Time      `json:"created_at"`
 	UpdatedAt         time.Time      `json:"updated_at"`
 	DeletedAt         gorm.DeletedAt `gorm:"index" json:"-"`
-	InstitutionID     uint           `gorm:"index;not null" json:"institution_id"`
+	InstitutionID     uint           `gorm:"index;not null;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"institution_id"`
 	Title             string         `gorm:"not null" json:"title"`
 	Description       string         `gorm:"type:text" json:"description"`
 	Program           string         `json:"program"`
@@ -120,7 +120,7 @@ type InstitutionEvent struct {
 	CreatedAt          time.Time      `json:"created_at"`
 	UpdatedAt          time.Time      `json:"updated_at"`
 	DeletedAt          gorm.DeletedAt `gorm:"index" json:"-"`
-	InstitutionID      uint           `gorm:"index;not null" json:"institution_id"`
+	InstitutionID      uint           `gorm:"index;not null;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"institution_id"`
 	Name               string         `gorm:"not null" json:"name"`
 	ShortDesc          string         `gorm:"type:text" json:"short_desc"`
 	Description        string         `gorm:"type:text" json:"description"`
@@ -145,7 +145,7 @@ type InstitutionNews struct {
 	CreatedAt     time.Time      `json:"created_at"`
 	UpdatedAt     time.Time      `json:"updated_at"`
 	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
-	InstitutionID uint           `gorm:"index;not null" json:"institution_id"`
+	InstitutionID uint           `gorm:"index;not null;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"institution_id"`
 	Title         string         `gorm:"not null" json:"title"`
 	ShortDesc     string         `gorm:"type:text" json:"short_desc"`
 	Content       string         `gorm:"type:text" json:"content"`
@@ -164,7 +164,7 @@ type InstitutionBlog struct {
 	CreatedAt     time.Time      `json:"created_at"`
 	UpdatedAt     time.Time      `json:"updated_at"`
 	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
-	InstitutionID uint           `gorm:"index;not null" json:"institution_id"`
+	InstitutionID uint           `gorm:"index;not null;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"institution_id"`
 	Title         string         `gorm:"not null" json:"title"`
 	Content       string         `gorm:"type:text" json:"content"`
 	Excerpt       string         `json:"excerpt"`
@@ -182,7 +182,7 @@ type InstitutionQMS struct {
 	CreatedAt     time.Time      `json:"created_at"`
 	UpdatedAt     time.Time      `json:"updated_at"`
 	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
-	InstitutionID uint           `gorm:"index;not null" json:"institution_id"`
+	InstitutionID uint           `gorm:"index;not null;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"institution_id"`
 	Title         string         `gorm:"not null" json:"title"`
 	Description   string         `gorm:"type:text" json:"description"`
 	Category      string         `json:"category"`
@@ -196,7 +196,7 @@ type InstitutionMessage struct {
 	CreatedAt     time.Time      `json:"created_at"`
 	UpdatedAt     time.Time      `json:"updated_at"`
 	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
-	InstitutionID uint           `gorm:"index" json:"institution_id"`
+	InstitutionID uint           `gorm:"index;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"institution_id"`
 	UserID        uint           `gorm:"index" json:"user_id"`
 	Subject       string         `json:"subject"`
 	Content       string         `gorm:"type:text" json:"content"`
@@ -208,7 +208,7 @@ type InstitutionSettings struct {
 	ID            uint      `gorm:"primarykey" json:"id"`
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
-	InstitutionID uint      `gorm:"uniqueIndex;not null" json:"institution_id"`
+	InstitutionID uint      `gorm:"uniqueIndex;not null;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"institution_id"`
 	EmailNotifs   bool      `gorm:"default:true" json:"email_notifications"`
 	Timezone      string    `gorm:"default:'UTC'" json:"timezone"`
 	Language      string    `gorm:"default:'en'" json:"language"`
@@ -279,7 +279,7 @@ type Scholarship struct {
 	CreatedAt       time.Time      `json:"created_at"`
 	UpdatedAt       time.Time      `json:"updated_at"`
 	DeletedAt       gorm.DeletedAt `gorm:"index" json:"-"`
-	InstitutionID   uint           `gorm:"index;not null" json:"institution_id"`
+	InstitutionID   uint           `gorm:"index;not null;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"institution_id"`
 	Title           string         `gorm:"not null" json:"title"`
 	ShortDesc       string         `gorm:"type:text" json:"short_desc"`
 	Provider        string         `json:"provider"`
@@ -345,7 +345,7 @@ type AdmissionPage struct {
 	CreatedAt     time.Time      `json:"created_at"`
 	UpdatedAt     time.Time      `json:"updated_at"`
 	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
-	InstitutionID uint           `gorm:"index;not null" json:"institution_id"`
+	InstitutionID uint           `gorm:"index;not null;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"institution_id"`
 	Title         string         `json:"title"`
 	Status        string         `gorm:"default:'draft'" json:"status"`
 	PublishedAt   *time.Time     `json:"published_at,omitempty"`
