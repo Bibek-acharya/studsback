@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"studsphere/backend/internal/shared/slug"
 	"studsphere/backend/internal/shared/utils"
 	"studsphere/backend/internal/system"
 
@@ -1146,7 +1147,14 @@ func (s *Service) GetAllNewsAdmin(page, limit int, category, search string) ([]A
 func (s *Service) CreateNewsAdmin(req CreateNewsRequest) (*AdminNewsResponse, error) {
 	tagsJSON, _ := json.Marshal(req.Tags)
 
+	slugStr := slug.GenerateUnique("edu-"+req.Title, func(slugStr string) bool {
+		var count int64
+		s.repo.db.Model(&News{}).Where("slug = ?", slugStr).Count(&count)
+		return count > 0
+	})
+
 	news := News{
+		Slug:     slugStr,
 		Category: req.Category,
 		Title:    req.Title,
 		Excerpt:  req.Excerpt,
