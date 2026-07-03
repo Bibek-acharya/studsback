@@ -98,6 +98,7 @@ func toScholarshipResponse(s *ProviderScholarship) ScholarshipResponse {
 func toNewsResponse(n *ProviderNews) NewsResponse {
 	return NewsResponse{
 		ID:            n.ID,
+		Slug:          n.Slug,
 		CreatedAt:     n.CreatedAt,
 		UpdatedAt:     n.UpdatedAt,
 		ProviderID:    n.ProviderID,

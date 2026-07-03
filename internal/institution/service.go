@@ -892,6 +892,10 @@ func (s *Service) GetPublicEventByID(id uint) (*InstitutionEvent, error) {
 	return event, nil
 }
 
+func (s *Service) GetPublicEventBySlug(slug string) (*InstitutionEvent, error) {
+	return s.repo.FindEventBySlug(slug)
+}
+
 func (s *Service) DeleteEvent(instID, id uint) error {
 	return s.repo.DeleteEvent(id, instID)
 }
@@ -918,6 +922,10 @@ func (s *Service) ListPublicNews(page, limit int) ([]NewsResponse, int64, error)
 
 func (s *Service) GetPublicNewsByID(id uint) (*InstitutionNews, error) {
 	return s.repo.FindPublishedNewsByID(id)
+}
+
+func (s *Service) GetPublicNewsBySlug(slug string) (*InstitutionNews, error) {
+	return s.repo.FindNewsBySlug(slug)
 }
 
 func (s *Service) CreateNews(instID uint, req CreateNewsRequest) (*InstitutionNews, error) {
@@ -1128,6 +1136,10 @@ func (s *Service) DeleteBlog(instID, id uint) error {
 
 func (s *Service) ListPublicBlogs(page, limit int) ([]InstitutionBlog, int64, error) {
 	return s.repo.FindPublishedBlogs(page, limit)
+}
+
+func (s *Service) GetPublicBlogBySlug(slug string) (*InstitutionBlog, error) {
+	return s.repo.FindBlogBySlug(slug)
 }
 
 func (s *Service) GetQMS(instID uint, page, limit int) ([]InstitutionQMS, int64, error) {

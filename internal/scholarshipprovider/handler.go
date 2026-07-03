@@ -41,7 +41,6 @@ func getProviderID(c *gin.Context) uint {
 	return userID.(uint)
 }
 
-
 func resolveProviderUploadFolder(folder string) (string, error) {
 	switch folder {
 	case "", "general":
@@ -411,7 +410,7 @@ func (h *Handler) ExportApplications(c *gin.Context) {
 	c.Header("Content-Disposition", "attachment; filename=applications.xlsx")
 	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 	c.Header("Content-Transfer-Encoding", "binary")
-	
+
 	if err := f.Write(c.Writer); err != nil {
 		log.Printf("Failed to write excel file: %v", err)
 	}
@@ -574,11 +573,11 @@ func (h *Handler) UpdateDisputeStatus(c *gin.Context) {
 	}
 
 	validStatuses := map[string]bool{
-		"pending":          true,
-		"called":           true,
-		"no_response":      true,
+		"pending":            true,
+		"called":             true,
+		"no_response":        true,
 		"follow_up_required": true,
-		"resolved":         true,
+		"resolved":           true,
 	}
 	if !validStatuses[req.DisputeStatus] {
 		response.Error(c, http.StatusBadRequest, "Invalid dispute status")
@@ -1022,20 +1021,18 @@ func unmarshalJSONB(data []byte) interface{} {
 	return v
 }
 
-
-
 func toApplicationResponse(a *ProviderApplication) ApplicationResponse {
 	var paymentResp *PaymentResponse
-		if a.Payment != nil {
-			paymentResp = &PaymentResponse{
-				ID:            a.Payment.ID,
-				Method:        a.Payment.Method,
-				Amount:        a.Payment.Amount,
-				Status:        a.Payment.Status,
-				ReceiptURL:    a.Payment.ReceiptURL,
-				TransactionID: a.Payment.TransactionID,
-				DisputeStatus: a.Payment.DisputeStatus,
-			}
+	if a.Payment != nil {
+		paymentResp = &PaymentResponse{
+			ID:            a.Payment.ID,
+			Method:        a.Payment.Method,
+			Amount:        a.Payment.Amount,
+			Status:        a.Payment.Status,
+			ReceiptURL:    a.Payment.ReceiptURL,
+			TransactionID: a.Payment.TransactionID,
+			DisputeStatus: a.Payment.DisputeStatus,
+		}
 		if a.Payment.PaidAt != nil {
 			paymentResp.PaidAt = a.Payment.PaidAt.Format(time.RFC3339)
 		}
@@ -1176,8 +1173,6 @@ func toNotificationResponse(n *ProviderNotification) NotificationResponse {
 	}
 }
 
-
-
 func toEventResponse(e *ProviderEvent) EventResponse {
 	var tags interface{}
 	if e.Tags != nil {
@@ -1185,6 +1180,7 @@ func toEventResponse(e *ProviderEvent) EventResponse {
 	}
 	return EventResponse{
 		ID:                 e.ID,
+		Slug:               e.Slug,
 		CreatedAt:          e.CreatedAt,
 		UpdatedAt:          e.UpdatedAt,
 		ProviderID:         e.ProviderID,
@@ -1212,6 +1208,7 @@ func toEventResponse(e *ProviderEvent) EventResponse {
 func toBlogResponse(b *ProviderBlog) BlogResponse {
 	return BlogResponse{
 		ID:          b.ID,
+		Slug:        b.Slug,
 		CreatedAt:   b.CreatedAt,
 		UpdatedAt:   b.UpdatedAt,
 		ProviderID:  b.ProviderID,
@@ -2547,6 +2544,36 @@ func (h *Handler) GetPublicBlogByID(c *gin.Context) {
 	}
 
 	response.Success(c, http.StatusOK, "Blog retrieved successfully", toBlogResponse(blog))
+}
+
+func (h *Handler) GetPublicNewsBySlug(c *gin.Context) {
+	slug := c.Param("slug")
+	news, err := h.service.GetPublicNewsBySlug(slug)
+	if err != nil {
+		response.Error(c, 404, "News not found")
+		return
+	}
+	response.Success(c, 200, "News retrieved successfully", news)
+}
+
+func (h *Handler) GetPublicEventBySlug(c *gin.Context) {
+	slug := c.Param("slug")
+	event, err := h.service.GetPublicEventBySlug(slug)
+	if err != nil {
+		response.Error(c, 404, "Event not found")
+		return
+	}
+	response.Success(c, 200, "Event retrieved successfully", event)
+}
+
+func (h *Handler) GetPublicBlogBySlug(c *gin.Context) {
+	slug := c.Param("slug")
+	blog, err := h.service.GetPublicBlogBySlug(slug)
+	if err != nil {
+		response.Error(c, 404, "Blog not found")
+		return
+	}
+	response.Success(c, 200, "Blog retrieved successfully", blog)
 }
 
 func (h *Handler) GetPublicEventByID(c *gin.Context) {

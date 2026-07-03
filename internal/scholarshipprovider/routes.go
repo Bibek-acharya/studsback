@@ -13,10 +13,13 @@ func RegisterPublicRoutes(r *gin.Engine, h *Handler) {
 		{
 			public.GET("/news", h.GetPublicNews)
 			public.GET("/news/:id", h.GetPublicNewsByID)
+			public.GET("/news/by-slug/:slug", h.GetPublicNewsBySlug)
 			public.GET("/events", h.GetPublicEvents)
 			public.GET("/events/:id", h.GetPublicEventByID)
+			public.GET("/events/by-slug/:slug", h.GetPublicEventBySlug)
 			public.GET("/blogs", h.GetPublicBlogs)
 			public.GET("/blogs/:id", h.GetPublicBlogByID)
+			public.GET("/blogs/by-slug/:slug", h.GetPublicBlogBySlug)
 			public.GET("/providers/:id", h.GetPublicProviderProfile)
 			public.GET("/volunteers", h.GetPublicVolunteers)
 			public.GET("/volunteers/:id", h.GetPublicVolunteerByID)

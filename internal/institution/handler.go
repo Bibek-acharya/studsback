@@ -719,6 +719,16 @@ func (h *Handler) GetPublicEventByID(c *gin.Context) {
 	response.Success(c, http.StatusOK, "Event retrieved successfully", toEventResponse(*event))
 }
 
+func (h *Handler) GetPublicEventBySlug(c *gin.Context) {
+	slug := c.Param("slug")
+	event, err := h.service.GetPublicEventBySlug(slug)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Event not found")
+		return
+	}
+	response.Success(c, http.StatusOK, "Event retrieved successfully", toEventResponse(*event))
+}
+
 func (h *Handler) ListPublicScholarships(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
@@ -770,6 +780,16 @@ func (h *Handler) GetPublicNewsByID(c *gin.Context) {
 		return
 	}
 
+	response.Success(c, http.StatusOK, "News retrieved successfully", toNewsResponse(*news))
+}
+
+func (h *Handler) GetPublicNewsBySlug(c *gin.Context) {
+	slug := c.Param("slug")
+	news, err := h.service.GetPublicNewsBySlug(slug)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "News not found")
+		return
+	}
 	response.Success(c, http.StatusOK, "News retrieved successfully", toNewsResponse(*news))
 }
 
@@ -974,6 +994,16 @@ func (h *Handler) ListPublicBlogs(c *gin.Context) {
 			"totalPages": totalPages,
 		},
 	})
+}
+
+func (h *Handler) GetPublicBlogBySlug(c *gin.Context) {
+	slug := c.Param("slug")
+	blog, err := h.service.GetPublicBlogBySlug(slug)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Blog not found")
+		return
+	}
+	response.Success(c, http.StatusOK, "Blog retrieved successfully", toBlogResponse(*blog))
 }
 
 func (h *Handler) GetQMS(c *gin.Context) {

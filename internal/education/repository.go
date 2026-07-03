@@ -329,6 +329,12 @@ func (r *Repository) FindNewsByID(id string) (*News, error) {
 	return &news, nil
 }
 
+func (r *Repository) FindNewsBySlug(slug string) (*News, error) {
+	var news News
+	err := r.db.Where("slug = ?", slug).First(&news).Error
+	return &news, err
+}
+
 func (r *Repository) FindEvents() ([]Event, error) {
 	var events []Event
 	err := r.db.Order("date asc").Find(&events).Error
@@ -472,6 +478,12 @@ func (r *Repository) FindEventByID(id string) (*Event, error) {
 		return nil, err
 	}
 	return &event, nil
+}
+
+func (r *Repository) FindEventBySlug(slug string) (*Event, error) {
+	var event Event
+	err := r.db.Where("slug = ?", slug).First(&event).Error
+	return &event, err
 }
 
 func (r *Repository) FindBlogs(page, limit int, category, search, sort, tags string) ([]Blog, int64, error) {

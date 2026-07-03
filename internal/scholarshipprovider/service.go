@@ -55,14 +55,14 @@ func (s *Service) GetDashboard(providerID uint) (*DashboardResponse, error) {
 	}
 
 	return &DashboardResponse{
-		TotalScholarships:   totalScholarships,
-		TotalApplications:   totalApplications,
-		PendingApplications: pendingApplications,
+		TotalScholarships:    totalScholarships,
+		TotalApplications:    totalApplications,
+		PendingApplications:  pendingApplications,
 		ApprovedApplications: approvedApplications,
 		RejectedApplications: rejectedApplications,
-		TotalInterviews:     totalInterviews,
-		UnreadMessages:      unreadMessages,
-		ScholarshipStats:    details,
+		TotalInterviews:      totalInterviews,
+		UnreadMessages:       unreadMessages,
+		ScholarshipStats:     details,
 	}, nil
 }
 
@@ -105,21 +105,21 @@ func (s *Service) GetDetailedAnalytics(providerID uint, filters DetailedAnalytic
 	}
 
 	res := &DetailedAnalyticsResponse{
-		TotalApplicants:    len(apps),
-		Gender:             []MetricCount{},
-		Ethnicity:          []MetricCount{},
-		GPABreakdown:       []MetricCount{},
-		SchoolType:         []MetricCount{},
-		Stream:             []MetricCount{},
-		Province:           []MetricCount{},
-		District:           []MetricCount{},
-		Status:             []MetricCount{},
-		PaymentMethods:     []MetricCount{},
-		GPABySchoolType:    []MetricCount{},
-		GenderByProvince:   []CrossMetric{},
-		StreamByProvince:   []CrossMetric{},
+		TotalApplicants:      len(apps),
+		Gender:               []MetricCount{},
+		Ethnicity:            []MetricCount{},
+		GPABreakdown:         []MetricCount{},
+		SchoolType:           []MetricCount{},
+		Stream:               []MetricCount{},
+		Province:             []MetricCount{},
+		District:             []MetricCount{},
+		Status:               []MetricCount{},
+		PaymentMethods:       []MetricCount{},
+		GPABySchoolType:      []MetricCount{},
+		GenderByProvince:     []CrossMetric{},
+		StreamByProvince:     []CrossMetric{},
 		SchoolTypeByProvince: []CrossMetric{},
-		ExamCenters:        []ExamCenterMetric{},
+		ExamCenters:          []ExamCenterMetric{},
 	}
 
 	genderMap := make(map[string]int)
@@ -613,46 +613,46 @@ func (s *Service) syncPublicScholarship(scholarship *ProviderScholarship, status
 			"payment_config":              publicScholarship.PaymentConfig,
 			"provider_scholarship_id":     scholarship.ID,
 			"provider_name":               publicScholarship.ProviderName,
-			"funding_type_other":         publicScholarship.FundingTypeOther,
-			"scholarship_type_other":     publicScholarship.ScholarshipTypeOther,
-			"education_level":           publicScholarship.EducationLevel,
-			"education_level_other":      publicScholarship.EducationLevelOther,
-			"apply_link":                publicScholarship.ApplyLink,
-			"coverage_area":             publicScholarship.CoverageArea,
-			"contact_email":             publicScholarship.ContactEmail,
-			"primary_phone":             publicScholarship.PrimaryPhone,
-			"secondary_phone":           publicScholarship.SecondaryPhone,
-			"website_url":               publicScholarship.WebsiteUrl,
-			"office_address":            publicScholarship.OfficeAddress,
-			"map_url":                   publicScholarship.MapUrl,
-			"about_paragraph_1":          publicScholarship.AboutParagraph1,
-			"video_tutorials":           publicScholarship.VideoTutorials,
-			"journey_timeline":          publicScholarship.JourneyTimeline,
-			"timeline":                 publicScholarship.Timeline,
-			"scholarship_section_title": publicScholarship.ScholarshipSectionTitle,
-			"scholarship_subtitle":      publicScholarship.ScholarshipSubtitle,
-			"scholarship_description_1": publicScholarship.ScholarshipDescription1,
-			"scholarship_description_2": publicScholarship.ScholarshipDescription2,
-			"scholarship_types":         publicScholarship.ScholarshipTypes,
-			"scholarship_types_new":     publicScholarship.ScholarshipTypesNew,
-			"selection_rubric":          publicScholarship.SelectionRubric,
-			"selection_rubric_new":       publicScholarship.SelectionRubricNew,
-			"eligibility_section_title": publicScholarship.EligibilitySectionTitle,
-			"eligibility_subtitle":      publicScholarship.EligibilitySubtitle,
-			"basic_eligibility_criteria": publicScholarship.BasicEligibilityCriteria,
-			"fully_funded_criteria":      publicScholarship.FullyFundedCriteria,
-			"partially_funded_criteria":  publicScholarship.PartiallyFundedCriteria,
-			"selection_process_steps":    publicScholarship.SelectionProcessSteps,
-			"faqs_new":                  publicScholarship.FAQsNew,
-			"gallery_images":            publicScholarship.GalleryImages,
-			"gallery_images_new":         publicScholarship.GalleryImagesNew,
-			"partner_groups":            publicScholarship.PartnerGroups,
-			"partner_messages":          publicScholarship.PartnerMessages,
-			"exam_centers":              publicScholarship.ExamCenters,
-			"exam_centers_new":           publicScholarship.ExamCentersNew,
-			"downloads":                publicScholarship.Downloads,
-			"exam_date":                publicScholarship.ExamDate,
-			"exam_time":                publicScholarship.ExamTime,
+			"funding_type_other":          publicScholarship.FundingTypeOther,
+			"scholarship_type_other":      publicScholarship.ScholarshipTypeOther,
+			"education_level":             publicScholarship.EducationLevel,
+			"education_level_other":       publicScholarship.EducationLevelOther,
+			"apply_link":                  publicScholarship.ApplyLink,
+			"coverage_area":               publicScholarship.CoverageArea,
+			"contact_email":               publicScholarship.ContactEmail,
+			"primary_phone":               publicScholarship.PrimaryPhone,
+			"secondary_phone":             publicScholarship.SecondaryPhone,
+			"website_url":                 publicScholarship.WebsiteUrl,
+			"office_address":              publicScholarship.OfficeAddress,
+			"map_url":                     publicScholarship.MapUrl,
+			"about_paragraph_1":           publicScholarship.AboutParagraph1,
+			"video_tutorials":             publicScholarship.VideoTutorials,
+			"journey_timeline":            publicScholarship.JourneyTimeline,
+			"timeline":                    publicScholarship.Timeline,
+			"scholarship_section_title":   publicScholarship.ScholarshipSectionTitle,
+			"scholarship_subtitle":        publicScholarship.ScholarshipSubtitle,
+			"scholarship_description_1":   publicScholarship.ScholarshipDescription1,
+			"scholarship_description_2":   publicScholarship.ScholarshipDescription2,
+			"scholarship_types":           publicScholarship.ScholarshipTypes,
+			"scholarship_types_new":       publicScholarship.ScholarshipTypesNew,
+			"selection_rubric":            publicScholarship.SelectionRubric,
+			"selection_rubric_new":        publicScholarship.SelectionRubricNew,
+			"eligibility_section_title":   publicScholarship.EligibilitySectionTitle,
+			"eligibility_subtitle":        publicScholarship.EligibilitySubtitle,
+			"basic_eligibility_criteria":  publicScholarship.BasicEligibilityCriteria,
+			"fully_funded_criteria":       publicScholarship.FullyFundedCriteria,
+			"partially_funded_criteria":   publicScholarship.PartiallyFundedCriteria,
+			"selection_process_steps":     publicScholarship.SelectionProcessSteps,
+			"faqs_new":                    publicScholarship.FAQsNew,
+			"gallery_images":              publicScholarship.GalleryImages,
+			"gallery_images_new":          publicScholarship.GalleryImagesNew,
+			"partner_groups":              publicScholarship.PartnerGroups,
+			"partner_messages":            publicScholarship.PartnerMessages,
+			"exam_centers":                publicScholarship.ExamCenters,
+			"exam_centers_new":            publicScholarship.ExamCentersNew,
+			"downloads":                   publicScholarship.Downloads,
+			"exam_date":                   publicScholarship.ExamDate,
+			"exam_time":                   publicScholarship.ExamTime,
 		}
 		return s.repo.UpdatePublicScholarship(existing.ID, updates)
 	}
@@ -2305,13 +2305,13 @@ func (s *Service) BatchImportWrittenExamResults(examID, providerID uint, req Bat
 
 		docsJSON, _ := json.Marshal(item.RequiredDocuments)
 		toUpsert = append(toUpsert, WrittenExamResult{
-			WrittenExamID:      examID,
-			ApplicationID:      appID,
-			MarksObtained:      item.Marks,
-			InterviewLocation:  item.InterviewLocation,
-			InterviewDate:      item.InterviewDate,
-			ReportingTime:      item.ReportingTime,
-			RequiredDocuments:  docsJSON,
+			WrittenExamID:     examID,
+			ApplicationID:     appID,
+			MarksObtained:     item.Marks,
+			InterviewLocation: item.InterviewLocation,
+			InterviewDate:     item.InterviewDate,
+			ReportingTime:     item.ReportingTime,
+			RequiredDocuments: docsJSON,
 		})
 
 		if existingAppIDs[appID] {
@@ -2522,6 +2522,18 @@ func (s *Service) GetPublishedBlogByID(id uint) (*ProviderBlog, error) {
 	return s.repo.GetPublishedBlogByID(id)
 }
 
+func (s *Service) GetPublicNewsBySlug(slug string) (*ProviderNews, error) {
+	return s.repo.FindProviderNewsBySlug(slug)
+}
+
+func (s *Service) GetPublicEventBySlug(slug string) (*ProviderEvent, error) {
+	return s.repo.FindProviderEventBySlug(slug)
+}
+
+func (s *Service) GetPublicBlogBySlug(slug string) (*ProviderBlog, error) {
+	return s.repo.FindProviderBlogBySlug(slug)
+}
+
 // ─── Public Provider Profile ────────────────────────────────────
 func (s *Service) GetPublicProviderProfile(id uint) (*PublicProviderProfileResponse, error) {
 	provider, err := s.repo.GetProviderByID(id)
@@ -2599,27 +2611,27 @@ func (s *Service) GetPublicProviderProfile(id uint) (*PublicProviderProfileRespo
 	}
 
 	return &PublicProviderProfileResponse{
-		ID:               provider.ID,
-		ProviderName:     provider.ProviderName,
-		Email:            provider.Email,
-		ContactNumber:    provider.ContactNumber,
-		WebsiteURL:       provider.WebsiteURL,
-		LogoURL:          logoURL,
-		Address:          provider.Address,
-		AboutText:        provider.AboutText,
-		Mission:          provider.Mission,
-		Values:           provider.Values,
-		FounderName:      provider.FounderName,
-		FounderRole:      provider.FounderRole,
-		FounderMessage:   provider.FounderMessage,
-		FounderImageURL:  provider.FounderImageURL,
-		FacebookURL:      provider.FacebookURL,
-		InstagramURL:     provider.InstagramURL,
-		YoutubeURL:       provider.YoutubeURL,
-		LinkedInURL:      provider.LinkedInURL,
-		MapURL:           provider.MapURL,
-		BrochureURL:      provider.BrochureURL,
-		BannerURL:        provider.BannerURL,
+		ID:              provider.ID,
+		ProviderName:    provider.ProviderName,
+		Email:           provider.Email,
+		ContactNumber:   provider.ContactNumber,
+		WebsiteURL:      provider.WebsiteURL,
+		LogoURL:         logoURL,
+		Address:         provider.Address,
+		AboutText:       provider.AboutText,
+		Mission:         provider.Mission,
+		Values:          provider.Values,
+		FounderName:     provider.FounderName,
+		FounderRole:     provider.FounderRole,
+		FounderMessage:  provider.FounderMessage,
+		FounderImageURL: provider.FounderImageURL,
+		FacebookURL:     provider.FacebookURL,
+		InstagramURL:    provider.InstagramURL,
+		YoutubeURL:      provider.YoutubeURL,
+		LinkedInURL:     provider.LinkedInURL,
+		MapURL:          provider.MapURL,
+		BrochureURL:     provider.BrochureURL,
+		BannerURL:       provider.BannerURL,
 
 		Services:         serviceResponses,
 		Sectors:          sectorResponses,
@@ -2638,8 +2650,8 @@ func (s *Service) GetPublicProviderProfile(id uint) (*PublicProviderProfileRespo
 // ─── Services CRUD ────────────────────────────────────────────
 func (s *Service) CreateService(providerID uint, req CreateServiceRequest) (*ProviderService, error) {
 	item := &ProviderService{
-		ProviderID:  providerID,
-		Icon:        req.Icon,
+		ProviderID:   providerID,
+		Icon:         req.Icon,
 		Title:        req.Title,
 		Description:  req.Description,
 		ExternalLink: req.ExternalLink,
@@ -2683,10 +2695,10 @@ func (s *Service) DeleteService(providerID, id uint) error {
 func (s *Service) CreateSector(providerID uint, req CreateSectorRequest) (*ProviderSector, error) {
 	date := time.Time{}
 	item := &ProviderSector{
-		ProviderID:  providerID,
-		Name:        req.Name,
-		Description: req.Description,
-		Color:       req.Color,
+		ProviderID:   providerID,
+		Name:         req.Name,
+		Description:  req.Description,
+		Color:        req.Color,
 		ImageURL:     req.ImageURL,
 		Icon:         req.Icon,
 		ExternalLink: req.ExternalLink,
@@ -2737,9 +2749,9 @@ func (s *Service) CreateProject(providerID uint, req CreateProjectRequest) (*Pro
 		}
 	}
 	item := &ProviderProject{
-		ProviderID:  providerID,
-		Title:       req.Title,
-		Description: req.Description,
+		ProviderID:   providerID,
+		Title:        req.Title,
+		Description:  req.Description,
 		ImageURL:     req.ImageURL,
 		Category:     req.Category,
 		ExternalLink: req.ExternalLink,
@@ -2769,7 +2781,7 @@ func (s *Service) UpdateProject(providerID, id uint, req CreateProjectRequest) (
 		"title": req.Title, "description": req.Description,
 		"image_url": req.ImageURL, "category": req.Category,
 		"external_link": req.ExternalLink,
-		"sort_order": req.SortOrder,
+		"sort_order":    req.SortOrder,
 	}
 	if req.Date != "" {
 		if t, err := time.Parse("2006-01-02", req.Date); err == nil {
@@ -3261,24 +3273,24 @@ func (s *Service) ApplyVolunteer(volunteerID uint, req *ApplyVolunteerRequest, c
 
 	availableDays, _ := json.Marshal(req.AvailableDays)
 	app := &VolunteerApplication{
-		VolunteerID:        volunteerID,
-		FullName:           req.FullName,
-		Gender:             req.Gender,
-		Phone:              req.Phone,
-		Email:              req.Email,
-		Designation:        req.Designation,
-		OtherDesignation:   req.OtherDesignation,
-		Province:           req.Province,
-		District:           req.District,
-		Municipality:       req.Municipality,
-		Ward:               req.Ward,
-		Tole:               req.Tole,
+		VolunteerID:         volunteerID,
+		FullName:            req.FullName,
+		Gender:              req.Gender,
+		Phone:               req.Phone,
+		Email:               req.Email,
+		Designation:         req.Designation,
+		OtherDesignation:    req.OtherDesignation,
+		Province:            req.Province,
+		District:            req.District,
+		Municipality:        req.Municipality,
+		Ward:                req.Ward,
+		Tole:                req.Tole,
 		ParticipateDistrict: req.ParticipateDistrict,
-		AvailableDays:      availableDays,
-		VolunteeredBefore:  req.VolunteeredBefore,
-		VolunteerDetails:   req.VolunteerDetails,
-		CVPath:             cvPath,
-		Status:             "pending",
+		AvailableDays:       availableDays,
+		VolunteeredBefore:   req.VolunteeredBefore,
+		VolunteerDetails:    req.VolunteerDetails,
+		CVPath:              cvPath,
+		Status:              "pending",
 	}
 	if err := s.repo.CreateVolunteerApplication(app); err != nil {
 		return nil, err
@@ -3415,26 +3427,26 @@ func toVolunteerApplicationResponse(a *VolunteerApplication) VolunteerApplicatio
 	json.Unmarshal(a.AvailableDays, &availableDays)
 
 	return VolunteerApplicationResponse{
-		ID:                 a.ID,
-		CreatedAt:          a.CreatedAt.Format(time.RFC3339),
-		VolunteerID:        a.VolunteerID,
-		FullName:           a.FullName,
-		Gender:             a.Gender,
-		Phone:              a.Phone,
-		Email:              a.Email,
-		Designation:        a.Designation,
-		OtherDesignation:   a.OtherDesignation,
-		Province:           a.Province,
-		District:           a.District,
-		Municipality:       a.Municipality,
-		Ward:               a.Ward,
-		Tole:               a.Tole,
+		ID:                  a.ID,
+		CreatedAt:           a.CreatedAt.Format(time.RFC3339),
+		VolunteerID:         a.VolunteerID,
+		FullName:            a.FullName,
+		Gender:              a.Gender,
+		Phone:               a.Phone,
+		Email:               a.Email,
+		Designation:         a.Designation,
+		OtherDesignation:    a.OtherDesignation,
+		Province:            a.Province,
+		District:            a.District,
+		Municipality:        a.Municipality,
+		Ward:                a.Ward,
+		Tole:                a.Tole,
 		ParticipateDistrict: a.ParticipateDistrict,
-		AvailableDays:      availableDays,
-		VolunteeredBefore:  a.VolunteeredBefore,
-		VolunteerDetails:   a.VolunteerDetails,
-		CVPath:             a.CVPath,
-		Status:             a.Status,
+		AvailableDays:       availableDays,
+		VolunteeredBefore:   a.VolunteeredBefore,
+		VolunteerDetails:    a.VolunteerDetails,
+		CVPath:              a.CVPath,
+		Status:              a.Status,
 	}
 }
 

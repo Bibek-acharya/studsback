@@ -354,6 +354,12 @@ func (r *Repository) FindPublishedEventByID(id uint) (*InstitutionEvent, error) 
 	return &event, nil
 }
 
+func (r *Repository) FindEventBySlug(slug string) (*InstitutionEvent, error) {
+	var event InstitutionEvent
+	err := r.db.Where("slug = ?", slug).First(&event).Error
+	return &event, err
+}
+
 func (r *Repository) FindEventsByInstitution(instID uint, page, limit int) ([]InstitutionEvent, int64, error) {
 	var events []InstitutionEvent
 	var total int64
@@ -415,6 +421,12 @@ func (r *Repository) FindPublishedNewsByID(id uint) (*InstitutionNews, error) {
 		return nil, err
 	}
 	return &news, nil
+}
+
+func (r *Repository) FindNewsBySlug(slug string) (*InstitutionNews, error) {
+	var news InstitutionNews
+	err := r.db.Where("slug = ?", slug).First(&news).Error
+	return &news, err
 }
 
 func (r *Repository) FindNewsByInstitution(instID uint, page, limit int) ([]InstitutionNews, int64, error) {
@@ -512,6 +524,12 @@ func (r *Repository) FindPublishedBlogs(page, limit int) ([]InstitutionBlog, int
 	}
 	err := query.Order("created_at desc").Offset(offset).Limit(limit).Find(&blogs).Error
 	return blogs, total, err
+}
+
+func (r *Repository) FindBlogBySlug(slug string) (*InstitutionBlog, error) {
+	var blog InstitutionBlog
+	err := r.db.Where("slug = ?", slug).First(&blog).Error
+	return &blog, err
 }
 
 func (r *Repository) FindQMSByInstitution(instID uint, page, limit int) ([]InstitutionQMS, int64, error) {

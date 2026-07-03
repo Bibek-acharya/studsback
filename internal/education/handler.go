@@ -171,6 +171,16 @@ func (h *Handler) GetEducationNewsByID(c *gin.Context) {
 	response.Success(c, http.StatusOK, "News article retrieved successfully", news)
 }
 
+func (h *Handler) GetEducationNewsBySlug(c *gin.Context) {
+	slug := c.Param("slug")
+	news, err := h.service.GetEducationNewsBySlug(slug)
+	if err != nil {
+		response.Error(c, 404, "News not found")
+		return
+	}
+	response.Success(c, 200, "News retrieved successfully", news)
+}
+
 func (h *Handler) GetEducationEvents(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
@@ -224,6 +234,16 @@ func (h *Handler) GetEducationEventByID(c *gin.Context) {
 	}
 
 	response.Success(c, http.StatusOK, "Event retrieved successfully", event)
+}
+
+func (h *Handler) GetEducationEventBySlug(c *gin.Context) {
+	slug := c.Param("slug")
+	event, err := h.service.GetEducationEventBySlug(slug)
+	if err != nil {
+		response.Error(c, 404, "Event not found")
+		return
+	}
+	response.Success(c, 200, "Event retrieved successfully", event)
 }
 
 func (h *Handler) GetEducationBlogs(c *gin.Context) {

@@ -220,7 +220,6 @@ func (r *Repository) GetPublishedScholarshipsByProvider(providerID uint, page, l
 	return scholarships, total, nil
 }
 
-
 func (r *Repository) GetScholarshipByIDAndProvider(id uint, providerID uint) (*ProviderScholarship, error) {
 	var scholarship ProviderScholarship
 	if err := r.db.Where("id = ? AND provider_id = ?", id, providerID).First(&scholarship).Error; err != nil {
@@ -596,7 +595,6 @@ func (r *Repository) GetPublishedNewsByProvider(providerID uint, page, limit int
 
 	return news, total, nil
 }
-
 
 func (r *Repository) GetNewsByIDAndProvider(id uint, providerID uint) (*ProviderNews, error) {
 	var news ProviderNews
@@ -1216,6 +1214,24 @@ func (r *Repository) GetPublishedBlogByID(id uint) (*ProviderBlog, error) {
 	return &blog, nil
 }
 
+func (r *Repository) FindProviderNewsBySlug(slug string) (*ProviderNews, error) {
+	var news ProviderNews
+	err := r.db.Where("slug = ? AND status = ?", slug, "published").First(&news).Error
+	return &news, err
+}
+
+func (r *Repository) FindProviderEventBySlug(slug string) (*ProviderEvent, error) {
+	var event ProviderEvent
+	err := r.db.Where("slug = ? AND status = ?", slug, "upcoming").First(&event).Error
+	return &event, err
+}
+
+func (r *Repository) FindProviderBlogBySlug(slug string) (*ProviderBlog, error) {
+	var blog ProviderBlog
+	err := r.db.Where("slug = ? AND status = ?", slug, "published").First(&blog).Error
+	return &blog, err
+}
+
 func (r *Repository) CreateAccessUser(user *ProviderAccessUser) error {
 	return r.db.Create(user).Error
 }
@@ -1373,7 +1389,6 @@ func (r *Repository) CountPublishedProviderContent(providerID uint) (scholarship
 	r.db.Model(&ProviderBlog{}).Where("provider_id = ? AND status = ?", providerID, "published").Count(&blogs)
 	return
 }
-
 
 // ─── Services ────────────────────────────────────────────────────
 func (r *Repository) GetServicesByProvider(providerID uint) ([]ProviderService, error) {

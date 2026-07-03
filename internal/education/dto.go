@@ -99,6 +99,7 @@ type CourseDetailsResponse struct {
 
 type NewsResponse struct {
 	ID       uint     `json:"id"`
+	Slug     string   `json:"slug"`
 	Category string   `json:"category"`
 	Title    string   `json:"title"`
 	Excerpt  string   `json:"excerpt"`
@@ -113,6 +114,7 @@ type NewsResponse struct {
 
 type EventResponse struct {
 	ID              uint   `json:"id"`
+	Slug            string `json:"slug"`
 	Title           string `json:"title"`
 	Excerpt         string `json:"excerpt"`
 	Description     string `json:"description"`

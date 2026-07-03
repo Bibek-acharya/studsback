@@ -541,6 +541,15 @@ func (s *Service) GetEducationNewsByID(id string) (*NewsResponse, error) {
 	return &resp, nil
 }
 
+func (s *Service) GetEducationNewsBySlug(slug string) (*NewsResponse, error) {
+	news, err := s.repo.FindNewsBySlug(slug)
+	if err != nil {
+		return nil, err
+	}
+	resp := buildNewsResponse(*news)
+	return &resp, nil
+}
+
 func (s *Service) GetEducationNewsFiltered(page, limit int, category, search, sort string) ([]NewsResponse, PaginationMeta, error) {
 	news, total, err := s.repo.FindNewsFiltered(page, limit, category, search, sort)
 	if err != nil {
@@ -585,6 +594,15 @@ func (s *Service) GetEducationEvents() ([]EventResponse, error) {
 
 func (s *Service) GetEducationEventByID(id string) (*EventResponse, error) {
 	event, err := s.repo.FindEventByID(id)
+	if err != nil {
+		return nil, err
+	}
+	resp := buildEventResponse(*event)
+	return &resp, nil
+}
+
+func (s *Service) GetEducationEventBySlug(slug string) (*EventResponse, error) {
+	event, err := s.repo.FindEventBySlug(slug)
 	if err != nil {
 		return nil, err
 	}

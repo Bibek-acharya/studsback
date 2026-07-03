@@ -5,6 +5,8 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
+
+	"studsphere/backend/internal/shared/slug"
 )
 
 type InstitutionProgram struct {
@@ -121,6 +123,7 @@ type InstitutionEvent struct {
 	UpdatedAt          time.Time      `json:"updated_at"`
 	DeletedAt          gorm.DeletedAt `gorm:"index" json:"-"`
 	InstitutionID      uint           `gorm:"index;not null;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"institution_id"`
+	Slug               string         `gorm:"uniqueIndex" json:"slug"`
 	Name               string         `gorm:"not null" json:"name"`
 	ShortDesc          string         `gorm:"type:text" json:"short_desc"`
 	Description        string         `gorm:"type:text" json:"description"`
@@ -140,12 +143,24 @@ type InstitutionEvent struct {
 	Status             string         `gorm:"default:'draft'" json:"status"`
 }
 
+func (ie *InstitutionEvent) BeforeCreate(tx *gorm.DB) error {
+	if ie.Slug == "" {
+		ie.Slug = slug.GenerateUnique("inst-"+ie.Name, func(s string) bool {
+			var count int64
+			tx.Model(&InstitutionEvent{}).Where("slug = ?", s).Count(&count)
+			return count > 0
+		})
+	}
+	return nil
+}
+
 type InstitutionNews struct {
 	ID            uint           `gorm:"primarykey" json:"id"`
 	CreatedAt     time.Time      `json:"created_at"`
 	UpdatedAt     time.Time      `json:"updated_at"`
 	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
 	InstitutionID uint           `gorm:"index;not null;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"institution_id"`
+	Slug          string         `gorm:"uniqueIndex" json:"slug"`
 	Title         string         `gorm:"not null" json:"title"`
 	ShortDesc     string         `gorm:"type:text" json:"short_desc"`
 	Content       string         `gorm:"type:text" json:"content"`
@@ -159,12 +174,24 @@ type InstitutionNews struct {
 	PublishedAt   *time.Time     `json:"published_at"`
 }
 
+func (in *InstitutionNews) BeforeCreate(tx *gorm.DB) error {
+	if in.Slug == "" {
+		in.Slug = slug.GenerateUnique("inst-"+in.Title, func(s string) bool {
+			var count int64
+			tx.Model(&InstitutionNews{}).Where("slug = ?", s).Count(&count)
+			return count > 0
+		})
+	}
+	return nil
+}
+
 type InstitutionBlog struct {
 	ID            uint           `gorm:"primarykey" json:"id"`
 	CreatedAt     time.Time      `json:"created_at"`
 	UpdatedAt     time.Time      `json:"updated_at"`
 	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
 	InstitutionID uint           `gorm:"index;not null;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"institution_id"`
+	Slug          string         `gorm:"uniqueIndex" json:"slug"`
 	Title         string         `gorm:"not null" json:"title"`
 	Content       string         `gorm:"type:text" json:"content"`
 	Excerpt       string         `json:"excerpt"`
@@ -175,6 +202,17 @@ type InstitutionBlog struct {
 	Tags          string         `json:"tags"`
 	Status        string         `gorm:"default:'draft'" json:"status"`
 	PublishedAt   *time.Time     `json:"published_at"`
+}
+
+func (ib *InstitutionBlog) BeforeCreate(tx *gorm.DB) error {
+	if ib.Slug == "" {
+		ib.Slug = slug.GenerateUnique("inst-"+ib.Title, func(s string) bool {
+			var count int64
+			tx.Model(&InstitutionBlog{}).Where("slug = ?", s).Count(&count)
+			return count > 0
+		})
+	}
+	return nil
 }
 
 type InstitutionQMS struct {

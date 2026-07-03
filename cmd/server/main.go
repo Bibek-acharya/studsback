@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"studsphere/backend/internal/admission"
-	"studsphere/backend/internal/auth"
 	"studsphere/backend/internal/ai"
+	"studsphere/backend/internal/auth"
 	"studsphere/backend/internal/chat"
 	"studsphere/backend/internal/college"
 	"studsphere/backend/internal/counselling"
@@ -421,152 +421,116 @@ func allowAnonymousScholarshipApplications(db *gorm.DB) error {
 	return nil
 }
 
+func hasColumn(db *gorm.DB, table, column string) (bool, error) {
+	var cols []struct {
+		Name string `gorm:"column:name"`
+	}
+	if err := db.Raw("PRAGMA table_info(?)", table).Scan(&cols).Error; err != nil {
+		return false, err
+	}
+	for _, c := range cols {
+		if c.Name == column {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func addColumnIfMissing(db *gorm.DB, table, definition string) error {
+	if config.IsSQLite {
+		colName := strings.Split(definition, " ")[0]
+		exists, err := hasColumn(db, table, colName)
+		if err != nil || exists {
+			return err
+		}
+		return db.Exec(fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s", table, definition)).Error
+	}
+	return db.Exec(fmt.Sprintf("ALTER TABLE %s ADD COLUMN IF NOT EXISTS %s", table, definition)).Error
+}
+
+func dropColumnIfExists(db *gorm.DB, table, column string) error {
+	if config.IsSQLite {
+		exists, err := hasColumn(db, table, column)
+		if err != nil || !exists {
+			return err
+		}
+		return db.Exec(fmt.Sprintf("ALTER TABLE %s DROP COLUMN %s", table, column)).Error
+	}
+	return db.Exec(fmt.Sprintf("ALTER TABLE %s DROP COLUMN IF EXISTS %s", table, column)).Error
+}
+
 func fixMissingColumns(db *gorm.DB) error {
-	if err := db.Exec(`ALTER TABLE provider_applications ADD COLUMN IF NOT EXISTS see_gpa TEXT`).Error; err != nil {
-		return err
+	cols := []struct {
+		table string
+		def   string // used for ADD COLUMN
+	}{
+		{"provider_applications", "see_gpa TEXT"},
+		{"institution_users", "contact_email TEXT DEFAULT ''"},
+		{"institution_users", "contact_phone TEXT DEFAULT ''"},
+		{"institution_users", "map_url TEXT DEFAULT ''"},
+		{"scholarships", "institution_id INTEGER DEFAULT 0"},
+		{"scholarships", "short_desc TEXT DEFAULT ''"},
+		{"scholarships", "status TEXT DEFAULT 'draft'"},
+		{"scholarships", "deleted_at TIMESTAMP"},
+		{"institution_users", "facebook_url TEXT DEFAULT ''"},
+		{"institution_users", "instagram_url TEXT DEFAULT ''"},
+		{"institution_users", "tiktok_url TEXT DEFAULT ''"},
+		{"institution_users", "youtube_url TEXT DEFAULT ''"},
+		{"institution_users", "linkedin_url TEXT DEFAULT ''"},
+		{"scholarship_provider_users", "about_text TEXT DEFAULT ''"},
+		{"scholarship_provider_users", "mission TEXT DEFAULT ''"},
+		{`scholarship_provider_users`, `"values" TEXT DEFAULT ''`},
+		{"scholarship_provider_users", "logo_url TEXT"},
+		{"scholarship_provider_users", "address TEXT DEFAULT ''"},
+		{"scholarship_provider_users", "pan_number TEXT DEFAULT ''"},
+		{"scholarship_provider_users", "founder_name TEXT DEFAULT ''"},
+		{"scholarship_provider_users", "founder_role TEXT DEFAULT ''"},
+		{"scholarship_provider_users", "founder_message TEXT DEFAULT ''"},
+		{"scholarship_provider_users", "founder_image_url TEXT DEFAULT ''"},
+		{"scholarship_provider_users", "facebook_url TEXT DEFAULT ''"},
+		{"scholarship_provider_users", "instagram_url TEXT DEFAULT ''"},
+		{"scholarship_provider_users", "youtube_url TEXT DEFAULT ''"},
+		{"scholarship_provider_users", "linkedin_url TEXT DEFAULT ''"},
+		{"scholarship_provider_users", "map_url TEXT DEFAULT ''"},
+		{"scholarship_provider_users", "brochure_url TEXT DEFAULT ''"},
+		{"scholarship_provider_users", "banner_url TEXT DEFAULT ''"},
+		{"provider_scholarships", "exam_date TEXT DEFAULT ''"},
+		{"provider_scholarships", "exam_time TEXT DEFAULT ''"},
+		{"scholarships", "exam_date TEXT DEFAULT ''"},
+		{"scholarships", "exam_time TEXT DEFAULT ''"},
+		{"scholarship_applications", "roll_number TEXT DEFAULT ''"},
+		{"provider_applications", "roll_number TEXT DEFAULT ''"},
+		{"ads", "location TEXT DEFAULT ''"},
+		{"scholarships", "slug TEXT"},
+		{"provider_scholarships", "slug TEXT"},
+		{"provider_volunteers", "slug TEXT"},
 	}
-	if err := db.Exec(`ALTER TABLE institution_users ADD COLUMN IF NOT EXISTS contact_email TEXT DEFAULT ''`).Error; err != nil {
-		return err
+	for _, c := range cols {
+		if err := addColumnIfMissing(db, c.table, c.def); err != nil {
+			return err
+		}
 	}
-	if err := db.Exec(`ALTER TABLE institution_users ADD COLUMN IF NOT EXISTS contact_phone TEXT DEFAULT ''`).Error; err != nil {
-		return err
+	drops := []struct {
+		table  string
+		column string
+	}{
+		{"institution_events", "title"},
+		{"institution_events", "date"},
+		{"institution_events", "image"},
+		{"institution_news", "excerpt"},
+		{"institution_news", "image"},
+		{"institution_news", "category"},
+		{"institution_news", "published"},
 	}
-	if err := db.Exec(`ALTER TABLE institution_users ADD COLUMN IF NOT EXISTS map_url TEXT DEFAULT ''`).Error; err != nil {
-		return err
+	for _, d := range drops {
+		if err := dropColumnIfExists(db, d.table, d.column); err != nil {
+			return err
+		}
 	}
-	// Drop old columns renamed/removed in model refactors
-	if err := db.Exec(`ALTER TABLE institution_events DROP COLUMN IF EXISTS title`).Error; err != nil {
-		return err
-	}
-	if err := db.Exec(`ALTER TABLE institution_events DROP COLUMN IF EXISTS date`).Error; err != nil {
-		return err
-	}
-	if err := db.Exec(`ALTER TABLE institution_events DROP COLUMN IF EXISTS image`).Error; err != nil {
-		return err
-	}
-	if err := db.Exec(`ALTER TABLE scholarships ADD COLUMN IF NOT EXISTS institution_id INTEGER DEFAULT 0`).Error; err != nil {
-		return err
-	}
-	if err := db.Exec(`ALTER TABLE scholarships ADD COLUMN IF NOT EXISTS short_desc TEXT DEFAULT ''`).Error; err != nil {
-		return err
-	}
-	if err := db.Exec(`ALTER TABLE scholarships ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'draft'`).Error; err != nil {
-		return err
-	}
-	if err := db.Exec(`ALTER TABLE scholarships ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP`).Error; err != nil {
-		return err
-	}
-	if err := db.Exec(`ALTER TABLE institution_news DROP COLUMN IF EXISTS excerpt`).Error; err != nil {
-		return err
-	}
-	if err := db.Exec(`ALTER TABLE institution_news DROP COLUMN IF EXISTS image`).Error; err != nil {
-		return err
-	}
-	if err := db.Exec(`ALTER TABLE institution_news DROP COLUMN IF EXISTS category`).Error; err != nil {
-		return err
-	}
-	if err := db.Exec(`ALTER TABLE institution_news DROP COLUMN IF EXISTS published`).Error; err != nil {
-		return err
-	}
-	if err := db.Exec(`ALTER TABLE institution_users ADD COLUMN IF NOT EXISTS facebook_url TEXT DEFAULT ''`).Error; err != nil {
-		return err
-	}
-	if err := db.Exec(`ALTER TABLE institution_users ADD COLUMN IF NOT EXISTS instagram_url TEXT DEFAULT ''`).Error; err != nil {
-		return err
-	}
-	if err := db.Exec(`ALTER TABLE institution_users ADD COLUMN IF NOT EXISTS tiktok_url TEXT DEFAULT ''`).Error; err != nil {
-		return err
-	}
-	if err := db.Exec(`ALTER TABLE institution_users ADD COLUMN IF NOT EXISTS youtube_url TEXT DEFAULT ''`).Error; err != nil {
-		return err
-	}
-	if err := db.Exec(`ALTER TABLE institution_users ADD COLUMN IF NOT EXISTS linkedin_url TEXT DEFAULT ''`).Error; err != nil {
-		return err
-	}
-	// Fix missing columns for scholarship_provider_users
-	if err := db.Exec(`ALTER TABLE scholarship_provider_users ADD COLUMN IF NOT EXISTS about_text TEXT DEFAULT ''`).Error; err != nil {
-		return err
-	}
-	if err := db.Exec(`ALTER TABLE scholarship_provider_users ADD COLUMN IF NOT EXISTS mission TEXT DEFAULT ''`).Error; err != nil {
-		return err
-	}
-	if err := db.Exec(`ALTER TABLE scholarship_provider_users ADD COLUMN IF NOT EXISTS "values" TEXT DEFAULT ''`).Error; err != nil {
-		return err
-	}
-	if err := db.Exec(`ALTER TABLE scholarship_provider_users ADD COLUMN IF NOT EXISTS logo_url TEXT`).Error; err != nil {
-		return err
-	}
-	if err := db.Exec(`ALTER TABLE scholarship_provider_users ADD COLUMN IF NOT EXISTS address TEXT DEFAULT ''`).Error; err != nil {
-		return err
-	}
-	if err := db.Exec(`ALTER TABLE scholarship_provider_users ADD COLUMN IF NOT EXISTS pan_number TEXT DEFAULT ''`).Error; err != nil {
-		return err
-	}
-	if err := db.Exec(`ALTER TABLE scholarship_provider_users ADD COLUMN IF NOT EXISTS founder_name TEXT DEFAULT ''`).Error; err != nil {
-		return err
-	}
-	if err := db.Exec(`ALTER TABLE scholarship_provider_users ADD COLUMN IF NOT EXISTS founder_role TEXT DEFAULT ''`).Error; err != nil {
-		return err
-	}
-	if err := db.Exec(`ALTER TABLE scholarship_provider_users ADD COLUMN IF NOT EXISTS founder_message TEXT DEFAULT ''`).Error; err != nil {
-		return err
-	}
-	if err := db.Exec(`ALTER TABLE scholarship_provider_users ADD COLUMN IF NOT EXISTS founder_image_url TEXT DEFAULT ''`).Error; err != nil {
-		return err
-	}
-	if err := db.Exec(`ALTER TABLE scholarship_provider_users ADD COLUMN IF NOT EXISTS facebook_url TEXT DEFAULT ''`).Error; err != nil {
-		return err
-	}
-	if err := db.Exec(`ALTER TABLE scholarship_provider_users ADD COLUMN IF NOT EXISTS instagram_url TEXT DEFAULT ''`).Error; err != nil {
-		return err
-	}
-	if err := db.Exec(`ALTER TABLE scholarship_provider_users ADD COLUMN IF NOT EXISTS youtube_url TEXT DEFAULT ''`).Error; err != nil {
-		return err
-	}
-	if err := db.Exec(`ALTER TABLE scholarship_provider_users ADD COLUMN IF NOT EXISTS linkedin_url TEXT DEFAULT ''`).Error; err != nil {
-		return err
-	}
-	if err := db.Exec(`ALTER TABLE scholarship_provider_users ADD COLUMN IF NOT EXISTS map_url TEXT DEFAULT ''`).Error; err != nil {
-		return err
-	}
-	if err := db.Exec(`ALTER TABLE scholarship_provider_users ADD COLUMN IF NOT EXISTS brochure_url TEXT DEFAULT ''`).Error; err != nil {
-		return err
-	}
-	if err := db.Exec(`ALTER TABLE scholarship_provider_users ADD COLUMN IF NOT EXISTS banner_url TEXT DEFAULT ''`).Error; err != nil {
-		return err
-	}
-	if err := db.Exec(`ALTER TABLE provider_scholarships ADD COLUMN IF NOT EXISTS exam_date TEXT DEFAULT ''`).Error; err != nil {
-		return err
-	}
-	if err := db.Exec(`ALTER TABLE provider_scholarships ADD COLUMN IF NOT EXISTS exam_time TEXT DEFAULT ''`).Error; err != nil {
-		return err
-	}
-	if err := db.Exec(`ALTER TABLE scholarships ADD COLUMN IF NOT EXISTS exam_date TEXT DEFAULT ''`).Error; err != nil {
-		return err
-	}
-	if err := db.Exec(`ALTER TABLE scholarships ADD COLUMN IF NOT EXISTS exam_time TEXT DEFAULT ''`).Error; err != nil {
-		return err
-	}
-	if err := db.Exec(`ALTER TABLE scholarship_applications ADD COLUMN IF NOT EXISTS roll_number TEXT DEFAULT ''`).Error; err != nil {
-		return err
-	}
-	if err := db.Exec(`CREATE SEQUENCE IF NOT EXISTS scholarship_roll_number_seq START WITH 50`).Error; err != nil {
-		return err
-	}
-	if err := db.Exec(`ALTER TABLE provider_applications ADD COLUMN IF NOT EXISTS roll_number TEXT DEFAULT ''`).Error; err != nil {
-		return err
-	}
-	if err := db.Exec(`ALTER TABLE ads ADD COLUMN IF NOT EXISTS location TEXT DEFAULT ''`).Error; err != nil {
-		return err
-	}
-	if err := db.Exec(`ALTER TABLE scholarships ADD COLUMN IF NOT EXISTS slug TEXT`).Error; err != nil {
-		return err
-	}
-	if err := db.Exec(`ALTER TABLE provider_scholarships ADD COLUMN IF NOT EXISTS slug TEXT`).Error; err != nil {
-		return err
-	}
-	if err := db.Exec(`ALTER TABLE provider_volunteers ADD COLUMN IF NOT EXISTS slug TEXT`).Error; err != nil {
-		return err
+	if !config.IsSQLite {
+		if err := db.Exec(`CREATE SEQUENCE IF NOT EXISTS scholarship_roll_number_seq START WITH 50`).Error; err != nil {
+			return err
+		}
 	}
 	db.Exec(`UPDATE scholarships SET slug = 'scholarship-' || id WHERE slug IS NULL OR slug = ''`)
 	db.Exec(`UPDATE provider_scholarships SET slug = 'provider-scholarship-' || id WHERE slug IS NULL OR slug = ''`)

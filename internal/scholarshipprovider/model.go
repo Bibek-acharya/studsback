@@ -77,77 +77,77 @@ type ProviderScholarship struct {
 }
 
 type ProviderApplication struct {
-	ID                    uint                `gorm:"primarykey" json:"id"`
-	CreatedAt             time.Time           `json:"created_at"`
-	UpdatedAt             time.Time           `json:"updated_at"`
-	DeletedAt             gorm.DeletedAt      `gorm:"index" json:"-"`
-	ScholarshipID         uint                `gorm:"index" json:"scholarship_id"`
-	Scholarship           ProviderScholarship `gorm:"foreignKey:ScholarshipID" json:"scholarship,omitempty"`
-	UserID                *uint               `gorm:"index" json:"user_id,omitempty"`
-	FullName              string              `json:"full_name"`
-	FirstName             string              `json:"first_name"`
-	LastName              string              `json:"last_name"`
-	Email                 string              `json:"email"`
-	PhoneNumber           string              `json:"phone_number"`
-	Gender                string              `json:"gender"`
-	Ethnicity             string              `json:"ethnicity"`
-	EthnicityOther        string              `json:"ethnicity_other"`
-	DateOfBirthBS         string              `json:"date_of_birth_bs"`
-	DateOfBirthAD         time.Time           `json:"date_of_birth_ad"`
-	Age                   int                 `json:"age"`
-	PhotoURL              string              `json:"photo_url"`
-	SEEGPA                string              `json:"see_gpa"`
-	SchoolName            string              `json:"school_name"`
-	SchoolProvince        string              `json:"school_province"`
-	SchoolDistrict        string              `json:"school_district"`
-	SchoolMunicipality    string              `json:"school_municipality"`
-	SchoolTole            string              `json:"school_tole"`
-	PermanentProvince     string              `json:"permanent_province"`
-	PermanentDistrict     string              `json:"permanent_district"`
-	PermanentMunicipality string              `json:"permanent_municipality"`
-	PermanentWard         string              `json:"permanent_ward"`
-	PermanentTole         string              `json:"permanent_tole"`
-	TemporaryProvince     string              `json:"temporary_province"`
-	TemporaryDistrict     string              `json:"temporary_district"`
-	TemporaryMunicipality string              `json:"temporary_municipality"`
-	TemporaryWard         string              `json:"temporary_ward"`
-	TemporaryTole         string              `json:"temporary_tole"`
-	GuardianName          string              `json:"guardian_name"`
-	GuardianPhone         string              `json:"guardian_phone"`
-	GuardianEmail         string              `json:"guardian_email"`
-	FatherOccupation      string              `json:"father_occupation"`
-	FatherOccupationOther string              `json:"father_occupation_other"`
-	MotherOccupation      string              `json:"mother_occupation"`
-	MotherOccupationOther string              `json:"mother_occupation_other"`
-	FamilyMonthlyIncome   float64             `json:"family_monthly_income"`
-	FamilyMembersCount    int                 `json:"family_members_count"`
-	Status                string              `gorm:"default:'pending'" json:"status"`
-	EvaluationScore       *int                `gorm:"default:null" json:"evaluation_score"`
-	EvaluationPassed      bool                `gorm:"default:false" json:"evaluation_passed"`
-	EvaluationNotes       string              `gorm:"type:text" json:"evaluation_notes"`
-	Documents             []byte              `gorm:"type:jsonb" json:"documents"`
-	PersonalStatement     string              `gorm:"type:text" json:"personal_statement"`
-	Province              string              `json:"province"`
-	District              string              `json:"district"`
-	Stream                string              `json:"stream"`
-	GPA                   float64             `json:"gpa"`
-	SchoolType            string              `json:"school_type"`
-	ExamCenter            string              `json:"exam_center"`
-	RollNumber            string              `gorm:"size:20" json:"roll_number"`
-	ScholarshipApplicationID *uint             `gorm:"column:scholarship_application_id" json:"scholarship_application_id,omitempty"`
-	RejectionReason          string            `gorm:"type:text" json:"rejection_reason"`
-	Payment                  *ProviderPayment  `gorm:"-" json:"payment,omitempty"`
+	ID                       uint                `gorm:"primarykey" json:"id"`
+	CreatedAt                time.Time           `json:"created_at"`
+	UpdatedAt                time.Time           `json:"updated_at"`
+	DeletedAt                gorm.DeletedAt      `gorm:"index" json:"-"`
+	ScholarshipID            uint                `gorm:"index" json:"scholarship_id"`
+	Scholarship              ProviderScholarship `gorm:"foreignKey:ScholarshipID" json:"scholarship,omitempty"`
+	UserID                   *uint               `gorm:"index" json:"user_id,omitempty"`
+	FullName                 string              `json:"full_name"`
+	FirstName                string              `json:"first_name"`
+	LastName                 string              `json:"last_name"`
+	Email                    string              `json:"email"`
+	PhoneNumber              string              `json:"phone_number"`
+	Gender                   string              `json:"gender"`
+	Ethnicity                string              `json:"ethnicity"`
+	EthnicityOther           string              `json:"ethnicity_other"`
+	DateOfBirthBS            string              `json:"date_of_birth_bs"`
+	DateOfBirthAD            time.Time           `json:"date_of_birth_ad"`
+	Age                      int                 `json:"age"`
+	PhotoURL                 string              `json:"photo_url"`
+	SEEGPA                   string              `json:"see_gpa"`
+	SchoolName               string              `json:"school_name"`
+	SchoolProvince           string              `json:"school_province"`
+	SchoolDistrict           string              `json:"school_district"`
+	SchoolMunicipality       string              `json:"school_municipality"`
+	SchoolTole               string              `json:"school_tole"`
+	PermanentProvince        string              `json:"permanent_province"`
+	PermanentDistrict        string              `json:"permanent_district"`
+	PermanentMunicipality    string              `json:"permanent_municipality"`
+	PermanentWard            string              `json:"permanent_ward"`
+	PermanentTole            string              `json:"permanent_tole"`
+	TemporaryProvince        string              `json:"temporary_province"`
+	TemporaryDistrict        string              `json:"temporary_district"`
+	TemporaryMunicipality    string              `json:"temporary_municipality"`
+	TemporaryWard            string              `json:"temporary_ward"`
+	TemporaryTole            string              `json:"temporary_tole"`
+	GuardianName             string              `json:"guardian_name"`
+	GuardianPhone            string              `json:"guardian_phone"`
+	GuardianEmail            string              `json:"guardian_email"`
+	FatherOccupation         string              `json:"father_occupation"`
+	FatherOccupationOther    string              `json:"father_occupation_other"`
+	MotherOccupation         string              `json:"mother_occupation"`
+	MotherOccupationOther    string              `json:"mother_occupation_other"`
+	FamilyMonthlyIncome      float64             `json:"family_monthly_income"`
+	FamilyMembersCount       int                 `json:"family_members_count"`
+	Status                   string              `gorm:"default:'pending'" json:"status"`
+	EvaluationScore          *int                `gorm:"default:null" json:"evaluation_score"`
+	EvaluationPassed         bool                `gorm:"default:false" json:"evaluation_passed"`
+	EvaluationNotes          string              `gorm:"type:text" json:"evaluation_notes"`
+	Documents                []byte              `gorm:"type:jsonb" json:"documents"`
+	PersonalStatement        string              `gorm:"type:text" json:"personal_statement"`
+	Province                 string              `json:"province"`
+	District                 string              `json:"district"`
+	Stream                   string              `json:"stream"`
+	GPA                      float64             `json:"gpa"`
+	SchoolType               string              `json:"school_type"`
+	ExamCenter               string              `json:"exam_center"`
+	RollNumber               string              `gorm:"size:20" json:"roll_number"`
+	ScholarshipApplicationID *uint               `gorm:"column:scholarship_application_id" json:"scholarship_application_id,omitempty"`
+	RejectionReason          string              `gorm:"type:text" json:"rejection_reason"`
+	Payment                  *ProviderPayment    `gorm:"-" json:"payment,omitempty"`
 }
 
 type ProviderPayment struct {
-	ID             uint       `json:"id"`
-	Method         string     `json:"method"`
-	Amount         float64    `json:"amount"`
-	Status         string     `json:"status"`
-	ReceiptURL     string     `json:"receipt_url"`
-	TransactionID  string     `json:"transaction_id"`
-	PaidAt         *time.Time `json:"paid_at"`
-	DisputeStatus  string     `json:"dispute_status"`
+	ID            uint       `json:"id"`
+	Method        string     `json:"method"`
+	Amount        float64    `json:"amount"`
+	Status        string     `json:"status"`
+	ReceiptURL    string     `json:"receipt_url"`
+	TransactionID string     `json:"transaction_id"`
+	PaidAt        *time.Time `json:"paid_at"`
+	DisputeStatus string     `json:"dispute_status"`
 }
 
 type ProviderInterview struct {
@@ -239,15 +239,13 @@ type ScholarshipProviderUser struct {
 	BannerURL          string         `gorm:"column:banner_url;default:''" json:"banner_url"`
 }
 
-
-
-
 type ProviderNews struct {
 	ID            uint           `gorm:"primarykey" json:"id"`
 	CreatedAt     time.Time      `json:"created_at"`
 	UpdatedAt     time.Time      `json:"updated_at"`
 	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
 	ProviderID    uint           `gorm:"index;not null" json:"provider_id"`
+	Slug          string         `gorm:"uniqueIndex" json:"slug"`
 	Title         string         `gorm:"not null" json:"title"`
 	ShortDesc     string         `gorm:"type:text" json:"short_desc"`
 	Content       string         `gorm:"type:text" json:"content"`
@@ -261,12 +259,24 @@ type ProviderNews struct {
 	PublishedAt   *time.Time     `json:"published_at"`
 }
 
+func (pn *ProviderNews) BeforeCreate(tx *gorm.DB) error {
+	if pn.Slug == "" {
+		pn.Slug = slug.GenerateUnique("provider-"+pn.Title, func(s string) bool {
+			var count int64
+			tx.Model(&ProviderNews{}).Where("slug = ?", s).Count(&count)
+			return count > 0
+		})
+	}
+	return nil
+}
+
 type ProviderEvent struct {
 	ID                 uint           `gorm:"primarykey" json:"id"`
 	CreatedAt          time.Time      `json:"created_at"`
 	UpdatedAt          time.Time      `json:"updated_at"`
 	DeletedAt          gorm.DeletedAt `gorm:"index" json:"-"`
 	ProviderID         uint           `gorm:"index;not null" json:"provider_id"`
+	Slug               string         `gorm:"uniqueIndex" json:"slug"`
 	Name               string         `gorm:"not null" json:"name"`
 	ShortDesc          string         `gorm:"type:text" json:"short_desc"`
 	Description        string         `gorm:"type:text" json:"description"`
@@ -287,12 +297,24 @@ type ProviderEvent struct {
 	Attendees          int            `gorm:"default:0" json:"attendees"`
 }
 
+func (pe *ProviderEvent) BeforeCreate(tx *gorm.DB) error {
+	if pe.Slug == "" {
+		pe.Slug = slug.GenerateUnique("provider-"+pe.Name, func(s string) bool {
+			var count int64
+			tx.Model(&ProviderEvent{}).Where("slug = ?", s).Count(&count)
+			return count > 0
+		})
+	}
+	return nil
+}
+
 type ProviderBlog struct {
 	ID          uint           `gorm:"primarykey" json:"id"`
 	CreatedAt   time.Time      `json:"created_at"`
 	UpdatedAt   time.Time      `json:"updated_at"`
 	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
 	ProviderID  uint           `gorm:"index;not null" json:"provider_id"`
+	Slug        string         `gorm:"uniqueIndex" json:"slug"`
 	Title       string         `gorm:"not null" json:"title"`
 	Content     string         `gorm:"type:text" json:"content"`
 	ImageURL    *string        `json:"image_url"`
@@ -301,6 +323,17 @@ type ProviderBlog struct {
 	PublishedAt *time.Time     `json:"published_at"`
 	Views       int            `gorm:"default:0" json:"views"`
 	Likes       int            `gorm:"default:0" json:"likes"`
+}
+
+func (pb *ProviderBlog) BeforeCreate(tx *gorm.DB) error {
+	if pb.Slug == "" {
+		pb.Slug = slug.GenerateUnique("provider-"+pb.Title, func(s string) bool {
+			var count int64
+			tx.Model(&ProviderBlog{}).Where("slug = ?", s).Count(&count)
+			return count > 0
+		})
+	}
+	return nil
 }
 
 type ProviderCalendarEvent struct {
@@ -331,35 +364,35 @@ type ProviderResult struct {
 }
 
 type WrittenExam struct {
-	ID            uint           `gorm:"primarykey" json:"id"`
-	CreatedAt     time.Time      `json:"created_at"`
-	UpdatedAt     time.Time      `json:"updated_at"`
-	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
-	ProviderID    uint           `gorm:"index;not null" json:"provider_id"`
-	ScholarshipID uint           `gorm:"index;not null" json:"scholarship_id"`
-	Title         string         `gorm:"not null" json:"title"`
-	ExamDate      string         `json:"exam_date"`
-	Duration      int            `json:"duration"`
-	Location      string         `json:"location"`
-	TotalMarks    int            `json:"total_marks"`
-	PassingMarks  int            `json:"passing_marks"`
-	Status        string         `gorm:"default:'draft'" json:"status"`
+	ID            uint                `gorm:"primarykey" json:"id"`
+	CreatedAt     time.Time           `json:"created_at"`
+	UpdatedAt     time.Time           `json:"updated_at"`
+	DeletedAt     gorm.DeletedAt      `gorm:"index" json:"-"`
+	ProviderID    uint                `gorm:"index;not null" json:"provider_id"`
+	ScholarshipID uint                `gorm:"index;not null" json:"scholarship_id"`
+	Title         string              `gorm:"not null" json:"title"`
+	ExamDate      string              `json:"exam_date"`
+	Duration      int                 `json:"duration"`
+	Location      string              `json:"location"`
+	TotalMarks    int                 `json:"total_marks"`
+	PassingMarks  int                 `json:"passing_marks"`
+	Status        string              `gorm:"default:'draft'" json:"status"`
 	Results       []WrittenExamResult `gorm:"-" json:"results,omitempty"`
 }
 
 type WrittenExamResult struct {
-	ID                 uint           `gorm:"primarykey" json:"id"`
-	CreatedAt          time.Time      `json:"created_at"`
-	UpdatedAt          time.Time      `json:"updated_at"`
-	DeletedAt          gorm.DeletedAt `gorm:"index" json:"-"`
-	WrittenExamID      uint           `gorm:"uniqueIndex:idx_written_exam_result_exam_app;not null" json:"written_exam_id"`
-	ApplicationID      uint           `gorm:"uniqueIndex:idx_written_exam_result_exam_app;not null" json:"application_id"`
-	MarksObtained      int            `json:"marks_obtained"`
-	Remarks            string         `json:"remarks"`
-	InterviewLocation  string         `json:"interview_location,omitempty"`
-	InterviewDate      string         `json:"interview_date,omitempty"`
-	ReportingTime      string         `json:"reporting_time,omitempty"`
-	RequiredDocuments  []byte         `gorm:"type:jsonb" json:"required_documents,omitempty"`
+	ID                uint           `gorm:"primarykey" json:"id"`
+	CreatedAt         time.Time      `json:"created_at"`
+	UpdatedAt         time.Time      `json:"updated_at"`
+	DeletedAt         gorm.DeletedAt `gorm:"index" json:"-"`
+	WrittenExamID     uint           `gorm:"uniqueIndex:idx_written_exam_result_exam_app;not null" json:"written_exam_id"`
+	ApplicationID     uint           `gorm:"uniqueIndex:idx_written_exam_result_exam_app;not null" json:"application_id"`
+	MarksObtained     int            `json:"marks_obtained"`
+	Remarks           string         `json:"remarks"`
+	InterviewLocation string         `json:"interview_location,omitempty"`
+	InterviewDate     string         `json:"interview_date,omitempty"`
+	ReportingTime     string         `json:"reporting_time,omitempty"`
+	RequiredDocuments []byte         `gorm:"type:jsonb" json:"required_documents,omitempty"`
 }
 
 type WrittenExamResultWithApp struct {
@@ -386,25 +419,25 @@ type ProviderAccess struct {
 }
 
 type ProviderService struct {
-	ID          uint      `gorm:"primarykey" json:"id"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
-	ProviderID  uint      `gorm:"index;not null" json:"provider_id"`
-	Icon        string    `gorm:"default:''" json:"icon"`
-	Title       string    `gorm:"not null" json:"title"`
+	ID           uint      `gorm:"primarykey" json:"id"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+	ProviderID   uint      `gorm:"index;not null" json:"provider_id"`
+	Icon         string    `gorm:"default:''" json:"icon"`
+	Title        string    `gorm:"not null" json:"title"`
 	Description  string    `gorm:"type:text" json:"description"`
 	ExternalLink string    `gorm:"default:''" json:"external_link"`
 	SortOrder    int       `gorm:"default:0" json:"sort_order"`
 }
 
 type ProviderSector struct {
-	ID          uint      `gorm:"primarykey" json:"id"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
-	ProviderID  uint      `gorm:"index;not null" json:"provider_id"`
-	Name        string    `gorm:"not null" json:"name"`
-	Description string    `gorm:"type:text" json:"description"`
-	Color       string    `gorm:"default:'#2563eb'" json:"color"`
+	ID           uint      `gorm:"primarykey" json:"id"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+	ProviderID   uint      `gorm:"index;not null" json:"provider_id"`
+	Name         string    `gorm:"not null" json:"name"`
+	Description  string    `gorm:"type:text" json:"description"`
+	Color        string    `gorm:"default:'#2563eb'" json:"color"`
 	ImageURL     string    `gorm:"default:''" json:"image_url"`
 	Icon         string    `gorm:"default:''" json:"icon"`
 	ExternalLink string    `gorm:"default:''" json:"external_link"`
@@ -412,13 +445,13 @@ type ProviderSector struct {
 }
 
 type ProviderProject struct {
-	ID          uint      `gorm:"primarykey" json:"id"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
-	ProviderID  uint      `gorm:"index;not null" json:"provider_id"`
-	Title       string    `gorm:"not null" json:"title"`
-	Description string    `gorm:"type:text" json:"description"`
-	ImageURL    string    `gorm:"default:''" json:"image_url"`
+	ID           uint      `gorm:"primarykey" json:"id"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+	ProviderID   uint      `gorm:"index;not null" json:"provider_id"`
+	Title        string    `gorm:"not null" json:"title"`
+	Description  string    `gorm:"type:text" json:"description"`
+	ImageURL     string    `gorm:"default:''" json:"image_url"`
 	Category     string    `gorm:"default:''" json:"category"`
 	ExternalLink string    `gorm:"default:''" json:"external_link"`
 	Date         time.Time `json:"date"`
@@ -452,52 +485,52 @@ type ProviderReview struct {
 }
 
 type ProviderVolunteer struct {
-	ID                 uint           `gorm:"primarykey" json:"id"`
-	CreatedAt          time.Time      `json:"created_at"`
-	UpdatedAt          time.Time      `json:"updated_at"`
-	DeletedAt          gorm.DeletedAt `gorm:"index" json:"-"`
-	ProviderID         uint           `gorm:"index;not null" json:"provider_id"`
-	Slug               string         `gorm:"uniqueIndex" json:"slug"`
-	Title              string         `gorm:"not null" json:"title"`
-	BannerImage        string         `json:"banner_image"`
-	Description        string         `gorm:"type:text" json:"description"`
-	VolunteerType      string         `gorm:"default:'free'" json:"volunteer_type"`
-	VolunteerPayment   string         `json:"volunteer_payment"`
-	DateMode           string         `gorm:"default:'range'" json:"date_mode"`
-	RangeStart         string         `json:"range_start"`
-	RangeEnd           string         `json:"range_end"`
-	SpecificDates      []byte         `gorm:"type:jsonb" json:"specific_dates"`
-	ApplicationDeadline string        `json:"application_deadline"`
-	Districts          []byte         `gorm:"type:jsonb" json:"districts"`
-	Active             bool           `gorm:"default:false" json:"active"`
-	ApplicantCount     int64          `gorm:"-" json:"applicant_count"`
-	Location           string         `gorm:"default:''" json:"location"`
+	ID                  uint           `gorm:"primarykey" json:"id"`
+	CreatedAt           time.Time      `json:"created_at"`
+	UpdatedAt           time.Time      `json:"updated_at"`
+	DeletedAt           gorm.DeletedAt `gorm:"index" json:"-"`
+	ProviderID          uint           `gorm:"index;not null" json:"provider_id"`
+	Slug                string         `gorm:"uniqueIndex" json:"slug"`
+	Title               string         `gorm:"not null" json:"title"`
+	BannerImage         string         `json:"banner_image"`
+	Description         string         `gorm:"type:text" json:"description"`
+	VolunteerType       string         `gorm:"default:'free'" json:"volunteer_type"`
+	VolunteerPayment    string         `json:"volunteer_payment"`
+	DateMode            string         `gorm:"default:'range'" json:"date_mode"`
+	RangeStart          string         `json:"range_start"`
+	RangeEnd            string         `json:"range_end"`
+	SpecificDates       []byte         `gorm:"type:jsonb" json:"specific_dates"`
+	ApplicationDeadline string         `json:"application_deadline"`
+	Districts           []byte         `gorm:"type:jsonb" json:"districts"`
+	Active              bool           `gorm:"default:false" json:"active"`
+	ApplicantCount      int64          `gorm:"-" json:"applicant_count"`
+	Location            string         `gorm:"default:''" json:"location"`
 }
 
 type VolunteerApplication struct {
-	ID                 uint           `gorm:"primarykey" json:"id"`
-	CreatedAt          time.Time      `json:"created_at"`
-	UpdatedAt          time.Time      `json:"updated_at"`
-	DeletedAt          gorm.DeletedAt `gorm:"index" json:"-"`
-	VolunteerID        uint           `gorm:"index;not null" json:"volunteer_id"`
-	UserID             *uint          `gorm:"index" json:"user_id,omitempty"`
-	FullName           string         `gorm:"not null" json:"full_name"`
-	Gender             string         `json:"gender"`
-	Phone              string         `json:"phone"`
-	Email              string         `json:"email"`
-	Designation        string         `json:"designation"`
-	OtherDesignation   string         `json:"other_designation"`
-	Province           string         `json:"province"`
-	District           string         `json:"district"`
-	Municipality       string         `json:"municipality"`
-	Ward               string         `json:"ward"`
-	Tole               string         `json:"tole"`
-	ParticipateDistrict string        `json:"participate_district"`
-	AvailableDays      []byte         `gorm:"type:jsonb" json:"available_days"`
-	VolunteeredBefore  string         `json:"volunteered_before"`
-	VolunteerDetails   string         `gorm:"type:text" json:"volunteer_details"`
-	CVPath             string         `json:"cv_path"`
-	Status             string         `gorm:"default:'pending'" json:"status"`
+	ID                  uint           `gorm:"primarykey" json:"id"`
+	CreatedAt           time.Time      `json:"created_at"`
+	UpdatedAt           time.Time      `json:"updated_at"`
+	DeletedAt           gorm.DeletedAt `gorm:"index" json:"-"`
+	VolunteerID         uint           `gorm:"index;not null" json:"volunteer_id"`
+	UserID              *uint          `gorm:"index" json:"user_id,omitempty"`
+	FullName            string         `gorm:"not null" json:"full_name"`
+	Gender              string         `json:"gender"`
+	Phone               string         `json:"phone"`
+	Email               string         `json:"email"`
+	Designation         string         `json:"designation"`
+	OtherDesignation    string         `json:"other_designation"`
+	Province            string         `json:"province"`
+	District            string         `json:"district"`
+	Municipality        string         `json:"municipality"`
+	Ward                string         `json:"ward"`
+	Tole                string         `json:"tole"`
+	ParticipateDistrict string         `json:"participate_district"`
+	AvailableDays       []byte         `gorm:"type:jsonb" json:"available_days"`
+	VolunteeredBefore   string         `json:"volunteered_before"`
+	VolunteerDetails    string         `gorm:"type:text" json:"volunteer_details"`
+	CVPath              string         `json:"cv_path"`
+	Status              string         `gorm:"default:'pending'" json:"status"`
 }
 
 type ProviderAccessUser struct {

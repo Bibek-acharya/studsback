@@ -4,6 +4,8 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+
+	"studsphere/backend/internal/shared/slug"
 )
 
 type Exam struct {
@@ -32,7 +34,7 @@ type Exam struct {
 	Weightage    []byte         `gorm:"type:jsonb" json:"weightage"`
 	Timeline     []byte         `gorm:"type:jsonb" json:"timeline"`
 	Notices      []byte         `gorm:"type:jsonb" json:"notices"`
-	Faqs         []byte           `gorm:"type:jsonb" json:"faqs"`
+	Faqs         []byte         `gorm:"type:jsonb" json:"faqs"`
 }
 
 func (Exam) TableName() string {
@@ -64,7 +66,7 @@ type Course struct {
 	About         []byte         `gorm:"type:jsonb" json:"about"`
 	Curriculum    []byte         `gorm:"type:jsonb" json:"curriculum"`
 	Admissions    []byte         `gorm:"type:jsonb" json:"admissions"`
-	Careers       []byte           `gorm:"type:jsonb" json:"careers"`
+	Careers       []byte         `gorm:"type:jsonb" json:"careers"`
 }
 
 func (Course) TableName() string {
@@ -91,6 +93,7 @@ type News struct {
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+	Slug      string         `gorm:"uniqueIndex" json:"slug"`
 	Category  string         `json:"category"`
 	Title     string         `gorm:"not null" json:"title" binding:"required"`
 	Excerpt   string         `gorm:"type:text" json:"excerpt"`
@@ -100,7 +103,18 @@ type News struct {
 	Date      string         `json:"date"`
 	ReadTime  string         `json:"readTime"`
 	Source    string         `json:"source"`
-	Tags      []byte           `gorm:"type:jsonb" json:"tags"`
+	Tags      []byte         `gorm:"type:jsonb" json:"tags"`
+}
+
+func (n *News) BeforeCreate(tx *gorm.DB) error {
+	if n.Slug == "" {
+		n.Slug = slug.GenerateUnique("edu-"+n.Title, func(s string) bool {
+			var count int64
+			tx.Model(&News{}).Where("slug = ?", s).Count(&count)
+			return count > 0
+		})
+	}
+	return nil
 }
 
 func (News) TableName() string {
@@ -112,6 +126,7 @@ type Event struct {
 	CreatedAt       time.Time      `json:"created_at"`
 	UpdatedAt       time.Time      `json:"updated_at"`
 	DeletedAt       gorm.DeletedAt `gorm:"index" json:"-"`
+	Slug            string         `gorm:"uniqueIndex" json:"slug"`
 	Title           string         `gorm:"not null" json:"title" binding:"required"`
 	Excerpt         string         `gorm:"type:text" json:"excerpt"`
 	Description     string         `gorm:"type:text" json:"description"`
@@ -123,8 +138,19 @@ type Event struct {
 	RegistrationFee string         `json:"registration_fee"`
 	Image           string         `json:"image"`
 	Interested      int            `json:"interested"`
-	Trending        bool             `json:"trending"`
-	Featured        bool             `gorm:"default:false;index" json:"featured"`
+	Trending        bool           `json:"trending"`
+	Featured        bool           `gorm:"default:false;index" json:"featured"`
+}
+
+func (e *Event) BeforeCreate(tx *gorm.DB) error {
+	if e.Slug == "" {
+		e.Slug = slug.GenerateUnique("edu-"+e.Title, func(s string) bool {
+			var count int64
+			tx.Model(&Event{}).Where("slug = ?", s).Count(&count)
+			return count > 0
+		})
+	}
+	return nil
 }
 
 func (Event) TableName() string {
@@ -175,7 +201,7 @@ type Blog struct {
 	ReadTime  string         `json:"read_time"`
 	Featured  bool           `gorm:"default:false" json:"featured"`
 	Published bool           `gorm:"default:true" json:"published"`
-	Views     int              `gorm:"default:0" json:"views"`
+	Views     int            `gorm:"default:0" json:"views"`
 }
 
 func (Blog) TableName() string {

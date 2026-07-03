@@ -180,44 +180,44 @@ type VolunteerListResponse struct {
 }
 
 type ApplyVolunteerRequest struct {
-	FullName           string   `json:"full_name"`
-	Gender             string   `json:"gender"`
-	Phone              string   `json:"phone"`
-	Email              string   `json:"email"`
-	Designation        string   `json:"designation"`
-	OtherDesignation   string   `json:"other_designation"`
-	Province           string   `json:"province"`
-	District           string   `json:"district"`
-	Municipality       string   `json:"municipality"`
-	Ward               string   `json:"ward"`
-	Tole               string   `json:"tole"`
-	ParticipateDistrict string  `json:"participate_district"`
-	AvailableDays      []string `json:"available_days"`
-	VolunteeredBefore  string   `json:"volunteered_before"`
-	VolunteerDetails   string   `json:"volunteer_details"`
+	FullName            string   `json:"full_name"`
+	Gender              string   `json:"gender"`
+	Phone               string   `json:"phone"`
+	Email               string   `json:"email"`
+	Designation         string   `json:"designation"`
+	OtherDesignation    string   `json:"other_designation"`
+	Province            string   `json:"province"`
+	District            string   `json:"district"`
+	Municipality        string   `json:"municipality"`
+	Ward                string   `json:"ward"`
+	Tole                string   `json:"tole"`
+	ParticipateDistrict string   `json:"participate_district"`
+	AvailableDays       []string `json:"available_days"`
+	VolunteeredBefore   string   `json:"volunteered_before"`
+	VolunteerDetails    string   `json:"volunteer_details"`
 }
 
 type VolunteerApplicationResponse struct {
-	ID                 uint     `json:"id"`
-	CreatedAt          string   `json:"created_at"`
-	VolunteerID        uint     `json:"volunteer_id"`
-	FullName           string   `json:"full_name"`
-	Gender             string   `json:"gender"`
-	Phone              string   `json:"phone"`
-	Email              string   `json:"email"`
-	Designation        string   `json:"designation"`
-	OtherDesignation   string   `json:"other_designation"`
-	Province           string   `json:"province"`
-	District           string   `json:"district"`
-	Municipality       string   `json:"municipality"`
-	Ward               string   `json:"ward"`
-	Tole               string   `json:"tole"`
-	ParticipateDistrict string  `json:"participate_district"`
-	AvailableDays      []string `json:"available_days"`
-	VolunteeredBefore  string   `json:"volunteered_before"`
-	VolunteerDetails   string   `json:"volunteer_details"`
-	CVPath             string   `json:"cv_path"`
-	Status             string   `json:"status"`
+	ID                  uint     `json:"id"`
+	CreatedAt           string   `json:"created_at"`
+	VolunteerID         uint     `json:"volunteer_id"`
+	FullName            string   `json:"full_name"`
+	Gender              string   `json:"gender"`
+	Phone               string   `json:"phone"`
+	Email               string   `json:"email"`
+	Designation         string   `json:"designation"`
+	OtherDesignation    string   `json:"other_designation"`
+	Province            string   `json:"province"`
+	District            string   `json:"district"`
+	Municipality        string   `json:"municipality"`
+	Ward                string   `json:"ward"`
+	Tole                string   `json:"tole"`
+	ParticipateDistrict string   `json:"participate_district"`
+	AvailableDays       []string `json:"available_days"`
+	VolunteeredBefore   string   `json:"volunteered_before"`
+	VolunteerDetails    string   `json:"volunteer_details"`
+	CVPath              string   `json:"cv_path"`
+	Status              string   `json:"status"`
 }
 
 type VolunteerApplicationListResponse struct {
@@ -343,7 +343,7 @@ type ScholarshipResponse struct {
 	FAQsNew                  []FAQItem                  `json:"faqs_new"`
 	GalleryImages            []GalleryImageItem         `json:"gallery_images"`
 	GalleryImagesNew         []GalleryImageItem         `json:"gallery_images_new"`
-	PartnerGroups            []PartnerGroup              `json:"partner_groups"`
+	PartnerGroups            []PartnerGroup             `json:"partner_groups"`
 	PartnerMessages          []PartnerMessage           `json:"partner_messages"`
 	ExamCenters              []ExamCenterItem           `json:"exam_centers"`
 	ExamCentersNew           []ExamCenterItem           `json:"exam_centers_new"`
@@ -420,14 +420,14 @@ type ApplicationResponse struct {
 }
 
 type PaymentResponse struct {
-	ID             uint    `json:"id"`
-	Method         string  `json:"method"`
-	Amount         float64 `json:"amount"`
-	Status         string  `json:"status"`
-	ReceiptURL     string  `json:"receipt_url"`
-	TransactionID  string  `json:"transaction_id"`
-	PaidAt         string  `json:"paid_at,omitempty"`
-	DisputeStatus  string  `json:"dispute_status"`
+	ID            uint    `json:"id"`
+	Method        string  `json:"method"`
+	Amount        float64 `json:"amount"`
+	Status        string  `json:"status"`
+	ReceiptURL    string  `json:"receipt_url"`
+	TransactionID string  `json:"transaction_id"`
+	PaidAt        string  `json:"paid_at,omitempty"`
+	DisputeStatus string  `json:"dispute_status"`
 }
 
 type ApplicationListResponse struct {
@@ -534,8 +534,6 @@ type UpdateProfileRequest struct {
 	MapURL             string `json:"map_url"`
 	BrochureURL        string `json:"brochure_url"`
 	BannerURL          string `json:"banner_url"`
-
-
 }
 
 type ProfileResponse struct {
@@ -651,6 +649,7 @@ type CreateNewsRequest struct {
 
 type NewsResponse struct {
 	ID            uint        `json:"id"`
+	Slug          string      `json:"slug"`
 	CreatedAt     time.Time   `json:"created_at"`
 	UpdatedAt     time.Time   `json:"updated_at"`
 	ProviderID    uint        `json:"provider_id"`
@@ -694,6 +693,7 @@ type CreateEventRequest struct {
 
 type EventResponse struct {
 	ID                 uint        `json:"id"`
+	Slug               string      `json:"slug"`
 	CreatedAt          time.Time   `json:"created_at"`
 	UpdatedAt          time.Time   `json:"updated_at"`
 	ProviderID         uint        `json:"provider_id"`
@@ -732,6 +732,7 @@ type CreateBlogRequest struct {
 
 type BlogResponse struct {
 	ID          uint       `json:"id"`
+	Slug        string     `json:"slug"`
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ProviderID  uint       `json:"provider_id"`
@@ -794,18 +795,18 @@ type UpdateWrittenExamRequest struct {
 }
 
 type WrittenExamResponse struct {
-	ID            uint      `json:"id"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
-	ProviderID    uint      `json:"provider_id"`
-	ScholarshipID uint      `json:"scholarship_id"`
-	Title         string    `json:"title"`
-	ExamDate      string    `json:"exam_date"`
-	Duration      int       `json:"duration"`
-	Location      string    `json:"location"`
-	TotalMarks    int       `json:"total_marks"`
-	PassingMarks  int       `json:"passing_marks"`
-	Status        string    `json:"status"`
+	ID            uint                        `json:"id"`
+	CreatedAt     time.Time                   `json:"created_at"`
+	UpdatedAt     time.Time                   `json:"updated_at"`
+	ProviderID    uint                        `json:"provider_id"`
+	ScholarshipID uint                        `json:"scholarship_id"`
+	Title         string                      `json:"title"`
+	ExamDate      string                      `json:"exam_date"`
+	Duration      int                         `json:"duration"`
+	Location      string                      `json:"location"`
+	TotalMarks    int                         `json:"total_marks"`
+	PassingMarks  int                         `json:"passing_marks"`
+	Status        string                      `json:"status"`
 	Results       []WrittenExamResultResponse `json:"results,omitempty"`
 }
 
@@ -826,23 +827,23 @@ type UpdateWrittenExamResultRequest struct {
 }
 
 type WrittenExamResultResponse struct {
-	ID                 uint      `json:"id"`
-	CreatedAt          time.Time `json:"created_at"`
-	WrittenExamID      uint      `json:"written_exam_id"`
-	ApplicationID      uint      `json:"application_id"`
-	MarksObtained      int       `json:"marks_obtained"`
-	Remarks            string    `json:"remarks"`
-	StudentName        string    `json:"student_name,omitempty"`
-	Stream             string    `json:"stream,omitempty"`
-	ExamCenter         string    `json:"exam_center,omitempty"`
-	RollNo             string    `json:"roll_no,omitempty"`
-	Gender             string    `json:"gender,omitempty"`
-	SchoolType         string    `json:"school_type,omitempty"`
-	GPA                float64   `json:"gpa,omitempty"`
-	InterviewLocation  string    `json:"interview_location,omitempty"`
-	InterviewDate      string    `json:"interview_date,omitempty"`
-	ReportingTime      string    `json:"reporting_time,omitempty"`
-	RequiredDocuments  []string  `json:"required_documents,omitempty"`
+	ID                uint      `json:"id"`
+	CreatedAt         time.Time `json:"created_at"`
+	WrittenExamID     uint      `json:"written_exam_id"`
+	ApplicationID     uint      `json:"application_id"`
+	MarksObtained     int       `json:"marks_obtained"`
+	Remarks           string    `json:"remarks"`
+	StudentName       string    `json:"student_name,omitempty"`
+	Stream            string    `json:"stream,omitempty"`
+	ExamCenter        string    `json:"exam_center,omitempty"`
+	RollNo            string    `json:"roll_no,omitempty"`
+	Gender            string    `json:"gender,omitempty"`
+	SchoolType        string    `json:"school_type,omitempty"`
+	GPA               float64   `json:"gpa,omitempty"`
+	InterviewLocation string    `json:"interview_location,omitempty"`
+	InterviewDate     string    `json:"interview_date,omitempty"`
+	ReportingTime     string    `json:"reporting_time,omitempty"`
+	RequiredDocuments []string  `json:"required_documents,omitempty"`
 }
 
 type CreateResultRequest struct {
@@ -986,21 +987,21 @@ type MetricCount struct {
 }
 
 type DetailedAnalyticsResponse struct {
-	TotalApplicants    int                `json:"total_applicants"`
-	Gender             []MetricCount      `json:"gender"`
-	Ethnicity          []MetricCount      `json:"ethnicity"`
-	GPABreakdown       []MetricCount      `json:"gpa_breakdown"`
-	SchoolType         []MetricCount      `json:"school_type"`
-	Stream             []MetricCount      `json:"stream"`
-	Province           []MetricCount      `json:"province"`
-	District           []MetricCount      `json:"district"`
-	Status             []MetricCount      `json:"status"`
-	AdmitCardsSent     int                `json:"admit_cards_sent"`
-	AdmitCardsPending  int                `json:"admit_cards_pending"`
-	PaymentMethods     []MetricCount      `json:"payment_methods"`
-	GPABySchoolType    []MetricCount      `json:"gpa_by_school_type"`
-	GenderByProvince   []CrossMetric      `json:"gender_by_province"`
-	StreamByProvince   []CrossMetric      `json:"stream_by_province"`
+	TotalApplicants      int                `json:"total_applicants"`
+	Gender               []MetricCount      `json:"gender"`
+	Ethnicity            []MetricCount      `json:"ethnicity"`
+	GPABreakdown         []MetricCount      `json:"gpa_breakdown"`
+	SchoolType           []MetricCount      `json:"school_type"`
+	Stream               []MetricCount      `json:"stream"`
+	Province             []MetricCount      `json:"province"`
+	District             []MetricCount      `json:"district"`
+	Status               []MetricCount      `json:"status"`
+	AdmitCardsSent       int                `json:"admit_cards_sent"`
+	AdmitCardsPending    int                `json:"admit_cards_pending"`
+	PaymentMethods       []MetricCount      `json:"payment_methods"`
+	GPABySchoolType      []MetricCount      `json:"gpa_by_school_type"`
+	GenderByProvince     []CrossMetric      `json:"gender_by_province"`
+	StreamByProvince     []CrossMetric      `json:"stream_by_province"`
 	SchoolTypeByProvince []CrossMetric      `json:"school_type_by_province"`
 	ExamCenters          []ExamCenterMetric `json:"exam_centers"`
 	DistrictCount        int                `json:"district_count"`
@@ -1009,57 +1010,56 @@ type DetailedAnalyticsResponse struct {
 
 // ─── Provider Profile (Public) ───────────────────────────────────
 type PublicProviderProfileResponse struct {
-	ID                 uint                 `json:"id"`
-	ProviderName       string               `json:"provider_name"`
-	RegistrationNumber string               `json:"registration_number,omitempty"`
-	Email              string               `json:"email,omitempty"`
-	ContactNumber      string               `json:"contact_number,omitempty"`
-	WebsiteURL         string               `json:"website_url,omitempty"`
-	LogoURL            string               `json:"logo_url,omitempty"`
-	Address            string               `json:"address,omitempty"`
-	AboutText          string               `json:"about_text,omitempty"`
-	Mission            string               `json:"mission,omitempty"`
-	Values             string               `json:"values,omitempty"`
-	FounderName        string               `json:"founder_name,omitempty"`
-	FounderRole        string               `json:"founder_role,omitempty"`
-	FounderMessage     string               `json:"founder_message,omitempty"`
-	FounderImageURL    string               `json:"founder_image_url,omitempty"`
-	FacebookURL        string               `json:"facebook_url,omitempty"`
-	InstagramURL       string               `json:"instagram_url,omitempty"`
-	YoutubeURL         string               `json:"youtube_url,omitempty"`
-	LinkedInURL        string               `json:"linkedin_url,omitempty"`
-	MapURL             string               `json:"map_url,omitempty"`
-	BrochureURL        string                     `json:"brochure_url,omitempty"`
-	BannerURL          string                     `json:"banner_url,omitempty"`
-	Services           []ServiceResponse          `json:"services,omitempty"`
+	ID                 uint              `json:"id"`
+	ProviderName       string            `json:"provider_name"`
+	RegistrationNumber string            `json:"registration_number,omitempty"`
+	Email              string            `json:"email,omitempty"`
+	ContactNumber      string            `json:"contact_number,omitempty"`
+	WebsiteURL         string            `json:"website_url,omitempty"`
+	LogoURL            string            `json:"logo_url,omitempty"`
+	Address            string            `json:"address,omitempty"`
+	AboutText          string            `json:"about_text,omitempty"`
+	Mission            string            `json:"mission,omitempty"`
+	Values             string            `json:"values,omitempty"`
+	FounderName        string            `json:"founder_name,omitempty"`
+	FounderRole        string            `json:"founder_role,omitempty"`
+	FounderMessage     string            `json:"founder_message,omitempty"`
+	FounderImageURL    string            `json:"founder_image_url,omitempty"`
+	FacebookURL        string            `json:"facebook_url,omitempty"`
+	InstagramURL       string            `json:"instagram_url,omitempty"`
+	YoutubeURL         string            `json:"youtube_url,omitempty"`
+	LinkedInURL        string            `json:"linkedin_url,omitempty"`
+	MapURL             string            `json:"map_url,omitempty"`
+	BrochureURL        string            `json:"brochure_url,omitempty"`
+	BannerURL          string            `json:"banner_url,omitempty"`
+	Services           []ServiceResponse `json:"services,omitempty"`
 
-
-	Sectors            []SectorResponse     `json:"sectors,omitempty"`
-	Projects           []ProjectResponse    `json:"projects,omitempty"`
-	Gallery            []GalleryImageResponse `json:"gallery,omitempty"`
-	Reviews            []ReviewResponse     `json:"reviews,omitempty"`
-	Scholarships       []ScholarshipResponse `json:"scholarships,omitempty"`
-	News               []NewsResponse        `json:"news,omitempty"`
-	ScholarshipCount   int64                `json:"scholarship_count"`
-	NewsCount          int64                `json:"news_count"`
-	EventCount         int64                `json:"event_count"`
-	BlogCount          int64                `json:"blog_count"`
+	Sectors          []SectorResponse       `json:"sectors,omitempty"`
+	Projects         []ProjectResponse      `json:"projects,omitempty"`
+	Gallery          []GalleryImageResponse `json:"gallery,omitempty"`
+	Reviews          []ReviewResponse       `json:"reviews,omitempty"`
+	Scholarships     []ScholarshipResponse  `json:"scholarships,omitempty"`
+	News             []NewsResponse         `json:"news,omitempty"`
+	ScholarshipCount int64                  `json:"scholarship_count"`
+	NewsCount        int64                  `json:"news_count"`
+	EventCount       int64                  `json:"event_count"`
+	BlogCount        int64                  `json:"blog_count"`
 }
 
 type ServiceResponse struct {
-	ID          uint   `json:"id"`
-	Icon        string `json:"icon"`
-	Title       string `json:"title"`
+	ID           uint   `json:"id"`
+	Icon         string `json:"icon"`
+	Title        string `json:"title"`
 	Description  string `json:"description"`
 	ExternalLink string `json:"external_link"`
 	SortOrder    int    `json:"sort_order"`
 }
 
 type SectorResponse struct {
-	ID          uint   `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Color       string `json:"color"`
+	ID           uint   `json:"id"`
+	Name         string `json:"name"`
+	Description  string `json:"description"`
+	Color        string `json:"color"`
 	ImageURL     string `json:"image_url"`
 	Icon         string `json:"icon"`
 	ExternalLink string `json:"external_link"`
@@ -1067,10 +1067,10 @@ type SectorResponse struct {
 }
 
 type ProjectResponse struct {
-	ID          uint   `json:"id"`
-	Title       string `json:"title"`
-	Description string `json:"description"`
-	ImageURL    string `json:"image_url"`
+	ID           uint   `json:"id"`
+	Title        string `json:"title"`
+	Description  string `json:"description"`
+	ImageURL     string `json:"image_url"`
 	Category     string `json:"category"`
 	ExternalLink string `json:"external_link"`
 	Date         string `json:"date"`
@@ -1098,17 +1098,17 @@ type ReviewResponse struct {
 }
 
 type CreateServiceRequest struct {
-	Icon        string `json:"icon"`
-	Title       string `json:"title"`
+	Icon         string `json:"icon"`
+	Title        string `json:"title"`
 	Description  string `json:"description"`
 	ExternalLink string `json:"external_link"`
 	SortOrder    int    `json:"sort_order"`
 }
 
 type CreateSectorRequest struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Color       string `json:"color"`
+	Name         string `json:"name"`
+	Description  string `json:"description"`
+	Color        string `json:"color"`
 	ImageURL     string `json:"image_url"`
 	Icon         string `json:"icon"`
 	ExternalLink string `json:"external_link"`
@@ -1116,9 +1116,9 @@ type CreateSectorRequest struct {
 }
 
 type CreateProjectRequest struct {
-	Title       string `json:"title"`
-	Description string `json:"description"`
-	ImageURL    string `json:"image_url"`
+	Title        string `json:"title"`
+	Description  string `json:"description"`
+	ImageURL     string `json:"image_url"`
 	Category     string `json:"category"`
 	ExternalLink string `json:"external_link"`
 	Date         string `json:"date"`

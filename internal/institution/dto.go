@@ -271,6 +271,7 @@ type UpdateEventRequest struct {
 
 type EventResponse struct {
 	ID                 uint     `json:"id"`
+	Slug               string   `json:"slug"`
 	CreatedAt          string   `json:"created_at"`
 	UpdatedAt          string   `json:"updated_at"`
 	InstitutionID      uint     `json:"institution_id"`
@@ -322,6 +323,7 @@ type UpdateNewsRequest struct {
 
 type NewsResponse struct {
 	ID            uint     `json:"id"`
+	Slug          string   `json:"slug"`
 	CreatedAt     string   `json:"created_at"`
 	UpdatedAt     string   `json:"updated_at"`
 	InstitutionID uint     `json:"institution_id"`
@@ -364,6 +366,7 @@ type UpdateBlogRequest struct {
 
 type BlogResponse struct {
 	ID            uint    `json:"id"`
+	Slug          string  `json:"slug"`
 	CreatedAt     string  `json:"created_at"`
 	UpdatedAt     string  `json:"updated_at"`
 	InstitutionID uint    `json:"institution_id"`
