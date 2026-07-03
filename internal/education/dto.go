@@ -303,6 +303,7 @@ type UpdateNewsRequest struct {
 
 type AdminNewsResponse struct {
 	ID        uint     `json:"id"`
+	Slug      string   `json:"slug"`
 	Category  string   `json:"category"`
 	Title     string   `json:"title"`
 	Excerpt   string   `json:"excerpt"`

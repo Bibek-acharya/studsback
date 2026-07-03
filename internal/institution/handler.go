@@ -1917,6 +1917,7 @@ func toBlogResponse(b InstitutionBlog) BlogResponse {
 	}
 	return BlogResponse{
 		ID:            b.ID,
+		Slug:          b.Slug,
 		CreatedAt:     b.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:     b.UpdatedAt.Format(time.RFC3339),
 		InstitutionID: b.InstitutionID,

@@ -99,6 +99,7 @@ func buildCourseResponse(course Course, colleges int) CourseResponse {
 func buildNewsResponse(news News) NewsResponse {
 	return NewsResponse{
 		ID:       news.ID,
+		Slug:     news.Slug,
 		Category: news.Category,
 		Title:    news.Title,
 		Excerpt:  news.Excerpt,
@@ -115,6 +116,7 @@ func buildNewsResponse(news News) NewsResponse {
 func buildEventResponse(event Event) EventResponse {
 	return EventResponse{
 		ID:              event.ID,
+		Slug:            event.Slug,
 		Title:           event.Title,
 		Excerpt:         event.Excerpt,
 		Description:     event.Description,
@@ -1100,6 +1102,7 @@ func (s *Service) UploadBlogImage(file *multipart.FileHeader) ([]string, error) 
 func buildAdminNewsResponse(news News) AdminNewsResponse {
 	return AdminNewsResponse{
 		ID:        news.ID,
+		Slug:      news.Slug,
 		Category:  news.Category,
 		Title:     news.Title,
 		Excerpt:   news.Excerpt,
