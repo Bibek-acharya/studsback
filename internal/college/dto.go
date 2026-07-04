@@ -1,5 +1,18 @@
 package college
 
+type CollegeMapDTO struct {
+	ID        uint    `json:"id"`
+	Name      string  `json:"name"`
+	Slug      string  `json:"slug,omitempty"`
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+	Logo      string  `json:"logo,omitempty"`
+	District  string  `json:"district,omitempty"`
+	Province  string  `json:"province,omitempty"`
+	Type      string  `json:"type,omitempty"`
+	Rating    float64 `json:"rating,omitempty"`
+}
+
 type CollegeRecommendationBreakdown struct {
 	StudentType          int `json:"studentType"`
 	PreferredField       int `json:"preferredField"`
@@ -41,6 +54,8 @@ type CreateCollegeRequest struct {
 	CareerFitScore   int      `json:"career_fit_score"`
 	BalancedFitScore int      `json:"balanced_fit_score"`
 	ProfileTags      []string `json:"profile_tags"`
+	Latitude         *float64 `json:"latitude,omitempty"`
+	Longitude        *float64 `json:"longitude,omitempty"`
 }
 
 type UpdateCollegeRequest struct {
@@ -69,6 +84,8 @@ type UpdateCollegeRequest struct {
 	CareerFitScore   *int     `json:"career_fit_score"`
 	BalancedFitScore *int     `json:"balanced_fit_score"`
 	ProfileTags      []string `json:"profile_tags"`
+	Latitude         *float64 `json:"latitude,omitempty"`
+	Longitude        *float64 `json:"longitude,omitempty"`
 }
 
 type CollegeResponse struct {
@@ -113,6 +130,8 @@ type CollegeResponse struct {
 	CareerFitScore   int         `json:"career_fit_score"`
 	BalancedFitScore int         `json:"balanced_fit_score"`
 	ProfileTags      interface{} `json:"profile_tags,omitempty"`
+	Latitude         *float64    `json:"latitude,omitempty"`
+	Longitude        *float64    `json:"longitude,omitempty"`
 }
 
 type PaginationInfo struct {
@@ -144,12 +163,12 @@ type CollegeFilters struct {
 	Popular         string
 	DirectAdmission bool
 	MinRating       string
-	Search                string
-	CourseID              string
-	Sort                  string
-	Order                 string
-	Page                  int
-	PageSize              int
+	Search          string
+	CourseID        string
+	Sort            string
+	Order           string
+	Page            int
+	PageSize        int
 }
 
 type FeaturedCollegesResponse struct {
@@ -167,31 +186,31 @@ type CollegeFilterCountsResponse struct {
 }
 
 type CollegeRecommenderRequest struct {
-	StudentType         string `json:"student_type"`
-	KnowsCourse         string `json:"knows_course"`
-	PreferredField      string `json:"preferred_field"`
+	StudentType          string `json:"student_type"`
+	KnowsCourse          string `json:"knows_course"`
+	PreferredField       string `json:"preferred_field"`
 	ReputationImportance string `json:"reputation_importance"`
-	FinancialSupport    string `json:"financial_support"`
-	YearlyBudget        string `json:"yearly_budget"`
-	Province            string `json:"province"`
-	District            string `json:"district"`
-	Setting             string `json:"setting"`
-	DistanceFromHome    string `json:"distance_from_home"`
-	ClassSize           string `json:"class_size"`
-	AcademicsVsCampus   string `json:"academics_vs_campus"`
+	FinancialSupport     string `json:"financial_support"`
+	YearlyBudget         string `json:"yearly_budget"`
+	Province             string `json:"province"`
+	District             string `json:"district"`
+	Setting              string `json:"setting"`
+	DistanceFromHome     string `json:"distance_from_home"`
+	ClassSize            string `json:"class_size"`
+	AcademicsVsCampus    string `json:"academics_vs_campus"`
 	ActivitiesImportance string `json:"activities_importance"`
-	FacilityChoice      string `json:"facility_choice"`
-	TuitionFactor       string `json:"tuition_factor"`
+	FacilityChoice       string `json:"facility_choice"`
+	TuitionFactor        string `json:"tuition_factor"`
 }
 
 type CollegeRecommendationResult struct {
-	ID         uint                          `json:"id"`
-	Name       string                        `json:"name"`
-	Location   string                        `json:"location"`
-	Type       string                        `json:"type"`
-	Tuiton     string                        `json:"tuition"`
-	MatchScore int                           `json:"match_score"`
-	Reasons    []string                      `json:"reasons"`
+	ID         uint                           `json:"id"`
+	Name       string                         `json:"name"`
+	Location   string                         `json:"location"`
+	Type       string                         `json:"type"`
+	Tuiton     string                         `json:"tuition"`
+	MatchScore int                            `json:"match_score"`
+	Reasons    []string                       `json:"reasons"`
 	Breakdown  CollegeRecommendationBreakdown `json:"breakdown,omitempty"`
 }
 

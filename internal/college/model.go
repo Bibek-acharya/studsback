@@ -54,5 +54,7 @@ type College struct {
 	CampusLifeScore  int            `gorm:"default:5" json:"campus_life_score"`
 	CareerFitScore   int            `gorm:"default:5" json:"career_fit_score"`
 	BalancedFitScore int            `gorm:"default:5" json:"balanced_fit_score"`
-	ProfileTags      []byte           `gorm:"type:jsonb" json:"profile_tags,omitempty"`
+	ProfileTags      []byte         `gorm:"type:jsonb" json:"profile_tags,omitempty"`
+	Latitude         *float64       `gorm:"index:idx_college_lat_lng,priority:1" json:"latitude,omitempty"`
+	Longitude        *float64       `gorm:"index:idx_college_lat_lng,priority:2" json:"longitude,omitempty"`
 }

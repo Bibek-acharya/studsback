@@ -23,6 +23,7 @@ import (
 	"studsphere/backend/internal/feedback"
 	"studsphere/backend/internal/forum"
 	"studsphere/backend/internal/institution"
+	"studsphere/backend/internal/location"
 	"studsphere/backend/internal/projectshiksha"
 	"studsphere/backend/internal/review"
 	"studsphere/backend/internal/scholarship"
@@ -212,9 +213,12 @@ func main() {
 	systemRepo := system.NewRepository(db)
 	systemSvc := system.NewService(systemRepo)
 
+	institutionRepo := institution.NewRepository(db)
 	admissionHandler := initModule(admission.NewRepository(db), admission.NewService, admission.NewHandler)
 	authHandler := initModule(auth.NewRepository(db), auth.NewService, auth.NewHandler)
-	collegeHandler := initModule(college.NewRepository(db), college.NewService, college.NewHandler)
+	collegeRepo := college.NewRepository(db)
+	collegeSvc := college.NewService(collegeRepo)
+	collegeHandler := college.NewHandler(collegeSvc, institutionRepo)
 	counsellingHandler := initModule(counselling.NewRepository(db), counselling.NewService, counselling.NewHandler)
 
 	educationRepo := education.NewRepository(db)
@@ -225,7 +229,6 @@ func main() {
 
 	forumHandler := initModule(forum.NewRepository(db), forum.NewService, forum.NewHandler)
 
-	institutionRepo := institution.NewRepository(db)
 	institutionSvc := institution.NewService(institutionRepo, systemSvc)
 	institutionHandler := institution.NewHandler(institutionSvc)
 
@@ -263,6 +266,7 @@ func main() {
 	chatHandler := chat.NewHandler(chatService)
 	aiService := ai.NewService(db)
 	aiHandler := ai.NewHandler(aiService)
+	locationHandler := location.NewHandler(location.NewService())
 	logger.Info("All module handlers initialized")
 
 	logger.Info("Setting up router...")
@@ -382,6 +386,7 @@ func main() {
 	search.RegisterRoutes(router, authMW, roleMW, searchHandler)
 	chat.RegisterRoutes(router, chatHandler)
 	ai.RegisterRoutes(router, aiHandler)
+	location.RegisterRoutes(router, locationHandler)
 
 	logger.Info("All routes registered", "port", config.AppConfig.Port)
 

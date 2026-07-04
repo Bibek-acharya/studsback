@@ -115,6 +115,8 @@ func (s *Service) CreateCollege(req CreateCollegeRequest) (*CollegeResponse, err
 		CareerFitScore:   req.CareerFitScore,
 		BalancedFitScore: req.BalancedFitScore,
 		ProfileTags:      profileTags,
+		Latitude:         req.Latitude,
+		Longitude:        req.Longitude,
 	}
 
 	if err := s.repo.Create(&college); err != nil {
@@ -244,6 +246,12 @@ func (s *Service) UpdateCollege(id uint, req UpdateCollegeRequest) (*CollegeResp
 			college.ProfileTags = data
 		}
 	}
+	if req.Latitude != nil {
+		college.Latitude = req.Latitude
+	}
+	if req.Longitude != nil {
+		college.Longitude = req.Longitude
+	}
 
 	if err := s.repo.Update(college); err != nil {
 		return nil, errors.New("failed to update college")
@@ -337,6 +345,45 @@ func (s *Service) GetCollegeFilterCounts(level string) (*CollegeFilterCountsResp
 	return counts, nil
 }
 
+func (s *Service) GetMapColleges(north, south, east, west float64) ([]CollegeMapDTO, error) {
+	var colleges []College
+	var err error
+
+	if north == 0 && south == 0 && east == 0 && west == 0 {
+		colleges, err = s.repo.FindAllWithCoords()
+	} else {
+		colleges, err = s.repo.FindWithinBounds(north, south, east, west)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return buildCollegeMapDTOs(colleges), nil
+}
+
+func (s *Service) UpdateCollegeLocation(id uint, lat, lng float64) error {
+	if lat < -90 || lat > 90 || lng < -180 || lng > 180 {
+		return errors.New("invalid coordinates: lat -90..90, lng -180..180")
+	}
+	return s.repo.UpdateLocation(id, lat, lng)
+}
+
+func buildCollegeMapDTOs(colleges []College) []CollegeMapDTO {
+	dtos := make([]CollegeMapDTO, len(colleges))
+	for i, c := range colleges {
+		dtos[i] = CollegeMapDTO{
+			ID:        c.ID,
+			Name:      c.Name,
+			Latitude:  *c.Latitude,
+			Longitude: *c.Longitude,
+			Logo:      c.ImageURL,
+			District:  c.Location,
+			Type:      c.CollegeType,
+			Rating:    c.Rating,
+		}
+	}
+	return dtos
+}
+
 func buildCollegeResponse(college College) CollegeResponse {
 	affiliation := college.Affiliation
 	if college.University.ID != 0 && college.University.Name != "" {
@@ -385,6 +432,8 @@ func buildCollegeResponse(college College) CollegeResponse {
 		CareerFitScore:   college.CareerFitScore,
 		BalancedFitScore: college.BalancedFitScore,
 		ProfileTags:      parseJSONField(college.ProfileTags, []interface{}{}),
+		Latitude:         college.Latitude,
+		Longitude:        college.Longitude,
 	}
 }
 

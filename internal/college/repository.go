@@ -277,6 +277,29 @@ func (r *Repository) ToggleFeatured(id uint) error {
 	return r.db.Model(&college).Update("featured", !college.Featured).Error
 }
 
+func (r *Repository) FindWithinBounds(north, south, east, west float64) ([]College, error) {
+	var colleges []College
+	err := r.db.Where("latitude IS NOT NULL AND longitude IS NOT NULL").
+		Where("latitude BETWEEN ? AND ? AND longitude BETWEEN ? AND ?", south, north, west, east).
+		Find(&colleges).Error
+	return colleges, err
+}
+
+func (r *Repository) FindAllWithCoords() ([]College, error) {
+	var colleges []College
+	err := r.db.Where("latitude IS NOT NULL AND longitude IS NOT NULL").
+		Find(&colleges).Error
+	return colleges, err
+}
+
+func (r *Repository) UpdateLocation(id uint, lat, lng float64) error {
+	return r.db.Model(&College{}).Where("id = ?", id).
+		Updates(map[string]interface{}{
+			"latitude":  lat,
+			"longitude": lng,
+		}).Error
+}
+
 func (r *Repository) Count() (int64, error) {
 	var total int64
 	err := r.db.Model(&College{}).Count(&total).Error
