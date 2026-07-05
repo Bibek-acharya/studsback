@@ -1665,6 +1665,28 @@ func (s *Service) DeleteAdmissionPage(instID, id uint) error {
 	return s.repo.DeleteAdmissionPage(id, instID)
 }
 
+// --- Superadmin Service Methods ---
+
+func (s *Service) GetAllPrograms(page, limit int) ([]InstitutionProgram, int64, error) {
+	return s.repo.FindAllPrograms(page, limit)
+}
+
+func (s *Service) GetAllEntrances(status string, page, limit int) ([]InstitutionEntrance, int64, error) {
+	return s.repo.FindAllEntrances(status, page, limit)
+}
+
+func (s *Service) GetAllAdmissionPages(status string, page, limit int) ([]AdmissionPage, int64, error) {
+	return s.repo.FindAllAdmissionPages(status, page, limit)
+}
+
+func (s *Service) GetEntranceApplicantsByID(entranceID uint) ([]InstitutionEntranceApplicant, error) {
+	_, err := s.repo.FindEntranceByID(entranceID)
+	if err != nil {
+		return nil, errors.New("entrance not found")
+	}
+	return s.repo.FindEntranceApplicants(entranceID)
+}
+
 func (s *Service) GetPublishedAdmissionPages(page, limit int) ([]AdmissionPageListItem, int64, error) {
 	pages, total, err := s.repo.FindPublishedAdmissionPages(page, limit)
 	if err != nil {

@@ -257,6 +257,7 @@ func main() {
 	scholarshipPHandler := initModule(scholarshipprovider.NewRepository(db), scholarshipprovider.NewService, scholarshipprovider.NewHandler)
 
 	auth.SetScholarshipProviderHandler(scholarshipPHandler)
+	auth.SetInstitutionService(institutionSvc)
 	studentDashHandler := initModule(studentdashboard.NewRepository(db), studentdashboard.NewService, studentdashboard.NewHandler)
 	systemHandler := system.NewHandler(systemSvc)
 	toolsHandler := initModule(tools.NewRepository(db), tools.NewService, tools.NewHandler)

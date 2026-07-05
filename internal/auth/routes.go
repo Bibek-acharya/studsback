@@ -80,6 +80,22 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			superadmin.PUT("/institutions/:id/suspend", h.SuspendInstitution)
 			superadmin.DELETE("/institutions/:id", h.DeleteInstitution)
 			superadmin.POST("/upload", h.SuperadminUploadFile)
+
+			superadmin.GET("/programs", h.ListAllPrograms)
+			superadmin.POST("/programs", h.CreateProgramForInstitution)
+			superadmin.PUT("/programs/:id", h.UpdateProgramForInstitution)
+			superadmin.DELETE("/programs/:id", h.DeleteProgramForInstitution)
+
+			superadmin.GET("/entrances", h.ListAllEntrances)
+			superadmin.POST("/entrances", h.CreateEntranceForInstitution)
+			superadmin.PUT("/entrances/:id", h.UpdateEntranceForInstitution)
+			superadmin.DELETE("/entrances/:id", h.DeleteEntranceForInstitution)
+			superadmin.GET("/entrances/:id/applicants", h.GetEntranceApplicantsForInstitution)
+
+			superadmin.GET("/admission-pages", h.ListAllAdmissionPages)
+			superadmin.POST("/admission-pages", h.CreateAdmissionPageForInstitution)
+			superadmin.PUT("/admission-pages/:id", h.UpdateAdmissionPageForInstitution)
+			superadmin.DELETE("/admission-pages/:id", h.DeleteAdmissionPageForInstitution)
 		}
 
 		institutionProtected := v1.Group("/institutions")

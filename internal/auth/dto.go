@@ -1,5 +1,7 @@
 package auth
 
+import "encoding/json"
+
 type RegisterRequest struct {
 	Email          string `json:"email" binding:"required,email"`
 	Password       string `json:"password" binding:"required,min=6"`
@@ -26,7 +28,7 @@ type VerifyOTPRequest struct {
 
 type ResetPasswordRequest struct {
 	Email    string `json:"email" binding:"required,email"`
-	OTP     string `json:"otp" binding:"required"`
+	OTP      string `json:"otp" binding:"required"`
 	Password string `json:"password" binding:"required,min=6"`
 }
 
@@ -42,40 +44,40 @@ type ChangePasswordRequest struct {
 }
 
 type EducationEntryRequest struct {
-	Level            string `json:"level" binding:"required"`
-	InstitutionName  string `json:"institution_name" binding:"required"`
-	BoardUniversity  string `json:"board_university" binding:"required"`
-	Country          string `json:"country" binding:"required"`
-	Stream           string `json:"stream"`
-	StartYear        string `json:"start_year" binding:"required"`
-	EndYear          string `json:"end_year" binding:"required"`
-	GradingSystem    string `json:"grading_system"`
-	Grade            string `json:"grade"`
+	Level           string `json:"level" binding:"required"`
+	InstitutionName string `json:"institution_name" binding:"required"`
+	BoardUniversity string `json:"board_university" binding:"required"`
+	Country         string `json:"country" binding:"required"`
+	Stream          string `json:"stream"`
+	StartYear       string `json:"start_year" binding:"required"`
+	EndYear         string `json:"end_year" binding:"required"`
+	GradingSystem   string `json:"grading_system"`
+	Grade           string `json:"grade"`
 }
 
 type EducationEntryResponse struct {
-	ID               uint   `json:"id"`
-	Level            string `json:"level"`
-	InstitutionName  string `json:"institution_name"`
-	BoardUniversity  string `json:"board_university"`
-	Country          string `json:"country"`
-	Stream           string `json:"stream"`
-	StartYear        string `json:"start_year"`
-	EndYear          string `json:"end_year"`
-	GradingSystem    string `json:"grading_system"`
-	Grade            string `json:"grade"`
+	ID              uint   `json:"id"`
+	Level           string `json:"level"`
+	InstitutionName string `json:"institution_name"`
+	BoardUniversity string `json:"board_university"`
+	Country         string `json:"country"`
+	Stream          string `json:"stream"`
+	StartYear       string `json:"start_year"`
+	EndYear         string `json:"end_year"`
+	GradingSystem   string `json:"grading_system"`
+	Grade           string `json:"grade"`
 }
 
 type UpdateProfileRequest struct {
-	FirstName  string `json:"first_name"`
-	LastName   string `json:"last_name"`
-	Phone      string `json:"phone"`
+	FirstName   string `json:"first_name"`
+	LastName    string `json:"last_name"`
+	Phone       string `json:"phone"`
 	DateOfBirth string `json:"date_of_birth"`
-	Gender     string `json:"gender"`
+	Gender      string `json:"gender"`
 	Nationality string `json:"nationality"`
-	Address    string `json:"address"`
-	Bio        string `json:"bio"`
-	ImageURL   string `json:"image_url"`
+	Address     string `json:"address"`
+	Bio         string `json:"bio"`
+	ImageURL    string `json:"image_url"`
 }
 
 type RegisterResponse struct {
@@ -161,30 +163,30 @@ type InstitutionDetailResponse struct {
 }
 
 type CreateInstitutionRequest struct {
-	InstitutionName    string      `json:"institution_name" binding:"required"`
-	Location           string      `json:"location"`
-	Website            string      `json:"website"`
-	Level              string      `json:"level"`
-	Affiliation        string      `json:"affiliation"`
-	LogoURL            string      `json:"logo_url"`
-	BannerURL          string      `json:"banner_url"`
-	About              string      `json:"about"`
-	Vision             string      `json:"vision"`
-	Mission            string      `json:"mission"`
-	Videos             interface{} `json:"videos"`
-	OverviewData       interface{} `json:"overview_data"`
-	LeadershipData     interface{} `json:"leadership_data"`
-	CoursesData        interface{} `json:"courses_data"`
-	ProgramsData       interface{} `json:"programs_data"`
-	FacilitiesData     interface{} `json:"facilities_data"`
-	AlumniData         interface{} `json:"alumni_data"`
-	GalleryData        interface{} `json:"gallery_data"`
-	DownloadsData      interface{} `json:"downloads_data"`
+	InstitutionName string      `json:"institution_name" binding:"required"`
+	Location        string      `json:"location"`
+	Website         string      `json:"website"`
+	Level           string      `json:"level"`
+	Affiliation     string      `json:"affiliation"`
+	LogoURL         string      `json:"logo_url"`
+	BannerURL       string      `json:"banner_url"`
+	About           string      `json:"about"`
+	Vision          string      `json:"vision"`
+	Mission         string      `json:"mission"`
+	Videos          interface{} `json:"videos"`
+	OverviewData    interface{} `json:"overview_data"`
+	LeadershipData  interface{} `json:"leadership_data"`
+	CoursesData     interface{} `json:"courses_data"`
+	ProgramsData    interface{} `json:"programs_data"`
+	FacilitiesData  interface{} `json:"facilities_data"`
+	AlumniData      interface{} `json:"alumni_data"`
+	GalleryData     interface{} `json:"gallery_data"`
+	DownloadsData   interface{} `json:"downloads_data"`
 }
 
 type InstitutionApprovalRequest struct {
-	InstitutionID  uint   `json:"institution_id" binding:"required"`
-	Action         string `json:"action" binding:"required"` // "approved" or "rejected"
+	InstitutionID   uint   `json:"institution_id" binding:"required"`
+	Action          string `json:"action" binding:"required"` // "approved" or "rejected"
 	RejectionReason string `json:"rejection_reason"`
 }
 
@@ -198,12 +200,12 @@ type ScholarshipProviderRegisterRequest struct {
 	RegistrationNumber string `json:"registration_number" binding:"required"`
 	Email              string `json:"email" binding:"required,email"`
 	ContactNumber      string `json:"contact_number"`
-	PANNumber                string `json:"pan_number" binding:"omitempty,len=9,numeric"`
+	PANNumber          string `json:"pan_number" binding:"omitempty,len=9,numeric"`
 	WebsiteURL         string `json:"website_url"`
 }
 
 type ScholarshipProviderApprovalRequest struct {
-	ProviderID uint `json:"provider_id" binding:"required"`
+	ProviderID uint   `json:"provider_id" binding:"required"`
 	Action     string `json:"action" binding:"required"` // "approved" or "rejected"
 }
 
@@ -269,9 +271,114 @@ type InstitutionFilter struct {
 }
 
 type SuperadminDashboardStats struct {
-	TotalStudents      int64 `json:"total_students"`
-	TotalInstitutions  int64 `json:"total_institutions"`
-	TotalProviders     int64 `json:"total_providers"`
+	TotalStudents       int64 `json:"total_students"`
+	TotalInstitutions   int64 `json:"total_institutions"`
+	TotalProviders      int64 `json:"total_providers"`
 	PendingInstitutions int64 `json:"pending_institutions"`
-	PendingProviders   int64 `json:"pending_providers"`
+	PendingProviders    int64 `json:"pending_providers"`
+}
+
+// Superadmin CRUD request types for programs, entrances, admission pages
+type SuperadminCreateProgramRequest struct {
+	InstitutionID uint        `json:"institution_id" binding:"required"`
+	Name          string      `json:"name" binding:"required"`
+	Description   string      `json:"description"`
+	Duration      string      `json:"duration"`
+	Fee           string      `json:"fee"`
+	Eligibility   string      `json:"eligibility"`
+	Capacity      int         `json:"capacity"`
+	BannerURL     string      `json:"banner_url"`
+	Data          interface{} `json:"data"`
+	Status        string      `json:"status"`
+}
+
+type SuperadminUpdateProgramRequest struct {
+	InstitutionID uint        `json:"institution_id" binding:"required"`
+	Name          string      `json:"name"`
+	Description   string      `json:"description"`
+	Duration      string      `json:"duration"`
+	Fee           string      `json:"fee"`
+	Eligibility   string      `json:"eligibility"`
+	Capacity      int         `json:"capacity"`
+	BannerURL     string      `json:"banner_url"`
+	Data          interface{} `json:"data"`
+	Status        string      `json:"status"`
+}
+
+type SuperadminCreateEntranceRequest struct {
+	InstitutionID     uint            `json:"institution_id" binding:"required"`
+	Title             string          `json:"title" binding:"required"`
+	Description       string          `json:"description"`
+	Program           string          `json:"program"`
+	Date              string          `json:"date" binding:"required"`
+	StartTime         string          `json:"start_time"`
+	EndTime           string          `json:"end_time"`
+	Duration          int             `json:"duration"`
+	TotalMarks        int             `json:"total_marks"`
+	PassingMarks      int             `json:"passing_marks"`
+	TotalSeats        int             `json:"total_seats"`
+	Instructions      string          `json:"instructions"`
+	HeroBanner        string          `json:"hero_banner"`
+	Questions         interface{}     `json:"questions"`
+	Status            string          `json:"status"`
+	ApplicationFee    string          `json:"application_fee"`
+	OverviewDetails   json.RawMessage `json:"overview_details"`
+	ExamDateSchedules json.RawMessage `json:"exam_date_schedules"`
+	EligibilityList   json.RawMessage `json:"eligibility_list"`
+	ApplicationSteps  json.RawMessage `json:"application_steps"`
+	ExamPattern       json.RawMessage `json:"exam_pattern"`
+	SubjectMarks      json.RawMessage `json:"subject_marks"`
+	ModelSets         json.RawMessage `json:"model_sets"`
+	UpcomingDates     json.RawMessage `json:"upcoming_dates"`
+	ContactPersons    json.RawMessage `json:"contact_persons"`
+	Faqs              json.RawMessage `json:"faqs"`
+	ApplicationLink   string          `json:"application_link"`
+	NoticeFile        string          `json:"notice_file"`
+}
+
+type SuperadminUpdateEntranceRequest struct {
+	InstitutionID     uint            `json:"institution_id" binding:"required"`
+	Title             string          `json:"title"`
+	Description       string          `json:"description"`
+	Program           string          `json:"program"`
+	Date              string          `json:"date"`
+	StartTime         string          `json:"start_time"`
+	EndTime           string          `json:"end_time"`
+	Duration          int             `json:"duration"`
+	TotalMarks        int             `json:"total_marks"`
+	PassingMarks      int             `json:"passing_marks"`
+	TotalSeats        int             `json:"total_seats"`
+	Instructions      string          `json:"instructions"`
+	HeroBanner        string          `json:"hero_banner"`
+	Questions         interface{}     `json:"questions"`
+	Status            string          `json:"status"`
+	ApplicationFee    string          `json:"application_fee"`
+	OverviewDetails   json.RawMessage `json:"overview_details"`
+	ExamDateSchedules json.RawMessage `json:"exam_date_schedules"`
+	EligibilityList   json.RawMessage `json:"eligibility_list"`
+	ApplicationSteps  json.RawMessage `json:"application_steps"`
+	ExamPattern       json.RawMessage `json:"exam_pattern"`
+	SubjectMarks      json.RawMessage `json:"subject_marks"`
+	ModelSets         json.RawMessage `json:"model_sets"`
+	UpcomingDates     json.RawMessage `json:"upcoming_dates"`
+	ContactPersons    json.RawMessage `json:"contact_persons"`
+	Faqs              json.RawMessage `json:"faqs"`
+	ApplicationLink   string          `json:"application_link"`
+	NoticeFile        string          `json:"notice_file"`
+}
+
+type SuperadminCreateAdmissionPageRequest struct {
+	InstitutionID uint            `json:"institution_id" binding:"required"`
+	Data          json.RawMessage `json:"data"`
+	Status        string          `json:"status"`
+}
+
+type SuperadminUpdateAdmissionPageRequest struct {
+	InstitutionID uint            `json:"institution_id" binding:"required"`
+	Data          json.RawMessage `json:"data"`
+	Status        *string         `json:"status"`
+}
+
+type SuperadminDeleteRequest struct {
+	InstitutionID uint `json:"institution_id" binding:"required"`
 }

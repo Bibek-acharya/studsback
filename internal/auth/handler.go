@@ -15,11 +15,12 @@ import (
 	"sync"
 	"time"
 
+	"studsphere/backend/internal/institution"
+	"studsphere/backend/internal/scholarshipprovider"
 	"studsphere/backend/internal/shared/config"
 	"studsphere/backend/internal/shared/middleware"
 	"studsphere/backend/internal/shared/response"
 	"studsphere/backend/internal/shared/utils"
-	"studsphere/backend/internal/scholarshipprovider"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/oauth2"
@@ -28,9 +29,14 @@ import (
 
 // OAuthStateStore stores OAuth state with redirect URLs
 var spHandler *scholarshipprovider.Handler
+var instService *institution.Service
 
 func SetScholarshipProviderHandler(h *scholarshipprovider.Handler) {
 	spHandler = h
+}
+
+func SetInstitutionService(s *institution.Service) {
+	instService = s
 }
 
 type OAuthStateStore struct {
@@ -342,10 +348,10 @@ func (h *Handler) GoogleCallback(c *gin.Context) {
 	}
 
 	middleware.SetAuthCookie(c, jwtToken)
-	
+
 	// Construct the callback URL with the token to sync with frontend localStorage
-	frontendCallback := fmt.Sprintf("%s/login?token=%s", 
-		strings.TrimRight(config.AppConfig.FrontendURL, "/"), 
+	frontendCallback := fmt.Sprintf("%s/login?token=%s",
+		strings.TrimRight(config.AppConfig.FrontendURL, "/"),
 		jwtToken)
 
 	// Use the redirect URL from state (original destination)
@@ -353,7 +359,7 @@ func (h *Handler) GoogleCallback(c *gin.Context) {
 	if finalRedirectURL == "" {
 		finalRedirectURL = "/"
 	}
-	
+
 	frontendCallback = fmt.Sprintf("%s&redirect=%s", frontendCallback, url.QueryEscape(finalRedirectURL))
 
 	c.Redirect(http.StatusTemporaryRedirect, frontendCallback)
@@ -571,8 +577,8 @@ func (h *Handler) InstitutionGoogleCallback(c *gin.Context) {
 
 	middleware.SetAuthCookie(c, jwtToken)
 
-	frontendCallback := fmt.Sprintf("%s/login?token=%s&role=institution", 
-		strings.TrimRight(config.AppConfig.FrontendURL, "/"), 
+	frontendCallback := fmt.Sprintf("%s/login?token=%s&role=institution",
+		strings.TrimRight(config.AppConfig.FrontendURL, "/"),
 		jwtToken)
 
 	if redirectURL == "" {
@@ -616,7 +622,7 @@ func (h *Handler) ScholarshipProviderLogin(c *gin.Context) {
 					token, tokenErr := utils.GenerateToken(user.ID, user.Email, "scholarship_provider_subuser", user.ProviderID)
 					if tokenErr == nil {
 						middleware.SetAuthCookie(c, token)
-						
+
 						spHandler.GetService().CreateNotification(
 							user.ProviderID,
 							"New Login",
@@ -780,8 +786,8 @@ func (h *Handler) ScholarshipProviderGoogleCallback(c *gin.Context) {
 
 	middleware.SetAuthCookie(c, jwtToken)
 
-	frontendCallback := fmt.Sprintf("%s/login?token=%s&role=scholarship_provider", 
-		strings.TrimRight(config.AppConfig.FrontendURL, "/"), 
+	frontendCallback := fmt.Sprintf("%s/login?token=%s&role=scholarship_provider",
+		strings.TrimRight(config.AppConfig.FrontendURL, "/"),
 		jwtToken)
 
 	if redirectURL == "" {
@@ -1418,4 +1424,470 @@ func (h *Handler) GetUserEducation(c *gin.Context) {
 	}
 
 	response.Success(c, 200, "Education entries retrieved successfully", entries)
+}
+
+// --- Superadmin Program Handlers ---
+
+func (h *Handler) ListAllPrograms(c *gin.Context) {
+	if instService == nil {
+		response.Error(c, 500, "Institution service not available")
+		return
+	}
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 10
+	}
+
+	programs, total, err := instService.GetAllPrograms(page, limit)
+	if err != nil {
+		response.Error(c, 500, "Failed to fetch programs")
+		return
+	}
+
+	if programs == nil {
+		programs = []institution.InstitutionProgram{}
+	}
+
+	response.Success(c, 200, "Programs retrieved successfully", gin.H{
+		"programs": programs,
+		"meta": gin.H{
+			"total": total,
+			"page":  page,
+			"limit": limit,
+		},
+	})
+}
+
+func (h *Handler) CreateProgramForInstitution(c *gin.Context) {
+	if instService == nil {
+		response.Error(c, 500, "Institution service not available")
+		return
+	}
+
+	var req SuperadminCreateProgramRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+
+	progReq := institution.CreateProgramRequest{
+		Name:        req.Name,
+		Description: req.Description,
+		Duration:    req.Duration,
+		Fee:         req.Fee,
+		Eligibility: req.Eligibility,
+		Capacity:    req.Capacity,
+		BannerURL:   req.BannerURL,
+		Data:        req.Data,
+		Status:      req.Status,
+	}
+
+	program, err := instService.CreateProgram(req.InstitutionID, progReq)
+	if err != nil {
+		response.Error(c, 500, "Failed to create program")
+		return
+	}
+
+	response.Success(c, 201, "Program created successfully", program)
+}
+
+func (h *Handler) UpdateProgramForInstitution(c *gin.Context) {
+	if instService == nil {
+		response.Error(c, 500, "Institution service not available")
+		return
+	}
+
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, 400, "Invalid program ID")
+		return
+	}
+
+	var req SuperadminUpdateProgramRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+
+	progReq := institution.UpdateProgramRequest{
+		Name:        req.Name,
+		Description: req.Description,
+		Duration:    req.Duration,
+		Fee:         req.Fee,
+		Eligibility: req.Eligibility,
+		Capacity:    req.Capacity,
+		BannerURL:   req.BannerURL,
+		Data:        req.Data,
+		Status:      req.Status,
+	}
+
+	program, err := instService.UpdateProgram(req.InstitutionID, uint(id), progReq)
+	if err != nil {
+		response.Error(c, 404, err.Error())
+		return
+	}
+
+	response.Success(c, 200, "Program updated successfully", program)
+}
+
+func (h *Handler) DeleteProgramForInstitution(c *gin.Context) {
+	if instService == nil {
+		response.Error(c, 500, "Institution service not available")
+		return
+	}
+
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, 400, "Invalid program ID")
+		return
+	}
+
+	var req SuperadminDeleteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+
+	if err := instService.DeleteProgram(req.InstitutionID, uint(id)); err != nil {
+		if err.Error() == "record not found" {
+			response.Error(c, 404, "Program not found")
+		} else {
+			response.Error(c, 500, "Failed to delete program")
+		}
+		return
+	}
+
+	response.Success(c, 200, "Program deleted successfully", nil)
+}
+
+// --- Superadmin Entrance Handlers ---
+
+func (h *Handler) ListAllEntrances(c *gin.Context) {
+	if instService == nil {
+		response.Error(c, 500, "Institution service not available")
+		return
+	}
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 10
+	}
+
+	statusFilter := c.Query("status")
+	entrances, total, err := instService.GetAllEntrances(statusFilter, page, limit)
+	if err != nil {
+		response.Error(c, 500, "Failed to fetch entrances")
+		return
+	}
+
+	if entrances == nil {
+		entrances = []institution.InstitutionEntrance{}
+	}
+
+	response.Success(c, 200, "Entrances retrieved successfully", gin.H{
+		"entrances": entrances,
+		"meta": gin.H{
+			"total": total,
+			"page":  page,
+			"limit": limit,
+		},
+	})
+}
+
+func (h *Handler) CreateEntranceForInstitution(c *gin.Context) {
+	if instService == nil {
+		response.Error(c, 500, "Institution service not available")
+		return
+	}
+
+	var req SuperadminCreateEntranceRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+
+	entReq := institution.CreateEntranceRequest{
+		Title:             req.Title,
+		Description:       req.Description,
+		Program:           req.Program,
+		Date:              req.Date,
+		StartTime:         req.StartTime,
+		EndTime:           req.EndTime,
+		Duration:          req.Duration,
+		TotalMarks:        req.TotalMarks,
+		PassingMarks:      req.PassingMarks,
+		TotalSeats:        req.TotalSeats,
+		Instructions:      req.Instructions,
+		HeroBanner:        req.HeroBanner,
+		Questions:         req.Questions,
+		Status:            req.Status,
+		ApplicationFee:    req.ApplicationFee,
+		OverviewDetails:   req.OverviewDetails,
+		ExamDateSchedules: req.ExamDateSchedules,
+		EligibilityList:   req.EligibilityList,
+		ApplicationSteps:  req.ApplicationSteps,
+		ExamPattern:       req.ExamPattern,
+		SubjectMarks:      req.SubjectMarks,
+		ModelSets:         req.ModelSets,
+		UpcomingDates:     req.UpcomingDates,
+		ContactPersons:    req.ContactPersons,
+		Faqs:              req.Faqs,
+		ApplicationLink:   req.ApplicationLink,
+		NoticeFile:        req.NoticeFile,
+	}
+
+	entrance, err := instService.CreateEntrance(req.InstitutionID, entReq)
+	if err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+
+	response.Success(c, 201, "Entrance created successfully", entrance)
+}
+
+func (h *Handler) UpdateEntranceForInstitution(c *gin.Context) {
+	if instService == nil {
+		response.Error(c, 500, "Institution service not available")
+		return
+	}
+
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, 400, "Invalid entrance ID")
+		return
+	}
+
+	var req SuperadminUpdateEntranceRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+
+	entReq := institution.UpdateEntranceRequest{
+		Title:             req.Title,
+		Description:       req.Description,
+		Program:           req.Program,
+		Date:              req.Date,
+		StartTime:         req.StartTime,
+		EndTime:           req.EndTime,
+		Duration:          req.Duration,
+		TotalMarks:        req.TotalMarks,
+		PassingMarks:      req.PassingMarks,
+		TotalSeats:        req.TotalSeats,
+		Instructions:      req.Instructions,
+		HeroBanner:        req.HeroBanner,
+		Questions:         req.Questions,
+		Status:            req.Status,
+		ApplicationFee:    req.ApplicationFee,
+		OverviewDetails:   req.OverviewDetails,
+		ExamDateSchedules: req.ExamDateSchedules,
+		EligibilityList:   req.EligibilityList,
+		ApplicationSteps:  req.ApplicationSteps,
+		ExamPattern:       req.ExamPattern,
+		SubjectMarks:      req.SubjectMarks,
+		ModelSets:         req.ModelSets,
+		UpcomingDates:     req.UpcomingDates,
+		ContactPersons:    req.ContactPersons,
+		Faqs:              req.Faqs,
+		ApplicationLink:   req.ApplicationLink,
+		NoticeFile:        req.NoticeFile,
+	}
+
+	entrance, err := instService.UpdateEntrance(req.InstitutionID, uint(id), entReq)
+	if err != nil {
+		response.Error(c, 404, err.Error())
+		return
+	}
+
+	response.Success(c, 200, "Entrance updated successfully", entrance)
+}
+
+func (h *Handler) DeleteEntranceForInstitution(c *gin.Context) {
+	if instService == nil {
+		response.Error(c, 500, "Institution service not available")
+		return
+	}
+
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, 400, "Invalid entrance ID")
+		return
+	}
+
+	var req SuperadminDeleteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+
+	if err := instService.DeleteEntrance(req.InstitutionID, uint(id)); err != nil {
+		if err.Error() == "record not found" {
+			response.Error(c, 404, "Entrance not found")
+		} else {
+			response.Error(c, 500, "Failed to delete entrance")
+		}
+		return
+	}
+
+	response.Success(c, 200, "Entrance deleted successfully", nil)
+}
+
+func (h *Handler) GetEntranceApplicantsForInstitution(c *gin.Context) {
+	if instService == nil {
+		response.Error(c, 500, "Institution service not available")
+		return
+	}
+
+	entranceID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, 400, "Invalid entrance ID")
+		return
+	}
+
+	applicants, err := instService.GetEntranceApplicantsByID(uint(entranceID))
+	if err != nil {
+		response.Error(c, 404, err.Error())
+		return
+	}
+
+	if applicants == nil {
+		applicants = []institution.InstitutionEntranceApplicant{}
+	}
+
+	response.Success(c, 200, "Applicants retrieved successfully", applicants)
+}
+
+// --- Superadmin Admission Page Handlers ---
+
+func (h *Handler) ListAllAdmissionPages(c *gin.Context) {
+	if instService == nil {
+		response.Error(c, 500, "Institution service not available")
+		return
+	}
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 10
+	}
+
+	statusFilter := c.Query("status")
+	pages, total, err := instService.GetAllAdmissionPages(statusFilter, page, limit)
+	if err != nil {
+		response.Error(c, 500, "Failed to fetch admission pages")
+		return
+	}
+
+	if pages == nil {
+		pages = []institution.AdmissionPage{}
+	}
+
+	response.Success(c, 200, "Admission pages retrieved successfully", gin.H{
+		"admission_pages": pages,
+		"meta": gin.H{
+			"total": total,
+			"page":  page,
+			"limit": limit,
+		},
+	})
+}
+
+func (h *Handler) CreateAdmissionPageForInstitution(c *gin.Context) {
+	if instService == nil {
+		response.Error(c, 500, "Institution service not available")
+		return
+	}
+
+	var req SuperadminCreateAdmissionPageRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+
+	pageReq := institution.CreateAdmissionPageRequest{
+		Data:   req.Data,
+		Status: req.Status,
+	}
+
+	page, err := instService.CreateAdmissionPage(req.InstitutionID, pageReq)
+	if err != nil {
+		response.Error(c, 500, "Failed to create admission page")
+		return
+	}
+
+	response.Success(c, 201, "Admission page created successfully", page)
+}
+
+func (h *Handler) UpdateAdmissionPageForInstitution(c *gin.Context) {
+	if instService == nil {
+		response.Error(c, 500, "Institution service not available")
+		return
+	}
+
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, 400, "Invalid admission page ID")
+		return
+	}
+
+	var req SuperadminUpdateAdmissionPageRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+
+	pageReq := institution.UpdateAdmissionPageRequest{
+		Data:   req.Data,
+		Status: req.Status,
+	}
+
+	page, err := instService.UpdateAdmissionPage(req.InstitutionID, uint(id), pageReq)
+	if err != nil {
+		response.Error(c, 404, err.Error())
+		return
+	}
+
+	response.Success(c, 200, "Admission page updated successfully", page)
+}
+
+func (h *Handler) DeleteAdmissionPageForInstitution(c *gin.Context) {
+	if instService == nil {
+		response.Error(c, 500, "Institution service not available")
+		return
+	}
+
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, 400, "Invalid admission page ID")
+		return
+	}
+
+	var req SuperadminDeleteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+
+	if err := instService.DeleteAdmissionPage(req.InstitutionID, uint(id)); err != nil {
+		if err.Error() == "record not found" {
+			response.Error(c, 404, "Admission page not found")
+		} else {
+			response.Error(c, 500, "Failed to delete admission page")
+		}
+		return
+	}
+
+	response.Success(c, 200, "Admission page deleted successfully", nil)
 }

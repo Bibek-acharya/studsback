@@ -869,6 +869,58 @@ func (r *Repository) FindPublishedAdmissionInstitutionByID(id uint) ([]map[strin
 	return results, nil
 }
 
+// --- Superadmin Repository Methods ---
+
+func (r *Repository) FindAllPrograms(page, limit int) ([]InstitutionProgram, int64, error) {
+	var programs []InstitutionProgram
+	var total int64
+	if err := r.db.Model(&InstitutionProgram{}).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	offset := (page - 1) * limit
+	err := r.db.Order("created_at desc").Offset(offset).Limit(limit).Find(&programs).Error
+	return programs, total, err
+}
+
+func (r *Repository) FindAllEntrances(status string, page, limit int) ([]InstitutionEntrance, int64, error) {
+	var entrances []InstitutionEntrance
+	var total int64
+	query := r.db.Model(&InstitutionEntrance{})
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	offset := (page - 1) * limit
+	err := query.Order("created_at desc").Offset(offset).Limit(limit).Find(&entrances).Error
+	return entrances, total, err
+}
+
+func (r *Repository) FindAllAdmissionPages(status string, page, limit int) ([]AdmissionPage, int64, error) {
+	var pages []AdmissionPage
+	var total int64
+	query := r.db.Model(&AdmissionPage{})
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	offset := (page - 1) * limit
+	err := query.Order("created_at desc").Offset(offset).Limit(limit).Find(&pages).Error
+	return pages, total, err
+}
+
+func (r *Repository) FindEntranceByID(id uint) (*InstitutionEntrance, error) {
+	var entrance InstitutionEntrance
+	err := r.db.First(&entrance, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &entrance, nil
+}
+
 func (r *Repository) FindPublishedAdmissionInstitutions(page, limit int, level string) ([]map[string]interface{}, int64, error) {
 	var total int64
 	var results []map[string]interface{}
