@@ -138,6 +138,8 @@ type UpdateInstitutionRequest struct {
 	Mission         string      `json:"mission"`
 	LogoURL         string      `json:"logo_url"`
 	BannerURL       string      `json:"banner_url"`
+	Latitude        *float64    `json:"latitude,omitempty"`
+	Longitude       *float64    `json:"longitude,omitempty"`
 	ProfileData     interface{} `json:"profile_data"`
 }
 
@@ -159,6 +161,8 @@ type InstitutionDetailResponse struct {
 	Mission            string                 `json:"mission"`
 	Level              string                 `json:"level"`
 	Affiliation        string                 `json:"affiliation"`
+	Latitude           *float64               `json:"latitude,omitempty"`
+	Longitude          *float64               `json:"longitude,omitempty"`
 	ProfileData        map[string]interface{} `json:"profile_data"`
 }
 

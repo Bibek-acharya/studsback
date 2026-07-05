@@ -709,6 +709,8 @@ func (s *Service) GetInstitution(id uint) (*InstitutionDetailResponse, error) {
 		Mission:            user.Mission,
 		Level:              user.Level,
 		Affiliation:        user.Affiliation,
+		Latitude:           user.Latitude,
+		Longitude:          user.Longitude,
 		ProfileData:        profileData,
 	}, nil
 }
@@ -748,6 +750,13 @@ func (s *Service) UpdateInstitution(id uint, req UpdateInstitutionRequest) error
 	}
 	if req.BannerURL != "" {
 		user.BannerURL = req.BannerURL
+	}
+
+	if req.Latitude != nil {
+		user.Latitude = req.Latitude
+	}
+	if req.Longitude != nil {
+		user.Longitude = req.Longitude
 	}
 
 	if req.ProfileData != nil {
