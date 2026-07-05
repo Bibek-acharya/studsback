@@ -69,15 +69,17 @@ type EducationEntryResponse struct {
 }
 
 type UpdateProfileRequest struct {
-	FirstName   string `json:"first_name"`
-	LastName    string `json:"last_name"`
-	Phone       string `json:"phone"`
-	DateOfBirth string `json:"date_of_birth"`
-	Gender      string `json:"gender"`
-	Nationality string `json:"nationality"`
-	Address     string `json:"address"`
-	Bio         string `json:"bio"`
-	ImageURL    string `json:"image_url"`
+	FirstName      string `json:"first_name"`
+	LastName       string `json:"last_name"`
+	MiddleName     string `json:"middle_name"`
+	Phone          string `json:"phone"`
+	AlternatePhone string `json:"alternate_phone"`
+	DateOfBirth    string `json:"date_of_birth"`
+	Gender         string `json:"gender"`
+	Nationality    string `json:"nationality"`
+	Address        string `json:"address"`
+	Bio            string `json:"bio"`
+	ImageURL       string `json:"image_url"`
 }
 
 type RegisterResponse struct {
@@ -91,20 +93,22 @@ type LoginResponse struct {
 }
 
 type ProfileResponse struct {
-	ID          uint         `json:"id"`
-	Email       string       `json:"email"`
-	FirstName   string       `json:"first_name"`
-	LastName    string       `json:"last_name"`
-	Phone       string       `json:"phone"`
-	DateOfBirth string       `json:"date_of_birth"`
-	Gender      string       `json:"gender"`
-	Nationality string       `json:"nationality"`
-	Address     string       `json:"address"`
-	Bio         string       `json:"bio"`
-	Role        string       `json:"role"`
-	GoogleID    *string      `json:"google_id"`
-	ImageURL    string       `json:"image_url"`
-	Preferences *Preferences `json:"preferences,omitempty"`
+	ID             uint         `json:"id"`
+	Email          string       `json:"email"`
+	FirstName      string       `json:"first_name"`
+	LastName       string       `json:"last_name"`
+	MiddleName     string       `json:"middle_name"`
+	Phone          string       `json:"phone"`
+	AlternatePhone string       `json:"alternate_phone"`
+	DateOfBirth    string       `json:"date_of_birth"`
+	Gender         string       `json:"gender"`
+	Nationality    string       `json:"nationality"`
+	Address        string       `json:"address"`
+	Bio            string       `json:"bio"`
+	Role           string       `json:"role"`
+	GoogleID       *string      `json:"google_id"`
+	ImageURL       string       `json:"image_url"`
+	Preferences    *Preferences `json:"preferences,omitempty"`
 }
 
 type PreferencesResponse struct {

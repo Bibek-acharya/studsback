@@ -296,20 +296,22 @@ func (s *Service) GetProfile(userID uint) (*ProfileResponse, error) {
 	}
 
 	return &ProfileResponse{
-		ID:          user.ID,
-		Email:       user.Email,
-		FirstName:   user.FirstName,
-		LastName:    user.LastName,
-		Phone:       user.Phone,
-		DateOfBirth: user.DateOfBirth,
-		Gender:      user.Gender,
-		Nationality: user.Nationality,
-		Address:     user.Address,
-		Bio:         user.Bio,
-		Role:        user.Role,
-		GoogleID:    user.GoogleID,
-		ImageURL:    user.ImageURL,
-		Preferences: user.Preferences,
+		ID:             user.ID,
+		Email:          user.Email,
+		FirstName:      user.FirstName,
+		LastName:       user.LastName,
+		MiddleName:     user.MiddleName,
+		Phone:          user.Phone,
+		AlternatePhone: user.AlternatePhone,
+		DateOfBirth:    user.DateOfBirth,
+		Gender:         user.Gender,
+		Nationality:    user.Nationality,
+		Address:        user.Address,
+		Bio:            user.Bio,
+		Role:           user.Role,
+		GoogleID:       user.GoogleID,
+		ImageURL:       user.ImageURL,
+		Preferences:    user.Preferences,
 	}, nil
 }
 
@@ -325,9 +327,11 @@ func (s *Service) UpdateProfile(userID uint, req UpdateProfileRequest) (*Profile
 	if req.LastName != "" {
 		user.LastName = req.LastName
 	}
+	user.MiddleName = req.MiddleName
 	if req.Phone != "" {
 		user.Phone = req.Phone
 	}
+	user.AlternatePhone = req.AlternatePhone
 	if req.DateOfBirth != "" {
 		user.DateOfBirth = req.DateOfBirth
 	}
@@ -352,20 +356,22 @@ func (s *Service) UpdateProfile(userID uint, req UpdateProfileRequest) (*Profile
 	}
 
 	return &ProfileResponse{
-		ID:          user.ID,
-		Email:       user.Email,
-		FirstName:   user.FirstName,
-		LastName:    user.LastName,
-		Phone:       user.Phone,
-		DateOfBirth: user.DateOfBirth,
-		Gender:      user.Gender,
-		Nationality: user.Nationality,
-		Address:     user.Address,
-		Bio:         user.Bio,
-		Role:        user.Role,
-		GoogleID:    user.GoogleID,
-		ImageURL:    user.ImageURL,
-		Preferences: user.Preferences,
+		ID:             user.ID,
+		Email:          user.Email,
+		FirstName:      user.FirstName,
+		LastName:       user.LastName,
+		MiddleName:     user.MiddleName,
+		Phone:          user.Phone,
+		AlternatePhone: user.AlternatePhone,
+		DateOfBirth:    user.DateOfBirth,
+		Gender:         user.Gender,
+		Nationality:    user.Nationality,
+		Address:        user.Address,
+		Bio:            user.Bio,
+		Role:           user.Role,
+		GoogleID:       user.GoogleID,
+		ImageURL:       user.ImageURL,
+		Preferences:    user.Preferences,
 	}, nil
 }
 
