@@ -87,6 +87,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			superadmin.DELETE("/programs/:id", h.DeleteProgramForInstitution)
 
 			superadmin.GET("/entrances", h.ListAllEntrances)
+			superadmin.GET("/entrances/:id", h.GetEntranceForInstitution)
 			superadmin.POST("/entrances", h.CreateEntranceForInstitution)
 			superadmin.PUT("/entrances/:id", h.UpdateEntranceForInstitution)
 			superadmin.DELETE("/entrances/:id", h.DeleteEntranceForInstitution)

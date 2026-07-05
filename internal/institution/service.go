@@ -553,6 +553,10 @@ func (s *Service) GetEntranceByID(instID, id uint) (*InstitutionEntrance, error)
 	return s.repo.FindEntranceByIDAndInstitution(id, instID)
 }
 
+func (s *Service) GetEntranceByIDOnly(id uint) (*InstitutionEntrance, error) {
+	return s.repo.FindEntranceByID(id)
+}
+
 func (s *Service) CreateEntrance(instID uint, req CreateEntranceRequest) (*InstitutionEntrance, error) {
 	date, err := time.Parse("2006-01-02", req.Date)
 	if err != nil {

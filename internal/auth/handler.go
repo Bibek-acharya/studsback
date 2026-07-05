@@ -1615,6 +1615,27 @@ func (h *Handler) ListAllEntrances(c *gin.Context) {
 	})
 }
 
+func (h *Handler) GetEntranceForInstitution(c *gin.Context) {
+	if instService == nil {
+		response.Error(c, 500, "Institution service not available")
+		return
+	}
+
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, 400, "Invalid entrance ID")
+		return
+	}
+
+	entrance, err := instService.GetEntranceByIDOnly(uint(id))
+	if err != nil {
+		response.Error(c, 404, "Entrance not found")
+		return
+	}
+
+	response.Success(c, 200, "Entrance retrieved successfully", entrance)
+}
+
 func (h *Handler) CreateEntranceForInstitution(c *gin.Context) {
 	if instService == nil {
 		response.Error(c, 500, "Institution service not available")
