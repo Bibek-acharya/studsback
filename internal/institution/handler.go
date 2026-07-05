@@ -385,7 +385,7 @@ func (h *Handler) GetEntrances(c *gin.Context) {
 
 	var resp []EntranceResponse
 	for _, e := range entrances {
-		resp = append(resp, toEntranceResponse(e))
+		resp = append(resp, ToEntranceResponse(e))
 	}
 
 	response.Success(c, http.StatusOK, "Entrances retrieved successfully", gin.H{
@@ -412,7 +412,7 @@ func (h *Handler) GetEntranceByID(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, http.StatusOK, "Entrance retrieved successfully", toEntranceResponse(*entrance))
+	response.Success(c, http.StatusOK, "Entrance retrieved successfully", ToEntranceResponse(*entrance))
 }
 
 func (h *Handler) CreateEntrance(c *gin.Context) {
@@ -430,7 +430,7 @@ func (h *Handler) CreateEntrance(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, http.StatusCreated, "Entrance created successfully", toEntranceResponse(*entrance))
+	response.Success(c, http.StatusCreated, "Entrance created successfully", ToEntranceResponse(*entrance))
 }
 
 func (h *Handler) UpdateEntrance(c *gin.Context) {
@@ -453,7 +453,7 @@ func (h *Handler) UpdateEntrance(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, http.StatusOK, "Entrance updated successfully", toEntranceResponse(*entrance))
+	response.Success(c, http.StatusOK, "Entrance updated successfully", ToEntranceResponse(*entrance))
 }
 
 func (h *Handler) DeleteEntrance(c *gin.Context) {
@@ -1781,7 +1781,7 @@ func toCounsellingBookingResponse(b InstitutionCounsellingBooking) CounsellingBo
 	return resp
 }
 
-func toEntranceResponse(e InstitutionEntrance) EntranceResponse {
+func ToEntranceResponse(e InstitutionEntrance) EntranceResponse {
 	var questions interface{}
 	if e.Questions != nil {
 		json.Unmarshal([]byte(*e.Questions), &questions)

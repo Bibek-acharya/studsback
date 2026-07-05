@@ -1633,7 +1633,7 @@ func (h *Handler) GetEntranceForInstitution(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, 200, "Entrance retrieved successfully", entrance)
+	response.Success(c, 200, "Entrance retrieved successfully", institution.ToEntranceResponse(*entrance))
 }
 
 func (h *Handler) CreateEntranceForInstitution(c *gin.Context) {
