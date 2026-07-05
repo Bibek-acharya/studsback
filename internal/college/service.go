@@ -357,7 +357,25 @@ func (s *Service) GetMapColleges(north, south, east, west float64) ([]CollegeMap
 	if err != nil {
 		return nil, err
 	}
-	return buildCollegeMapDTOs(colleges), nil
+
+	dtos := buildCollegeMapDTOs(colleges)
+
+	institutions, err := s.repo.FindInstitutionsWithCoords()
+	if err == nil {
+		for _, inst := range institutions {
+			dtos = append(dtos, CollegeMapDTO{
+				ID:        inst.ID,
+				Name:      inst.Name,
+				Latitude:  inst.Latitude,
+				Longitude: inst.Longitude,
+				District:  inst.District,
+				Province:  inst.Province,
+				Type:      inst.Type,
+			})
+		}
+	}
+
+	return dtos, nil
 }
 
 func (s *Service) UpdateCollegeLocation(id uint, lat, lng float64) error {

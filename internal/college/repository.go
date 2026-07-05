@@ -292,6 +292,25 @@ func (r *Repository) FindAllWithCoords() ([]College, error) {
 	return colleges, err
 }
 
+type InstitutionMapDTO struct {
+	ID        uint    `json:"id"`
+	Name      string  `json:"name"`
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+	District  string  `json:"district,omitempty"`
+	Province  string  `json:"province,omitempty"`
+	Type      string  `json:"type,omitempty"`
+}
+
+func (r *Repository) FindInstitutionsWithCoords() ([]InstitutionMapDTO, error) {
+	var institutions []InstitutionMapDTO
+	err := r.db.Table("institution_users").
+		Select("id, institution_name as name, latitude, longitude, COALESCE(district,'') as district, COALESCE(province,'') as province, COALESCE(organization_type,'') as type").
+		Where("latitude IS NOT NULL AND longitude IS NOT NULL").
+		Find(&institutions).Error
+	return institutions, err
+}
+
 func (r *Repository) UpdateLocation(id uint, lat, lng float64) error {
 	return r.db.Model(&College{}).Where("id = ?", id).
 		Updates(map[string]interface{}{
