@@ -149,6 +149,9 @@ type CreateEntranceRequest struct {
 	UpcomingDates     json.RawMessage `json:"upcoming_dates"`
 	ContactPersons    json.RawMessage `json:"contact_persons"`
 	Faqs              json.RawMessage `json:"faqs"`
+	Email             string          `json:"email"`
+	ContactNumber     string          `json:"contact_number"`
+	SocialLinks       json.RawMessage `json:"social_links"`
 	ApplicationLink   string          `json:"application_link"`
 	NoticeFile        string          `json:"notice_file"`
 }
@@ -179,6 +182,9 @@ type UpdateEntranceRequest struct {
 	UpcomingDates     json.RawMessage `json:"upcoming_dates"`
 	ContactPersons    json.RawMessage `json:"contact_persons"`
 	Faqs              json.RawMessage `json:"faqs"`
+	Email             string          `json:"email"`
+	ContactNumber     string          `json:"contact_number"`
+	SocialLinks       json.RawMessage `json:"social_links"`
 	ApplicationLink   string          `json:"application_link"`
 	NoticeFile        string          `json:"notice_file"`
 }
@@ -214,6 +220,9 @@ type EntranceResponse struct {
 	UpcomingDates     json.RawMessage `json:"upcoming_dates"`
 	ContactPersons    json.RawMessage `json:"contact_persons"`
 	Faqs              json.RawMessage `json:"faqs"`
+	Email             string          `json:"email"`
+	ContactNumber     string          `json:"contact_number"`
+	SocialLinks       json.RawMessage `json:"social_links"`
 	ApplicationLink   string          `json:"application_link"`
 	NoticeFile        string          `json:"notice_file"`
 }

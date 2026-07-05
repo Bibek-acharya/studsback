@@ -585,6 +585,9 @@ func (s *Service) CreateEntrance(instID uint, req CreateEntranceRequest) (*Insti
 		UpcomingDates:     req.UpcomingDates,
 		ContactPersons:    req.ContactPersons,
 		Faqs:              req.Faqs,
+		Email:             req.Email,
+		ContactNumber:     req.ContactNumber,
+		SocialLinks:       req.SocialLinks,
 		ApplicationLink:   req.ApplicationLink,
 		NoticeFile:        req.NoticeFile,
 	}
@@ -700,6 +703,15 @@ func (s *Service) UpdateEntrance(instID, id uint, req UpdateEntranceRequest) (*I
 	}
 	if len(req.Faqs) > 0 {
 		entrance.Faqs = req.Faqs
+	}
+	if req.Email != "" {
+		entrance.Email = req.Email
+	}
+	if req.ContactNumber != "" {
+		entrance.ContactNumber = req.ContactNumber
+	}
+	if len(req.SocialLinks) > 0 {
+		entrance.SocialLinks = req.SocialLinks
 	}
 	if req.ApplicationLink != "" {
 		entrance.ApplicationLink = req.ApplicationLink

@@ -250,6 +250,8 @@ type PublicEntranceResponse struct {
 	Email           string        `json:"email,omitempty"`
 	Website         string        `json:"website,omitempty"`
 	Location        string        `json:"location,omitempty"`
+	ContactNumber   string        `json:"contact_number,omitempty"`
+	SocialLinks     []interface{} `json:"social_links,omitempty"`
 	InstitutionLogo string        `json:"institutionLogo,omitempty"`
 	OverviewDetails []interface{} `json:"overview_details,omitempty"`
 	ApplicationLink string        `json:"application_link,omitempty"`

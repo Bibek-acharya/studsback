@@ -725,6 +725,9 @@ type InstitutionEntranceEntry struct {
 	InstitutionWebsite  string `gorm:"column:institution_website" json:"institution_website"`
 	InstitutionEmail    string `json:"institution_email"`
 	InstitutionPhone    string `json:"institution_phone"`
+	Email               string `json:"email"`
+	ContactNumber       string `json:"contact_number"`
+	SocialLinks         []byte `gorm:"column:social_links" json:"social_links"`
 	OverviewDetails     []byte `gorm:"column:overview_details" json:"overview_details"`
 	ExamDateSchedules   []byte `gorm:"column:exam_date_schedules" json:"exam_date_schedules"`
 	ApplicationLink     string `json:"application_link"`
@@ -757,7 +760,8 @@ func (r *Repository) GetPublishedInstitutionEntrances(search string) ([]Institut
 			institution_entrances.date, institution_entrances.hero_banner, institution_entrances.status,
 			institution_entrances.application_fee as fee, institution_entrances.overview_details,
 			institution_entrances.exam_date_schedules, institution_entrances.application_link,
-			institution_entrances.notice_file,
+			institution_entrances.notice_file, institution_entrances.email, institution_entrances.contact_number,
+			institution_entrances.social_links,
 			iu.institution_name, iu.logo_url as institution_logo, iu.district as institution_location,
 			iu.province as institution_province, iu.website_url as institution_website,
 			iu.contact_email as institution_email, iu.contact_phone as institution_phone`).
@@ -805,7 +809,8 @@ func (r *Repository) GetInstitutionEntranceByID(id string) (*InstitutionEntrance
 			institution_entrances.date, institution_entrances.hero_banner, institution_entrances.status,
 			institution_entrances.application_fee as fee, institution_entrances.overview_details,
 			institution_entrances.exam_date_schedules, institution_entrances.application_link,
-			institution_entrances.notice_file,
+			institution_entrances.notice_file, institution_entrances.email, institution_entrances.contact_number,
+			institution_entrances.social_links,
 			iu.institution_name, iu.logo_url as institution_logo, iu.district as institution_location,
 			iu.province as institution_province, iu.website_url as institution_website,
 			iu.contact_email as institution_email, iu.contact_phone as institution_phone`).

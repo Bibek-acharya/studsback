@@ -1653,6 +1653,9 @@ func (h *Handler) CreateEntranceForInstitution(c *gin.Context) {
 		UpcomingDates:     req.UpcomingDates,
 		ContactPersons:    req.ContactPersons,
 		Faqs:              req.Faqs,
+		Email:             req.Email,
+		ContactNumber:     req.ContactNumber,
+		SocialLinks:       req.SocialLinks,
 		ApplicationLink:   req.ApplicationLink,
 		NoticeFile:        req.NoticeFile,
 	}
@@ -1714,6 +1717,9 @@ func (h *Handler) UpdateEntranceForInstitution(c *gin.Context) {
 		UpcomingDates:     req.UpcomingDates,
 		ContactPersons:    req.ContactPersons,
 		Faqs:              req.Faqs,
+		Email:             req.Email,
+		ContactNumber:     req.ContactNumber,
+		SocialLinks:       req.SocialLinks,
 		ApplicationLink:   req.ApplicationLink,
 		NoticeFile:        req.NoticeFile,
 	}

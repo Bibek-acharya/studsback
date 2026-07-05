@@ -1258,6 +1258,15 @@ func (s *Service) UploadNewsImage(file *multipart.FileHeader) (string, error) {
 	return url, nil
 }
 
+func socialLinksList(data []byte) []interface{} {
+	if len(data) == 0 {
+		return nil
+	}
+	var links []interface{}
+	json.Unmarshal(data, &links)
+	return links
+}
+
 func buildPublicEntranceResponse(exam Exam) PublicEntranceResponse {
 	return PublicEntranceResponse{
 		ID:           exam.ID,
@@ -1367,6 +1376,8 @@ func (s *Service) GetPublicEntrances(page, limit int, search, level, stream, sta
 			Email:           instEmail,
 			Website:         instWebsite,
 			Location:        instLocation,
+			ContactNumber:   ie.ContactNumber,
+			SocialLinks:     socialLinksList(ie.SocialLinks),
 			InstitutionLogo: instLogo,
 			OverviewDetails: overviewDetails,
 			ApplicationLink: ie.ApplicationLink,
@@ -1419,6 +1430,18 @@ func (s *Service) GetPublicEntranceByID(id string) (*PublicEntranceResponse, err
 		if len(instEntrance.OverviewDetails) > 0 {
 			json.Unmarshal(instEntrance.OverviewDetails, &overviewDetails)
 		}
+		var socialLinks []interface{}
+		if len(instEntrance.SocialLinks) > 0 {
+			json.Unmarshal(instEntrance.SocialLinks, &socialLinks)
+		}
+		email := instEntrance.Email
+		if email == "" {
+			email = instEntrance.InstitutionEmail
+		}
+		contactNumber := instEntrance.ContactNumber
+		if contactNumber == "" {
+			contactNumber = instEntrance.InstitutionPhone
+		}
 		return &PublicEntranceResponse{
 			ID:              instEntrance.ID,
 			Title:           instEntrance.Title,
@@ -1429,10 +1452,12 @@ func (s *Service) GetPublicEntranceByID(id string) (*PublicEntranceResponse, err
 			Fee:             instEntrance.Fee,
 			University:      instEntrance.InstitutionName,
 			Board:           instEntrance.InstitutionName,
-			Phone:           instEntrance.InstitutionPhone,
-			Email:           instEntrance.InstitutionEmail,
+			Phone:           contactNumber,
+			Email:           email,
 			Website:         instEntrance.InstitutionWebsite,
 			Location:        loc,
+			ContactNumber:   contactNumber,
+			SocialLinks:     socialLinks,
 			InstitutionLogo: instEntrance.InstitutionLogo,
 			OverviewDetails: overviewDetails,
 			ApplicationLink: instEntrance.ApplicationLink,
