@@ -1305,6 +1305,39 @@ func (s *Service) GetPublicEntrances(page, limit int, search, level, stream, sta
 		if len(ie.OverviewDetails) > 0 {
 			json.Unmarshal(ie.OverviewDetails, &overviewDetails)
 		}
+
+		instName := ie.InstitutionName
+		instLocation := loc
+		instPhone := ie.InstitutionPhone
+		instEmail := ie.InstitutionEmail
+		instWebsite := ie.InstitutionWebsite
+		instLogo := ie.InstitutionLogo
+
+		if instName == "" {
+			for _, item := range overviewDetails {
+				if m, ok := item.(map[string]interface{}); ok {
+					if t, _ := m["type"].(string); t == "institution_meta" {
+						if n, _ := m["name"].(string); n != "" {
+							instName = n
+						}
+						if l, _ := m["location"].(string); l != "" {
+							instLocation = l
+						}
+						if p, _ := m["phone"].(string); p != "" {
+							instPhone = p
+						}
+						if e, _ := m["email"].(string); e != "" {
+							instEmail = e
+						}
+						if w, _ := m["link"].(string); w != "" {
+							instWebsite = w
+						}
+						break
+					}
+				}
+			}
+		}
+
 		deadline := ""
 		if len(ie.ExamDateSchedules) > 0 {
 			var schedules []struct {
@@ -1328,13 +1361,13 @@ func (s *Service) GetPublicEntrances(page, limit int, search, level, stream, sta
 			ImageUrl:        ie.HeroBanner,
 			Status:          ie.Status,
 			Fee:             ie.Fee,
-			University:      ie.InstitutionName,
-			Board:           ie.InstitutionName,
-			Phone:           ie.InstitutionPhone,
-			Email:           ie.InstitutionEmail,
-			Website:         ie.InstitutionWebsite,
-			Location:        loc,
-			InstitutionLogo: ie.InstitutionLogo,
+			University:      instName,
+			Board:           instName,
+			Phone:           instPhone,
+			Email:           instEmail,
+			Website:         instWebsite,
+			Location:        instLocation,
+			InstitutionLogo: instLogo,
 			OverviewDetails: overviewDetails,
 			ApplicationLink: ie.ApplicationLink,
 			NoticeFile:      ie.NoticeFile,

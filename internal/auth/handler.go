@@ -1487,7 +1487,11 @@ func (h *Handler) CreateProgramForInstitution(c *gin.Context) {
 		Status:      req.Status,
 	}
 
-	program, err := instService.CreateProgram(req.InstitutionID, progReq)
+	instID := uint(0)
+	if req.InstitutionID != nil {
+		instID = *req.InstitutionID
+	}
+	program, err := instService.CreateProgram(instID, progReq)
 	if err != nil {
 		response.Error(c, 500, "Failed to create program")
 		return
@@ -1526,7 +1530,11 @@ func (h *Handler) UpdateProgramForInstitution(c *gin.Context) {
 		Status:      req.Status,
 	}
 
-	program, err := instService.UpdateProgram(req.InstitutionID, uint(id), progReq)
+	instID := uint(0)
+	if req.InstitutionID != nil {
+		instID = *req.InstitutionID
+	}
+	program, err := instService.UpdateProgram(instID, uint(id), progReq)
 	if err != nil {
 		response.Error(c, 404, err.Error())
 		return
@@ -1553,7 +1561,11 @@ func (h *Handler) DeleteProgramForInstitution(c *gin.Context) {
 		return
 	}
 
-	if err := instService.DeleteProgram(req.InstitutionID, uint(id)); err != nil {
+	instID := uint(0)
+	if req.InstitutionID != nil {
+		instID = *req.InstitutionID
+	}
+	if err := instService.DeleteProgram(instID, uint(id)); err != nil {
 		if err.Error() == "record not found" {
 			response.Error(c, 404, "Program not found")
 		} else {
@@ -1645,7 +1657,11 @@ func (h *Handler) CreateEntranceForInstitution(c *gin.Context) {
 		NoticeFile:        req.NoticeFile,
 	}
 
-	entrance, err := instService.CreateEntrance(req.InstitutionID, entReq)
+	instID := uint(0)
+	if req.InstitutionID != nil {
+		instID = *req.InstitutionID
+	}
+	entrance, err := instService.CreateEntrance(instID, entReq)
 	if err != nil {
 		response.Error(c, 400, err.Error())
 		return
@@ -1702,7 +1718,11 @@ func (h *Handler) UpdateEntranceForInstitution(c *gin.Context) {
 		NoticeFile:        req.NoticeFile,
 	}
 
-	entrance, err := instService.UpdateEntrance(req.InstitutionID, uint(id), entReq)
+	instID := uint(0)
+	if req.InstitutionID != nil {
+		instID = *req.InstitutionID
+	}
+	entrance, err := instService.UpdateEntrance(instID, uint(id), entReq)
 	if err != nil {
 		response.Error(c, 404, err.Error())
 		return
@@ -1729,7 +1749,11 @@ func (h *Handler) DeleteEntranceForInstitution(c *gin.Context) {
 		return
 	}
 
-	if err := instService.DeleteEntrance(req.InstitutionID, uint(id)); err != nil {
+	instID := uint(0)
+	if req.InstitutionID != nil {
+		instID = *req.InstitutionID
+	}
+	if err := instService.DeleteEntrance(instID, uint(id)); err != nil {
 		if err.Error() == "record not found" {
 			response.Error(c, 404, "Entrance not found")
 		} else {
@@ -1821,7 +1845,11 @@ func (h *Handler) CreateAdmissionPageForInstitution(c *gin.Context) {
 		Status: req.Status,
 	}
 
-	page, err := instService.CreateAdmissionPage(req.InstitutionID, pageReq)
+	instID := uint(0)
+	if req.InstitutionID != nil {
+		instID = *req.InstitutionID
+	}
+	page, err := instService.CreateAdmissionPage(instID, pageReq)
 	if err != nil {
 		response.Error(c, 500, "Failed to create admission page")
 		return
@@ -1853,7 +1881,11 @@ func (h *Handler) UpdateAdmissionPageForInstitution(c *gin.Context) {
 		Status: req.Status,
 	}
 
-	page, err := instService.UpdateAdmissionPage(req.InstitutionID, uint(id), pageReq)
+	instID := uint(0)
+	if req.InstitutionID != nil {
+		instID = *req.InstitutionID
+	}
+	page, err := instService.UpdateAdmissionPage(instID, uint(id), pageReq)
 	if err != nil {
 		response.Error(c, 404, err.Error())
 		return
@@ -1880,7 +1912,11 @@ func (h *Handler) DeleteAdmissionPageForInstitution(c *gin.Context) {
 		return
 	}
 
-	if err := instService.DeleteAdmissionPage(req.InstitutionID, uint(id)); err != nil {
+	instID := uint(0)
+	if req.InstitutionID != nil {
+		instID = *req.InstitutionID
+	}
+	if err := instService.DeleteAdmissionPage(instID, uint(id)); err != nil {
 		if err.Error() == "record not found" {
 			response.Error(c, 404, "Admission page not found")
 		} else {

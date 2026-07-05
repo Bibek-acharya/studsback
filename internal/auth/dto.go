@@ -284,7 +284,7 @@ type SuperadminDashboardStats struct {
 
 // Superadmin CRUD request types for programs, entrances, admission pages
 type SuperadminCreateProgramRequest struct {
-	InstitutionID uint        `json:"institution_id" binding:"required"`
+	InstitutionID *uint       `json:"institution_id"`
 	Name          string      `json:"name" binding:"required"`
 	Description   string      `json:"description"`
 	Duration      string      `json:"duration"`
@@ -297,7 +297,7 @@ type SuperadminCreateProgramRequest struct {
 }
 
 type SuperadminUpdateProgramRequest struct {
-	InstitutionID uint        `json:"institution_id" binding:"required"`
+	InstitutionID *uint       `json:"institution_id"`
 	Name          string      `json:"name"`
 	Description   string      `json:"description"`
 	Duration      string      `json:"duration"`
@@ -310,7 +310,7 @@ type SuperadminUpdateProgramRequest struct {
 }
 
 type SuperadminCreateEntranceRequest struct {
-	InstitutionID     uint            `json:"institution_id" binding:"required"`
+	InstitutionID     *uint           `json:"institution_id"`
 	Title             string          `json:"title" binding:"required"`
 	Description       string          `json:"description"`
 	Program           string          `json:"program"`
@@ -341,7 +341,7 @@ type SuperadminCreateEntranceRequest struct {
 }
 
 type SuperadminUpdateEntranceRequest struct {
-	InstitutionID     uint            `json:"institution_id" binding:"required"`
+	InstitutionID     *uint           `json:"institution_id"`
 	Title             string          `json:"title"`
 	Description       string          `json:"description"`
 	Program           string          `json:"program"`
@@ -372,17 +372,17 @@ type SuperadminUpdateEntranceRequest struct {
 }
 
 type SuperadminCreateAdmissionPageRequest struct {
-	InstitutionID uint            `json:"institution_id" binding:"required"`
+	InstitutionID *uint           `json:"institution_id"`
 	Data          json.RawMessage `json:"data"`
 	Status        string          `json:"status"`
 }
 
 type SuperadminUpdateAdmissionPageRequest struct {
-	InstitutionID uint            `json:"institution_id" binding:"required"`
+	InstitutionID *uint           `json:"institution_id"`
 	Data          json.RawMessage `json:"data"`
 	Status        *string         `json:"status"`
 }
 
 type SuperadminDeleteRequest struct {
-	InstitutionID uint `json:"institution_id" binding:"required"`
+	InstitutionID *uint `json:"institution_id"`
 }

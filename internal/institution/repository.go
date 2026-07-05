@@ -932,6 +932,7 @@ func (r *Repository) FindPublishedAdmissionInstitutions(page, limit int, level s
 		args = append(args, level)
 	}
 
+	// Count institutions with published admissions
 	countQuery := `SELECT COUNT(*) FROM institution_users iu 
 		WHERE iu.id IN (` + subQuery + `)
 		AND iu.deleted_at IS NULL`
