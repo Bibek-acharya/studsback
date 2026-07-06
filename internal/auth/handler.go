@@ -1556,13 +1556,8 @@ func (h *Handler) DeleteProgramForInstitution(c *gin.Context) {
 	}
 
 	var req SuperadminDeleteRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, 400, err.Error())
-		return
-	}
-
 	instID := uint(0)
-	if req.InstitutionID != nil {
+	if err := c.ShouldBindJSON(&req); err == nil && req.InstitutionID != nil {
 		instID = *req.InstitutionID
 	}
 	if err := instService.DeleteProgram(instID, uint(id)); err != nil {
@@ -1771,13 +1766,8 @@ func (h *Handler) DeleteEntranceForInstitution(c *gin.Context) {
 	}
 
 	var req SuperadminDeleteRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, 400, err.Error())
-		return
-	}
-
 	instID := uint(0)
-	if req.InstitutionID != nil {
+	if err := c.ShouldBindJSON(&req); err == nil && req.InstitutionID != nil {
 		instID = *req.InstitutionID
 	}
 	if err := instService.DeleteEntrance(instID, uint(id)); err != nil {
@@ -1934,13 +1924,8 @@ func (h *Handler) DeleteAdmissionPageForInstitution(c *gin.Context) {
 	}
 
 	var req SuperadminDeleteRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, 400, err.Error())
-		return
-	}
-
 	instID := uint(0)
-	if req.InstitutionID != nil {
+	if err := c.ShouldBindJSON(&req); err == nil && req.InstitutionID != nil {
 		instID = *req.InstitutionID
 	}
 	if err := instService.DeleteAdmissionPage(instID, uint(id)); err != nil {
