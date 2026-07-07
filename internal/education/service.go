@@ -1314,6 +1314,42 @@ func (s *Service) GetPublicEntrances(page, limit int, search, level, stream, sta
 		if len(ie.OverviewDetails) > 0 {
 			json.Unmarshal(ie.OverviewDetails, &overviewDetails)
 		}
+		var eligibilityList []interface{}
+		if len(ie.EligibilityList) > 0 {
+			json.Unmarshal(ie.EligibilityList, &eligibilityList)
+		}
+		var applicationSteps []interface{}
+		if len(ie.ApplicationSteps) > 0 {
+			json.Unmarshal(ie.ApplicationSteps, &applicationSteps)
+		}
+		var examPattern []interface{}
+		if len(ie.ExamPattern) > 0 {
+			json.Unmarshal(ie.ExamPattern, &examPattern)
+		}
+		var subjectMarks []interface{}
+		if len(ie.SubjectMarks) > 0 {
+			json.Unmarshal(ie.SubjectMarks, &subjectMarks)
+		}
+		var modelSets []interface{}
+		if len(ie.ModelSets) > 0 {
+			json.Unmarshal(ie.ModelSets, &modelSets)
+		}
+		var upcomingDates []interface{}
+		if len(ie.UpcomingDates) > 0 {
+			json.Unmarshal(ie.UpcomingDates, &upcomingDates)
+		}
+		var contactPersons []interface{}
+		if len(ie.ContactPersons) > 0 {
+			json.Unmarshal(ie.ContactPersons, &contactPersons)
+		}
+		var faqs []interface{}
+		if len(ie.Faqs) > 0 {
+			json.Unmarshal(ie.Faqs, &faqs)
+		}
+		var examDateSchedules []interface{}
+		if len(ie.ExamDateSchedules) > 0 {
+			json.Unmarshal(ie.ExamDateSchedules, &examDateSchedules)
+		}
 
 		instName := ie.InstitutionName
 		instLocation := loc
@@ -1362,26 +1398,35 @@ func (s *Service) GetPublicEntrances(page, limit int, search, level, stream, sta
 			}
 		}
 		allResponses = append(allResponses, PublicEntranceResponse{
-			FormDeadline:    deadline,
-			ID:              ie.ID,
-			Title:           ie.Title,
-			Description:     ie.Description,
-			ExamDate:        ie.Date,
-			ImageUrl:        ie.HeroBanner,
-			Status:          ie.Status,
-			Fee:             ie.Fee,
-			University:      instName,
-			Board:           instName,
-			Phone:           instPhone,
-			Email:           instEmail,
-			Website:         instWebsite,
-			Location:        instLocation,
-			ContactNumber:   ie.ContactNumber,
-			SocialLinks:     socialLinksList(ie.SocialLinks),
-			InstitutionLogo: instLogo,
-			OverviewDetails: overviewDetails,
-			ApplicationLink: ie.ApplicationLink,
-			NoticeFile:      ie.NoticeFile,
+			FormDeadline:      deadline,
+			ID:                ie.ID,
+			Title:             ie.Title,
+			Description:       ie.Description,
+			ExamDate:          ie.Date,
+			ImageUrl:          ie.HeroBanner,
+			Status:            ie.Status,
+			Fee:               ie.Fee,
+			University:        instName,
+			Board:             instName,
+			Phone:             instPhone,
+			Email:             instEmail,
+			Website:           instWebsite,
+			Location:          instLocation,
+			ContactNumber:     ie.ContactNumber,
+			SocialLinks:       socialLinksList(ie.SocialLinks),
+			InstitutionLogo:   instLogo,
+			OverviewDetails:   overviewDetails,
+			ApplicationLink:   ie.ApplicationLink,
+			NoticeFile:        ie.NoticeFile,
+			EligibilityList:   eligibilityList,
+			ApplicationSteps:  applicationSteps,
+			ExamPattern:       examPattern,
+			SubjectMarks:      subjectMarks,
+			ModelSets:         modelSets,
+			UpcomingDates:     upcomingDates,
+			ContactPersons:    contactPersons,
+			Faqs:              faqs,
+			ExamDateSchedules: examDateSchedules,
 		})
 	}
 
@@ -1434,6 +1479,42 @@ func (s *Service) GetPublicEntranceByID(id string) (*PublicEntranceResponse, err
 		if len(instEntrance.SocialLinks) > 0 {
 			json.Unmarshal(instEntrance.SocialLinks, &socialLinks)
 		}
+		var eligibilityList []interface{}
+		if len(instEntrance.EligibilityList) > 0 {
+			json.Unmarshal(instEntrance.EligibilityList, &eligibilityList)
+		}
+		var applicationSteps []interface{}
+		if len(instEntrance.ApplicationSteps) > 0 {
+			json.Unmarshal(instEntrance.ApplicationSteps, &applicationSteps)
+		}
+		var examPattern []interface{}
+		if len(instEntrance.ExamPattern) > 0 {
+			json.Unmarshal(instEntrance.ExamPattern, &examPattern)
+		}
+		var subjectMarks []interface{}
+		if len(instEntrance.SubjectMarks) > 0 {
+			json.Unmarshal(instEntrance.SubjectMarks, &subjectMarks)
+		}
+		var modelSets []interface{}
+		if len(instEntrance.ModelSets) > 0 {
+			json.Unmarshal(instEntrance.ModelSets, &modelSets)
+		}
+		var upcomingDates []interface{}
+		if len(instEntrance.UpcomingDates) > 0 {
+			json.Unmarshal(instEntrance.UpcomingDates, &upcomingDates)
+		}
+		var contactPersons []interface{}
+		if len(instEntrance.ContactPersons) > 0 {
+			json.Unmarshal(instEntrance.ContactPersons, &contactPersons)
+		}
+		var faqs []interface{}
+		if len(instEntrance.Faqs) > 0 {
+			json.Unmarshal(instEntrance.Faqs, &faqs)
+		}
+		var examDateSchedules []interface{}
+		if len(instEntrance.ExamDateSchedules) > 0 {
+			json.Unmarshal(instEntrance.ExamDateSchedules, &examDateSchedules)
+		}
 		email := instEntrance.Email
 		if email == "" {
 			email = instEntrance.InstitutionEmail
@@ -1443,25 +1524,34 @@ func (s *Service) GetPublicEntranceByID(id string) (*PublicEntranceResponse, err
 			contactNumber = instEntrance.InstitutionPhone
 		}
 		return &PublicEntranceResponse{
-			ID:              instEntrance.ID,
-			Title:           instEntrance.Title,
-			Description:     instEntrance.Description,
-			ExamDate:        instEntrance.Date,
-			ImageUrl:        instEntrance.HeroBanner,
-			Status:          instEntrance.Status,
-			Fee:             instEntrance.Fee,
-			University:      instEntrance.InstitutionName,
-			Board:           instEntrance.InstitutionName,
-			Phone:           contactNumber,
-			Email:           email,
-			Website:         instEntrance.InstitutionWebsite,
-			Location:        loc,
-			ContactNumber:   contactNumber,
-			SocialLinks:     socialLinks,
-			InstitutionLogo: instEntrance.InstitutionLogo,
-			OverviewDetails: overviewDetails,
-			ApplicationLink: instEntrance.ApplicationLink,
-			NoticeFile:      instEntrance.NoticeFile,
+			ID:                instEntrance.ID,
+			Title:             instEntrance.Title,
+			Description:       instEntrance.Description,
+			ExamDate:          instEntrance.Date,
+			ImageUrl:          instEntrance.HeroBanner,
+			Status:            instEntrance.Status,
+			Fee:               instEntrance.Fee,
+			University:        instEntrance.InstitutionName,
+			Board:             instEntrance.InstitutionName,
+			Phone:             contactNumber,
+			Email:             email,
+			Website:           instEntrance.InstitutionWebsite,
+			Location:          loc,
+			ContactNumber:     contactNumber,
+			SocialLinks:       socialLinks,
+			InstitutionLogo:   instEntrance.InstitutionLogo,
+			OverviewDetails:   overviewDetails,
+			ApplicationLink:   instEntrance.ApplicationLink,
+			NoticeFile:        instEntrance.NoticeFile,
+			EligibilityList:   eligibilityList,
+			ApplicationSteps:  applicationSteps,
+			ExamPattern:       examPattern,
+			SubjectMarks:      subjectMarks,
+			ModelSets:         modelSets,
+			UpcomingDates:     upcomingDates,
+			ContactPersons:    contactPersons,
+			Faqs:              faqs,
+			ExamDateSchedules: examDateSchedules,
 		}, nil
 	}
 

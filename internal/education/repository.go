@@ -732,6 +732,15 @@ type InstitutionEntranceEntry struct {
 	ExamDateSchedules   []byte `gorm:"column:exam_date_schedules" json:"exam_date_schedules"`
 	ApplicationLink     string `json:"application_link"`
 	NoticeFile          string `json:"notice_file"`
+	EligibilityList     []byte `gorm:"column:eligibility_list" json:"eligibility_list"`
+	ApplicationSteps    []byte `gorm:"column:application_steps" json:"application_steps"`
+	ExamPattern         []byte `gorm:"column:exam_pattern" json:"exam_pattern"`
+	SubjectMarks        []byte `gorm:"column:subject_marks" json:"subject_marks"`
+	ModelSets           []byte `gorm:"column:model_sets" json:"model_sets"`
+	UpcomingDates       []byte `gorm:"column:upcoming_dates" json:"upcoming_dates"`
+	ContactPersons      []byte `gorm:"column:contact_persons" json:"contact_persons"`
+	Faqs                []byte `gorm:"column:faqs" json:"faqs"`
+	InstitutionLink     string `gorm:"column:institution_link" json:"institution_link"`
 }
 
 func (r *Repository) GetAllExamEntries(search, level, stream, status string) ([]Exam, error) {
@@ -762,6 +771,12 @@ func (r *Repository) GetPublishedInstitutionEntrances(search string) ([]Institut
 			institution_entrances.exam_date_schedules, institution_entrances.application_link,
 			institution_entrances.notice_file, institution_entrances.email, institution_entrances.contact_number,
 			institution_entrances.social_links,
+			institution_entrances.eligibility_list, institution_entrances.application_steps,
+			institution_entrances.exam_pattern, institution_entrances.subject_marks,
+			institution_entrances.model_sets, institution_entrances.upcoming_dates,
+			institution_entrances.contact_persons, institution_entrances.faqs,
+			institution_entrances.institution_name, institution_entrances.institution_location,
+			institution_entrances.institution_link,
 			iu.institution_name, iu.logo_url as institution_logo, iu.district as institution_location,
 			iu.province as institution_province, iu.website_url as institution_website,
 			iu.contact_email as institution_email, iu.contact_phone as institution_phone`).
@@ -811,6 +826,12 @@ func (r *Repository) GetInstitutionEntranceByID(id string) (*InstitutionEntrance
 			institution_entrances.exam_date_schedules, institution_entrances.application_link,
 			institution_entrances.notice_file, institution_entrances.email, institution_entrances.contact_number,
 			institution_entrances.social_links,
+			institution_entrances.eligibility_list, institution_entrances.application_steps,
+			institution_entrances.exam_pattern, institution_entrances.subject_marks,
+			institution_entrances.model_sets, institution_entrances.upcoming_dates,
+			institution_entrances.contact_persons, institution_entrances.faqs,
+			institution_entrances.institution_name, institution_entrances.institution_location,
+			institution_entrances.institution_link,
 			iu.institution_name, iu.logo_url as institution_logo, iu.district as institution_location,
 			iu.province as institution_province, iu.website_url as institution_website,
 			iu.contact_email as institution_email, iu.contact_phone as institution_phone`).
