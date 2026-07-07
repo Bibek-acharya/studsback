@@ -87,6 +87,7 @@ type InstitutionProgramEntry struct {
 	InstitutionName     string  `json:"institution_name"`
 	InstitutionLogo     string  `json:"institution_logo"`
 	InstitutionLocation string  `gorm:"column:institution_location" json:"institution_location"`
+	InstitutionLink     string  `gorm:"column:institution_link" json:"institution_link"`
 	Data                *string `gorm:"column:data" json:"data"`
 }
 
@@ -96,7 +97,10 @@ func (r *Repository) FindPublishedInstitutionPrograms(search, level string) ([]I
 		Select(`institution_programs.id, institution_programs.name as program_name, institution_programs.description,
 			institution_programs.duration, institution_programs.fee, institution_programs.banner_url,
 			institution_programs.data,
-			iu.institution_name, iu.logo_url as institution_logo, iu.district as institution_location`).
+			COALESCE(NULLIF(iu.institution_name, ''), institution_programs.institution_name) as institution_name,
+			iu.logo_url as institution_logo,
+			COALESCE(NULLIF(iu.district, ''), institution_programs.institution_location) as institution_location,
+			institution_programs.institution_link`).
 		Joins("LEFT JOIN institution_users iu ON iu.id = institution_programs.institution_id").
 		Where("institution_programs.status = ?", "active")
 	if search != "" {
