@@ -67,6 +67,15 @@ func (r *Repository) FindProgramsByInstitution(instID uint, page, limit int) ([]
 	return programs, total, err
 }
 
+func (r *Repository) FindProgramByID(id uint) (*InstitutionProgram, error) {
+	var program InstitutionProgram
+	err := r.db.First(&program, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &program, nil
+}
+
 func (r *Repository) FindProgramByIDAndInstitution(id uint, instID uint) (*InstitutionProgram, error) {
 	var program InstitutionProgram
 	err := r.db.Where("id = ? AND institution_id = ?", id, instID).First(&program).Error

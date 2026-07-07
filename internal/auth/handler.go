@@ -1463,6 +1463,24 @@ func (h *Handler) ListAllPrograms(c *gin.Context) {
 	})
 }
 
+func (h *Handler) GetProgramForInstitution(c *gin.Context) {
+	if instService == nil {
+		response.Error(c, 500, "Institution service not available")
+		return
+	}
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, 400, "Invalid program ID")
+		return
+	}
+	program, err := instService.GetProgramByIDOnly(uint(id))
+	if err != nil {
+		response.Error(c, 404, "Program not found")
+		return
+	}
+	response.Success(c, 200, "Program retrieved successfully", program)
+}
+
 func (h *Handler) CreateProgramForInstitution(c *gin.Context) {
 	if instService == nil {
 		response.Error(c, 500, "Institution service not available")

@@ -82,6 +82,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			superadmin.POST("/upload", h.SuperadminUploadFile)
 
 			superadmin.GET("/programs", h.ListAllPrograms)
+			superadmin.GET("/programs/:id", h.GetProgramForInstitution)
 			superadmin.POST("/programs", h.CreateProgramForInstitution)
 			superadmin.PUT("/programs/:id", h.UpdateProgramForInstitution)
 			superadmin.DELETE("/programs/:id", h.DeleteProgramForInstitution)

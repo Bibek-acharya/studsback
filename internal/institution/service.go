@@ -311,6 +311,10 @@ func (s *Service) GetProgramByID(instID, id uint) (*InstitutionProgram, error) {
 	return s.repo.FindProgramByIDAndInstitution(id, instID)
 }
 
+func (s *Service) GetProgramByIDOnly(id uint) (*InstitutionProgram, error) {
+	return s.repo.FindProgramByID(id)
+}
+
 func (s *Service) CreateProgram(instID uint, req CreateProgramRequest) (*InstitutionProgram, error) {
 	status := "active"
 	if req.Status != "" {
