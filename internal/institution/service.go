@@ -317,15 +317,18 @@ func (s *Service) CreateProgram(instID uint, req CreateProgramRequest) (*Institu
 		status = req.Status
 	}
 	program := &InstitutionProgram{
-		InstitutionID: instID,
-		Name:          req.Name,
-		Description:   req.Description,
-		Duration:      req.Duration,
-		Fee:           req.Fee,
-		Eligibility:   req.Eligibility,
-		Capacity:      req.Capacity,
-		BannerURL:     req.BannerURL,
-		Status:        status,
+		InstitutionID:       instID,
+		InstitutionName:     req.InstitutionName,
+		InstitutionLocation: req.InstitutionLocation,
+		InstitutionLink:     req.InstitutionLink,
+		Name:                req.Name,
+		Description:         req.Description,
+		Duration:            req.Duration,
+		Fee:                 req.Fee,
+		Eligibility:         req.Eligibility,
+		Capacity:            req.Capacity,
+		BannerURL:           req.BannerURL,
+		Status:              status,
 	}
 
 	if req.Data != nil {
@@ -376,6 +379,15 @@ func (s *Service) UpdateProgram(instID, id uint, req UpdateProgramRequest) (*Ins
 	if req.Status != "" {
 		program.Status = req.Status
 	}
+	if req.InstitutionName != "" {
+		program.InstitutionName = req.InstitutionName
+	}
+	if req.InstitutionLocation != "" {
+		program.InstitutionLocation = req.InstitutionLocation
+	}
+	if req.InstitutionLink != "" {
+		program.InstitutionLink = req.InstitutionLink
+	}
 
 	if err := s.repo.SaveProgram(program); err != nil {
 		return nil, err
@@ -386,6 +398,10 @@ func (s *Service) UpdateProgram(instID, id uint, req UpdateProgramRequest) (*Ins
 
 func (s *Service) DeleteProgram(instID, id uint) error {
 	return s.repo.DeleteProgram(id, instID)
+}
+
+func (s *Service) DeleteProgramByID(id uint) error {
+	return s.repo.DeleteProgramByID(id)
 }
 
 func (s *Service) GetMedia(instID uint) ([]InstitutionMedia, error) {
@@ -564,36 +580,39 @@ func (s *Service) CreateEntrance(instID uint, req CreateEntranceRequest) (*Insti
 	}
 
 	entrance := &InstitutionEntrance{
-		InstitutionID:     instID,
-		Title:             req.Title,
-		Description:       req.Description,
-		Program:           req.Program,
-		Date:              date,
-		StartTime:         req.StartTime,
-		EndTime:           req.EndTime,
-		Duration:          req.Duration,
-		TotalMarks:        req.TotalMarks,
-		PassingMarks:      req.PassingMarks,
-		TotalSeats:        req.TotalSeats,
-		Instructions:      req.Instructions,
-		HeroBanner:        req.HeroBanner,
-		Status:            "draft",
-		ApplicationFee:    req.ApplicationFee,
-		OverviewDetails:   req.OverviewDetails,
-		ExamDateSchedules: req.ExamDateSchedules,
-		EligibilityList:   req.EligibilityList,
-		ApplicationSteps:  req.ApplicationSteps,
-		ExamPattern:       req.ExamPattern,
-		SubjectMarks:      req.SubjectMarks,
-		ModelSets:         req.ModelSets,
-		UpcomingDates:     req.UpcomingDates,
-		ContactPersons:    req.ContactPersons,
-		Faqs:              req.Faqs,
-		Email:             req.Email,
-		ContactNumber:     req.ContactNumber,
-		SocialLinks:       req.SocialLinks,
-		ApplicationLink:   req.ApplicationLink,
-		NoticeFile:        req.NoticeFile,
+		InstitutionID:       instID,
+		InstitutionName:     req.InstitutionName,
+		InstitutionLocation: req.InstitutionLocation,
+		InstitutionLink:     req.InstitutionLink,
+		Title:               req.Title,
+		Description:         req.Description,
+		Program:             req.Program,
+		Date:                date,
+		StartTime:           req.StartTime,
+		EndTime:             req.EndTime,
+		Duration:            req.Duration,
+		TotalMarks:          req.TotalMarks,
+		PassingMarks:        req.PassingMarks,
+		TotalSeats:          req.TotalSeats,
+		Instructions:        req.Instructions,
+		HeroBanner:          req.HeroBanner,
+		Status:              "draft",
+		ApplicationFee:      req.ApplicationFee,
+		OverviewDetails:     req.OverviewDetails,
+		ExamDateSchedules:   req.ExamDateSchedules,
+		EligibilityList:     req.EligibilityList,
+		ApplicationSteps:    req.ApplicationSteps,
+		ExamPattern:         req.ExamPattern,
+		SubjectMarks:        req.SubjectMarks,
+		ModelSets:           req.ModelSets,
+		UpcomingDates:       req.UpcomingDates,
+		ContactPersons:      req.ContactPersons,
+		Faqs:                req.Faqs,
+		Email:               req.Email,
+		ContactNumber:       req.ContactNumber,
+		SocialLinks:         req.SocialLinks,
+		ApplicationLink:     req.ApplicationLink,
+		NoticeFile:          req.NoticeFile,
 	}
 
 	if req.Status != "" {
@@ -723,6 +742,15 @@ func (s *Service) UpdateEntrance(instID, id uint, req UpdateEntranceRequest) (*I
 	if req.NoticeFile != "" {
 		entrance.NoticeFile = req.NoticeFile
 	}
+	if req.InstitutionName != "" {
+		entrance.InstitutionName = req.InstitutionName
+	}
+	if req.InstitutionLocation != "" {
+		entrance.InstitutionLocation = req.InstitutionLocation
+	}
+	if req.InstitutionLink != "" {
+		entrance.InstitutionLink = req.InstitutionLink
+	}
 
 	if err := s.repo.SaveEntrance(entrance); err != nil {
 		return nil, err
@@ -733,6 +761,10 @@ func (s *Service) UpdateEntrance(instID, id uint, req UpdateEntranceRequest) (*I
 
 func (s *Service) DeleteEntrance(instID, id uint) error {
 	return s.repo.DeleteEntrance(id, instID)
+}
+
+func (s *Service) DeleteEntranceByID(id uint) error {
+	return s.repo.DeleteEntranceByID(id)
 }
 
 func (s *Service) GetEntranceApplicants(instID, entranceID uint) ([]InstitutionEntranceApplicant, error) {
@@ -1582,10 +1614,13 @@ func extractLevel(data *string) string {
 func (s *Service) CreateAdmissionPage(instID uint, req CreateAdmissionPageRequest) (*AdmissionPageResponse, error) {
 	dataStr := string(req.Data)
 	page := &AdmissionPage{
-		InstitutionID: instID,
-		Title:         extractAdmissionTitle(&dataStr),
-		Status:        "draft",
-		Data:          &dataStr,
+		InstitutionID:       instID,
+		InstitutionName:     req.InstitutionName,
+		InstitutionLocation: req.InstitutionLocation,
+		InstitutionLink:     req.InstitutionLink,
+		Title:               extractAdmissionTitle(&dataStr),
+		Status:              "draft",
+		Data:                &dataStr,
 	}
 
 	if req.Status == "published" {
@@ -1657,6 +1692,15 @@ func (s *Service) UpdateAdmissionPage(instID, id uint, req UpdateAdmissionPageRe
 			page.PublishedAt = nil
 		}
 	}
+	if req.InstitutionName != "" {
+		page.InstitutionName = req.InstitutionName
+	}
+	if req.InstitutionLocation != "" {
+		page.InstitutionLocation = req.InstitutionLocation
+	}
+	if req.InstitutionLink != "" {
+		page.InstitutionLink = req.InstitutionLink
+	}
 
 	if err := s.repo.SaveAdmissionPage(page); err != nil {
 		return nil, err
@@ -1679,6 +1723,10 @@ func (s *Service) UpdateAdmissionPage(instID, id uint, req UpdateAdmissionPageRe
 
 func (s *Service) DeleteAdmissionPage(instID, id uint) error {
 	return s.repo.DeleteAdmissionPage(id, instID)
+}
+
+func (s *Service) DeleteAdmissionPageByID(id uint) error {
+	return s.repo.DeleteAdmissionPageByID(id)
 }
 
 // --- Superadmin Service Methods ---
@@ -2045,19 +2093,22 @@ func (s *Service) GetPublicInstitution(id uint) (*PublicInstitutionDetailRespons
 			json.Unmarshal([]byte(*p.Data), &data)
 		}
 		programResponses = append(programResponses, ProgramResponse{
-			ID:            p.ID,
-			CreatedAt:     p.CreatedAt.Format(time.RFC3339),
-			UpdatedAt:     p.UpdatedAt.Format(time.RFC3339),
-			InstitutionID: p.InstitutionID,
-			Name:          p.Name,
-			Description:   p.Description,
-			Duration:      p.Duration,
-			Fee:           p.Fee,
-			Eligibility:   p.Eligibility,
-			Capacity:      p.Capacity,
-			BannerURL:     p.BannerURL,
-			Data:          data,
-			Status:        p.Status,
+			ID:                  p.ID,
+			CreatedAt:           p.CreatedAt.Format(time.RFC3339),
+			UpdatedAt:           p.UpdatedAt.Format(time.RFC3339),
+			InstitutionID:       p.InstitutionID,
+			InstitutionName:     p.InstitutionName,
+			InstitutionLocation: p.InstitutionLocation,
+			InstitutionLink:     p.InstitutionLink,
+			Name:                p.Name,
+			Description:         p.Description,
+			Duration:            p.Duration,
+			Fee:                 p.Fee,
+			Eligibility:         p.Eligibility,
+			Capacity:            p.Capacity,
+			BannerURL:           p.BannerURL,
+			Data:                data,
+			Status:              p.Status,
 		})
 	}
 

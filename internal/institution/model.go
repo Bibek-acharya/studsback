@@ -10,20 +10,23 @@ import (
 )
 
 type InstitutionProgram struct {
-	ID            uint           `gorm:"primarykey" json:"id"`
-	CreatedAt     time.Time      `json:"created_at"`
-	UpdatedAt     time.Time      `json:"updated_at"`
-	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
-	InstitutionID uint           `gorm:"index;not null;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"institution_id"`
-	Name          string         `gorm:"not null" json:"name"`
-	Description   string         `gorm:"type:text" json:"description"`
-	Duration      string         `json:"duration"`
-	Fee           string         `json:"fee"`
-	Eligibility   string         `gorm:"type:text" json:"eligibility"`
-	Capacity      int            `json:"capacity"`
-	BannerURL     string         `json:"banner_url"`
-	Data          *string        `gorm:"type:jsonb;default:'{}'" json:"data"`
-	Status        string         `gorm:"default:'active'" json:"status"`
+	ID                  uint           `gorm:"primarykey" json:"id"`
+	CreatedAt           time.Time      `json:"created_at"`
+	UpdatedAt           time.Time      `json:"updated_at"`
+	DeletedAt           gorm.DeletedAt `gorm:"index" json:"-"`
+	InstitutionID       uint           `gorm:"index;not null;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"institution_id"`
+	InstitutionName     string         `gorm:"default:''" json:"institution_name"`
+	InstitutionLocation string         `gorm:"default:''" json:"institution_location"`
+	InstitutionLink     string         `gorm:"default:''" json:"institution_link"`
+	Name                string         `gorm:"not null" json:"name"`
+	Description         string         `gorm:"type:text" json:"description"`
+	Duration            string         `json:"duration"`
+	Fee                 string         `json:"fee"`
+	Eligibility         string         `gorm:"type:text" json:"eligibility"`
+	Capacity            int            `json:"capacity"`
+	BannerURL           string         `json:"banner_url"`
+	Data                *string        `gorm:"type:jsonb;default:'{}'" json:"data"`
+	Status              string         `gorm:"default:'active'" json:"status"`
 }
 
 type InstitutionMedia struct {
@@ -70,42 +73,45 @@ type InstitutionCounsellingBooking struct {
 }
 
 type InstitutionEntrance struct {
-	ID                uint           `gorm:"primarykey" json:"id"`
-	CreatedAt         time.Time      `json:"created_at"`
-	UpdatedAt         time.Time      `json:"updated_at"`
-	DeletedAt         gorm.DeletedAt `gorm:"index" json:"-"`
-	InstitutionID     uint           `gorm:"index;not null;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"institution_id"`
-	Title             string         `gorm:"not null" json:"title"`
-	Description       string         `gorm:"type:text" json:"description"`
-	Program           string         `json:"program"`
-	Date              time.Time      `json:"date"`
-	StartTime         string         `json:"start_time"`
-	EndTime           string         `json:"end_time"`
-	Duration          int            `json:"duration"`
-	TotalMarks        int            `json:"total_marks"`
-	PassingMarks      int            `json:"passing_marks"`
-	TotalSeats        int            `json:"total_seats"`
-	FilledSeats       int            `gorm:"default:0" json:"filled_seats"`
-	Instructions      string         `gorm:"type:text" json:"instructions"`
-	HeroBanner        string         `json:"hero_banner"`
-	Questions         *string        `gorm:"type:jsonb" json:"questions"`
-	Status            string         `gorm:"default:'upcoming'" json:"status"`
-	ApplicationFee    string         `json:"application_fee"`
-	OverviewDetails   []byte         `gorm:"type:jsonb;default:'[]'" json:"overview_details"`
-	ExamDateSchedules []byte         `gorm:"type:jsonb;default:'[]'" json:"exam_date_schedules"`
-	EligibilityList   []byte         `gorm:"type:jsonb;default:'[]'" json:"eligibility_list"`
-	ApplicationSteps  []byte         `gorm:"type:jsonb;default:'[]'" json:"application_steps"`
-	ExamPattern       []byte         `gorm:"type:jsonb;default:'[]'" json:"exam_pattern"`
-	SubjectMarks      []byte         `gorm:"type:jsonb;default:'[]'" json:"subject_marks"`
-	ModelSets         []byte         `gorm:"type:jsonb;default:'[]'" json:"model_sets"`
-	UpcomingDates     []byte         `gorm:"type:jsonb;default:'[]'" json:"upcoming_dates"`
-	ContactPersons    []byte         `gorm:"type:jsonb;default:'[]'" json:"contact_persons"`
-	Faqs              []byte         `gorm:"type:jsonb;default:'[]'" json:"faqs"`
-	Email             string         `json:"email"`
-	ContactNumber     string         `json:"contact_number"`
-	SocialLinks       []byte         `gorm:"type:jsonb;default:'[]'" json:"social_links"`
-	ApplicationLink   string         `json:"application_link"`
-	NoticeFile        string         `json:"notice_file"`
+	ID                  uint           `gorm:"primarykey" json:"id"`
+	CreatedAt           time.Time      `json:"created_at"`
+	UpdatedAt           time.Time      `json:"updated_at"`
+	DeletedAt           gorm.DeletedAt `gorm:"index" json:"-"`
+	InstitutionID       uint           `gorm:"index;not null;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"institution_id"`
+	InstitutionName     string         `gorm:"default:''" json:"institution_name"`
+	InstitutionLocation string         `gorm:"default:''" json:"institution_location"`
+	InstitutionLink     string         `gorm:"default:''" json:"institution_link"`
+	Title               string         `gorm:"not null" json:"title"`
+	Description         string         `gorm:"type:text" json:"description"`
+	Program             string         `json:"program"`
+	Date                time.Time      `json:"date"`
+	StartTime           string         `json:"start_time"`
+	EndTime             string         `json:"end_time"`
+	Duration            int            `json:"duration"`
+	TotalMarks          int            `json:"total_marks"`
+	PassingMarks        int            `json:"passing_marks"`
+	TotalSeats          int            `json:"total_seats"`
+	FilledSeats         int            `gorm:"default:0" json:"filled_seats"`
+	Instructions        string         `gorm:"type:text" json:"instructions"`
+	HeroBanner          string         `json:"hero_banner"`
+	Questions           *string        `gorm:"type:jsonb" json:"questions"`
+	Status              string         `gorm:"default:'upcoming'" json:"status"`
+	ApplicationFee      string         `json:"application_fee"`
+	OverviewDetails     []byte         `gorm:"type:jsonb;default:'[]'" json:"overview_details"`
+	ExamDateSchedules   []byte         `gorm:"type:jsonb;default:'[]'" json:"exam_date_schedules"`
+	EligibilityList     []byte         `gorm:"type:jsonb;default:'[]'" json:"eligibility_list"`
+	ApplicationSteps    []byte         `gorm:"type:jsonb;default:'[]'" json:"application_steps"`
+	ExamPattern         []byte         `gorm:"type:jsonb;default:'[]'" json:"exam_pattern"`
+	SubjectMarks        []byte         `gorm:"type:jsonb;default:'[]'" json:"subject_marks"`
+	ModelSets           []byte         `gorm:"type:jsonb;default:'[]'" json:"model_sets"`
+	UpcomingDates       []byte         `gorm:"type:jsonb;default:'[]'" json:"upcoming_dates"`
+	ContactPersons      []byte         `gorm:"type:jsonb;default:'[]'" json:"contact_persons"`
+	Faqs                []byte         `gorm:"type:jsonb;default:'[]'" json:"faqs"`
+	Email               string         `json:"email"`
+	ContactNumber       string         `json:"contact_number"`
+	SocialLinks         []byte         `gorm:"type:jsonb;default:'[]'" json:"social_links"`
+	ApplicationLink     string         `json:"application_link"`
+	NoticeFile          string         `json:"notice_file"`
 }
 
 type InstitutionEntranceApplicant struct {
@@ -382,15 +388,18 @@ type Admission struct {
 }
 
 type AdmissionPage struct {
-	ID            uint           `gorm:"primarykey" json:"id"`
-	CreatedAt     time.Time      `json:"created_at"`
-	UpdatedAt     time.Time      `json:"updated_at"`
-	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
-	InstitutionID uint           `gorm:"index;not null;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"institution_id"`
-	Title         string         `json:"title"`
-	Status        string         `gorm:"default:'draft'" json:"status"`
-	PublishedAt   *time.Time     `json:"published_at,omitempty"`
-	Data          *string        `gorm:"type:jsonb;default:'{}'" json:"data"`
+	ID                  uint           `gorm:"primarykey" json:"id"`
+	CreatedAt           time.Time      `json:"created_at"`
+	UpdatedAt           time.Time      `json:"updated_at"`
+	DeletedAt           gorm.DeletedAt `gorm:"index" json:"-"`
+	InstitutionID       uint           `gorm:"index;not null;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"institution_id"`
+	InstitutionName     string         `gorm:"default:''" json:"institution_name"`
+	InstitutionLocation string         `gorm:"default:''" json:"institution_location"`
+	InstitutionLink     string         `gorm:"default:''" json:"institution_link"`
+	Title               string         `json:"title"`
+	Status              string         `gorm:"default:'draft'" json:"status"`
+	PublishedAt         *time.Time     `json:"published_at,omitempty"`
+	Data                *string        `gorm:"type:jsonb;default:'{}'" json:"data"`
 }
 
 type User struct {

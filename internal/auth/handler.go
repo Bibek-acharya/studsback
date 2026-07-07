@@ -1476,15 +1476,18 @@ func (h *Handler) CreateProgramForInstitution(c *gin.Context) {
 	}
 
 	progReq := institution.CreateProgramRequest{
-		Name:        req.Name,
-		Description: req.Description,
-		Duration:    req.Duration,
-		Fee:         req.Fee,
-		Eligibility: req.Eligibility,
-		Capacity:    req.Capacity,
-		BannerURL:   req.BannerURL,
-		Data:        req.Data,
-		Status:      req.Status,
+		Name:                req.Name,
+		Description:         req.Description,
+		Duration:            req.Duration,
+		Fee:                 req.Fee,
+		Eligibility:         req.Eligibility,
+		Capacity:            req.Capacity,
+		BannerURL:           req.BannerURL,
+		InstitutionName:     req.InstitutionName,
+		InstitutionLocation: req.InstitutionLocation,
+		InstitutionLink:     req.InstitutionLink,
+		Data:                req.Data,
+		Status:              req.Status,
 	}
 
 	instID := uint(0)
@@ -1519,15 +1522,18 @@ func (h *Handler) UpdateProgramForInstitution(c *gin.Context) {
 	}
 
 	progReq := institution.UpdateProgramRequest{
-		Name:        req.Name,
-		Description: req.Description,
-		Duration:    req.Duration,
-		Fee:         req.Fee,
-		Eligibility: req.Eligibility,
-		Capacity:    req.Capacity,
-		BannerURL:   req.BannerURL,
-		Data:        req.Data,
-		Status:      req.Status,
+		Name:                req.Name,
+		Description:         req.Description,
+		Duration:            req.Duration,
+		Fee:                 req.Fee,
+		Eligibility:         req.Eligibility,
+		Capacity:            req.Capacity,
+		BannerURL:           req.BannerURL,
+		InstitutionName:     req.InstitutionName,
+		InstitutionLocation: req.InstitutionLocation,
+		InstitutionLink:     req.InstitutionLink,
+		Data:                req.Data,
+		Status:              req.Status,
 	}
 
 	instID := uint(0)
@@ -1555,12 +1561,7 @@ func (h *Handler) DeleteProgramForInstitution(c *gin.Context) {
 		return
 	}
 
-	var req SuperadminDeleteRequest
-	instID := uint(0)
-	if err := c.ShouldBindJSON(&req); err == nil && req.InstitutionID != nil {
-		instID = *req.InstitutionID
-	}
-	if err := instService.DeleteProgram(instID, uint(id)); err != nil {
+	if err := instService.DeleteProgramByID(uint(id)); err != nil {
 		if err.Error() == "record not found" {
 			response.Error(c, 404, "Program not found")
 		} else {
@@ -1644,36 +1645,39 @@ func (h *Handler) CreateEntranceForInstitution(c *gin.Context) {
 	}
 
 	entReq := institution.CreateEntranceRequest{
-		Title:             req.Title,
-		Description:       req.Description,
-		Program:           req.Program,
-		Date:              req.Date,
-		StartTime:         req.StartTime,
-		EndTime:           req.EndTime,
-		Duration:          req.Duration,
-		TotalMarks:        req.TotalMarks,
-		PassingMarks:      req.PassingMarks,
-		TotalSeats:        req.TotalSeats,
-		Instructions:      req.Instructions,
-		HeroBanner:        req.HeroBanner,
-		Questions:         req.Questions,
-		Status:            req.Status,
-		ApplicationFee:    req.ApplicationFee,
-		OverviewDetails:   req.OverviewDetails,
-		ExamDateSchedules: req.ExamDateSchedules,
-		EligibilityList:   req.EligibilityList,
-		ApplicationSteps:  req.ApplicationSteps,
-		ExamPattern:       req.ExamPattern,
-		SubjectMarks:      req.SubjectMarks,
-		ModelSets:         req.ModelSets,
-		UpcomingDates:     req.UpcomingDates,
-		ContactPersons:    req.ContactPersons,
-		Faqs:              req.Faqs,
-		Email:             req.Email,
-		ContactNumber:     req.ContactNumber,
-		SocialLinks:       req.SocialLinks,
-		ApplicationLink:   req.ApplicationLink,
-		NoticeFile:        req.NoticeFile,
+		Title:               req.Title,
+		Description:         req.Description,
+		Program:             req.Program,
+		Date:                req.Date,
+		StartTime:           req.StartTime,
+		EndTime:             req.EndTime,
+		Duration:            req.Duration,
+		TotalMarks:          req.TotalMarks,
+		PassingMarks:        req.PassingMarks,
+		TotalSeats:          req.TotalSeats,
+		Instructions:        req.Instructions,
+		HeroBanner:          req.HeroBanner,
+		Questions:           req.Questions,
+		Status:              req.Status,
+		InstitutionName:     req.InstitutionName,
+		InstitutionLocation: req.InstitutionLocation,
+		InstitutionLink:     req.InstitutionLink,
+		ApplicationFee:      req.ApplicationFee,
+		OverviewDetails:     req.OverviewDetails,
+		ExamDateSchedules:   req.ExamDateSchedules,
+		EligibilityList:     req.EligibilityList,
+		ApplicationSteps:    req.ApplicationSteps,
+		ExamPattern:         req.ExamPattern,
+		SubjectMarks:        req.SubjectMarks,
+		ModelSets:           req.ModelSets,
+		UpcomingDates:       req.UpcomingDates,
+		ContactPersons:      req.ContactPersons,
+		Faqs:                req.Faqs,
+		Email:               req.Email,
+		ContactNumber:       req.ContactNumber,
+		SocialLinks:         req.SocialLinks,
+		ApplicationLink:     req.ApplicationLink,
+		NoticeFile:          req.NoticeFile,
 	}
 
 	instID := uint(0)
@@ -1708,36 +1712,39 @@ func (h *Handler) UpdateEntranceForInstitution(c *gin.Context) {
 	}
 
 	entReq := institution.UpdateEntranceRequest{
-		Title:             req.Title,
-		Description:       req.Description,
-		Program:           req.Program,
-		Date:              req.Date,
-		StartTime:         req.StartTime,
-		EndTime:           req.EndTime,
-		Duration:          req.Duration,
-		TotalMarks:        req.TotalMarks,
-		PassingMarks:      req.PassingMarks,
-		TotalSeats:        req.TotalSeats,
-		Instructions:      req.Instructions,
-		HeroBanner:        req.HeroBanner,
-		Questions:         req.Questions,
-		Status:            req.Status,
-		ApplicationFee:    req.ApplicationFee,
-		OverviewDetails:   req.OverviewDetails,
-		ExamDateSchedules: req.ExamDateSchedules,
-		EligibilityList:   req.EligibilityList,
-		ApplicationSteps:  req.ApplicationSteps,
-		ExamPattern:       req.ExamPattern,
-		SubjectMarks:      req.SubjectMarks,
-		ModelSets:         req.ModelSets,
-		UpcomingDates:     req.UpcomingDates,
-		ContactPersons:    req.ContactPersons,
-		Faqs:              req.Faqs,
-		Email:             req.Email,
-		ContactNumber:     req.ContactNumber,
-		SocialLinks:       req.SocialLinks,
-		ApplicationLink:   req.ApplicationLink,
-		NoticeFile:        req.NoticeFile,
+		Title:               req.Title,
+		Description:         req.Description,
+		Program:             req.Program,
+		Date:                req.Date,
+		StartTime:           req.StartTime,
+		EndTime:             req.EndTime,
+		Duration:            req.Duration,
+		TotalMarks:          req.TotalMarks,
+		PassingMarks:        req.PassingMarks,
+		TotalSeats:          req.TotalSeats,
+		Instructions:        req.Instructions,
+		HeroBanner:          req.HeroBanner,
+		Questions:           req.Questions,
+		Status:              req.Status,
+		InstitutionName:     req.InstitutionName,
+		InstitutionLocation: req.InstitutionLocation,
+		InstitutionLink:     req.InstitutionLink,
+		ApplicationFee:      req.ApplicationFee,
+		OverviewDetails:     req.OverviewDetails,
+		ExamDateSchedules:   req.ExamDateSchedules,
+		EligibilityList:     req.EligibilityList,
+		ApplicationSteps:    req.ApplicationSteps,
+		ExamPattern:         req.ExamPattern,
+		SubjectMarks:        req.SubjectMarks,
+		ModelSets:           req.ModelSets,
+		UpcomingDates:       req.UpcomingDates,
+		ContactPersons:      req.ContactPersons,
+		Faqs:                req.Faqs,
+		Email:               req.Email,
+		ContactNumber:       req.ContactNumber,
+		SocialLinks:         req.SocialLinks,
+		ApplicationLink:     req.ApplicationLink,
+		NoticeFile:          req.NoticeFile,
 	}
 
 	instID := uint(0)
@@ -1765,12 +1772,7 @@ func (h *Handler) DeleteEntranceForInstitution(c *gin.Context) {
 		return
 	}
 
-	var req SuperadminDeleteRequest
-	instID := uint(0)
-	if err := c.ShouldBindJSON(&req); err == nil && req.InstitutionID != nil {
-		instID = *req.InstitutionID
-	}
-	if err := instService.DeleteEntrance(instID, uint(id)); err != nil {
+	if err := instService.DeleteEntranceByID(uint(id)); err != nil {
 		if err.Error() == "record not found" {
 			response.Error(c, 404, "Entrance not found")
 		} else {
@@ -1858,8 +1860,11 @@ func (h *Handler) CreateAdmissionPageForInstitution(c *gin.Context) {
 	}
 
 	pageReq := institution.CreateAdmissionPageRequest{
-		Data:   req.Data,
-		Status: req.Status,
+		InstitutionName:     req.InstitutionName,
+		InstitutionLocation: req.InstitutionLocation,
+		InstitutionLink:     req.InstitutionLink,
+		Data:                req.Data,
+		Status:              req.Status,
 	}
 
 	instID := uint(0)
@@ -1894,8 +1899,11 @@ func (h *Handler) UpdateAdmissionPageForInstitution(c *gin.Context) {
 	}
 
 	pageReq := institution.UpdateAdmissionPageRequest{
-		Data:   req.Data,
-		Status: req.Status,
+		InstitutionName:     req.InstitutionName,
+		InstitutionLocation: req.InstitutionLocation,
+		InstitutionLink:     req.InstitutionLink,
+		Data:                req.Data,
+		Status:              req.Status,
 	}
 
 	instID := uint(0)
@@ -1923,12 +1931,7 @@ func (h *Handler) DeleteAdmissionPageForInstitution(c *gin.Context) {
 		return
 	}
 
-	var req SuperadminDeleteRequest
-	instID := uint(0)
-	if err := c.ShouldBindJSON(&req); err == nil && req.InstitutionID != nil {
-		instID = *req.InstitutionID
-	}
-	if err := instService.DeleteAdmissionPage(instID, uint(id)); err != nil {
+	if err := instService.DeleteAdmissionPageByID(uint(id)); err != nil {
 		if err.Error() == "record not found" {
 			response.Error(c, 404, "Admission page not found")
 		} else {

@@ -95,6 +95,17 @@ func (r *Repository) DeleteProgram(id uint, instID uint) error {
 	return nil
 }
 
+func (r *Repository) DeleteProgramByID(id uint) error {
+	result := r.db.Delete(&InstitutionProgram{}, id)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
 func (r *Repository) FindAllProgramsByInstitution(instID uint) ([]InstitutionProgram, error) {
 	var programs []InstitutionProgram
 	err := r.db.Where("institution_id = ?", instID).Find(&programs).Error
@@ -318,6 +329,17 @@ func (r *Repository) SaveEntrance(entrance *InstitutionEntrance) error {
 
 func (r *Repository) DeleteEntrance(id uint, instID uint) error {
 	result := r.db.Where("id = ? AND institution_id = ?", id, instID).Delete(&InstitutionEntrance{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *Repository) DeleteEntranceByID(id uint) error {
+	result := r.db.Delete(&InstitutionEntrance{}, id)
 	if result.Error != nil {
 		return result.Error
 	}
@@ -813,6 +835,17 @@ func (r *Repository) SaveAdmissionPage(page *AdmissionPage) error {
 
 func (r *Repository) DeleteAdmissionPage(id uint, instID uint) error {
 	result := r.db.Where("id = ? AND institution_id = ?", id, instID).Delete(&AdmissionPage{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *Repository) DeleteAdmissionPageByID(id uint) error {
+	result := r.db.Delete(&AdmissionPage{}, id)
 	if result.Error != nil {
 		return result.Error
 	}

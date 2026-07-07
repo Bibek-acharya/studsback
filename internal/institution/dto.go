@@ -3,43 +3,52 @@ package institution
 import "encoding/json"
 
 type CreateProgramRequest struct {
-	Name        string      `json:"name" binding:"required"`
-	Description string      `json:"description"`
-	Duration    string      `json:"duration"`
-	Fee         string      `json:"fee"`
-	Eligibility string      `json:"eligibility"`
-	Capacity    int         `json:"capacity"`
-	BannerURL   string      `json:"banner_url"`
-	Data        interface{} `json:"data"`
-	Status      string      `json:"status"`
+	Name                string      `json:"name" binding:"required"`
+	Description         string      `json:"description"`
+	Duration            string      `json:"duration"`
+	Fee                 string      `json:"fee"`
+	Eligibility         string      `json:"eligibility"`
+	Capacity            int         `json:"capacity"`
+	BannerURL           string      `json:"banner_url"`
+	InstitutionName     string      `json:"institution_name"`
+	InstitutionLocation string      `json:"institution_location"`
+	InstitutionLink     string      `json:"institution_link"`
+	Data                interface{} `json:"data"`
+	Status              string      `json:"status"`
 }
 
 type UpdateProgramRequest struct {
-	Name        string      `json:"name"`
-	Description string      `json:"description"`
-	Duration    string      `json:"duration"`
-	Fee         string      `json:"fee"`
-	Eligibility string      `json:"eligibility"`
-	Capacity    int         `json:"capacity"`
-	BannerURL   string      `json:"banner_url"`
-	Data        interface{} `json:"data"`
-	Status      string      `json:"status"`
+	Name                string      `json:"name"`
+	Description         string      `json:"description"`
+	Duration            string      `json:"duration"`
+	Fee                 string      `json:"fee"`
+	Eligibility         string      `json:"eligibility"`
+	Capacity            int         `json:"capacity"`
+	BannerURL           string      `json:"banner_url"`
+	InstitutionName     string      `json:"institution_name"`
+	InstitutionLocation string      `json:"institution_location"`
+	InstitutionLink     string      `json:"institution_link"`
+	Data                interface{} `json:"data"`
+	Status              string      `json:"status"`
 }
 
 type ProgramResponse struct {
-	ID            uint        `json:"id"`
-	CreatedAt     string      `json:"created_at"`
-	UpdatedAt     string      `json:"updated_at"`
-	InstitutionID uint        `json:"institution_id"`
-	Name          string      `json:"name"`
-	Description   string      `json:"description"`
-	Duration      string      `json:"duration"`
-	Fee           string      `json:"fee"`
-	Eligibility   string      `json:"eligibility"`
-	Capacity      int         `json:"capacity"`
-	BannerURL     string      `json:"banner_url"`
-	Data          interface{} `json:"data"`
-	Status        string      `json:"status"`
+	ID                  uint        `json:"id"`
+	CreatedAt           string      `json:"created_at"`
+	UpdatedAt           string      `json:"updated_at"`
+	InstitutionID       uint        `json:"institution_id"`
+	InstitutionName     string      `json:"institution_name"`
+	InstitutionLocation string      `json:"institution_location"`
+	InstitutionLink     string      `json:"institution_link"`
+	Name                string      `json:"name"`
+	Description         string      `json:"description"`
+	Duration            string      `json:"duration"`
+	Fee                 string      `json:"fee"`
+	Eligibility         string      `json:"eligibility"`
+	Capacity            int         `json:"capacity"`
+	BannerURL           string      `json:"banner_url"`
+	Data                interface{} `json:"data"`
+	Status              string      `json:"status"`
 }
 
 type CreateMediaRequest struct {
@@ -124,107 +133,116 @@ type PublicCounsellingSessionResponse struct {
 }
 
 type CreateEntranceRequest struct {
-	Title             string          `json:"title" binding:"required"`
-	Description       string          `json:"description"`
-	Program           string          `json:"program"`
-	Date              string          `json:"date" binding:"required"`
-	StartTime         string          `json:"start_time"`
-	EndTime           string          `json:"end_time"`
-	Duration          int             `json:"duration"`
-	TotalMarks        int             `json:"total_marks"`
-	PassingMarks      int             `json:"passing_marks"`
-	TotalSeats        int             `json:"total_seats"`
-	Instructions      string          `json:"instructions"`
-	HeroBanner        string          `json:"hero_banner"`
-	Questions         interface{}     `json:"questions"`
-	Status            string          `json:"status"`
-	ApplicationFee    string          `json:"application_fee"`
-	OverviewDetails   json.RawMessage `json:"overview_details"`
-	ExamDateSchedules json.RawMessage `json:"exam_date_schedules"`
-	EligibilityList   json.RawMessage `json:"eligibility_list"`
-	ApplicationSteps  json.RawMessage `json:"application_steps"`
-	ExamPattern       json.RawMessage `json:"exam_pattern"`
-	SubjectMarks      json.RawMessage `json:"subject_marks"`
-	ModelSets         json.RawMessage `json:"model_sets"`
-	UpcomingDates     json.RawMessage `json:"upcoming_dates"`
-	ContactPersons    json.RawMessage `json:"contact_persons"`
-	Faqs              json.RawMessage `json:"faqs"`
-	Email             string          `json:"email"`
-	ContactNumber     string          `json:"contact_number"`
-	SocialLinks       json.RawMessage `json:"social_links"`
-	ApplicationLink   string          `json:"application_link"`
-	NoticeFile        string          `json:"notice_file"`
+	Title               string          `json:"title" binding:"required"`
+	Description         string          `json:"description"`
+	Program             string          `json:"program"`
+	Date                string          `json:"date" binding:"required"`
+	StartTime           string          `json:"start_time"`
+	EndTime             string          `json:"end_time"`
+	Duration            int             `json:"duration"`
+	TotalMarks          int             `json:"total_marks"`
+	PassingMarks        int             `json:"passing_marks"`
+	TotalSeats          int             `json:"total_seats"`
+	Instructions        string          `json:"instructions"`
+	HeroBanner          string          `json:"hero_banner"`
+	Questions           interface{}     `json:"questions"`
+	Status              string          `json:"status"`
+	InstitutionName     string          `json:"institution_name"`
+	InstitutionLocation string          `json:"institution_location"`
+	InstitutionLink     string          `json:"institution_link"`
+	ApplicationFee      string          `json:"application_fee"`
+	OverviewDetails     json.RawMessage `json:"overview_details"`
+	ExamDateSchedules   json.RawMessage `json:"exam_date_schedules"`
+	EligibilityList     json.RawMessage `json:"eligibility_list"`
+	ApplicationSteps    json.RawMessage `json:"application_steps"`
+	ExamPattern         json.RawMessage `json:"exam_pattern"`
+	SubjectMarks        json.RawMessage `json:"subject_marks"`
+	ModelSets           json.RawMessage `json:"model_sets"`
+	UpcomingDates       json.RawMessage `json:"upcoming_dates"`
+	ContactPersons      json.RawMessage `json:"contact_persons"`
+	Faqs                json.RawMessage `json:"faqs"`
+	Email               string          `json:"email"`
+	ContactNumber       string          `json:"contact_number"`
+	SocialLinks         json.RawMessage `json:"social_links"`
+	ApplicationLink     string          `json:"application_link"`
+	NoticeFile          string          `json:"notice_file"`
 }
 
 type UpdateEntranceRequest struct {
-	Title             string          `json:"title"`
-	Description       string          `json:"description"`
-	Program           string          `json:"program"`
-	Date              string          `json:"date"`
-	StartTime         string          `json:"start_time"`
-	EndTime           string          `json:"end_time"`
-	Duration          int             `json:"duration"`
-	TotalMarks        int             `json:"total_marks"`
-	PassingMarks      int             `json:"passing_marks"`
-	TotalSeats        int             `json:"total_seats"`
-	Instructions      string          `json:"instructions"`
-	HeroBanner        string          `json:"hero_banner"`
-	Questions         interface{}     `json:"questions"`
-	Status            string          `json:"status"`
-	ApplicationFee    string          `json:"application_fee"`
-	OverviewDetails   json.RawMessage `json:"overview_details"`
-	ExamDateSchedules json.RawMessage `json:"exam_date_schedules"`
-	EligibilityList   json.RawMessage `json:"eligibility_list"`
-	ApplicationSteps  json.RawMessage `json:"application_steps"`
-	ExamPattern       json.RawMessage `json:"exam_pattern"`
-	SubjectMarks      json.RawMessage `json:"subject_marks"`
-	ModelSets         json.RawMessage `json:"model_sets"`
-	UpcomingDates     json.RawMessage `json:"upcoming_dates"`
-	ContactPersons    json.RawMessage `json:"contact_persons"`
-	Faqs              json.RawMessage `json:"faqs"`
-	Email             string          `json:"email"`
-	ContactNumber     string          `json:"contact_number"`
-	SocialLinks       json.RawMessage `json:"social_links"`
-	ApplicationLink   string          `json:"application_link"`
-	NoticeFile        string          `json:"notice_file"`
+	Title               string          `json:"title"`
+	Description         string          `json:"description"`
+	Program             string          `json:"program"`
+	Date                string          `json:"date"`
+	StartTime           string          `json:"start_time"`
+	EndTime             string          `json:"end_time"`
+	Duration            int             `json:"duration"`
+	TotalMarks          int             `json:"total_marks"`
+	PassingMarks        int             `json:"passing_marks"`
+	TotalSeats          int             `json:"total_seats"`
+	Instructions        string          `json:"instructions"`
+	HeroBanner          string          `json:"hero_banner"`
+	Questions           interface{}     `json:"questions"`
+	Status              string          `json:"status"`
+	InstitutionName     string          `json:"institution_name"`
+	InstitutionLocation string          `json:"institution_location"`
+	InstitutionLink     string          `json:"institution_link"`
+	ApplicationFee      string          `json:"application_fee"`
+	OverviewDetails     json.RawMessage `json:"overview_details"`
+	ExamDateSchedules   json.RawMessage `json:"exam_date_schedules"`
+	EligibilityList     json.RawMessage `json:"eligibility_list"`
+	ApplicationSteps    json.RawMessage `json:"application_steps"`
+	ExamPattern         json.RawMessage `json:"exam_pattern"`
+	SubjectMarks        json.RawMessage `json:"subject_marks"`
+	ModelSets           json.RawMessage `json:"model_sets"`
+	UpcomingDates       json.RawMessage `json:"upcoming_dates"`
+	ContactPersons      json.RawMessage `json:"contact_persons"`
+	Faqs                json.RawMessage `json:"faqs"`
+	Email               string          `json:"email"`
+	ContactNumber       string          `json:"contact_number"`
+	SocialLinks         json.RawMessage `json:"social_links"`
+	ApplicationLink     string          `json:"application_link"`
+	NoticeFile          string          `json:"notice_file"`
 }
 
 type EntranceResponse struct {
-	ID                uint            `json:"id"`
-	CreatedAt         string          `json:"created_at"`
-	UpdatedAt         string          `json:"updated_at"`
-	InstitutionID     uint            `json:"institution_id"`
-	Title             string          `json:"title"`
-	Description       string          `json:"description"`
-	Program           string          `json:"program"`
-	Date              string          `json:"date"`
-	StartTime         string          `json:"start_time"`
-	EndTime           string          `json:"end_time"`
-	Duration          int             `json:"duration"`
-	TotalMarks        int             `json:"total_marks"`
-	PassingMarks      int             `json:"passing_marks"`
-	TotalSeats        int             `json:"total_seats"`
-	FilledSeats       int             `json:"filled_seats"`
-	Instructions      string          `json:"instructions"`
-	HeroBanner        string          `json:"hero_banner"`
-	Questions         interface{}     `json:"questions"`
-	Status            string          `json:"status"`
-	ApplicationFee    string          `json:"application_fee"`
-	OverviewDetails   json.RawMessage `json:"overview_details"`
-	ExamDateSchedules json.RawMessage `json:"exam_date_schedules"`
-	EligibilityList   json.RawMessage `json:"eligibility_list"`
-	ApplicationSteps  json.RawMessage `json:"application_steps"`
-	ExamPattern       json.RawMessage `json:"exam_pattern"`
-	SubjectMarks      json.RawMessage `json:"subject_marks"`
-	ModelSets         json.RawMessage `json:"model_sets"`
-	UpcomingDates     json.RawMessage `json:"upcoming_dates"`
-	ContactPersons    json.RawMessage `json:"contact_persons"`
-	Faqs              json.RawMessage `json:"faqs"`
-	Email             string          `json:"email"`
-	ContactNumber     string          `json:"contact_number"`
-	SocialLinks       json.RawMessage `json:"social_links"`
-	ApplicationLink   string          `json:"application_link"`
-	NoticeFile        string          `json:"notice_file"`
+	ID                  uint            `json:"id"`
+	CreatedAt           string          `json:"created_at"`
+	UpdatedAt           string          `json:"updated_at"`
+	InstitutionID       uint            `json:"institution_id"`
+	InstitutionName     string          `json:"institution_name"`
+	InstitutionLocation string          `json:"institution_location"`
+	InstitutionLink     string          `json:"institution_link"`
+	Title               string          `json:"title"`
+	Description         string          `json:"description"`
+	Program             string          `json:"program"`
+	Date                string          `json:"date"`
+	StartTime           string          `json:"start_time"`
+	EndTime             string          `json:"end_time"`
+	Duration            int             `json:"duration"`
+	TotalMarks          int             `json:"total_marks"`
+	PassingMarks        int             `json:"passing_marks"`
+	TotalSeats          int             `json:"total_seats"`
+	FilledSeats         int             `json:"filled_seats"`
+	Instructions        string          `json:"instructions"`
+	HeroBanner          string          `json:"hero_banner"`
+	Questions           interface{}     `json:"questions"`
+	Status              string          `json:"status"`
+	ApplicationFee      string          `json:"application_fee"`
+	OverviewDetails     json.RawMessage `json:"overview_details"`
+	ExamDateSchedules   json.RawMessage `json:"exam_date_schedules"`
+	EligibilityList     json.RawMessage `json:"eligibility_list"`
+	ApplicationSteps    json.RawMessage `json:"application_steps"`
+	ExamPattern         json.RawMessage `json:"exam_pattern"`
+	SubjectMarks        json.RawMessage `json:"subject_marks"`
+	ModelSets           json.RawMessage `json:"model_sets"`
+	UpcomingDates       json.RawMessage `json:"upcoming_dates"`
+	ContactPersons      json.RawMessage `json:"contact_persons"`
+	Faqs                json.RawMessage `json:"faqs"`
+	Email               string          `json:"email"`
+	ContactNumber       string          `json:"contact_number"`
+	SocialLinks         json.RawMessage `json:"social_links"`
+	ApplicationLink     string          `json:"application_link"`
+	NoticeFile          string          `json:"notice_file"`
 }
 
 type EntranceApplicantResponse struct {
@@ -884,13 +902,19 @@ type PublicInstitutionDetailResponse struct {
 // --- Admission Page DTOs ---
 
 type CreateAdmissionPageRequest struct {
-	Data   json.RawMessage `json:"data"`
-	Status string          `json:"status"` // "draft" | "published"
+	InstitutionName     string          `json:"institution_name"`
+	InstitutionLocation string          `json:"institution_location"`
+	InstitutionLink     string          `json:"institution_link"`
+	Data                json.RawMessage `json:"data"`
+	Status              string          `json:"status"` // "draft" | "published"
 }
 
 type UpdateAdmissionPageRequest struct {
-	Data   json.RawMessage `json:"data"`
-	Status *string         `json:"status"`
+	InstitutionName     string          `json:"institution_name"`
+	InstitutionLocation string          `json:"institution_location"`
+	InstitutionLink     string          `json:"institution_link"`
+	Data                json.RawMessage `json:"data"`
+	Status              *string         `json:"status"`
 }
 
 type AdmissionPageResponse struct {
