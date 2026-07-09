@@ -357,44 +357,44 @@ func providerScholarshipToScholarship(ps *ProviderScholarship) *Scholarship {
 		ExamCenters:              ps.ExamCenters,
 		ExamCentersNew:           ps.ExamCentersNew,
 
-		ProviderName:         ps.ProviderName,
-		FundingTypeOther:     ps.FundingTypeOther,
-		ScholarshipTypeOther: ps.ScholarshipTypeOther,
-		EducationLevel:       ps.EducationLevel,
-		EducationLevelOther:  ps.EducationLevelOther,
-		ApplyLink:            ps.ApplyLink,
-		CoverageArea:         ps.CoverageArea,
-		ContactEmail:         ps.ContactEmail,
-		PrimaryPhone:         ps.PrimaryPhone,
-		SecondaryPhone:       ps.SecondaryPhone,
-		WebsiteUrl:           ps.WebsiteUrl,
-		OfficeAddress:        ps.OfficeAddress,
-		MapUrl:               ps.MapUrl,
-		AboutParagraph1:      ps.AboutParagraph1,
-		VideoTutorials:       ps.VideoTutorials,
-		JourneyTimeline:      ps.JourneyTimeline,
-		ScholarshipSectionTitle: ps.ScholarshipSectionTitle,
-		ScholarshipSubtitle:     ps.ScholarshipSubtitle,
-		ScholarshipDescription1: ps.ScholarshipDescription1,
-		ScholarshipDescription2: ps.ScholarshipDescription2,
-		ScholarshipTypes:        ps.ScholarshipTypes,
-		ScholarshipTypesNew:     ps.ScholarshipTypesNew,
-		SelectionRubric:         ps.SelectionRubric,
-		SelectionRubricNew:      ps.SelectionRubricNew,
-		EligibilitySectionTitle: ps.EligibilitySectionTitle,
-		EligibilitySubtitle:     ps.EligibilitySubtitle,
+		ProviderName:             ps.ProviderName,
+		FundingTypeOther:         ps.FundingTypeOther,
+		ScholarshipTypeOther:     ps.ScholarshipTypeOther,
+		EducationLevel:           ps.EducationLevel,
+		EducationLevelOther:      ps.EducationLevelOther,
+		ApplyLink:                ps.ApplyLink,
+		CoverageArea:             ps.CoverageArea,
+		ContactEmail:             ps.ContactEmail,
+		PrimaryPhone:             ps.PrimaryPhone,
+		SecondaryPhone:           ps.SecondaryPhone,
+		WebsiteUrl:               ps.WebsiteUrl,
+		OfficeAddress:            ps.OfficeAddress,
+		MapUrl:                   ps.MapUrl,
+		AboutParagraph1:          ps.AboutParagraph1,
+		VideoTutorials:           ps.VideoTutorials,
+		JourneyTimeline:          ps.JourneyTimeline,
+		ScholarshipSectionTitle:  ps.ScholarshipSectionTitle,
+		ScholarshipSubtitle:      ps.ScholarshipSubtitle,
+		ScholarshipDescription1:  ps.ScholarshipDescription1,
+		ScholarshipDescription2:  ps.ScholarshipDescription2,
+		ScholarshipTypes:         ps.ScholarshipTypes,
+		ScholarshipTypesNew:      ps.ScholarshipTypesNew,
+		SelectionRubric:          ps.SelectionRubric,
+		SelectionRubricNew:       ps.SelectionRubricNew,
+		EligibilitySectionTitle:  ps.EligibilitySectionTitle,
+		EligibilitySubtitle:      ps.EligibilitySubtitle,
 		BasicEligibilityCriteria: ps.BasicEligibilityCriteria,
 		FullyFundedCriteria:      ps.FullyFundedCriteria,
 		PartiallyFundedCriteria:  ps.PartiallyFundedCriteria,
 		SelectionProcessSteps:    ps.SelectionProcessSteps,
-		FAQsNew:                 ps.FAQsNew,
-		GalleryImages:           ps.GalleryImages,
-		GalleryImagesNew:        ps.GalleryImagesNew,
-		PartnerGroups:           ps.PartnerGroups,
-		PartnerMessages:         ps.PartnerMessages,
-		Downloads:               ps.Downloads,
-		ExamDate:                ps.ExamDate,
-		ExamTime:                ps.ExamTime,
+		FAQsNew:                  ps.FAQsNew,
+		GalleryImages:            ps.GalleryImages,
+		GalleryImagesNew:         ps.GalleryImagesNew,
+		PartnerGroups:            ps.PartnerGroups,
+		PartnerMessages:          ps.PartnerMessages,
+		Downloads:                ps.Downloads,
+		ExamDate:                 ps.ExamDate,
+		ExamTime:                 ps.ExamTime,
 	}
 }
 
@@ -497,7 +497,7 @@ func (s *Service) ApplyScholarship(scholarshipID uint, userID *uint, req Scholar
 
 		Stream:     req.Stream,
 		ExamCenter: req.ExamCenter,
- 
+
 		PersonalStatement: req.PersonalStatement,
 		Documents: func() []byte {
 			if len(req.Documents) == 0 {
@@ -886,6 +886,11 @@ func (s *Service) AdminDeleteScholarship(id uint) error {
 	}
 
 	s.deleteScholarshipFiles(scholarship)
+
+	if scholarship.ProviderScholarshipID != nil {
+		_ = s.providerDB.Unscoped().
+			Delete(&ProviderScholarship{}, *scholarship.ProviderScholarshipID).Error
+	}
 
 	return s.repo.Delete(id)
 }
