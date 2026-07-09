@@ -47,7 +47,7 @@ func (r *Repository) FindAll(search, uniType, status string, popular bool, isNep
 
 func (r *Repository) FindByID(id uint) (*University, error) {
 	var uni University
-	err := r.db.Select("id, name, logo, location, type, is_nepali, rank, rating, review_count, verified, popular, description, established, students, chancellor, vice_chancellor, founder, website, cover").First(&uni, id).Error
+	err := r.db.Select("id, name, logo, location, type, is_nepali, rank, rating, review_count, verified, popular, description, established, students, chancellor, vice_chancellor, founder, website, cover, about, contact, quick, overview, leadership, courses, programs, scholarships, events, news, downloads, gallery, faculties, admissions, reviews").First(&uni, id).Error
 	if err != nil {
 		return nil, err
 	}
