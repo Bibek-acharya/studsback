@@ -102,7 +102,7 @@ func (r *Repository) FindPublishedInstitutionPrograms(search, level string) ([]I
 			COALESCE(NULLIF(iu.district, ''), institution_programs.institution_location) as institution_location,
 			institution_programs.institution_link`).
 		Joins("LEFT JOIN institution_users iu ON iu.id = institution_programs.institution_id").
-		Where("institution_programs.status = ?", "active")
+		Where("institution_programs.status = ? AND institution_programs.deleted_at IS NULL", "active")
 	if search != "" {
 		query = query.Where("institution_programs.name ILIKE ?", "%"+search+"%")
 	}
@@ -118,7 +118,7 @@ func (r *Repository) FindPublishedInstitutionProgramByID(id uint) (*InstitutionP
 			institution_programs.data,
 			iu.institution_name, iu.logo_url as institution_logo, iu.district as institution_location`).
 		Joins("LEFT JOIN institution_users iu ON iu.id = institution_programs.institution_id").
-		Where("institution_programs.id = ? AND institution_programs.status = ?", id, "active").
+		Where("institution_programs.id = ? AND institution_programs.status = ? AND institution_programs.deleted_at IS NULL", id, "active").
 		First(&entry).Error
 	if err != nil {
 		return nil, err
