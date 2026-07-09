@@ -892,7 +892,7 @@ func (s *Service) AdminDeleteScholarship(id uint) error {
 			Delete(&ProviderScholarship{}, *scholarship.ProviderScholarshipID).Error
 	}
 
-	return s.repo.Delete(id)
+	return s.repo.CascadeDelete(id)
 }
 
 func (s *Service) AdminListScholarships() ([]Scholarship, error) {

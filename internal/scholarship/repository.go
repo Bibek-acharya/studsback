@@ -266,6 +266,20 @@ func (r *Repository) Delete(id uint) error {
 	return r.db.Unscoped().Delete(&Scholarship{}, id).Error
 }
 
+func (r *Repository) CascadeDelete(id uint) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Unscoped().
+			Exec("DELETE FROM scholarship_payments WHERE scholarship_id = ?", id).Error; err != nil {
+			return err
+		}
+		if err := tx.Unscoped().
+			Exec("DELETE FROM scholarship_applications WHERE scholarship_id = ?", id).Error; err != nil {
+			return err
+		}
+		return tx.Unscoped().Delete(&Scholarship{}, id).Error
+	})
+}
+
 func (r *Repository) ApplicationCreate(app *ScholarshipApplication) error {
 	return r.db.Create(app).Error
 }
