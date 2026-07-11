@@ -617,6 +617,10 @@ func (s *Service) CreateEntrance(instID uint, req CreateEntranceRequest) (*Insti
 		SocialLinks:         req.SocialLinks,
 		ApplicationLink:     req.ApplicationLink,
 		NoticeFile:          req.NoticeFile,
+		EmbeddedMap:         req.EmbeddedMap,
+		RequiredDocuments:   req.RequiredDocuments,
+		ExaminationSchedule: req.ExaminationSchedule,
+		ProgramsOffered:     req.ProgramsOffered,
 	}
 
 	if req.Status != "" {
@@ -746,6 +750,18 @@ func (s *Service) UpdateEntrance(instID, id uint, req UpdateEntranceRequest) (*I
 	if req.NoticeFile != "" {
 		entrance.NoticeFile = req.NoticeFile
 	}
+	if req.EmbeddedMap != "" {
+		entrance.EmbeddedMap = req.EmbeddedMap
+	}
+	if len(req.RequiredDocuments) > 0 {
+		entrance.RequiredDocuments = req.RequiredDocuments
+	}
+	if len(req.ExaminationSchedule) > 0 {
+		entrance.ExaminationSchedule = req.ExaminationSchedule
+	}
+	if len(req.ProgramsOffered) > 0 {
+		entrance.ProgramsOffered = req.ProgramsOffered
+	}
 	if req.InstitutionName != "" {
 		entrance.InstitutionName = req.InstitutionName
 	}
@@ -754,6 +770,9 @@ func (s *Service) UpdateEntrance(instID, id uint, req UpdateEntranceRequest) (*I
 	}
 	if req.InstitutionLink != "" {
 		entrance.InstitutionLink = req.InstitutionLink
+	}
+	if req.InstitutionAffiliation != "" {
+		entrance.InstitutionAffiliation = req.InstitutionAffiliation
 	}
 
 	if err := s.repo.SaveEntrance(entrance); err != nil {

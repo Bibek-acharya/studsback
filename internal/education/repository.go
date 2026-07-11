@@ -785,7 +785,7 @@ func (r *Repository) GetPublishedInstitutionEntrances(search string) ([]Institut
 			iu.province as institution_province, iu.website_url as institution_website,
 			iu.contact_email as institution_email, iu.contact_phone as institution_phone`).
 		Joins("LEFT JOIN institution_users iu ON iu.id = institution_entrances.institution_id").
-		Where("institution_entrances.status = ?", "published")
+		Where("institution_entrances.status = ? AND institution_entrances.deleted_at IS NULL", "published")
 	if search != "" {
 		query = query.Where("institution_entrances.title ILIKE ?", "%"+search+"%")
 	}
@@ -840,7 +840,7 @@ func (r *Repository) GetInstitutionEntranceByID(id string) (*InstitutionEntrance
 			iu.province as institution_province, iu.website_url as institution_website,
 			iu.contact_email as institution_email, iu.contact_phone as institution_phone`).
 		Joins("LEFT JOIN institution_users iu ON iu.id = institution_entrances.institution_id").
-		Where("institution_entrances.id = ? AND institution_entrances.status = ?", id, "published").
+		Where("institution_entrances.id = ? AND institution_entrances.status = ? AND institution_entrances.deleted_at IS NULL", id, "published").
 		First(&entry).Error
 	if err != nil {
 		return nil, err
