@@ -320,6 +320,7 @@ func (s *Service) CreateProgram(instID uint, req CreateProgramRequest) (*Institu
 	if req.Status != "" {
 		status = req.Status
 	}
+
 	program := &InstitutionProgram{
 		InstitutionID:       instID,
 		InstitutionName:     req.InstitutionName,
@@ -341,8 +342,57 @@ func (s *Service) CreateProgram(instID uint, req CreateProgramRequest) (*Institu
 		program.Data = &str
 	}
 
+	// If linked to a global course, set the reference
+	if req.GlobalCourseID != nil && *req.GlobalCourseID > 0 {
+		globalCourse, err := s.repo.FindGlobalCourseByID(*req.GlobalCourseID)
+		if err == nil && globalCourse != nil {
+			program.GlobalCourseID = req.GlobalCourseID
+
+			overrides := map[string]interface{}{}
+
+			if title, ok := globalCourse["title"].(string); ok && title != "" {
+				if program.Name == "" {
+					program.Name = title
+				} else if program.Name != title {
+					overrides["name"] = program.Name
+				}
+			}
+			if desc, ok := globalCourse["description"].(string); ok {
+				if program.Description == "" {
+					program.Description = desc
+				} else if program.Description != desc {
+					overrides["description"] = program.Description
+				}
+			}
+			if dur, ok := globalCourse["duration"].(string); ok {
+				if program.Duration == "" {
+					program.Duration = dur
+				} else if program.Duration != dur {
+					overrides["duration"] = program.Duration
+				}
+			}
+
+			if len(overrides) > 0 {
+				data, _ := json.Marshal(overrides)
+				str := string(data)
+				program.Overrides = &str
+			}
+		}
+	}
+
 	if err := s.repo.CreateProgram(program); err != nil {
 		return nil, err
+	}
+
+	// If no global course linked, create a draft course for super admin review
+	if req.GlobalCourseID == nil || *req.GlobalCourseID == 0 {
+		draftID, err := s.repo.CreateCourseFromProgram(program)
+		if err != nil {
+			// Log but don't fail - program was created successfully
+			fmt.Printf("[WARN] Failed to create draft course from program %d: %v\n", program.ID, err)
+		} else {
+			fmt.Printf("[INFO] Created draft course %d from program %d\n", draftID, program.ID)
+		}
 	}
 
 	return program, nil
@@ -392,12 +442,60 @@ func (s *Service) UpdateProgram(instID, id uint, req UpdateProgramRequest) (*Ins
 	if req.InstitutionLink != "" {
 		program.InstitutionLink = req.InstitutionLink
 	}
+	if req.GlobalCourseID != nil {
+		program.GlobalCourseID = req.GlobalCourseID
+	}
+
+	// Recalculate overrides if program is linked to a global course
+	if program.GlobalCourseID != nil && *program.GlobalCourseID > 0 {
+		s.recalculateOverrides(program)
+	} else {
+		program.Overrides = nil
+		program.NullifiedFields = nil
+	}
 
 	if err := s.repo.SaveProgram(program); err != nil {
 		return nil, err
 	}
 
 	return program, nil
+}
+
+func (s *Service) recalculateOverrides(program *InstitutionProgram) {
+	if program.GlobalCourseID == nil || *program.GlobalCourseID == 0 {
+		return
+	}
+	globalCourse, err := s.repo.FindGlobalCourseByID(*program.GlobalCourseID)
+	if err != nil || globalCourse == nil {
+		return
+	}
+
+	overrides := map[string]interface{}{}
+	gcName, _ := globalCourse["title"].(string)
+	gcDesc, _ := globalCourse["description"].(string)
+	gcDur, _ := globalCourse["duration"].(string)
+	gcFee, _ := globalCourse["est_fee"].(string)
+
+	if program.Name != "" && program.Name != gcName {
+		overrides["name"] = program.Name
+	}
+	if program.Description != "" && program.Description != gcDesc {
+		overrides["description"] = program.Description
+	}
+	if program.Duration != "" && program.Duration != gcDur {
+		overrides["duration"] = program.Duration
+	}
+	if program.Fee != "" && program.Fee != gcFee {
+		overrides["fee"] = program.Fee
+	}
+
+	if len(overrides) > 0 {
+		data, _ := json.Marshal(overrides)
+		str := string(data)
+		program.Overrides = &str
+	} else {
+		program.Overrides = nil
+	}
 }
 
 func (s *Service) DeleteProgram(instID, id uint) error {

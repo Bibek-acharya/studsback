@@ -15,7 +15,9 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			education.GET("/exams", h.GetEducationExams)
 			education.GET("/exams/:id", h.GetEducationExamByID)
 			education.GET("/courses", h.GetEducationCourses)
+			education.GET("/courses/search", h.SearchGlobalCourses)
 			education.GET("/courses/filter-counts", h.GetCourseFilterCounts)
+			education.GET("/courses/institution/:id", h.GetInstitutionCourses)
 			education.GET("/courses/:id", h.GetEducationCourseByID)
 			education.GET("/courses/:id/details", h.GetEducationCourseDetailsByID)
 			education.GET("/news", h.GetEducationNews)
@@ -38,6 +40,20 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			entrances.POST("", h.GetPublicEntrances)
 			entrances.GET("/filter-counts", h.GetEntranceFilterCounts)
 			entrances.GET("/:id", h.GetPublicEntranceByID)
+		}
+
+		// Admin course management routes
+		adminCourses := v1.Group("/admin/courses")
+		adminCourses.Use(authMW)
+		adminCourses.Use(roleMW)
+		{
+			adminCourses.GET("", h.AdminListCourses)
+			adminCourses.GET("/pending", h.AdminListPendingCourses)
+			adminCourses.GET("/:id", h.AdminGetCourse)
+			adminCourses.POST("", h.AdminCreateCourse)
+			adminCourses.PUT("/:id", h.AdminUpdateCourse)
+			adminCourses.DELETE("/:id", h.AdminDeleteCourse)
+			adminCourses.PUT("/:id/publish", h.AdminPublishCourse)
 		}
 
 		// Admin blog management routes

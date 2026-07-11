@@ -1708,19 +1708,20 @@ func toProgramResponse(p InstitutionProgram) ProgramResponse {
 		json.Unmarshal([]byte(*p.Data), &data)
 	}
 	return ProgramResponse{
-		ID:            p.ID,
-		CreatedAt:     p.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:     p.UpdatedAt.Format(time.RFC3339),
-		InstitutionID: p.InstitutionID,
-		Name:          p.Name,
-		Description:   p.Description,
-		Duration:      p.Duration,
-		Fee:           p.Fee,
-		Eligibility:   p.Eligibility,
-		Capacity:      p.Capacity,
-		BannerURL:     p.BannerURL,
-		Data:          data,
-		Status:        p.Status,
+		ID:             p.ID,
+		CreatedAt:      p.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:      p.UpdatedAt.Format(time.RFC3339),
+		InstitutionID:  p.InstitutionID,
+		Name:           p.Name,
+		Description:    p.Description,
+		Duration:       p.Duration,
+		Fee:            p.Fee,
+		Eligibility:    p.Eligibility,
+		Capacity:       p.Capacity,
+		BannerURL:      p.BannerURL,
+		Data:           data,
+		Status:         p.Status,
+		GlobalCourseID: p.GlobalCourseID,
 	}
 }
 

@@ -49,6 +49,16 @@ func (h *Handler) GetEducationExamByID(c *gin.Context) {
 	response.Success(c, http.StatusOK, "Education exam retrieved successfully", exam)
 }
 
+func (h *Handler) SearchGlobalCourses(c *gin.Context) {
+	query := c.Query("q")
+	courses, err := h.service.SearchGlobalCourses(query)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to search courses")
+		return
+	}
+	response.Success(c, http.StatusOK, "Courses retrieved successfully", gin.H{"courses": courses})
+}
+
 func (h *Handler) GetEducationCourses(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
@@ -93,6 +103,22 @@ func (h *Handler) GetCourseFilterCounts(c *gin.Context) {
 		"affiliation_counts": counts.AffiliationCount,
 		"total":              counts.Total,
 	})
+}
+
+func (h *Handler) GetInstitutionCourses(c *gin.Context) {
+	instID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid institution ID")
+		return
+	}
+
+	courses, err := h.service.GetInstitutionCourses(uint(instID))
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch institution courses")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Institution courses retrieved successfully", gin.H{"courses": courses})
 }
 
 func (h *Handler) GetEducationCourseByID(c *gin.Context) {
@@ -624,6 +650,105 @@ func (h *Handler) AdminUploadNewsImage(c *gin.Context) {
 	}
 
 	response.Success(c, http.StatusOK, "Image uploaded successfully", gin.H{"url": url})
+}
+
+// ─── Admin Course CRUD Handlers ──────────────────────────────────────────────
+
+func (h *Handler) AdminCreateCourse(c *gin.Context) {
+	var req CreateCourseRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	course, err := h.service.CreateCourse(req)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to create course")
+		return
+	}
+
+	response.Success(c, http.StatusCreated, "Course created successfully", course)
+}
+
+func (h *Handler) AdminListCourses(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+
+	courses, meta, err := h.service.GetAllCoursesAdmin(page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch courses")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Courses retrieved successfully", gin.H{
+		"courses": courses,
+		"meta":    meta,
+	})
+}
+
+func (h *Handler) AdminListPendingCourses(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+
+	courses, meta, err := h.service.GetPendingCourses(page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch pending courses")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Pending courses retrieved successfully", gin.H{
+		"courses": courses,
+		"meta":    meta,
+	})
+}
+
+func (h *Handler) AdminGetCourse(c *gin.Context) {
+	id := c.Param("id")
+	course, err := h.service.GetCourseByIDAdmin(id)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Course not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Course retrieved successfully", course)
+}
+
+func (h *Handler) AdminUpdateCourse(c *gin.Context) {
+	id := c.Param("id")
+	var req UpdateCourseRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	course, err := h.service.UpdateCourse(id, req)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to update course")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Course updated successfully", course)
+}
+
+func (h *Handler) AdminDeleteCourse(c *gin.Context) {
+	id := c.Param("id")
+	if err := h.service.DeleteCourse(id); err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to delete course")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Course deleted successfully", nil)
+}
+
+func (h *Handler) AdminPublishCourse(c *gin.Context) {
+	id := c.Param("id")
+	course, err := h.service.PublishCourse(id)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to publish course")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Course published successfully", course)
 }
 
 func (h *Handler) GetBlogComments(c *gin.Context) {

@@ -1,6 +1,7 @@
 package institution
 
 import (
+	"encoding/json"
 	"strings"
 	"time"
 
@@ -113,6 +114,91 @@ func (r *Repository) DeleteProgramByID(id uint) error {
 		return gorm.ErrRecordNotFound
 	}
 	return nil
+}
+
+func (r *Repository) FindGlobalCourseByID(id uint) (map[string]interface{}, error) {
+	var course struct {
+		ID          uint   `gorm:"column:id"`
+		Title       string `gorm:"column:title"`
+		Description string `gorm:"column:description"`
+		Duration    string `gorm:"column:duration"`
+		Level       string `gorm:"column:level"`
+		Field       string `gorm:"column:field"`
+		EstFee      string `gorm:"column:est_fee"`
+		Affiliation string `gorm:"column:affiliation"`
+		Location    string `gorm:"column:location"`
+		Mode        string `gorm:"column:mode"`
+		DegreeLabel string `gorm:"column:degree_label"`
+	}
+	err := r.db.Table("courses").
+		Where("id = ? AND is_global = ? AND status = ?", id, true, "published").
+		First(&course).Error
+	if err != nil {
+		return nil, err
+	}
+	result := map[string]interface{}{
+		"id":           course.ID,
+		"title":        course.Title,
+		"description":  course.Description,
+		"duration":     course.Duration,
+		"level":        course.Level,
+		"field":        course.Field,
+		"est_fee":      course.EstFee,
+		"affiliation":  course.Affiliation,
+		"location":     course.Location,
+		"mode":         course.Mode,
+		"degree_label": course.DegreeLabel,
+	}
+	return result, nil
+}
+
+type courseDraft struct {
+	ID              uint   `gorm:"column:id"`
+	Title           string `gorm:"column:title"`
+	Description     string `gorm:"column:description"`
+	Duration        string `gorm:"column:duration"`
+	Level           string `gorm:"column:level"`
+	Location        string `gorm:"column:location"`
+	IsGlobal        bool   `gorm:"column:is_global"`
+	Status          string `gorm:"column:status"`
+	CreatedBy       uint   `gorm:"column:created_by"`
+	SourceProgramID *uint  `gorm:"column:source_program_id"`
+}
+
+func (courseDraft) TableName() string {
+	return "courses"
+}
+
+func (r *Repository) CreateCourseFromProgram(program *InstitutionProgram) (uint, error) {
+	course := &courseDraft{
+		Title:           program.Name,
+		Description:     program.Description,
+		Duration:        program.Duration,
+		Level:           extractLevelFromData(program.Data),
+		Location:        program.InstitutionLocation,
+		IsGlobal:        false,
+		Status:          "draft",
+		CreatedBy:       program.InstitutionID,
+		SourceProgramID: &program.ID,
+	}
+	result := r.db.Table("courses").Create(course)
+	if result.Error != nil {
+		return 0, result.Error
+	}
+	return course.ID, nil
+}
+
+func extractLevelFromData(data *string) string {
+	if data == nil || *data == "" {
+		return ""
+	}
+	var parsed struct {
+		Level string `json:"level"`
+	}
+	if err := json.Unmarshal([]byte(*data), &parsed); err != nil {
+		return ""
+	}
+	return parsed.Level
 }
 
 func (r *Repository) FindAllProgramsByInstitution(instID uint) ([]InstitutionProgram, error) {

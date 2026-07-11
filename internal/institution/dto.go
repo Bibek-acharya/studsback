@@ -15,6 +15,7 @@ type CreateProgramRequest struct {
 	InstitutionLink     string      `json:"institution_link"`
 	Data                interface{} `json:"data"`
 	Status              string      `json:"status"`
+	GlobalCourseID      *uint       `json:"globalCourseId"`
 }
 
 type UpdateProgramRequest struct {
@@ -30,6 +31,7 @@ type UpdateProgramRequest struct {
 	InstitutionLink     string      `json:"institution_link"`
 	Data                interface{} `json:"data"`
 	Status              string      `json:"status"`
+	GlobalCourseID      *uint       `json:"globalCourseId"`
 }
 
 type ProgramResponse struct {
@@ -49,6 +51,8 @@ type ProgramResponse struct {
 	BannerURL           string      `json:"banner_url"`
 	Data                interface{} `json:"data"`
 	Status              string      `json:"status"`
+	GlobalCourseID      *uint       `json:"globalCourseId,omitempty"`
+	GlobalCourseTitle   string      `json:"globalCourseTitle,omitempty"`
 }
 
 type CreateMediaRequest struct {

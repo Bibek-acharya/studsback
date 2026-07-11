@@ -192,32 +192,22 @@ func (s *Service) GetEducationCourses() ([]CourseResponse, error) {
 		if err == nil && count > 0 {
 			colleges = int(count)
 		}
-		responses = append(responses, buildCourseResponse(course, colleges))
-	}
-
-	instPrograms, _ := s.repo.FindPublishedInstitutionPrograms("", "")
-	for _, p := range instPrograms {
-		level := extractLevelFromProgramData(p.Data)
-		responses = append(responses, CourseResponse{
-			ID:              fmt.Sprintf("inst-%d", p.ID),
-			Title:           p.ProgramName,
-			Level:           level,
-			Affiliation:     p.InstitutionName,
-			Duration:        p.Duration,
-			EstFee:          p.Fee,
-			Description:     p.Description,
-			Location:        p.InstitutionLocation,
-			Source:          "institution",
-			InstitutionName: p.InstitutionName,
-			Image:           p.BannerURL,
-		})
+		// Also count institutions offering this global course
+		instCount, err := s.repo.CountInstitutionsOfferingCourse(course.ID)
+		if err == nil && instCount > 0 {
+			colleges = int(instCount)
+		}
+		resp := buildCourseResponse(course, colleges)
+		resp.IsGlobal = true
+		resp.Status = "published"
+		responses = append(responses, resp)
 	}
 
 	return responses, nil
 }
 
 func (s *Service) GetEducationCoursesPaginated(page, limit int, search, level, field, affiliation string) ([]CourseResponse, PaginationMeta, error) {
-	allCourses, _, err := s.repo.FindCoursesFiltered(1, 9999, search, level, field, affiliation)
+	allCourses, total, err := s.repo.FindCoursesFiltered(page, limit, search, level, field, affiliation)
 	if err != nil {
 		return nil, PaginationMeta{}, err
 	}
@@ -229,40 +219,19 @@ func (s *Service) GetEducationCoursesPaginated(page, limit int, search, level, f
 		if err == nil && count > 0 {
 			colleges = int(count)
 		}
-		allResponses = append(allResponses, buildCourseResponse(course, colleges))
+		instCount, err := s.repo.CountInstitutionsOfferingCourse(course.ID)
+		if err == nil && instCount > 0 {
+			colleges = int(instCount)
+		}
+		resp := buildCourseResponse(course, colleges)
+		resp.IsGlobal = true
+		resp.Status = "published"
+		allResponses = append(allResponses, resp)
 	}
 
-	instPrograms, _ := s.repo.FindPublishedInstitutionPrograms(search, level)
-	for _, p := range instPrograms {
-		level := extractLevelFromProgramData(p.Data)
-		allResponses = append(allResponses, CourseResponse{
-			ID:              fmt.Sprintf("inst-%d", p.ID),
-			Title:           p.ProgramName,
-			Level:           level,
-			Affiliation:     p.InstitutionName,
-			Duration:        p.Duration,
-			EstFee:          p.Fee,
-			Description:     p.Description,
-			Location:        p.InstitutionLocation,
-			Source:          "institution",
-			InstitutionName: p.InstitutionName,
-			Image:           p.BannerURL,
-		})
-	}
-
-	total := int64(len(allResponses))
 	pages := (total + int64(limit) - 1) / int64(limit)
 	if total == 0 {
 		pages = 0
-	}
-
-	start := (page - 1) * limit
-	if start > int(total) {
-		return []CourseResponse{}, PaginationMeta{Total: total, Page: page, Limit: limit, Pages: pages}, nil
-	}
-	end := start + limit
-	if end > int(total) {
-		end = int(total)
 	}
 
 	meta := PaginationMeta{
@@ -272,7 +241,328 @@ func (s *Service) GetEducationCoursesPaginated(page, limit int, search, level, f
 		Pages: pages,
 	}
 
-	return allResponses[start:end], meta, nil
+	return allResponses, meta, nil
+}
+
+func buildAdminCourseResponse(course Course) AdminCourseResponse {
+	return AdminCourseResponse{
+		ID:              course.ID,
+		Title:           course.Title,
+		ShortTitle:      course.ShortTitle,
+		Affiliation:     course.Affiliation,
+		Badges:          parseStringArrayField(course.Badges),
+		Level:           course.Level,
+		Field:           course.Field,
+		Duration:        course.Duration,
+		EstFee:          course.EstFee,
+		Highlights:      parseStringArrayField(course.Highlights),
+		CareerPath:      course.CareerPath,
+		Description:     course.Description,
+		Location:        course.Location,
+		GovtFee:         course.GovtFee,
+		PrivateFee:      course.PrivateFee,
+		Mode:            course.Mode,
+		DegreeLabel:     course.DegreeLabel,
+		About:           parseStringArrayField(course.About),
+		Curriculum:      parseJSONField(course.Curriculum),
+		Admissions:      parseStringArrayField(course.Admissions),
+		Careers:         parseJSONField(course.Careers),
+		IsGlobal:        course.IsGlobal,
+		Status:          course.Status,
+		CreatedBy:       course.CreatedBy,
+		SourceProgramID: course.SourceProgramID,
+		CreatedAt:       course.CreatedAt.String(),
+		UpdatedAt:       course.UpdatedAt.String(),
+	}
+}
+
+func parseJSONField(data []byte) interface{} {
+	if len(data) == 0 {
+		return nil
+	}
+	var result interface{}
+	if err := json.Unmarshal(data, &result); err == nil {
+		return result
+	}
+	return nil
+}
+
+func (s *Service) CreateCourse(req CreateCourseRequest) (*AdminCourseResponse, error) {
+	badgesJSON, _ := json.Marshal(req.Badges)
+	highlightsJSON, _ := json.Marshal(req.Highlights)
+	aboutJSON, _ := json.Marshal(req.About)
+	admissionsJSON, _ := json.Marshal(req.Admissions)
+
+	var curriculumJSON []byte
+	if req.Curriculum != nil {
+		curriculumJSON, _ = json.Marshal(req.Curriculum)
+	}
+
+	var careersJSON []byte
+	if req.Careers != nil {
+		careersJSON, _ = json.Marshal(req.Careers)
+	}
+
+	course := &Course{
+		Title:       req.Title,
+		ShortTitle:  req.ShortTitle,
+		Affiliation: req.Affiliation,
+		Badges:      badgesJSON,
+		Level:       req.Level,
+		Field:       req.Field,
+		Duration:    req.Duration,
+		EstFee:      req.EstFee,
+		Highlights:  highlightsJSON,
+		CareerPath:  req.CareerPath,
+		Description: req.Description,
+		Location:    req.Location,
+		GovtFee:     req.GovtFee,
+		PrivateFee:  req.PrivateFee,
+		Mode:        req.Mode,
+		DegreeLabel: req.DegreeLabel,
+		About:       aboutJSON,
+		Curriculum:  curriculumJSON,
+		Admissions:  admissionsJSON,
+		Careers:     careersJSON,
+		IsGlobal:    true,
+		Status:      "published",
+	}
+
+	if err := s.repo.CreateCourse(course); err != nil {
+		return nil, err
+	}
+
+	resp := buildAdminCourseResponse(*course)
+	return &resp, nil
+}
+
+func (s *Service) GetAllCoursesAdmin(page, limit int) ([]AdminCourseResponse, PaginationMeta, error) {
+	courses, total, err := s.repo.FindAllCoursesAdmin(page, limit)
+	if err != nil {
+		return nil, PaginationMeta{}, err
+	}
+
+	pages := (total + int64(limit) - 1) / int64(limit)
+	if total == 0 {
+		pages = 0
+	}
+
+	responses := make([]AdminCourseResponse, len(courses))
+	for i, course := range courses {
+		responses[i] = buildAdminCourseResponse(course)
+	}
+
+	meta := PaginationMeta{
+		Total: total,
+		Page:  page,
+		Limit: limit,
+		Pages: pages,
+	}
+
+	return responses, meta, nil
+}
+
+func (s *Service) GetPendingCourses(page, limit int) ([]AdminCourseResponse, PaginationMeta, error) {
+	courses, total, err := s.repo.FindPendingCourses(page, limit)
+	if err != nil {
+		return nil, PaginationMeta{}, err
+	}
+
+	pages := (total + int64(limit) - 1) / int64(limit)
+	if total == 0 {
+		pages = 0
+	}
+
+	responses := make([]AdminCourseResponse, len(courses))
+	for i, course := range courses {
+		responses[i] = buildAdminCourseResponse(course)
+	}
+
+	meta := PaginationMeta{
+		Total: total,
+		Page:  page,
+		Limit: limit,
+		Pages: pages,
+	}
+
+	return responses, meta, nil
+}
+
+func (s *Service) GetCourseByIDAdmin(id string) (*AdminCourseResponse, error) {
+	course, err := s.repo.FindCourseByID(id)
+	if err != nil {
+		return nil, err
+	}
+	resp := buildAdminCourseResponse(*course)
+	return &resp, nil
+}
+
+func (s *Service) UpdateCourse(id string, req UpdateCourseRequest) (*AdminCourseResponse, error) {
+	course, err := s.repo.FindCourseByID(id)
+	if err != nil {
+		return nil, err
+	}
+
+	if req.Title != nil {
+		course.Title = *req.Title
+	}
+	if req.ShortTitle != nil {
+		course.ShortTitle = *req.ShortTitle
+	}
+	if req.Affiliation != nil {
+		course.Affiliation = *req.Affiliation
+	}
+	if req.Badges != nil {
+		course.Badges, _ = json.Marshal(req.Badges)
+	}
+	if req.Level != nil {
+		course.Level = *req.Level
+	}
+	if req.Field != nil {
+		course.Field = *req.Field
+	}
+	if req.Duration != nil {
+		course.Duration = *req.Duration
+	}
+	if req.EstFee != nil {
+		course.EstFee = *req.EstFee
+	}
+	if req.Highlights != nil {
+		course.Highlights, _ = json.Marshal(req.Highlights)
+	}
+	if req.CareerPath != nil {
+		course.CareerPath = *req.CareerPath
+	}
+	if req.Description != nil {
+		course.Description = *req.Description
+	}
+	if req.Location != nil {
+		course.Location = *req.Location
+	}
+	if req.GovtFee != nil {
+		course.GovtFee = *req.GovtFee
+	}
+	if req.PrivateFee != nil {
+		course.PrivateFee = *req.PrivateFee
+	}
+	if req.Mode != nil {
+		course.Mode = *req.Mode
+	}
+	if req.DegreeLabel != nil {
+		course.DegreeLabel = *req.DegreeLabel
+	}
+	if req.About != nil {
+		course.About, _ = json.Marshal(req.About)
+	}
+	if req.Curriculum != nil {
+		course.Curriculum, _ = json.Marshal(req.Curriculum)
+	}
+	if req.Admissions != nil {
+		course.Admissions, _ = json.Marshal(req.Admissions)
+	}
+	if req.Careers != nil {
+		course.Careers, _ = json.Marshal(req.Careers)
+	}
+
+	if err := s.repo.UpdateCourse(course); err != nil {
+		return nil, err
+	}
+
+	resp := buildAdminCourseResponse(*course)
+	return &resp, nil
+}
+
+func (s *Service) DeleteCourse(id string) error {
+	course, err := s.repo.FindCourseByID(id)
+	if err != nil {
+		return err
+	}
+	return s.repo.DeleteCourse(course.ID)
+}
+
+func (s *Service) PublishCourse(id string) (*AdminCourseResponse, error) {
+	course, err := s.repo.FindCourseByID(id)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.repo.SetCoursePublished(course.ID); err != nil {
+		return nil, err
+	}
+
+	course.IsGlobal = true
+	course.Status = "published"
+
+	resp := buildAdminCourseResponse(*course)
+	return &resp, nil
+}
+
+func (s *Service) SearchGlobalCourses(query string) ([]CourseResponse, error) {
+	courses, err := s.repo.FindPublishedGlobalCourses(query)
+	if err != nil {
+		return nil, err
+	}
+
+	responses := make([]CourseResponse, len(courses))
+	for i, course := range courses {
+		responses[i] = buildCourseResponse(course, 0)
+		responses[i].IsGlobal = true
+		responses[i].Status = "published"
+	}
+	return responses, nil
+}
+
+func (s *Service) GetInstitutionCourses(instID uint) ([]CourseResponse, error) {
+	entries, err := s.repo.FindInstitutionProgramsByInstitutionID(instID)
+	if err != nil {
+		return nil, err
+	}
+
+	responses := make([]CourseResponse, 0, len(entries))
+	for _, entry := range entries {
+		level := extractLevelFromProgramData(entry.Data)
+		resp := CourseResponse{
+			ID:              fmt.Sprintf("inst-%d", entry.ID),
+			Title:           entry.ProgramName,
+			Level:           level,
+			Affiliation:     entry.InstitutionName,
+			Duration:        entry.Duration,
+			EstFee:          entry.Fee,
+			Description:     entry.Description,
+			Location:        entry.InstitutionLocation,
+			Source:          "institution",
+			InstitutionName: entry.InstitutionName,
+			Image:           entry.BannerURL,
+			IsGlobal:        false,
+			Status:          "active",
+		}
+
+		// If linked to a global course, merge data
+		if entry.GlobalCourseID != nil && *entry.GlobalCourseID > 0 {
+			globalCourse, err := s.repo.FindCourseByIDOnly(*entry.GlobalCourseID)
+			if err == nil && globalCourse != nil {
+				if resp.Title == "" {
+					resp.Title = globalCourse.Title
+				}
+				if resp.Duration == "" {
+					resp.Duration = globalCourse.Duration
+				}
+				if resp.Description == "" {
+					resp.Description = globalCourse.Description
+				}
+				if resp.Affiliation == "" {
+					resp.Affiliation = globalCourse.Affiliation
+				}
+				if resp.Level == "" {
+					resp.Level = globalCourse.Level
+				}
+			}
+		}
+
+		responses = append(responses, resp)
+	}
+
+	return responses, nil
 }
 
 func (s *Service) GetCourseFilterCounts() (*CourseFilterCounts, error) {
@@ -305,7 +595,8 @@ func programIDFromParam(id string) (uint, bool) {
 func (s *Service) GetEducationCourseByID(id string) (*CourseResponse, error) {
 	if pid, ok := programIDFromParam(id); ok {
 		if program, err := s.repo.FindPublishedInstitutionProgramByID(pid); err == nil && program != nil {
-			return &CourseResponse{
+			respLevel := extractLevelFromProgramData(program.Data)
+			resp := &CourseResponse{
 				ID:              fmt.Sprintf("inst-%d", program.ID),
 				Title:           program.ProgramName,
 				Affiliation:     program.InstitutionName,
@@ -313,10 +604,37 @@ func (s *Service) GetEducationCourseByID(id string) (*CourseResponse, error) {
 				EstFee:          program.Fee,
 				Description:     program.Description,
 				Location:        program.InstitutionLocation,
+				Level:           respLevel,
 				Source:          "institution",
 				InstitutionName: program.InstitutionName,
 				Image:           program.BannerURL,
-			}, nil
+				IsGlobal:        false,
+				Status:          "active",
+			}
+
+			// Merge with global course data if linked
+			if program.GlobalCourseID != nil && *program.GlobalCourseID > 0 {
+				globalCourse, err := s.repo.FindCourseByIDOnly(*program.GlobalCourseID)
+				if err == nil && globalCourse != nil {
+					if resp.Title == "" {
+						resp.Title = globalCourse.Title
+					}
+					if resp.Duration == "" {
+						resp.Duration = globalCourse.Duration
+					}
+					if resp.Description == "" {
+						resp.Description = globalCourse.Description
+					}
+					if resp.Level == "" {
+						resp.Level = globalCourse.Level
+					}
+					if resp.Affiliation == "" {
+						resp.Affiliation = globalCourse.Affiliation
+					}
+				}
+			}
+
+			return resp, nil
 		}
 	}
 
@@ -332,6 +650,8 @@ func (s *Service) GetEducationCourseByID(id string) (*CourseResponse, error) {
 	}
 
 	resp := buildCourseResponse(*course, colleges)
+	resp.IsGlobal = true
+	resp.Status = "published"
 	return &resp, nil
 }
 
@@ -342,19 +662,48 @@ func (s *Service) GetEducationCourseDetailsByID(id string) (*CourseDetailsRespon
 			if program.Data != nil {
 				json.Unmarshal([]byte(*program.Data), &programData)
 			}
+
+			detailsLevel := extractLevelFromProgramData(program.Data)
+			courseResp := CourseResponse{
+				ID:              fmt.Sprintf("inst-%d", program.ID),
+				Title:           program.ProgramName,
+				Affiliation:     program.InstitutionName,
+				Duration:        program.Duration,
+				EstFee:          program.Fee,
+				Description:     program.Description,
+				Location:        program.InstitutionLocation,
+				Level:           detailsLevel,
+				Source:          "institution",
+				InstitutionName: program.InstitutionName,
+				Image:           program.BannerURL,
+				IsGlobal:        false,
+				Status:          "active",
+			}
+
+			// Merge with global course data if linked
+			if program.GlobalCourseID != nil && *program.GlobalCourseID > 0 {
+				globalCourse, err := s.repo.FindCourseByIDOnly(*program.GlobalCourseID)
+				if err == nil && globalCourse != nil {
+					if courseResp.Title == "" {
+						courseResp.Title = globalCourse.Title
+					}
+					if courseResp.Duration == "" {
+						courseResp.Duration = globalCourse.Duration
+					}
+					if courseResp.Description == "" {
+						courseResp.Description = globalCourse.Description
+					}
+					if courseResp.Level == "" {
+						courseResp.Level = globalCourse.Level
+					}
+					if courseResp.Affiliation == "" {
+						courseResp.Affiliation = globalCourse.Affiliation
+					}
+				}
+			}
+
 			return &CourseDetailsResponse{
-				Course: CourseResponse{
-					ID:              fmt.Sprintf("inst-%d", program.ID),
-					Title:           program.ProgramName,
-					Affiliation:     program.InstitutionName,
-					Duration:        program.Duration,
-					EstFee:          program.Fee,
-					Description:     program.Description,
-					Location:        program.InstitutionLocation,
-					Source:          "institution",
-					InstitutionName: program.InstitutionName,
-					Image:           program.BannerURL,
-				},
+				Course:                courseResp,
 				About:                 []string{program.Description},
 				Mode:                  "On-Campus",
 				DegreeLabel:           "Program",

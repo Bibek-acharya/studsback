@@ -510,6 +510,13 @@ func fixMissingColumns(db *gorm.DB) error {
 		{"scholarships", "slug TEXT"},
 		{"provider_scholarships", "slug TEXT"},
 		{"provider_volunteers", "slug TEXT"},
+		{"courses", "is_global BOOLEAN DEFAULT FALSE"},
+		{"courses", "status TEXT DEFAULT 'draft'"},
+		{"courses", "created_by INTEGER DEFAULT 0"},
+		{"courses", "source_program_id INTEGER DEFAULT NULL"},
+		{"institution_programs", "global_course_id INTEGER DEFAULT NULL"},
+		{"institution_programs", "overrides JSONB DEFAULT '{}'"},
+		{"institution_programs", "nullified_fields JSONB DEFAULT '[]'"},
 	}
 	for _, c := range cols {
 		if err := addColumnIfMissing(db, c.table, c.def); err != nil {

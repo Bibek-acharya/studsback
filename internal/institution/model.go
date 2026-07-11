@@ -27,6 +27,9 @@ type InstitutionProgram struct {
 	BannerURL           string         `json:"banner_url"`
 	Data                *string        `gorm:"type:jsonb;default:'{}'" json:"data"`
 	Status              string         `gorm:"default:'active'" json:"status"`
+	GlobalCourseID      *uint          `gorm:"default:null" json:"globalCourseId"`
+	Overrides           *string        `gorm:"type:jsonb;default:'{}'" json:"overrides"`
+	NullifiedFields     *string        `gorm:"type:jsonb;default:'[]'" json:"nullifiedFields"`
 }
 
 type InstitutionMedia struct {

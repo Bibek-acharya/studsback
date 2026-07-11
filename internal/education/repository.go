@@ -52,7 +52,8 @@ func (r *Repository) FindCoursesFiltered(page, limit int, search, level, field, 
 	}
 	offset := (page - 1) * limit
 
-	query := r.db.Model(&Course{})
+	query := r.db.Model(&Course{}).
+		Where("is_global = ? AND status = ?", true, "published")
 
 	if search != "" {
 		query = query.Where("title ILIKE ? OR field ILIKE ? OR affiliation ILIKE ?", "%"+search+"%", "%"+search+"%", "%"+search+"%")
@@ -77,6 +78,34 @@ func (r *Repository) FindCoursesFiltered(page, limit int, search, level, field, 
 	return courses, total, err
 }
 
+func (r *Repository) FindPublishedGlobalCourses(search string) ([]Course, error) {
+	var courses []Course
+	query := r.db.Model(&Course{}).
+		Where("is_global = ? AND status = ?", true, "published")
+	if search != "" {
+		query = query.Where("title ILIKE ?", "%"+search+"%")
+	}
+	err := query.Order("title asc").Limit(20).Find(&courses).Error
+	return courses, err
+}
+
+func (r *Repository) FindInstitutionProgramsByInstitutionID(instID uint) ([]InstitutionProgramEntry, error) {
+	var entries []InstitutionProgramEntry
+	err := r.db.Table("institution_programs").
+		Select(`institution_programs.id, institution_programs.name as program_name, institution_programs.description,
+			institution_programs.duration, institution_programs.fee, institution_programs.banner_url,
+			institution_programs.data, institution_programs.global_course_id,
+			COALESCE(NULLIF(iu.institution_name, ''), institution_programs.institution_name) as institution_name,
+			iu.logo_url as institution_logo,
+			COALESCE(NULLIF(iu.district, ''), institution_programs.institution_location) as institution_location,
+			institution_programs.institution_link`).
+		Joins("LEFT JOIN institution_users iu ON iu.id = institution_programs.institution_id").
+		Where("institution_programs.institution_id = ? AND institution_programs.status = ? AND institution_programs.deleted_at IS NULL", instID, "active").
+		Order("institution_programs.created_at DESC").
+		Find(&entries).Error
+	return entries, err
+}
+
 type InstitutionProgramEntry struct {
 	ID                  uint    `json:"id"`
 	ProgramName         string  `json:"name"`
@@ -89,6 +118,7 @@ type InstitutionProgramEntry struct {
 	InstitutionLocation string  `gorm:"column:institution_location" json:"institution_location"`
 	InstitutionLink     string  `gorm:"column:institution_link" json:"institution_link"`
 	Data                *string `gorm:"column:data" json:"data"`
+	GlobalCourseID      *uint   `gorm:"column:global_course_id" json:"globalCourseId"`
 }
 
 func (r *Repository) FindPublishedInstitutionPrograms(search, level string) ([]InstitutionProgramEntry, error) {
@@ -115,7 +145,7 @@ func (r *Repository) FindPublishedInstitutionProgramByID(id uint) (*InstitutionP
 	err := r.db.Table("institution_programs").
 		Select(`institution_programs.id, institution_programs.name as program_name, institution_programs.description,
 			institution_programs.duration, institution_programs.fee, institution_programs.banner_url,
-			institution_programs.data,
+			institution_programs.data, institution_programs.global_course_id,
 			iu.institution_name, iu.logo_url as institution_logo, iu.district as institution_location`).
 		Joins("LEFT JOIN institution_users iu ON iu.id = institution_programs.institution_id").
 		Where("institution_programs.id = ? AND institution_programs.status = ? AND institution_programs.deleted_at IS NULL", id, "active").
@@ -128,8 +158,18 @@ func (r *Repository) FindPublishedInstitutionProgramByID(id uint) (*InstitutionP
 
 func (r *Repository) FindCourses() ([]Course, error) {
 	var courses []Course
-	err := r.db.Find(&courses).Error
+	err := r.db.Where("is_global = ? AND status = ?", true, "published").Find(&courses).Error
 	return courses, err
+}
+
+func (r *Repository) CountInstitutionsOfferingCourse(courseID uint) (int64, error) {
+	var count int64
+	err := r.db.Model(&InstitutionProgramEntry{}).
+		Table("institution_programs").
+		Distinct("institution_id").
+		Where("global_course_id = ? AND status = ? AND deleted_at IS NULL", courseID, "active").
+		Count(&count).Error
+	return count, err
 }
 
 // CourseFilterCounts for filter sidebar
@@ -147,12 +187,14 @@ func (r *Repository) GetCourseFilterCounts() (*CourseFilterCounts, error) {
 		AffiliationCount: make(map[string]int64),
 	}
 
+	baseQuery := r.db.Model(&Course{}).Where("is_global = ? AND status = ?", true, "published")
+
 	// Level counts
 	var levels []struct {
 		Level string
 		Count int64
 	}
-	r.db.Model(&Course{}).Select("level, COUNT(*) as count").Group("level").Find(&levels)
+	baseQuery.Select("level, COUNT(*) as count").Group("level").Find(&levels)
 	for _, l := range levels {
 		counts.LevelCount[l.Level] = l.Count
 	}
@@ -162,7 +204,7 @@ func (r *Repository) GetCourseFilterCounts() (*CourseFilterCounts, error) {
 		Field string
 		Count int64
 	}
-	r.db.Model(&Course{}).Select("field, COUNT(*) as count").Group("field").Find(&fields)
+	baseQuery.Select("field, COUNT(*) as count").Group("field").Find(&fields)
 	for _, f := range fields {
 		counts.FieldCount[f.Field] = f.Count
 	}
@@ -172,15 +214,24 @@ func (r *Repository) GetCourseFilterCounts() (*CourseFilterCounts, error) {
 		Affiliation string
 		Count       int64
 	}
-	r.db.Model(&Course{}).Select("affiliation, COUNT(*) as count").Group("affiliation").Find(&affils)
+	baseQuery.Select("affiliation, COUNT(*) as count").Group("affiliation").Find(&affils)
 	for _, a := range affils {
 		counts.AffiliationCount[a.Affiliation] = a.Count
 	}
 
 	// Total
-	r.db.Model(&Course{}).Count(&counts.Total)
+	baseQuery.Count(&counts.Total)
 
 	return counts, nil
+}
+
+func (r *Repository) FindCourseByIDOnly(id uint) (*Course, error) {
+	var course Course
+	err := r.db.First(&course, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &course, nil
 }
 
 func (r *Repository) FindCourseByID(id string) (*Course, error) {
@@ -190,6 +241,55 @@ func (r *Repository) FindCourseByID(id string) (*Course, error) {
 		return nil, err
 	}
 	return &course, nil
+}
+
+func (r *Repository) CreateCourse(course *Course) error {
+	return r.db.Create(course).Error
+}
+
+func (r *Repository) UpdateCourse(course *Course) error {
+	return r.db.Save(course).Error
+}
+
+func (r *Repository) DeleteCourse(courseID uint) error {
+	result := r.db.Delete(&Course{}, courseID)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *Repository) FindAllCoursesAdmin(page, limit int) ([]Course, int64, error) {
+	var courses []Course
+	var total int64
+	if err := r.db.Model(&Course{}).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	offset := (page - 1) * limit
+	err := r.db.Order("created_at desc").Offset(offset).Limit(limit).Find(&courses).Error
+	return courses, total, err
+}
+
+func (r *Repository) FindPendingCourses(page, limit int) ([]Course, int64, error) {
+	var courses []Course
+	var total int64
+	query := r.db.Model(&Course{}).Where("is_global = ? AND status = ?", false, "draft")
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	offset := (page - 1) * limit
+	err := query.Order("created_at desc").Offset(offset).Limit(limit).Find(&courses).Error
+	return courses, total, err
+}
+
+func (r *Repository) SetCoursePublished(id uint) error {
+	return r.db.Model(&Course{}).Where("id = ?", id).Updates(map[string]interface{}{
+		"is_global": true,
+		"status":    "published",
+	}).Error
 }
 
 func (r *Repository) CountCourseOfferingColleges(courseID uint) (int64, error) {
