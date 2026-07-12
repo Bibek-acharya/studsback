@@ -117,6 +117,7 @@ func (s *Service) GetProfile(instID uint) (*ProfileResponse, error) {
 		Email:                user.Email,
 		RegistrationNumber:   user.RegistrationNumber,
 		Role:                 user.Role,
+		ProfileStatus:        user.ProfileStatus,
 		Location:             user.District,
 		Website:              user.WebsiteURL,
 		ContactEmail:         user.ContactEmail,
@@ -227,6 +228,9 @@ func (s *Service) UpdateProfile(instID uint, req UpdateProfileRequest) (*Profile
 	}
 	if req.LinkedinURL != "" {
 		user.LinkedinURL = req.LinkedinURL
+	}
+	if req.Status != "" {
+		user.ProfileStatus = req.Status
 	}
 	if req.Videos != nil || req.OverviewData != nil || req.LeadershipData != nil ||
 		req.CoursesData != nil || req.ProgramsData != nil || req.FacilitiesData != nil ||
@@ -2278,6 +2282,7 @@ func (s *Service) GetPublicInstitution(id uint) (*PublicInstitutionDetailRespons
 		Verified:                user.Verified,
 		Claimed:                 user.Claimed,
 		Featured:                user.Featured,
+		ProfileStatus:           user.ProfileStatus,
 		LogoURL:                 logoURL,
 		BannerURL:               bannerURL,
 		About:                   user.About,

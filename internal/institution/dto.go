@@ -650,6 +650,7 @@ type ProfileData struct {
 }
 
 type UpdateProfileRequest struct {
+	Status               string                 `json:"status"`
 	InstitutionName      string                 `json:"institution_name"`
 	RegistrationNumber   string                 `json:"registration_number"`
 	Location             string                 `json:"location"`
@@ -693,6 +694,7 @@ type ProfileResponse struct {
 	SubscriptionType     string                 `json:"subscription_type"`
 	RegistrationNumber   string                 `json:"registration_number"`
 	Role                 string                 `json:"role"`
+	ProfileStatus        string                 `json:"profile_status"`
 	Location             string                 `json:"location,omitempty"`
 	Website              string                 `json:"website,omitempty"`
 	ContactEmail         string                 `json:"contact_email,omitempty"`
@@ -888,6 +890,7 @@ type PublicInstitutionDetailResponse struct {
 	Verified                bool                  `json:"verified"`
 	Claimed                 bool                  `json:"claimed"`
 	Featured                bool                  `json:"featured"`
+	ProfileStatus           string                `json:"profile_status"`
 	LogoURL                 string                `json:"logo_url,omitempty"`
 	BannerURL               string                `json:"banner_url,omitempty"`
 	About                   string                `json:"about,omitempty"`

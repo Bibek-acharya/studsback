@@ -21,6 +21,7 @@ import (
 	"studsphere/backend/internal/education"
 	"studsphere/backend/internal/emailqueue"
 	"studsphere/backend/internal/feedback"
+	"studsphere/backend/internal/follow"
 	"studsphere/backend/internal/forum"
 	"studsphere/backend/internal/institution"
 	"studsphere/backend/internal/location"
@@ -268,6 +269,9 @@ func main() {
 	aiService := ai.NewService(db)
 	aiHandler := ai.NewHandler(aiService)
 	locationHandler := location.NewHandler(location.NewService())
+	followRepo := follow.NewRepository(db)
+	followService := follow.NewService(followRepo)
+	followHandler := follow.NewHandler(followService)
 	logger.Info("All module handlers initialized")
 
 	logger.Info("Setting up router...")
@@ -388,6 +392,7 @@ func main() {
 	chat.RegisterRoutes(router, chatHandler)
 	ai.RegisterRoutes(router, aiHandler)
 	location.RegisterRoutes(router, locationHandler)
+	follow.RegisterRoutes(router, authMW, followHandler)
 
 	logger.Info("All routes registered", "port", config.AppConfig.Port)
 

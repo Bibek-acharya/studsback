@@ -303,6 +303,7 @@ type InstitutionUser struct {
 	YoutubeURL         string         `gorm:"default:''" json:"youtube_url"`
 	LinkedinURL        string         `gorm:"default:''" json:"linkedin_url"`
 	OrganizationType   string         `gorm:"default:''" json:"organization_type"`
+	ProfileStatus      string         `gorm:"type:varchar(20);default:draft" json:"profile_status"`
 	ProfileData        *string        `gorm:"type:jsonb;default:'{}'" json:"profile_data"`
 	Featured           bool           `gorm:"default:false" json:"featured"`
 }

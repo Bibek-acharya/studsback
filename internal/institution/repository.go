@@ -241,6 +241,7 @@ func (r *Repository) FindPublicInstitutions(page, pageSize int, search, location
 	query := r.db.Model(&InstitutionUser{}).
 		Joins("LEFT JOIN institution_settings ON institution_settings.institution_id = institution_users.id").
 		Where("(institution_settings.public_profile = ? OR institution_settings.id IS NULL)", true).
+		Where("institution_users.profile_status = ?", "published").
 		Where("institution_users.deleted_at IS NULL").
 		Where("institution_users.status = ?", "approved")
 
@@ -273,6 +274,7 @@ func (r *Repository) FindPublicInstitutionByID(id uint) (*InstitutionUser, error
 	var user InstitutionUser
 	err := r.db.Joins("LEFT JOIN institution_settings ON institution_settings.institution_id = institution_users.id").
 		Where("institution_users.id = ?", id).
+		Where("institution_users.profile_status = ?", "published").
 		Where("(institution_settings.public_profile = ? OR institution_settings.id IS NULL)", true).
 		Where("institution_users.deleted_at IS NULL").
 		First(&user).Error
@@ -1122,6 +1124,7 @@ func (r *Repository) GetPublicFilterCounts() (*PublicInstitutionFilterCountsResp
 	baseQuery := r.db.Model(&InstitutionUser{}).
 		Joins("LEFT JOIN institution_settings ON institution_settings.institution_id = institution_users.id").
 		Where("(institution_settings.public_profile = ? OR institution_settings.id IS NULL)", true).
+		Where("institution_users.profile_status = ?", "published").
 		Where("institution_users.deleted_at IS NULL").
 		Where("institution_users.status = ?", "approved")
 
@@ -1132,6 +1135,7 @@ func (r *Repository) GetPublicFilterCounts() (*PublicInstitutionFilterCountsResp
 	featuredQuery := r.db.Model(&InstitutionUser{}).
 		Joins("LEFT JOIN institution_settings ON institution_settings.institution_id = institution_users.id").
 		Where("(institution_settings.public_profile = ? OR institution_settings.id IS NULL)", true).
+		Where("institution_users.profile_status = ?", "published").
 		Where("institution_users.featured = ?", true).
 		Where("institution_users.deleted_at IS NULL").
 		Where("institution_users.status = ?", "approved")
@@ -1142,6 +1146,7 @@ func (r *Repository) GetPublicFilterCounts() (*PublicInstitutionFilterCountsResp
 	verifiedQuery := r.db.Model(&InstitutionUser{}).
 		Joins("LEFT JOIN institution_settings ON institution_settings.institution_id = institution_users.id").
 		Where("(institution_settings.public_profile = ? OR institution_settings.id IS NULL)", true).
+		Where("institution_users.profile_status = ?", "published").
 		Where("institution_users.verified = ?", true).
 		Where("institution_users.deleted_at IS NULL").
 		Where("institution_users.status = ?", "approved")
@@ -1161,6 +1166,7 @@ func (r *Repository) GetPublicFilterCounts() (*PublicInstitutionFilterCountsResp
 		typeQuery := r.db.Model(&InstitutionUser{}).
 			Joins("LEFT JOIN institution_settings ON institution_settings.institution_id = institution_users.id").
 			Where("(institution_settings.public_profile = ? OR institution_settings.id IS NULL)", true).
+			Where("institution_users.profile_status = ?", "published").
 			Where("institution_users.deleted_at IS NULL").
 			Where("institution_users.status = ?", "approved").
 			Where("institution_users.organization_type = ?", orgType)
@@ -1278,6 +1284,7 @@ func (r *Repository) GetPublicFilterCounts() (*PublicInstitutionFilterCountsResp
 		Select("district, affiliation").
 		Joins("LEFT JOIN institution_settings ON institution_settings.institution_id = institution_users.id").
 		Where("(institution_settings.public_profile = ? OR institution_settings.id IS NULL)", true).
+		Where("institution_users.profile_status = ?", "published").
 		Where("institution_users.deleted_at IS NULL").
 		Where("institution_users.status = ?", "approved").
 		Scan(&facetRows).Error; err != nil {
