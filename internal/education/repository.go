@@ -845,6 +845,8 @@ type InstitutionEntranceEntry struct {
 	ContactPersons      []byte `gorm:"column:contact_persons" json:"contact_persons"`
 	Faqs                []byte `gorm:"column:faqs" json:"faqs"`
 	InstitutionLink     string `gorm:"column:institution_link" json:"institution_link"`
+	ExaminationSchedule []byte `gorm:"column:examination_schedule" json:"examination_schedule"`
+	ProgramsOffered     []byte `gorm:"column:programs_offered" json:"programs_offered"`
 }
 
 func (r *Repository) GetAllExamEntries(search, level, stream, status string) ([]Exam, error) {
@@ -934,6 +936,7 @@ func (r *Repository) GetInstitutionEntranceByID(id string) (*InstitutionEntrance
 			institution_entrances.exam_pattern, institution_entrances.subject_marks,
 			institution_entrances.model_sets, institution_entrances.upcoming_dates,
 			institution_entrances.contact_persons, institution_entrances.faqs,
+			institution_entrances.examination_schedule, institution_entrances.programs_offered,
 			institution_entrances.institution_name, institution_entrances.institution_location,
 			institution_entrances.institution_link,
 			iu.institution_name, iu.logo_url as institution_logo, iu.district as institution_location,
