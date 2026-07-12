@@ -883,9 +883,9 @@ func (r *Repository) GetPublishedInstitutionEntrances(search string) ([]Institut
 			institution_entrances.contact_persons, institution_entrances.faqs,
 			institution_entrances.institution_name, institution_entrances.institution_location,
 			institution_entrances.institution_link,
-			iu.institution_name, iu.logo_url as institution_logo, iu.district as institution_location,
+			COALESCE(NULLIF(institution_entrances.institution_logo, ''), iu.logo_url) as institution_logo, iu.district as institution_location,
 			iu.province as institution_province, iu.website_url as institution_website,
-			iu.contact_email as institution_email, iu.contact_phone as institution_phone`).
+			iu.contact_email as institution_phone`).
 		Joins("LEFT JOIN institution_users iu ON iu.id = institution_entrances.institution_id").
 		Where("institution_entrances.status = ? AND institution_entrances.deleted_at IS NULL", "published")
 	if search != "" {
@@ -939,7 +939,7 @@ func (r *Repository) GetInstitutionEntranceByID(id string) (*InstitutionEntrance
 			institution_entrances.examination_schedule, institution_entrances.programs_offered,
 			institution_entrances.institution_name, institution_entrances.institution_location,
 			institution_entrances.institution_link,
-			iu.institution_name, iu.logo_url as institution_logo, iu.district as institution_location,
+			COALESCE(NULLIF(institution_entrances.institution_logo, ''), iu.logo_url) as institution_logo, iu.district as institution_location,
 			iu.province as institution_province, iu.website_url as institution_website,
 			iu.contact_email as institution_email, iu.contact_phone as institution_phone`).
 		Joins("LEFT JOIN institution_users iu ON iu.id = institution_entrances.institution_id").

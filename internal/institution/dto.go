@@ -155,6 +155,7 @@ type CreateEntranceRequest struct {
 	InstitutionLocation    string          `json:"institution_location"`
 	InstitutionLink        string          `json:"institution_link"`
 	InstitutionAffiliation string          `json:"institution_affiliation"`
+	InstitutionLogo        string          `json:"institution_logo"`
 	ApplicationFee         string          `json:"application_fee"`
 	OverviewDetails        json.RawMessage `json:"overview_details"`
 	ExamDateSchedules      json.RawMessage `json:"exam_date_schedules"`
@@ -196,6 +197,7 @@ type UpdateEntranceRequest struct {
 	InstitutionLocation    string          `json:"institution_location"`
 	InstitutionLink        string          `json:"institution_link"`
 	InstitutionAffiliation string          `json:"institution_affiliation"`
+	InstitutionLogo        string          `json:"institution_logo"`
 	ApplicationFee         string          `json:"application_fee"`
 	OverviewDetails        json.RawMessage `json:"overview_details"`
 	ExamDateSchedules      json.RawMessage `json:"exam_date_schedules"`
@@ -227,6 +229,7 @@ type EntranceResponse struct {
 	InstitutionLocation    string          `json:"institution_location"`
 	InstitutionLink        string          `json:"institution_link"`
 	InstitutionAffiliation string          `json:"institution_affiliation"`
+	InstitutionLogo        string          `json:"institution_logo"`
 	Title                  string          `json:"title"`
 	Description            string          `json:"description"`
 	Program                string          `json:"program"`

@@ -117,6 +117,7 @@ type InstitutionEntrance struct {
 	ApplicationLink        string         `json:"application_link"`
 	NoticeFile             string         `json:"notice_file"`
 	EmbeddedMap            string         `gorm:"default:''" json:"embedded_map"`
+	InstitutionLogo        string         `gorm:"default:''" json:"institution_logo"`
 	RequiredDocuments      []byte         `gorm:"type:jsonb;default:'[]'" json:"required_documents"`
 	ExaminationSchedule    []byte         `gorm:"type:jsonb;default:'[]'" json:"examination_schedule"`
 	ProgramsOffered        []byte         `gorm:"type:jsonb;default:'[]'" json:"programs_offered"`
