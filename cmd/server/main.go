@@ -475,6 +475,7 @@ func fixMissingColumns(db *gorm.DB) error {
 		table string
 		def   string // used for ADD COLUMN
 	}{
+		{"institution_users", "profile_status VARCHAR(20) DEFAULT 'draft'"},
 		{"provider_applications", "see_gpa TEXT"},
 		{"institution_users", "contact_email TEXT DEFAULT ''"},
 		{"institution_users", "contact_phone TEXT DEFAULT ''"},
@@ -553,6 +554,7 @@ func fixMissingColumns(db *gorm.DB) error {
 	db.Exec(`UPDATE scholarships SET slug = 'scholarship-' || id WHERE slug IS NULL OR slug = ''`)
 	db.Exec(`UPDATE provider_scholarships SET slug = 'provider-scholarship-' || id WHERE slug IS NULL OR slug = ''`)
 	db.Exec(`UPDATE provider_volunteers SET slug = 'volunteer-' || id WHERE slug IS NULL OR slug = ''`)
+	db.Exec(`UPDATE institution_users SET profile_status = 'published' WHERE profile_status = 'draft' AND id IN (SELECT institution_id FROM institution_settings WHERE public_profile = true)`)
 	return nil
 }
 

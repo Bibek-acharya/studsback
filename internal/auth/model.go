@@ -98,6 +98,7 @@ type InstitutionUser struct {
 	Latitude                 *float64                 `json:"latitude,omitempty"`
 	Longitude                *float64                 `json:"longitude,omitempty"`
 	ProfileData              *string                  `gorm:"type:jsonb;default:'{}'" json:"profile_data"`
+	ProfileStatus            string                   `gorm:"type:varchar(20);default:'draft'" json:"profile_status"`
 	Featured                 bool                     `gorm:"default:false" json:"featured"`
 	Subscription             *InstitutionSubscription `gorm:"foreignKey:InstitutionID" json:"subscription,omitempty"`
 }
