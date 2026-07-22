@@ -334,6 +334,12 @@ func (r *Repository) CountUpcomingEvents(userID uint) (int64, error) {
 	return count, err
 }
 
+func (r *Repository) CountEducationEntries(userID uint) (int64, error) {
+	var count int64
+	err := r.db.Table("education_entries").Where("user_id = ?", userID).Count(&count).Error
+	return count, err
+}
+
 func (r *Repository) GetUserAdmissions(userID uint, page, limit int) ([]admission.Admission, int64, error) {
 	var total int64
 	if err := r.db.Model(&admission.Admission{}).Where("user_id = ?", userID).Count(&total).Error; err != nil {

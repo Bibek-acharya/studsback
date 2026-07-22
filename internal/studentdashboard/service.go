@@ -344,7 +344,8 @@ func (s *Service) GetDashboardStats(userID uint) (*DashboardStats, error) {
 	profileCompletion := 0
 	user, err := s.repo.GetUserByID(userID)
 	if err == nil && user != nil {
-		profileCompletion = computeProfileCompletion(user)
+		educationCount, _ := s.repo.CountEducationEntries(userID)
+		profileCompletion = computeProfileCompletion(user, educationCount)
 	}
 
 	return &DashboardStats{
@@ -359,9 +360,9 @@ func (s *Service) GetDashboardStats(userID uint) (*DashboardStats, error) {
 	}, nil
 }
 
-func computeProfileCompletion(user *auth.User) int {
+func computeProfileCompletion(user *auth.User, educationCount int64) int {
 	score := 0
-	totalChecks := 10
+	totalChecks := 12
 
 	if user.FirstName != "" {
 		score++
@@ -390,7 +391,13 @@ func computeProfileCompletion(user *auth.User) int {
 	if user.Preferences != nil && user.Preferences.OnboardingCompleted {
 		score++
 	}
-	if user.Role != "" {
+	if user.ImageURL != "" {
+		score++
+	}
+	if educationCount > 0 {
+		score++
+	}
+	if user.Email != "" {
 		score++
 	}
 
