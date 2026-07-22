@@ -262,6 +262,7 @@ func main() {
 	auth.SetScholarshipProviderHandler(scholarshipPHandler)
 	auth.SetInstitutionService(institutionSvc)
 	studentDashHandler := initModule(studentdashboard.NewRepository(db), studentdashboard.NewService, studentdashboard.NewHandler)
+	admission.SetNotifyStudentFunc(studentDashHandler.GetService().CreateNotification)
 	systemHandler := system.NewHandler(systemSvc)
 	toolsHandler := initModule(tools.NewRepository(db), tools.NewService, tools.NewHandler)
 	universityHandler := initModule(university.NewRepository(db), university.NewService, university.NewHandler)

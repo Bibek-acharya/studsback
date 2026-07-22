@@ -17,6 +17,10 @@ func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
 }
 
+func (h *Handler) GetService() *Service {
+	return h.service
+}
+
 func (h *Handler) GetMessages(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 	id := userID.(uint)
