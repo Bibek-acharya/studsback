@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"strings"
 	"time"
@@ -1421,6 +1422,53 @@ func (s *Service) RevokeSession(sessionID, userID uint) error {
 
 func (s *Service) RevokeAllSessions(userID uint) error {
 	return s.repo.DeleteUserSessionsExcept(userID, 0)
+}
+
+func (s *Service) GetProfileDocuments(userID uint) ([]ProfileDocument, error) {
+	docs, err := s.repo.FindProfileDocumentsByUserID(userID)
+	if err != nil {
+		return nil, err
+	}
+	if docs == nil {
+		docs = []ProfileDocument{}
+	}
+	return docs, nil
+}
+
+func (s *Service) UploadProfileDocument(userID uint, file *multipart.FileHeader, docType string) (*ProfileDocument, error) {
+	folder := "documents"
+	url, err := utils.SaveUploadedDocument(file, folder)
+	if err != nil {
+		url, err = utils.SaveUploadedImage(file, folder)
+		if err != nil {
+			return nil, errors.New("Failed to upload file: " + err.Error())
+		}
+	}
+
+	mimeType := file.Header.Get("Content-Type")
+
+	doc := &ProfileDocument{
+		UserID:   userID,
+		FileName: file.Filename,
+		FileSize: file.Size,
+		Type:     docType,
+		MimeType: mimeType,
+		URL:      url,
+	}
+
+	if err := s.repo.CreateProfileDocument(doc); err != nil {
+		return nil, errors.New("Failed to save document record")
+	}
+
+	return doc, nil
+}
+
+func (s *Service) DeleteProfileDocument(docID, userID uint) error {
+	doc, err := s.repo.FindProfileDocumentByID(docID, userID)
+	if err != nil {
+		return errors.New("document not found")
+	}
+	return s.repo.DeleteProfileDocument(doc.ID, userID)
 }
 
 func (s *Service) ResetPassword(email, otp, newPassword string) error {

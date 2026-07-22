@@ -80,6 +80,7 @@ func main() {
 		&auth.ScholarshipProviderUser{},
 		&auth.EducationEntry{},
 		&auth.UserSession{},
+		&auth.ProfileDocument{},
 		&university.University{},
 		&college.College{},
 		&counselling.CounsellingBooking{},

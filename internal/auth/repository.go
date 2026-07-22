@@ -420,3 +420,26 @@ func (r *Repository) DeleteUserSessionsExcept(userID uint, excludeSessionID uint
 func (r *Repository) UpdateUserSessionLastActive(sessionID uint) error {
 	return r.db.Model(&UserSession{}).Where("id = ?", sessionID).Update("last_active_at", time.Now()).Error
 }
+
+func (r *Repository) CreateProfileDocument(doc *ProfileDocument) error {
+	return r.db.Create(doc).Error
+}
+
+func (r *Repository) FindProfileDocumentsByUserID(userID uint) ([]ProfileDocument, error) {
+	var docs []ProfileDocument
+	err := r.db.Where("user_id = ?", userID).Order("created_at desc").Find(&docs).Error
+	return docs, err
+}
+
+func (r *Repository) FindProfileDocumentByID(docID, userID uint) (*ProfileDocument, error) {
+	var doc ProfileDocument
+	err := r.db.Where("id = ? AND user_id = ?", docID, userID).First(&doc).Error
+	if err != nil {
+		return nil, err
+	}
+	return &doc, nil
+}
+
+func (r *Repository) DeleteProfileDocument(docID, userID uint) error {
+	return r.db.Where("id = ? AND user_id = ?", docID, userID).Delete(&ProfileDocument{}).Error
+}

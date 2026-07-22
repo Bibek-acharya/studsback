@@ -215,3 +215,16 @@ type UserSession struct {
 	LastActiveAt time.Time      `json:"last_active_at"`
 	TokenHash    string         `gorm:"index" json:"-"`
 }
+
+type ProfileDocument struct {
+	ID        uint           `gorm:"primarykey" json:"id"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+	UserID    uint           `gorm:"index;not null" json:"user_id"`
+	FileName  string         `gorm:"not null" json:"file_name"`
+	FileSize  int64          `gorm:"default:0" json:"file_size"`
+	Type      string         `gorm:"default:'document'" json:"type"`
+	MimeType  string         `gorm:"default:''" json:"mime_type"`
+	URL       string         `gorm:"not null" json:"url"`
+}

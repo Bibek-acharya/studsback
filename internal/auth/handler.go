@@ -1297,6 +1297,77 @@ func (h *Handler) DeleteEducationEntry(c *gin.Context) {
 	response.Success(c, http.StatusOK, "Education entry deleted successfully", nil)
 }
 
+func (h *Handler) GetProfileDocuments(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+
+	docs, err := h.service.GetProfileDocuments(userID.(uint))
+	if err != nil {
+		response.Error(c, 500, "Failed to retrieve documents")
+		return
+	}
+
+	response.Success(c, 200, "Documents retrieved successfully", docs)
+}
+
+func (h *Handler) UploadProfileDocument(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+
+	file, err := c.FormFile("file")
+	if err != nil {
+		response.Error(c, 400, "No file provided")
+		return
+	}
+
+	// Validate file size (max 10MB)
+	if file.Size > 10*1024*1024 {
+		response.Error(c, 400, "File too large. Maximum size is 10MB")
+		return
+	}
+
+	// Validate file type
+	allowedTypes := map[string]bool{
+		"application/pdf": true,
+		"image/jpeg":      true,
+		"image/jpg":       true,
+		"image/png":       true,
+	}
+	mimeType := file.Header.Get("Content-Type")
+	if !allowedTypes[mimeType] && mimeType != "" {
+		response.Error(c, 400, "Invalid file type. Only PDF, JPG, and PNG are allowed")
+		return
+	}
+
+	docType := c.DefaultPostForm("type", "document")
+
+	doc, err := h.service.UploadProfileDocument(userID.(uint), file, docType)
+	if err != nil {
+		response.Error(c, 500, err.Error())
+		return
+	}
+
+	response.Success(c, 201, "Document uploaded successfully", doc)
+}
+
+func (h *Handler) DeleteProfileDocument(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+	docID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, 400, "Invalid document ID")
+		return
+	}
+
+	if err := h.service.DeleteProfileDocument(uint(docID), userID.(uint)); err != nil {
+		if err.Error() == "document not found" {
+			response.Error(c, 404, "Document not found")
+			return
+		}
+		response.Error(c, 500, "Failed to delete document")
+		return
+	}
+
+	response.Success(c, 200, "Document deleted successfully", nil)
+}
+
 func (h *Handler) SuperadminUploadFile(c *gin.Context) {
 	file, err := c.FormFile("file")
 	if err != nil {
