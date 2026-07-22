@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"studsphere/backend/internal/auth"
+	"studsphere/backend/internal/shared/logger"
 )
 
 type Service struct {
@@ -303,6 +304,20 @@ func (s *Service) MarkNotificationRead(notifID, userID uint) error {
 
 func (s *Service) MarkAllNotificationsRead(userID uint) error {
 	return s.repo.MarkAllNotificationsRead(userID)
+}
+
+func (s *Service) CreateNotification(userID uint, title, message, notifType, link string) {
+	notification := &Notification{
+		UserID:  userID,
+		Title:   title,
+		Message: message,
+		Type:    notifType,
+		Link:    link,
+		Read:    false,
+	}
+	if err := s.repo.CreateNotification(notification); err != nil {
+		logger.Warn("Failed to create notification", "error", err)
+	}
 }
 
 func (s *Service) GetDashboardStats(userID uint) (*DashboardStats, error) {

@@ -273,6 +273,10 @@ func (r *Repository) MarkAllNotificationsRead(userID uint) error {
 	return r.db.Model(&Notification{}).Where("user_id = ? AND read = ?", userID, false).Update("read", true).Error
 }
 
+func (r *Repository) CreateNotification(notification *Notification) error {
+	return r.db.Create(notification).Error
+}
+
 func (r *Repository) CountAdmissions(userID uint) (int64, error) {
 	var count int64
 	err := r.db.Model(&admission.Admission{}).Where("user_id = ?", userID).Count(&count).Error
