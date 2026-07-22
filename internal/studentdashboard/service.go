@@ -271,6 +271,16 @@ func (s *Service) CreateBookmark(userID uint, req BookmarkRequest) (*Bookmark, e
 		return nil, err
 	}
 
+	if req.ItemType == "college" {
+		s.CreateNotification(userID, "College Saved",
+			"You saved a college to your bookmarks. We'll notify you about updates and deadlines.",
+			"system", "/user/dashboard/bookmarks")
+	} else if req.ItemType == "scholarship" {
+		s.CreateNotification(userID, "Scholarship Saved",
+			"You saved a scholarship. Keep an eye on upcoming deadlines.",
+			"scholarship", "/user/dashboard/bookmarks")
+	}
+
 	return bookmark, nil
 }
 
