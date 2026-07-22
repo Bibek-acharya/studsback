@@ -79,6 +79,7 @@ func main() {
 		&auth.InstitutionUser{},
 		&auth.ScholarshipProviderUser{},
 		&auth.EducationEntry{},
+		&auth.UserSession{},
 		&university.University{},
 		&college.College{},
 		&counselling.CounsellingBooking{},

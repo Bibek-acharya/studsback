@@ -1325,6 +1325,53 @@ func (h *Handler) Logout(c *gin.Context) {
 	response.Success(c, 200, "Logged out successfully", nil)
 }
 
+func (h *Handler) GetSessions(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+
+	sessions, err := h.service.GetUserSessions(userID.(uint))
+	if err != nil {
+		response.Error(c, 500, "Failed to retrieve sessions")
+		return
+	}
+
+	if sessions == nil {
+		sessions = []UserSession{}
+	}
+
+	response.Success(c, 200, "Sessions retrieved successfully", sessions)
+}
+
+func (h *Handler) RevokeSession(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+	sessionID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, 400, "Invalid session ID")
+		return
+	}
+
+	if err := h.service.RevokeSession(uint(sessionID), userID.(uint)); err != nil {
+		if err.Error() == "session not found" {
+			response.Error(c, 404, "Session not found")
+			return
+		}
+		response.Error(c, 500, "Failed to revoke session")
+		return
+	}
+
+	response.Success(c, 200, "Session revoked successfully", nil)
+}
+
+func (h *Handler) RevokeAllSessions(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+
+	if err := h.service.RevokeAllSessions(userID.(uint)); err != nil {
+		response.Error(c, 500, "Failed to revoke sessions")
+		return
+	}
+
+	response.Success(c, 200, "All other sessions revoked", nil)
+}
+
 func (h *Handler) GetDashboardStats(c *gin.Context) {
 	stats, err := h.service.GetDashboardStats()
 	if err != nil {

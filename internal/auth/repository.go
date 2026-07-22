@@ -2,6 +2,7 @@ package auth
 
 import (
 	"errors"
+	"time"
 
 	"studsphere/backend/internal/college"
 	"studsphere/backend/internal/institution"
@@ -387,4 +388,35 @@ func (r *Repository) FindUserByIDWithStatus(userID uint) (*User, error) {
 
 func (r *Repository) UpdateInstitutionUserStatus(instID uint, status string) error {
 	return r.db.Model(&InstitutionUser{}).Where("id = ?", instID).Update("status", status).Error
+}
+
+func (r *Repository) CreateUserSession(session *UserSession) error {
+	return r.db.Create(session).Error
+}
+
+func (r *Repository) FindUserSessionsByUserID(userID uint) ([]UserSession, error) {
+	var sessions []UserSession
+	err := r.db.Where("user_id = ?", userID).Order("last_active_at desc").Find(&sessions).Error
+	return sessions, err
+}
+
+func (r *Repository) FindUserSessionByID(sessionID, userID uint) (*UserSession, error) {
+	var session UserSession
+	err := r.db.Where("id = ? AND user_id = ?", sessionID, userID).First(&session).Error
+	if err != nil {
+		return nil, err
+	}
+	return &session, nil
+}
+
+func (r *Repository) DeleteUserSession(sessionID, userID uint) error {
+	return r.db.Where("id = ? AND user_id = ?", sessionID, userID).Delete(&UserSession{}).Error
+}
+
+func (r *Repository) DeleteUserSessionsExcept(userID uint, excludeSessionID uint) error {
+	return r.db.Where("user_id = ? AND id != ?", userID, excludeSessionID).Delete(&UserSession{}).Error
+}
+
+func (r *Repository) UpdateUserSessionLastActive(sessionID uint) error {
+	return r.db.Model(&UserSession{}).Where("id = ?", sessionID).Update("last_active_at", time.Now()).Error
 }

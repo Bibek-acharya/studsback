@@ -118,6 +118,9 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			protected.DELETE("/profile/education/:id", h.DeleteEducationEntry)
 			protected.POST("/preferences", h.SavePreferences)
 			protected.POST("/auth/profile/picture", h.UploadProfilePicture)
+			protected.GET("/auth/sessions", h.GetSessions)
+			protected.DELETE("/auth/sessions/:id", h.RevokeSession)
+			protected.DELETE("/auth/sessions", h.RevokeAllSessions)
 		}
 	}
 }

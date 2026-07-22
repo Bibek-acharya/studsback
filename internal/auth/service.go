@@ -1397,6 +1397,32 @@ func (s *Service) DeleteEducationEntry(entryID, userID uint) error {
 	return s.repo.DeleteEducationEntry(entryID, userID)
 }
 
+func (s *Service) GetUserSessions(userID uint) ([]UserSession, error) {
+	sessions, err := s.repo.FindUserSessionsByUserID(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]UserSession, len(sessions))
+	for i, session := range sessions {
+		session.IsCurrent = (i == 0)
+		result[i] = session
+	}
+	return result, nil
+}
+
+func (s *Service) RevokeSession(sessionID, userID uint) error {
+	session, err := s.repo.FindUserSessionByID(sessionID, userID)
+	if err != nil {
+		return errors.New("session not found")
+	}
+	return s.repo.DeleteUserSession(session.ID, userID)
+}
+
+func (s *Service) RevokeAllSessions(userID uint) error {
+	return s.repo.DeleteUserSessionsExcept(userID, 0)
+}
+
 func (s *Service) ResetPassword(email, otp, newPassword string) error {
 	valid, otpType, _ := utils.VerifyOTP(email, otp)
 	if !valid {

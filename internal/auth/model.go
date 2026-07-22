@@ -199,3 +199,19 @@ type EducationEntry struct {
 	GradingSystem   string         `json:"grading_system"`
 	Grade           string         `json:"grade"`
 }
+
+type UserSession struct {
+	ID           uint           `gorm:"primarykey" json:"id"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
+	DeletedAt    gorm.DeletedAt `gorm:"index" json:"-"`
+	UserID       uint           `gorm:"index;not null" json:"user_id"`
+	DeviceName   string         `gorm:"default:''" json:"device_name"`
+	DeviceType   string         `gorm:"default:'web'" json:"device_type"`
+	Browser      string         `gorm:"default:''" json:"browser"`
+	IPAddress    string         `gorm:"default:''" json:"ip_address"`
+	Location     string         `gorm:"default:''" json:"location"`
+	IsCurrent    bool           `gorm:"-" json:"is_current"`
+	LastActiveAt time.Time      `json:"last_active_at"`
+	TokenHash    string         `gorm:"index" json:"-"`
+}
