@@ -71,6 +71,8 @@ type InstitutionCounsellingBooking struct {
 	ProgramLevel     string         `gorm:"default:''" json:"program_level"`
 	InterestedCourse string         `gorm:"default:''" json:"interested_course"`
 	SessionMode      string         `gorm:"type:varchar(20);default:'in_person'" json:"session_mode"`
+	MeetingLink      string         `gorm:"type:text" json:"meeting_link"`
+	MeetingPlatform  string         `gorm:"type:varchar(50)" json:"meeting_platform"`
 
 	Session InstitutionCounsellingSession `gorm:"foreignKey:SessionID" json:"session,omitempty"`
 }

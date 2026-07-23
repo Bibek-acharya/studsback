@@ -272,7 +272,16 @@ func (h *Handler) DeleteMedia(c *gin.Context) {
 func (h *Handler) GetCounsellingSessions(c *gin.Context) {
 	instID := getInstID(c)
 
-	sessions, err := h.service.GetCounsellingSessions(instID)
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 50
+	}
+
+	sessions, total, err := h.service.GetCounsellingSessionsPaginated(instID, page, limit)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "Failed to fetch sessions")
 		return
@@ -283,7 +292,14 @@ func (h *Handler) GetCounsellingSessions(c *gin.Context) {
 		resp = append(resp, toCounsellingSessionResponse(s))
 	}
 
-	response.Success(c, http.StatusOK, "Counselling sessions retrieved successfully", resp)
+	response.Success(c, http.StatusOK, "Counselling sessions retrieved successfully", gin.H{
+		"sessions": resp,
+		"meta": gin.H{
+			"total": total,
+			"page":  page,
+			"limit": limit,
+		},
+	})
 }
 
 func (h *Handler) CreateCounsellingSession(c *gin.Context) {
@@ -320,10 +336,42 @@ func (h *Handler) DeleteCounsellingSession(c *gin.Context) {
 	response.Success(c, http.StatusOK, "Session deleted successfully", nil)
 }
 
+func (h *Handler) UpdateCounsellingSession(c *gin.Context) {
+	instID := getInstID(c)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid session ID")
+		return
+	}
+
+	var req UpdateCounsellingSessionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	session, err := h.service.UpdateCounsellingSession(instID, uint(id), req)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Session updated successfully", toCounsellingSessionResponse(*session))
+}
+
 func (h *Handler) GetCounsellingBookings(c *gin.Context) {
 	instID := getInstID(c)
 
-	bookings, err := h.service.GetCounsellingBookings(instID)
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 20
+	}
+
+	bookings, total, err := h.service.GetCounsellingBookingsPaginated(instID, page, limit)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "Failed to fetch bookings")
 		return
@@ -334,7 +382,14 @@ func (h *Handler) GetCounsellingBookings(c *gin.Context) {
 		resp = append(resp, toCounsellingBookingResponse(b))
 	}
 
-	response.Success(c, http.StatusOK, "Counselling bookings retrieved successfully", resp)
+	response.Success(c, http.StatusOK, "Counselling bookings retrieved successfully", gin.H{
+		"bookings": resp,
+		"meta": gin.H{
+			"total": total,
+			"page":  page,
+			"limit": limit,
+		},
+	})
 }
 
 func (h *Handler) UpdateBookingStatus(c *gin.Context) {
@@ -351,7 +406,7 @@ func (h *Handler) UpdateBookingStatus(c *gin.Context) {
 		return
 	}
 
-	booking, err := h.service.UpdateBookingStatus(instID, uint(id), req.Status)
+	booking, err := h.service.UpdateBookingStatus(instID, uint(id), req.Status, req.MeetingLink, req.MeetingPlatform)
 	if err != nil {
 		if err.Error() == "booking not found" {
 			response.Error(c, http.StatusNotFound, err.Error())
@@ -1736,6 +1791,24 @@ func toMediaResponse(m InstitutionMedia) MediaResponse {
 	}
 }
 
+func computeSessionActualStatus(s InstitutionCounsellingSession) string {
+	if s.Status == "cancelled" {
+		return "cancelled"
+	}
+	if s.Status == "completed" {
+		return "completed"
+	}
+	now := time.Now()
+	end := s.ScheduledAt.Add(time.Duration(s.Duration) * time.Minute)
+	if now.After(end) {
+		return "completed"
+	}
+	if now.After(s.ScheduledAt) {
+		return "ongoing"
+	}
+	return "upcoming"
+}
+
 func toCounsellingSessionResponse(s InstitutionCounsellingSession) CounsellingSessionResponse {
 	return CounsellingSessionResponse{
 		ID:            s.ID,
@@ -1749,6 +1822,7 @@ func toCounsellingSessionResponse(s InstitutionCounsellingSession) CounsellingSe
 		MaxSeats:      s.MaxSeats,
 		BookedSeats:   s.BookedSeats,
 		Status:        s.Status,
+		ActualStatus:  computeSessionActualStatus(s),
 	}
 }
 
@@ -1772,6 +1846,8 @@ func toCounsellingBookingResponse(b InstitutionCounsellingBooking) CounsellingBo
 		ProgramLevel:     b.ProgramLevel,
 		InterestedCourse: b.InterestedCourse,
 		SessionMode:      b.SessionMode,
+		MeetingLink:      b.MeetingLink,
+		MeetingPlatform:  b.MeetingPlatform,
 	}
 
 	if b.Session.ID != 0 {

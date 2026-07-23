@@ -82,6 +82,16 @@ type CounsellingSessionResponse struct {
 	MaxSeats      int    `json:"max_seats"`
 	BookedSeats   int    `json:"booked_seats"`
 	Status        string `json:"status"`
+	ActualStatus  string `json:"actual_status"`
+}
+
+type UpdateCounsellingSessionRequest struct {
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	ScheduledAt string `json:"scheduled_at"`
+	Duration    int    `json:"duration"`
+	MaxSeats    int    `json:"max_seats"`
+	Status      string `json:"status"`
 }
 
 type CounsellingBookingResponse struct {
@@ -98,11 +108,15 @@ type CounsellingBookingResponse struct {
 	ProgramLevel     string                      `json:"program_level"`
 	InterestedCourse string                      `json:"interested_course"`
 	SessionMode      string                      `json:"session_mode"`
+	MeetingLink      string                      `json:"meeting_link"`
+	MeetingPlatform  string                      `json:"meeting_platform"`
 	Session          *CounsellingSessionResponse `json:"session,omitempty"`
 }
 
 type UpdateBookingStatusRequest struct {
-	Status string `json:"status" binding:"required"`
+	Status          string `json:"status" binding:"required"`
+	MeetingLink     string `json:"meeting_link"`
+	MeetingPlatform string `json:"meeting_platform"`
 }
 
 type CreateCounsellingSessionRequest struct {

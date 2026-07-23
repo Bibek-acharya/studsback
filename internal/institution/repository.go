@@ -345,6 +345,15 @@ func (r *Repository) FindCounsellingSessionsByInstitution(instID uint) ([]Instit
 	return sessions, err
 }
 
+func (r *Repository) FindCounsellingSessionsByInstitutionPaginated(instID uint, page, limit int) ([]InstitutionCounsellingSession, int64, error) {
+	var sessions []InstitutionCounsellingSession
+	var total int64
+	r.db.Model(&InstitutionCounsellingSession{}).Where("institution_id = ?", instID).Count(&total)
+	offset := (page - 1) * limit
+	err := r.db.Where("institution_id = ?", instID).Order("scheduled_at asc").Offset(offset).Limit(limit).Find(&sessions).Error
+	return sessions, total, err
+}
+
 func (r *Repository) FindUpcomingSessionsByInstitution(instID uint) ([]InstitutionCounsellingSession, error) {
 	var sessions []InstitutionCounsellingSession
 	err := r.db.Where("institution_id = ? AND status = ? AND scheduled_at >= ?", instID, "scheduled", time.Now()).
@@ -374,6 +383,10 @@ func (r *Repository) CreateCounsellingSession(session *InstitutionCounsellingSes
 	return r.db.Create(session).Error
 }
 
+func (r *Repository) UpdateCounsellingSession(session *InstitutionCounsellingSession) error {
+	return r.db.Save(session).Error
+}
+
 func (r *Repository) DeleteCounsellingSession(session *InstitutionCounsellingSession) error {
 	return r.db.Delete(session).Error
 }
@@ -387,6 +400,25 @@ func (r *Repository) FindCounsellingBookingsByInstitution(instID uint) ([]Instit
 		Order("institution_counselling_bookings.created_at desc").
 		Find(&bookings).Error
 	return bookings, err
+}
+
+func (r *Repository) FindCounsellingBookingsByInstitutionPaginated(instID uint, page, limit int) ([]InstitutionCounsellingBooking, int64, error) {
+	var bookings []InstitutionCounsellingBooking
+	var total int64
+	r.db.
+		Table("institution_counselling_bookings").
+		Joins("JOIN institution_counselling_sessions ON institution_counselling_sessions.id = institution_counselling_bookings.session_id").
+		Where("institution_counselling_sessions.institution_id = ?", instID).
+		Count(&total)
+	offset := (page - 1) * limit
+	err := r.db.
+		Joins("JOIN institution_counselling_sessions ON institution_counselling_sessions.id = institution_counselling_bookings.session_id").
+		Where("institution_counselling_sessions.institution_id = ?", instID).
+		Preload("Session").
+		Order("institution_counselling_bookings.created_at desc").
+		Offset(offset).Limit(limit).
+		Find(&bookings).Error
+	return bookings, total, err
 }
 
 func (r *Repository) FindBookingByIDWithSession(id uint, instID uint) (*InstitutionCounsellingBooking, error) {

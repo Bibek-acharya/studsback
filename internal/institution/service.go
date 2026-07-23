@@ -11,6 +11,12 @@ import (
 	"studsphere/backend/internal/system"
 )
 
+var notifyStudentFunc func(userID uint, title, message, notifType, link string)
+
+func SetNotifyStudentFunc(fn func(userID uint, title, message, notifType, link string)) {
+	notifyStudentFunc = fn
+}
+
 type Service struct {
 	repo      *Repository
 	systemSvc *system.Service
@@ -541,6 +547,53 @@ func (s *Service) GetCounsellingSessions(instID uint) ([]InstitutionCounsellingS
 	return s.repo.FindCounsellingSessionsByInstitution(instID)
 }
 
+func (s *Service) GetCounsellingSessionsPaginated(instID uint, page, limit int) ([]InstitutionCounsellingSession, int64, error) {
+	return s.repo.FindCounsellingSessionsByInstitutionPaginated(instID, page, limit)
+}
+
+func (s *Service) GetCounsellingBookingsPaginated(instID uint, page, limit int) ([]InstitutionCounsellingBooking, int64, error) {
+	return s.repo.FindCounsellingBookingsByInstitutionPaginated(instID, page, limit)
+}
+
+func (s *Service) UpdateCounsellingSession(instID uint, id uint, req UpdateCounsellingSessionRequest) (*InstitutionCounsellingSession, error) {
+	session, err := s.repo.FindCounsellingSessionByID(id, instID)
+	if err != nil {
+		return nil, errors.New("session not found")
+	}
+
+	if req.Title != "" {
+		session.Title = req.Title
+	}
+	if req.Description != "" {
+		session.Description = req.Description
+	}
+	if req.Status != "" {
+		session.Status = req.Status
+	}
+	if req.MaxSeats > 0 {
+		session.MaxSeats = req.MaxSeats
+	}
+	if req.Duration > 0 {
+		session.Duration = req.Duration
+	}
+	if req.ScheduledAt != "" {
+		scheduledAt, err := time.Parse(time.RFC3339, req.ScheduledAt)
+		if err != nil {
+			scheduledAt, err = time.Parse("2006-01-02T15:04", req.ScheduledAt)
+			if err != nil {
+				return nil, errors.New("invalid scheduled_at format, use RFC3339 or YYYY-MM-DDTHH:mm")
+			}
+		}
+		session.ScheduledAt = scheduledAt
+	}
+
+	if err := s.repo.UpdateCounsellingSession(session); err != nil {
+		return nil, err
+	}
+
+	return session, nil
+}
+
 func (s *Service) GetPublicCounsellingSessions(instID uint) ([]PublicCounsellingSessionResponse, error) {
 	sessions, err := s.repo.FindUpcomingSessionsByInstitution(instID)
 	if err != nil {
@@ -603,7 +656,7 @@ func (s *Service) DeleteCounsellingSession(instID, id uint) error {
 	return s.repo.DeleteCounsellingSession(session)
 }
 
-func (s *Service) UpdateBookingStatus(instID, id uint, status string) (*InstitutionCounsellingBooking, error) {
+func (s *Service) UpdateBookingStatus(instID, id uint, status, meetingLink, meetingPlatform string) (*InstitutionCounsellingBooking, error) {
 	booking, err := s.repo.FindBookingByIDWithSession(id, instID)
 	if err != nil {
 		return nil, errors.New("booking not found")
@@ -617,9 +670,23 @@ func (s *Service) UpdateBookingStatus(instID, id uint, status string) (*Institut
 	}
 
 	booking.Status = status
+	if meetingLink != "" {
+		booking.MeetingLink = meetingLink
+		booking.MeetingPlatform = meetingPlatform
+	}
 
 	if err := s.repo.SaveBooking(booking); err != nil {
 		return nil, err
+	}
+
+	if status == "confirmed" && notifyStudentFunc != nil {
+		sessionTitle := "Counselling Session"
+		if booking.Session.Title != "" {
+			sessionTitle = booking.Session.Title
+		}
+		notifyStudentFunc(booking.UserID, "Counselling Approved",
+			fmt.Sprintf("Your booking for '%s' has been confirmed by the institution.", sessionTitle),
+			"counselling", "")
 	}
 
 	return booking, nil
