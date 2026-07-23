@@ -170,14 +170,19 @@ func (courseDraft) TableName() string {
 }
 
 func (r *Repository) CreateCourseFromProgram(program *InstitutionProgram) (uint, error) {
+	isPublished := program.Status == "published"
+	status := "draft"
+	if isPublished {
+		status = "published"
+	}
 	course := &courseDraft{
 		Title:           program.Name,
 		Description:     program.Description,
 		Duration:        program.Duration,
 		Level:           extractLevelFromData(program.Data),
 		Location:        program.InstitutionLocation,
-		IsGlobal:        false,
-		Status:          "draft",
+		IsGlobal:        isPublished,
+		Status:          status,
 		CreatedBy:       program.InstitutionID,
 		SourceProgramID: &program.ID,
 	}
@@ -186,6 +191,35 @@ func (r *Repository) CreateCourseFromProgram(program *InstitutionProgram) (uint,
 		return 0, result.Error
 	}
 	return course.ID, nil
+}
+
+func (r *Repository) SyncCourseFromProgram(program *InstitutionProgram) error {
+	var existing courseDraft
+	err := r.db.Table("courses").Where("source_program_id = ?", program.ID).First(&existing).Error
+	if err == nil {
+		return r.SyncCourseStatus(program)
+	}
+
+	_, err = r.CreateCourseFromProgram(program)
+	return err
+}
+
+func (r *Repository) SyncCourseStatus(program *InstitutionProgram) error {
+	status := "draft"
+	isPublished := program.Status == "published"
+	if isPublished {
+		status = "published"
+	}
+	updates := map[string]interface{}{
+		"is_global":   isPublished,
+		"status":      status,
+		"title":       program.Name,
+		"description": program.Description,
+		"duration":    program.Duration,
+	}
+	return r.db.Table("courses").
+		Where("source_program_id = ?", program.ID).
+		Updates(updates).Error
 }
 
 func extractLevelFromData(data *string) string {

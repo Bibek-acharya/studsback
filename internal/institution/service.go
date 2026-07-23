@@ -462,6 +462,10 @@ func (s *Service) UpdateProgram(instID, id uint, req UpdateProgramRequest) (*Ins
 		return nil, err
 	}
 
+	if err := s.repo.SyncCourseFromProgram(program); err != nil {
+		fmt.Printf("[WARN] Failed to sync course from program %d: %v\n", program.ID, err)
+	}
+
 	return program, nil
 }
 
