@@ -132,6 +132,12 @@ func (s *Service) Login(req LoginRequest) (*LoginResponse, error) {
 func (s *Service) CreateOrUpdateSession(userID uint, ipAddress, userAgent, location string) {
 	deviceName, deviceType, browser := parseUserAgent(userAgent)
 
+	if location == "" && ipAddress != "" && !isPrivateIP(ipAddress) {
+		if loc, err := lookupLocation(ipAddress); err == nil {
+			location = loc
+		}
+	}
+
 	var existing *UserSession
 	sessions, err := s.repo.FindUserSessionsByUserID(userID)
 	if err == nil {
@@ -1704,4 +1710,58 @@ func (s *Service) ResetPassword(email, otp, newPassword string) error {
 	}
 
 	return s.repo.UpdateInstitutionUser(instUser)
+}
+
+type ipGeoResponse struct {
+	City    string `json:"city"`
+	Region  string `json:"regionName"`
+	Country string `json:"country"`
+	Query   string `json:"query"`
+	Status  string `json:"status"`
+}
+
+func lookupLocation(ip string) (string, error) {
+	url := fmt.Sprintf("http://ip-api.com/json/%s?fields=city,regionName,country,status,query", ip)
+	resp, err := http.Get(url)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	var geo ipGeoResponse
+	if err := json.NewDecoder(resp.Body).Decode(&geo); err != nil {
+		return "", err
+	}
+	if geo.Status != "success" {
+		return "", fmt.Errorf("ip-api lookup failed for %s", ip)
+	}
+
+	parts := []string{}
+	if geo.City != "" {
+		parts = append(parts, geo.City)
+	}
+	if geo.Region != "" {
+		parts = append(parts, geo.Region)
+	}
+	if geo.Country != "" {
+		parts = append(parts, geo.Country)
+	}
+	return strings.Join(parts, ", "), nil
+}
+
+func isPrivateIP(ip string) bool {
+	// Check common private ranges without net package dependency
+	if strings.HasPrefix(ip, "10.") || strings.HasPrefix(ip, "192.168.") ||
+		strings.HasPrefix(ip, "172.16.") || strings.HasPrefix(ip, "172.17.") ||
+		strings.HasPrefix(ip, "172.18.") || strings.HasPrefix(ip, "172.19.") ||
+		strings.HasPrefix(ip, "172.20.") || strings.HasPrefix(ip, "172.21.") ||
+		strings.HasPrefix(ip, "172.22.") || strings.HasPrefix(ip, "172.23.") ||
+		strings.HasPrefix(ip, "172.24.") || strings.HasPrefix(ip, "172.25.") ||
+		strings.HasPrefix(ip, "172.26.") || strings.HasPrefix(ip, "172.27.") ||
+		strings.HasPrefix(ip, "172.28.") || strings.HasPrefix(ip, "172.29.") ||
+		strings.HasPrefix(ip, "172.30.") || strings.HasPrefix(ip, "172.31.") ||
+		ip == "127.0.0.1" || ip == "::1" || ip == "localhost" {
+		return true
+	}
+	return false
 }
