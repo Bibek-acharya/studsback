@@ -8,7 +8,7 @@ type CreateFeedbackRequest struct {
 }
 
 type CreateTestimonialRequest struct {
-	Name        string `json:"name" binding:"required"`
+	Name        string `json:"name"`
 	Designation string `json:"designation" binding:"required"`
 	Rating      int    `json:"rating" binding:"required,min=1,max=5"`
 	Review      string `json:"review" binding:"required"`
