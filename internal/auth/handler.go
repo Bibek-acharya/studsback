@@ -175,7 +175,15 @@ func (h *Handler) Login(c *gin.Context) {
 		return
 	}
 
-	req.IPAddress = c.ClientIP()
+	req.IPAddress = c.GetHeader("X-Forwarded-For")
+	if req.IPAddress == "" {
+		req.IPAddress = c.ClientIP()
+	} else {
+		// Take the first IP if multiple (proxy chain)
+		if parts := strings.Split(req.IPAddress, ","); len(parts) > 0 {
+			req.IPAddress = strings.TrimSpace(parts[0])
+		}
+	}
 	req.UserAgent = c.GetHeader("User-Agent")
 
 	result, err := h.service.Login(req)
@@ -350,9 +358,14 @@ func (h *Handler) GoogleCallback(c *gin.Context) {
 		return
 	}
 
-	// Extract user ID from the token to create a session
 	if claims, tokenErr := utils.ValidateToken(jwtToken); tokenErr == nil {
-		h.service.CreateOrUpdateSession(claims.UserID, c.ClientIP(), c.GetHeader("User-Agent"), "")
+		ip := c.GetHeader("X-Forwarded-For")
+		if ip == "" {
+			ip = c.ClientIP()
+		} else if parts := strings.Split(ip, ","); len(parts) > 0 {
+			ip = strings.TrimSpace(parts[0])
+		}
+		h.service.CreateOrUpdateSession(claims.UserID, ip, c.GetHeader("User-Agent"), "")
 	}
 
 	middleware.SetAuthCookie(c, jwtToken)
