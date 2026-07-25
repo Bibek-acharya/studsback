@@ -3,6 +3,7 @@ package feedback
 import (
 	"net/http"
 	"strconv"
+	"unicode/utf8"
 
 	"studsphere/backend/internal/shared/response"
 
@@ -101,6 +102,26 @@ func (h *Handler) GetPublicFeedbacks(c *gin.Context) {
 	response.Success(c, http.StatusOK, "Testimonials fetched successfully", feedbacks)
 }
 
+func (h *Handler) GetUserTestimonials(c *gin.Context) {
+	userID := getUserID(c)
+	if userID == 0 {
+		response.Error(c, http.StatusUnauthorized, "Authentication required")
+		return
+	}
+
+	feedbacks, err := h.service.GetUserTestimonials(userID)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch your testimonials")
+		return
+	}
+
+	if feedbacks == nil {
+		feedbacks = []FeedbackResponse{}
+	}
+
+	response.Success(c, http.StatusOK, "Testimonials fetched successfully", feedbacks)
+}
+
 func (h *Handler) CheckFeedbackStatus(c *gin.Context) {
 	userID := getUserID(c)
 	if userID == 0 {
@@ -131,4 +152,31 @@ func (h *Handler) SubmitTestimonial(c *gin.Context) {
 	}
 
 	response.Success(c, http.StatusCreated, "Testimonial submitted successfully", nil)
+}
+
+func (h *Handler) SubmitAuthTestimonial(c *gin.Context) {
+	userID := getUserID(c)
+
+	var req CreateTestimonialRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if utf8.RuneCountInString(req.Review) < 20 {
+		response.Error(c, http.StatusBadRequest, "Testimonial must be at least 20 characters")
+		return
+	}
+	if utf8.RuneCountInString(req.Review) > 500 {
+		response.Error(c, http.StatusBadRequest, "Testimonial must be under 500 characters")
+		return
+	}
+
+	f, err := h.service.SubmitAuthTestimonial(userID, req)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to submit testimonial")
+		return
+	}
+
+	response.Success(c, http.StatusCreated, "Testimonial submitted successfully", f)
 }

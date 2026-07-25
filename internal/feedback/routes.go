@@ -15,6 +15,8 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 
 		// Submit feedback — any authenticated user
 		v1.POST("/feedback", authMW, h.SubmitFeedback)
+		v1.POST("/testimonials", authMW, h.SubmitAuthTestimonial)
+		v1.GET("/testimonials", authMW, h.GetUserTestimonials)
 		v1.GET("/feedback/status", authMW, h.CheckFeedbackStatus)
 
 		// Admin routes — superadmin only

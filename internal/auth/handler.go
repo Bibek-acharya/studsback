@@ -350,6 +350,11 @@ func (h *Handler) GoogleCallback(c *gin.Context) {
 		return
 	}
 
+	// Extract user ID from the token to create a session
+	if claims, tokenErr := utils.ValidateToken(jwtToken); tokenErr == nil {
+		h.service.CreateOrUpdateSession(claims.UserID, c.ClientIP(), c.GetHeader("User-Agent"), "")
+	}
+
 	middleware.SetAuthCookie(c, jwtToken)
 
 	// Construct the callback URL with the token to sync with frontend localStorage

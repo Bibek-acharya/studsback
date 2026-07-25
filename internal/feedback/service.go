@@ -38,6 +38,27 @@ func (s *Service) SubmitTestimonial(req CreateTestimonialRequest) (*Feedback, er
 	return f, nil
 }
 
+func (s *Service) SubmitAuthTestimonial(userID uint, req CreateTestimonialRequest) (*FeedbackResponse, error) {
+	f := &Feedback{
+		UserID:      userID,
+		Rating:      req.Rating,
+		Experience:  req.Review,
+		Designation: req.Designation,
+	}
+	if err := s.repo.Create(f); err != nil {
+		return nil, err
+	}
+
+	responses, err := s.buildResponse([]Feedback{*f})
+	if err != nil {
+		return nil, err
+	}
+	if len(responses) == 0 {
+		return nil, nil
+	}
+	return &responses[0], nil
+}
+
 func (s *Service) buildResponse(feedbacks []Feedback) ([]FeedbackResponse, error) {
 	userIDs := make([]uint, 0, len(feedbacks))
 	for _, f := range feedbacks {
@@ -101,6 +122,14 @@ func (s *Service) ListFeedback() ([]FeedbackResponse, error) {
 
 func (s *Service) DeleteFeedback(id uint) error {
 	return s.repo.Delete(id)
+}
+
+func (s *Service) GetUserTestimonials(userID uint) ([]FeedbackResponse, error) {
+	feedbacks, err := s.repo.FindByUserID(userID)
+	if err != nil {
+		return nil, err
+	}
+	return s.buildResponse(feedbacks)
 }
 
 func (s *Service) ListPublicFeedback(limit int) ([]FeedbackResponse, error) {

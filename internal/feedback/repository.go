@@ -26,6 +26,12 @@ func (r *Repository) FindPublic(limit int) ([]Feedback, error) {
 	return feedbacks, err
 }
 
+func (r *Repository) FindByUserID(userID uint) ([]Feedback, error) {
+	var feedbacks []Feedback
+	err := r.db.Where("user_id = ?", userID).Order("created_at DESC").Find(&feedbacks).Error
+	return feedbacks, err
+}
+
 func (r *Repository) HasUserSubmitted(userID uint) (bool, error) {
 	var count int64
 	err := r.db.Model(&Feedback{}).Where("user_id = ?", userID).Count(&count).Error

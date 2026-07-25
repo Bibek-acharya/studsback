@@ -150,7 +150,9 @@ func (s *Service) CreateOrUpdateSession(userID uint, ipAddress, userAgent, locat
 		if location != "" {
 			existing.Location = location
 		}
-		s.repo.db.Save(existing)
+		if err := s.repo.db.Save(existing).Error; err != nil {
+			log.Printf("auth: failed to update session: %v", err)
+		}
 	} else {
 		session := &UserSession{
 			UserID:       userID,
@@ -161,7 +163,9 @@ func (s *Service) CreateOrUpdateSession(userID uint, ipAddress, userAgent, locat
 			Location:     location,
 			LastActiveAt: now,
 		}
-		s.repo.CreateUserSession(session)
+		if err := s.repo.CreateUserSession(session); err != nil {
+			log.Printf("auth: failed to create session for user %d: %v", userID, err)
+		}
 	}
 }
 
