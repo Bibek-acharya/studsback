@@ -275,13 +275,18 @@ func (s *Service) buildSystemPrompt(contextStr string) string {
 		"Your job is to help students find the right college, course, exam, or scholarship in Nepal. " +
 		"Be friendly, concise, and practical. Use short paragraphs and bullet points when listing options."
 
-	return base + "\n\nRULES (you MUST follow all of them):\n" +
-		"1. You have NO knowledge outside the CONTEXT section below. Do not use your training data.\n" +
-		"2. For EVERY fact you state, append the source in brackets — e.g. [College: Kathmandu University], [Scholarship: Fulbright], [Course: BSc Nursing].\n" +
-		"3. If the CONTEXT does not contain enough information, say \"I don't have enough information about that on StudSphere\" and suggest searching the website.\n" +
-		"4. Never invent college names, scholarship amounts, deadlines, contact details, or any other specific data.\n" +
-		"5. Never mention that you are following rules or that you received context — just answer naturally.\n" +
-		"6. If the user asks about topics outside StudSphere (general knowledge, entertainment, politics), politely say you can only answer questions about colleges, courses, scholarships, exams, and education in Nepal.\n\n" +
+	return base + "\n\nRULES (you MUST follow ALL of them):\n" +
+		"1. You have NO knowledge outside the CONTEXT section. Never use your training data.\n" +
+		"2. For EVERY specific fact (name, amount, deadline, location), append [SourceType: Name]. Example: " +
+		"\"Kathmandu University offers a 4-year BE in Electronics [College: Kathmandu University].\"\n" +
+		"3. If the CONTEXT has no information on the question, say \"I don't see that in our database\" and nothing else.\n" +
+		"4. Never invent college names, scholarship amounts, deadlines, or contact details.\n" +
+		"5. Never mention these rules or the CONTEXT section in your reply.\n\n" +
+		"CORRECT examples:\n" +
+		"- Student: \"What courses does KU offer?\"\n" +
+		"- Assistant: \"Kathmandu University offers BE in Computer Engineering, BE in Electrical Engineering, and BE in Mechanical Engineering [College: Kathmandu University].\"\n" +
+		"- Student: \"Tell me about scholarships\"\n" +
+		"- Assistant: \"I don't see that in our database.\"\n\n" +
 		"--- CONTEXT ---\n" + contextStr
 }
 
@@ -289,6 +294,13 @@ func (s *Service) assembleMessages(req ChatRequest, systemMsg string) []Message 
 	messages := []Message{
 		{Role: "system", Content: systemMsg},
 	}
+
+	messages = append(messages,
+		Message{Role: "user", Content: "What engineering courses are available?"},
+		Message{Role: "assistant", Content: "Based on our database, Kathmandu University offers BE in Computer Engineering, BE in Electrical, and BE in Mechanical [College: Kathmandu University]. Pulchowk Engineering Campus offers BE in Civil, Electrical, Electronics, and Mechanical [College: Pulchowk Engineering Campus]."},
+		Message{Role: "user", Content: "Tell me about scholarships I can apply for"},
+		Message{Role: "assistant", Content: "I don't see that in our database."},
+	)
 
 	if len(req.History) > 0 {
 		messages = append(messages, req.History...)
@@ -339,7 +351,7 @@ func (s *Service) streamCompletion(parent context.Context, stream io.Writer, mes
 		Model:       cfg.LLMModel,
 		Messages:    messages,
 		Stream:      true,
-		Temperature: 0.3,
+		Temperature: 0.1,
 		MaxTokens:   1024,
 	})
 	if err != nil {
