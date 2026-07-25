@@ -16,31 +16,32 @@ type Preferences struct {
 }
 
 type User struct {
-	ID             uint           `gorm:"primarykey" json:"id"`
-	CreatedAt      time.Time      `json:"created_at"`
-	UpdatedAt      time.Time      `json:"updated_at"`
-	DeletedAt      gorm.DeletedAt `gorm:"index" json:"-"`
-	Email          string         `gorm:"uniqueIndex;not null" json:"email" binding:"required,email"`
-	Password       *string        `json:"-"`
-	FirstName      string         `gorm:"not null" json:"first_name" binding:"required"`
-	LastName       string         `gorm:"not null" json:"last_name" binding:"required"`
-	MiddleName     string         `gorm:"default:''" json:"middle_name"`
-	Phone          string         `gorm:"default:''" json:"phone"`
-	AlternatePhone string         `gorm:"default:''" json:"alternate_phone"`
-	DateOfBirth    string         `gorm:"default:''" json:"date_of_birth"`
-	Gender         string         `gorm:"default:''" json:"gender"`
-	Nationality    string         `gorm:"default:''" json:"nationality"`
-	Address        string         `gorm:"type:text;default:''" json:"address"`
-	Bio            string         `gorm:"type:text;default:''" json:"bio"`
-	GoogleID       *string        `gorm:"uniqueIndex;default:null" json:"google_id"`
-	ImageURL       string         `gorm:"default:''" json:"image_url"`
-	Role           string         `gorm:"default:'student'" json:"role"`
-	Status         string         `gorm:"default:'active'" json:"status"`
-	LastLoginAt    *time.Time     `json:"last_login_at"`
-	TOTPSecret     string         `gorm:"default:''" json:"-"`
-	TOTPEnabled    bool           `gorm:"default:false" json:"totp_enabled"`
-	TOTPVerified   bool           `gorm:"default:false" json:"-"`
-	Preferences    *Preferences   `gorm:"type:jsonb;serializer:json;default:'null'" json:"preferences,omitempty"`
+	ID                  uint           `gorm:"primarykey" json:"id"`
+	CreatedAt           time.Time      `json:"created_at"`
+	UpdatedAt           time.Time      `json:"updated_at"`
+	DeletedAt           gorm.DeletedAt `gorm:"index" json:"-"`
+	Email               string         `gorm:"uniqueIndex;not null" json:"email" binding:"required,email"`
+	Password            *string        `json:"-"`
+	FirstName           string         `gorm:"not null" json:"first_name" binding:"required"`
+	LastName            string         `gorm:"not null" json:"last_name" binding:"required"`
+	MiddleName          string         `gorm:"default:''" json:"middle_name"`
+	Phone               string         `gorm:"default:''" json:"phone"`
+	AlternatePhone      string         `gorm:"default:''" json:"alternate_phone"`
+	DateOfBirth         string         `gorm:"default:''" json:"date_of_birth"`
+	Gender              string         `gorm:"default:''" json:"gender"`
+	Nationality         string         `gorm:"default:''" json:"nationality"`
+	Address             string         `gorm:"type:text;default:''" json:"address"`
+	Bio                 string         `gorm:"type:text;default:''" json:"bio"`
+	GoogleID            *string        `gorm:"uniqueIndex;default:null" json:"google_id"`
+	ImageURL            string         `gorm:"default:''" json:"image_url"`
+	Role                string         `gorm:"default:'student'" json:"role"`
+	Status              string         `gorm:"default:'active'" json:"status"`
+	LastLoginAt         *time.Time     `json:"last_login_at"`
+	ScheduledDeletionAt *time.Time     `json:"scheduled_deletion_at,omitempty"`
+	TOTPSecret          string         `gorm:"default:''" json:"-"`
+	TOTPEnabled         bool           `gorm:"default:false" json:"totp_enabled"`
+	TOTPVerified        bool           `gorm:"default:false" json:"-"`
+	Preferences         *Preferences   `gorm:"type:jsonb;serializer:json;default:'null'" json:"preferences,omitempty"`
 }
 
 func (u *User) HashPassword(password string) error {

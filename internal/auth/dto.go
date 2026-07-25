@@ -431,6 +431,11 @@ type SuperadminDeleteRequest struct {
 	InstitutionID *uint `json:"institution_id"`
 }
 
+type DeletionStatusResponse struct {
+	ScheduledDeletionAt *string `json:"scheduled_deletion_at,omitempty"`
+	DaysRemaining       int     `json:"days_remaining,omitempty"`
+}
+
 type TOTPGenerateResponse struct {
 	Secret  string `json:"secret"`
 	QRURI   string `json:"qr_uri"`

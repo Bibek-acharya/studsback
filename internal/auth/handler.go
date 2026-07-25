@@ -352,28 +352,39 @@ func (h *Handler) GoogleCallback(c *gin.Context) {
 		return
 	}
 
-	jwtToken, err := h.service.GoogleLoginOrRegister(googleUser.ID, googleUser.Email, googleUser.GivenName, googleUser.FamilyName, googleUser.Picture)
+	result, err := h.service.GoogleLoginOrRegister(googleUser.ID, googleUser.Email, googleUser.GivenName, googleUser.FamilyName, googleUser.Picture)
 	if err != nil {
 		h.redirectError(c, err.Error())
 		return
 	}
 
-	if claims, tokenErr := utils.ValidateToken(jwtToken); tokenErr == nil {
-		ip := c.GetHeader("X-Forwarded-For")
-		if ip == "" {
-			ip = c.ClientIP()
-		} else if parts := strings.Split(ip, ","); len(parts) > 0 {
-			ip = strings.TrimSpace(parts[0])
+	ip := c.GetHeader("X-Forwarded-For")
+	if ip == "" {
+		ip = c.ClientIP()
+	} else if parts := strings.Split(ip, ","); len(parts) > 0 {
+		ip = strings.TrimSpace(parts[0])
+	}
+	h.service.CreateOrUpdateSession(result.UserID, ip, c.GetHeader("User-Agent"), "")
+
+	if result.TOTPEnabled {
+		totpToken, totpErr := utils.GenerateTOTPToken(result.UserID, googleUser.Email, "student")
+		if totpErr != nil {
+			h.redirectError(c, "Failed to generate TOTP challenge")
+			return
 		}
-		h.service.CreateOrUpdateSession(claims.UserID, ip, c.GetHeader("User-Agent"), "")
+		frontendCallback := fmt.Sprintf("%s/login?requires_totp=true&totp_token=%s",
+			strings.TrimRight(config.AppConfig.FrontendURL, "/"),
+			totpToken)
+		c.Redirect(http.StatusTemporaryRedirect, frontendCallback)
+		return
 	}
 
-	middleware.SetAuthCookie(c, jwtToken)
+	middleware.SetAuthCookie(c, result.Token)
 
 	// Construct the callback URL with the token to sync with frontend localStorage
 	frontendCallback := fmt.Sprintf("%s/login?token=%s",
 		strings.TrimRight(config.AppConfig.FrontendURL, "/"),
-		jwtToken)
+		result.Token)
 
 	// Use the redirect URL from state (original destination)
 	finalRedirectURL := redirectURL
@@ -1525,6 +1536,45 @@ func (h *Handler) VerifyLoginTOTP(c *gin.Context) {
 
 	middleware.SetAuthCookie(c, result.Token)
 	response.Success(c, 200, "TOTP verification successful", result)
+}
+
+func (h *Handler) DeactivateAccount(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+	if err := h.service.DeactivateAccount(userID.(uint)); err != nil {
+		response.Error(c, 500, err.Error())
+		return
+	}
+	middleware.ClearAuthCookie(c)
+	response.Success(c, 200, "Account deactivated", nil)
+}
+
+func (h *Handler) QueueDeletion(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+	deletionDate, err := h.service.QueueDeletion(userID.(uint))
+	if err != nil {
+		response.Error(c, 500, err.Error())
+		return
+	}
+	response.Success(c, 200, "Account deletion scheduled. You have 14 days to cancel.", gin.H{"scheduled_deletion_at": deletionDate})
+}
+
+func (h *Handler) CancelDeletion(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+	if err := h.service.CancelDeletion(userID.(uint)); err != nil {
+		response.Error(c, 500, err.Error())
+		return
+	}
+	response.Success(c, 200, "Deletion cancelled", nil)
+}
+
+func (h *Handler) GetDeletionStatus(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+	status, err := h.service.GetDeletionStatus(userID.(uint))
+	if err != nil {
+		response.Error(c, 500, err.Error())
+		return
+	}
+	response.Success(c, 200, "Deletion status retrieved", status)
 }
 
 func (h *Handler) GetDashboardStats(c *gin.Context) {

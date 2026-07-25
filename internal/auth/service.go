@@ -341,13 +341,19 @@ func downloadAndSavePicture(url string) (string, error) {
 	return "/uploads/profiles/" + filename, nil
 }
 
-func (s *Service) GoogleLoginOrRegister(googleID, email, givenName, familyName, picture string) (string, error) {
+type googleLoginResult struct {
+	Token       string
+	UserID      uint
+	TOTPEnabled bool
+}
+
+func (s *Service) GoogleLoginOrRegister(googleID, email, givenName, familyName, picture string) (*googleLoginResult, error) {
 	user, err := s.repo.FindUserByEmail(email)
 	if err != nil {
 		_, instErr := s.repo.FindInstitutionUserByEmail(email)
 		_, provErr := s.repo.FindScholarshipProviderUserByEmail(email)
 		if instErr == nil || provErr == nil {
-			return "", errors.New("This email is already registered for another account type.")
+			return nil, errors.New("This email is already registered for another account type.")
 		}
 
 		user = &User{
@@ -358,7 +364,7 @@ func (s *Service) GoogleLoginOrRegister(googleID, email, givenName, familyName, 
 			Role:      "student",
 		}
 		if err := s.repo.CreateUser(user); err != nil {
-			return "", errors.New("Failed to create user: " + err.Error())
+			return nil, errors.New("Failed to create user: " + err.Error())
 		}
 	} else {
 		if user.GoogleID == nil || *user.GoogleID == "" {
@@ -384,10 +390,10 @@ func (s *Service) GoogleLoginOrRegister(googleID, email, givenName, familyName, 
 		ImageURL:  user.ImageURL,
 	})
 	if err != nil {
-		return "", errors.New("Failed to generate token")
+		return nil, errors.New("Failed to generate token")
 	}
 
-	return token, nil
+	return &googleLoginResult{Token: token, UserID: user.ID, TOTPEnabled: user.TOTPEnabled}, nil
 }
 
 func (s *Service) GetProfile(userID uint) (*ProfileResponse, error) {
@@ -1581,8 +1587,11 @@ func (s *Service) DisableTOTP(userID uint, password, code string) error {
 		return errors.New("User not found")
 	}
 
-	if err := user.CheckPassword(password); err != nil {
-		return errors.New("Invalid password")
+	// If user has a password, verify it. Google users (no password) skip this check.
+	if user.Password != nil {
+		if err := user.CheckPassword(password); err != nil {
+			return errors.New("Invalid password")
+		}
 	}
 
 	if !totp.Validate(code, user.TOTPSecret) {
@@ -1593,6 +1602,57 @@ func (s *Service) DisableTOTP(userID uint, password, code string) error {
 	user.TOTPVerified = false
 	user.TOTPSecret = ""
 	return s.repo.SaveUser(user)
+}
+
+func (s *Service) DeactivateAccount(userID uint) error {
+	user, err := s.repo.FindUserByID(userID)
+	if err != nil {
+		return errors.New("User not found")
+	}
+	user.Status = "deactivated"
+	return s.repo.SaveUser(user)
+}
+
+func (s *Service) QueueDeletion(userID uint) (*time.Time, error) {
+	user, err := s.repo.FindUserByID(userID)
+	if err != nil {
+		return nil, errors.New("User not found")
+	}
+	now := time.Now()
+	deletionDate := now.AddDate(0, 0, 14)
+	user.ScheduledDeletionAt = &deletionDate
+	if err := s.repo.SaveUser(user); err != nil {
+		return nil, err
+	}
+	return &deletionDate, nil
+}
+
+func (s *Service) CancelDeletion(userID uint) error {
+	user, err := s.repo.FindUserByID(userID)
+	if err != nil {
+		return errors.New("User not found")
+	}
+	user.ScheduledDeletionAt = nil
+	return s.repo.SaveUser(user)
+}
+
+func (s *Service) GetDeletionStatus(userID uint) (*DeletionStatusResponse, error) {
+	user, err := s.repo.FindUserByID(userID)
+	if err != nil {
+		return nil, errors.New("User not found")
+	}
+	if user.ScheduledDeletionAt == nil {
+		return &DeletionStatusResponse{}, nil
+	}
+	remaining := int(time.Until(*user.ScheduledDeletionAt).Hours() / 24)
+	if remaining < 0 {
+		remaining = 0
+	}
+	dateStr := user.ScheduledDeletionAt.Format("January 2, 2006")
+	return &DeletionStatusResponse{
+		ScheduledDeletionAt: &dateStr,
+		DaysRemaining:       remaining,
+	}, nil
 }
 
 func (s *Service) VerifyLoginTOTP(tempToken, code string) (*LoginResponse, error) {

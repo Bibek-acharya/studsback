@@ -128,6 +128,10 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			protected.POST("/auth/totp/generate", h.GenerateTOTP)
 			protected.POST("/auth/totp/enable", h.EnableTOTP)
 			protected.POST("/auth/totp/disable", h.DisableTOTP)
+			protected.POST("/auth/deactivate", h.DeactivateAccount)
+			protected.POST("/auth/delete-queue", h.QueueDeletion)
+			protected.POST("/auth/cancel-deletion", h.CancelDeletion)
+			protected.GET("/auth/deletion-status", h.GetDeletionStatus)
 		}
 	}
 }
