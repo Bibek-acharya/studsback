@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 
 	"studsphere/backend/internal/shared/config"
 	"studsphere/backend/internal/shared/response"
@@ -51,13 +52,28 @@ func (h *Handler) Chat(c *gin.Context) {
 	if err := h.service.Chat(c.Request.Context(), c.Writer, req); err != nil {
 		log.Printf("ai: chat error: %v", err)
 		if !errors.Is(err, errClientClosed) {
-			errData, _ := json.Marshal(map[string]string{"error": err.Error()})
+			userMsg := userFriendlyError(err)
+			errData, _ := json.Marshal(map[string]string{"error": userMsg})
 			fmt.Fprintf(c.Writer, "data: %s\n\n", errData)
 			if flusher, ok := c.Writer.(http.Flusher); ok {
 				flusher.Flush()
 			}
 		}
 	}
+}
+
+func userFriendlyError(err error) string {
+	msg := err.Error()
+	if strings.Contains(msg, "context deadline exceeded") || strings.Contains(msg, "Timeout") {
+		return "Sphere AI is taking too long to respond. Please try again."
+	}
+	if strings.Contains(msg, "no such host") || strings.Contains(msg, "connection refused") || strings.Contains(msg, "dial tcp") {
+		return "Sphere AI is temporarily unavailable. Please try again later."
+	}
+	if strings.Contains(msg, "LLM service is not configured") {
+		return "Sphere AI is not configured on the server."
+	}
+	return "Something went wrong. Please try again."
 }
 
 var errClientClosed = errors.New("client closed connection")
@@ -76,8 +92,8 @@ func (h *Handler) ListModels(c *gin.Context) {
 		return
 	}
 	response.Success(c, http.StatusOK, "ok", gin.H{
-		"models":      models,
+		"models":       models,
 		"active_model": config.AppConfig.LLMModel,
-		"base_url":    config.AppConfig.LLMBaseURL,
+		"base_url":     config.AppConfig.LLMBaseURL,
 	})
 }

@@ -51,7 +51,7 @@ func NewService(db *gorm.DB) *Service {
 	return &Service{
 		db:         db,
 		sessions:   make(map[string][]Message),
-		httpClient: &http.Client{Timeout: 90 * time.Second},
+		httpClient: &http.Client{Timeout: 180 * time.Second},
 	}
 }
 
@@ -355,9 +355,10 @@ func (s *Service) streamCompletion(parent context.Context, stream io.Writer, mes
 		httpReq.Header.Set("Authorization", "Bearer "+cfg.LLMAPIKey)
 	}
 
+	log.Printf("ai: calling LLM at %s with model %s", cfg.LLMBaseURL, cfg.LLMModel)
 	resp, err := s.httpClient.Do(httpReq)
 	if err != nil {
-		return "", fmt.Errorf("LLM request failed: %w", err)
+		return "", fmt.Errorf("LLM at %s is not responding. Make sure the LLM server is running and the model %q is pulled. Error: %w", cfg.LLMBaseURL, cfg.LLMModel, err)
 	}
 	defer resp.Body.Close()
 
