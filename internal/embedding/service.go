@@ -106,7 +106,9 @@ func GenerateEmbeddingsBatch(texts []string) ([][]float32, error) {
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+config.AppConfig.EmbeddingAPIKey)
+	if config.AppConfig.EmbeddingAPIKey != "" {
+		req.Header.Set("Authorization", "Bearer "+config.AppConfig.EmbeddingAPIKey)
+	}
 
 	resp, err := httpClient().Do(req)
 	if err != nil {
@@ -182,6 +184,10 @@ func ReindexAll() error {
 	tables := []string{"colleges", "courses", "exams", "scholarships", "news", "events", "blogs", "site_pages", "institution_entrances"}
 
 	for _, table := range tables {
+		if !hasEmbeddingColumn(db, table) {
+			log.Printf("  Table %s: no embedding column — skipping", table)
+			continue
+		}
 		log.Printf("Reindexing embeddings for table: %s", table)
 		if err := reindexTable(db, table, batchSize); err != nil {
 			log.Printf("Error reindexing table %s: %v", table, err)
@@ -190,6 +196,15 @@ func ReindexAll() error {
 
 	log.Println("Embedding reindex complete")
 	return nil
+}
+
+func hasEmbeddingColumn(db *gorm.DB, table string) bool {
+	var colType string
+	if config.IsSQLite {
+		return false
+	}
+	db.Raw(fmt.Sprintf("SELECT data_type FROM information_schema.columns WHERE table_name = '%s' AND column_name = 'embedding'", table)).Scan(&colType)
+	return colType != ""
 }
 
 func ReindexAllForce(db *gorm.DB) error {
@@ -202,8 +217,11 @@ func ReindexAllForce(db *gorm.DB) error {
 	tables := []string{"colleges", "courses", "exams", "scholarships", "news", "events", "blogs", "site_pages", "institution_entrances"}
 
 	for _, table := range tables {
+		if !hasEmbeddingColumn(db, table) {
+			log.Printf("  Table %s: no embedding column — skipping (install pgvector extension)", table)
+			continue
+		}
 		log.Printf("Force reindexing embeddings for table: %s", table)
-		// Clear all existing embeddings first
 		db.Exec(fmt.Sprintf("UPDATE %s SET embedding = NULL WHERE embedding IS NOT NULL", table))
 		if err := reindexTable(db, table, batchSize); err != nil {
 			log.Printf("Error reindexing table %s: %v", table, err)
@@ -215,6 +233,10 @@ func ReindexAllForce(db *gorm.DB) error {
 }
 
 func reindexTable(db *gorm.DB, table string, batchSize int) error {
+	if !hasEmbeddingColumn(db, table) {
+		log.Printf("  Table %s: no embedding column — skipping", table)
+		return nil
+	}
 	var total int64
 	db.Table(table).Where("embedding IS NULL").Count(&total)
 	if total == 0 {
