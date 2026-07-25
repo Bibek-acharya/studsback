@@ -21,6 +21,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			auth.POST("/send-otp", h.SendOTP)
 			auth.POST("/verify-otp", h.VerifyOTP)
 			auth.POST("/reset-password", h.ResetPassword)
+			auth.POST("/totp/verify", h.VerifyLoginTOTP)
 			auth.GET("/google", h.GoogleLogin)
 			auth.GET("/google/callback", h.GoogleCallback)
 		}
@@ -124,6 +125,9 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			protected.GET("/auth/sessions", h.GetSessions)
 			protected.DELETE("/auth/sessions/:id", h.RevokeSession)
 			protected.DELETE("/auth/sessions", h.RevokeAllSessions)
+			protected.POST("/auth/totp/generate", h.GenerateTOTP)
+			protected.POST("/auth/totp/enable", h.EnableTOTP)
+			protected.POST("/auth/totp/disable", h.DisableTOTP)
 		}
 	}
 }

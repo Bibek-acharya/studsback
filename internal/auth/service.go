@@ -14,6 +14,8 @@ import (
 	"studsphere/backend/internal/institution"
 	"studsphere/backend/internal/shared/storage"
 	"studsphere/backend/internal/shared/utils"
+
+	"github.com/pquerna/otp/totp"
 )
 
 type Service struct {
@@ -106,10 +108,98 @@ func (s *Service) Login(req LoginRequest) (*LoginResponse, error) {
 		return nil, errors.New("Failed to generate token")
 	}
 
+	s.CreateOrUpdateSession(user.ID, req.IPAddress, req.UserAgent, "")
+
+	if user.TOTPEnabled {
+		totpToken, err := utils.GenerateTOTPToken(user.ID, user.Email, user.Role)
+		if err != nil {
+			return nil, errors.New("Failed to generate TOTP challenge")
+		}
+		return &LoginResponse{
+			User:         nil,
+			Token:        "",
+			RequiresTOTP: true,
+			TOTPToken:    totpToken,
+		}, nil
+	}
+
 	return &LoginResponse{
 		User:  user,
 		Token: token,
 	}, nil
+}
+
+func (s *Service) CreateOrUpdateSession(userID uint, ipAddress, userAgent, location string) {
+	deviceName, deviceType, browser := parseUserAgent(userAgent)
+
+	var existing *UserSession
+	sessions, err := s.repo.FindUserSessionsByUserID(userID)
+	if err == nil {
+		for _, sess := range sessions {
+			if sess.IPAddress == ipAddress && sess.DeviceName == deviceName && sess.DeviceType == deviceType {
+				existing = &sess
+				break
+			}
+		}
+	}
+
+	now := time.Now()
+
+	if existing != nil {
+		existing.LastActiveAt = now
+		if location != "" {
+			existing.Location = location
+		}
+		s.repo.db.Save(existing)
+	} else {
+		session := &UserSession{
+			UserID:       userID,
+			DeviceName:   deviceName,
+			DeviceType:   deviceType,
+			Browser:      browser,
+			IPAddress:    ipAddress,
+			Location:     location,
+			LastActiveAt: now,
+		}
+		s.repo.CreateUserSession(session)
+	}
+}
+
+func parseUserAgent(ua string) (deviceName, deviceType, browser string) {
+	ua = strings.ToLower(ua)
+	deviceName = "Unknown Device"
+	deviceType = "web"
+	browser = "Unknown"
+
+	switch {
+	case strings.Contains(ua, "iphone") || strings.Contains(ua, "ipad"):
+		deviceType = "mobile"
+		deviceName = "Apple iOS"
+	case strings.Contains(ua, "android"):
+		deviceType = "mobile"
+		deviceName = "Android"
+	case strings.Contains(ua, "macintosh") || strings.Contains(ua, "mac os"):
+		deviceName = "Mac"
+	case strings.Contains(ua, "windows"):
+		deviceName = "Windows PC"
+	case strings.Contains(ua, "linux"):
+		deviceName = "Linux"
+	}
+
+	switch {
+	case strings.Contains(ua, "chrome/") && !strings.Contains(ua, "edg/"):
+		browser = "Chrome"
+	case strings.Contains(ua, "firefox/"):
+		browser = "Firefox"
+	case strings.Contains(ua, "safari/") && !strings.Contains(ua, "chrome/"):
+		browser = "Safari"
+	case strings.Contains(ua, "edg/"):
+		browser = "Edge"
+	case strings.Contains(ua, "opr/") || strings.Contains(ua, "opera"):
+		browser = "Opera"
+	}
+
+	return
 }
 
 func (s *Service) SendOTP(email string, otpType string) error {
@@ -1404,10 +1494,16 @@ func (s *Service) GetUserSessions(userID uint) ([]UserSession, error) {
 		return nil, err
 	}
 
-	result := make([]UserSession, len(sessions))
+	seen := make(map[string]bool)
+	result := make([]UserSession, 0)
 	for i, session := range sessions {
+		fingerprint := session.IPAddress + "|" + session.DeviceName + "|" + session.DeviceType
+		if seen[fingerprint] {
+			continue
+		}
+		seen[fingerprint] = true
 		session.IsCurrent = (i == 0)
-		result[i] = session
+		result = append(result, session)
 	}
 	return result, nil
 }
@@ -1422,6 +1518,103 @@ func (s *Service) RevokeSession(sessionID, userID uint) error {
 
 func (s *Service) RevokeAllSessions(userID uint) error {
 	return s.repo.DeleteUserSessionsExcept(userID, 0)
+}
+
+func (s *Service) GenerateTOTPSecret(userID uint) (*TOTPGenerateResponse, error) {
+	user, err := s.repo.FindUserByID(userID)
+	if err != nil {
+		return nil, errors.New("User not found")
+	}
+
+	key, err := totp.Generate(totp.GenerateOpts{
+		Issuer:      "StudSphere",
+		AccountName: user.Email,
+	})
+	if err != nil {
+		return nil, errors.New("Failed to generate TOTP secret")
+	}
+
+	user.TOTPSecret = key.Secret()
+	if err := s.repo.SaveUser(user); err != nil {
+		return nil, errors.New("Failed to save TOTP secret")
+	}
+
+	return &TOTPGenerateResponse{
+		Secret:  key.Secret(),
+		QRURI:   key.URL(),
+		Account: user.Email,
+	}, nil
+}
+
+func (s *Service) EnableTOTP(userID uint, code string) error {
+	user, err := s.repo.FindUserByID(userID)
+	if err != nil {
+		return errors.New("User not found")
+	}
+
+	if user.TOTPSecret == "" {
+		return errors.New("TOTP not initialized. Generate a secret first.")
+	}
+
+	if !totp.Validate(code, user.TOTPSecret) {
+		return errors.New("Invalid TOTP code")
+	}
+
+	user.TOTPEnabled = true
+	user.TOTPVerified = true
+	return s.repo.SaveUser(user)
+}
+
+func (s *Service) DisableTOTP(userID uint, password, code string) error {
+	user, err := s.repo.FindUserByID(userID)
+	if err != nil {
+		return errors.New("User not found")
+	}
+
+	if err := user.CheckPassword(password); err != nil {
+		return errors.New("Invalid password")
+	}
+
+	if !totp.Validate(code, user.TOTPSecret) {
+		return errors.New("Invalid TOTP code")
+	}
+
+	user.TOTPEnabled = false
+	user.TOTPVerified = false
+	user.TOTPSecret = ""
+	return s.repo.SaveUser(user)
+}
+
+func (s *Service) VerifyLoginTOTP(tempToken, code string) (*LoginResponse, error) {
+	claims, err := utils.ValidateToken(tempToken)
+	if err != nil {
+		return nil, errors.New("Invalid or expired TOTP challenge")
+	}
+
+	user, err := s.repo.FindUserByID(claims.UserID)
+	if err != nil {
+		return nil, errors.New("User not found")
+	}
+
+	if !user.TOTPEnabled {
+		return nil, errors.New("TOTP is not enabled for this account")
+	}
+
+	if !totp.Validate(code, user.TOTPSecret) {
+		return nil, errors.New("Invalid TOTP code")
+	}
+
+	token, err := utils.GenerateToken(user.ID, user.Email, user.Role, 0)
+	if err != nil {
+		return nil, errors.New("Failed to generate token")
+	}
+
+	s.CreateOrUpdateSession(user.ID, "", "", "")
+
+	return &LoginResponse{
+		User:  user,
+		Token: token,
+	}, nil
 }
 
 func (s *Service) GetProfileDocuments(userID uint) ([]ProfileDocument, error) {

@@ -12,8 +12,10 @@ type RegisterRequest struct {
 }
 
 type LoginRequest struct {
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required"`
+	Email     string `json:"email" binding:"required,email"`
+	Password  string `json:"password" binding:"required"`
+	IPAddress string `json:"-"`
+	UserAgent string `json:"-"`
 }
 
 type SendOTPRequest struct {
@@ -88,8 +90,10 @@ type RegisterResponse struct {
 }
 
 type LoginResponse struct {
-	User  interface{} `json:"user"`
-	Token string      `json:"token"`
+	User         interface{} `json:"user,omitempty"`
+	Token        string      `json:"token,omitempty"`
+	RequiresTOTP bool        `json:"requires_totp,omitempty"`
+	TOTPToken    string      `json:"totp_token,omitempty"`
 }
 
 type ProfileResponse struct {
@@ -425,4 +429,24 @@ type SuperadminUpdateAdmissionPageRequest struct {
 
 type SuperadminDeleteRequest struct {
 	InstitutionID *uint `json:"institution_id"`
+}
+
+type TOTPGenerateResponse struct {
+	Secret  string `json:"secret"`
+	QRURI   string `json:"qr_uri"`
+	Account string `json:"account"`
+}
+
+type TOTPEnableRequest struct {
+	Code string `json:"code" binding:"required"`
+}
+
+type TOTPDisableRequest struct {
+	Password string `json:"password" binding:"required"`
+	Code     string `json:"code" binding:"required"`
+}
+
+type TOTPVerifyLoginRequest struct {
+	TempToken string `json:"temp_token" binding:"required"`
+	Code      string `json:"code" binding:"required"`
 }

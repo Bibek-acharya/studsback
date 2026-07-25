@@ -37,6 +37,9 @@ type User struct {
 	Role           string         `gorm:"default:'student'" json:"role"`
 	Status         string         `gorm:"default:'active'" json:"status"`
 	LastLoginAt    *time.Time     `json:"last_login_at"`
+	TOTPSecret     string         `gorm:"default:''" json:"-"`
+	TOTPEnabled    bool           `gorm:"default:false" json:"totp_enabled"`
+	TOTPVerified   bool           `gorm:"default:false" json:"-"`
 	Preferences    *Preferences   `gorm:"type:jsonb;serializer:json;default:'null'" json:"preferences,omitempty"`
 }
 

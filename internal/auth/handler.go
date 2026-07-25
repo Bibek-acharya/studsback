@@ -175,6 +175,9 @@ func (h *Handler) Login(c *gin.Context) {
 		return
 	}
 
+	req.IPAddress = c.ClientIP()
+	req.UserAgent = c.GetHeader("User-Agent")
+
 	result, err := h.service.Login(req)
 	if err != nil {
 		response.Error(c, 401, err.Error())
@@ -1441,6 +1444,69 @@ func (h *Handler) RevokeAllSessions(c *gin.Context) {
 	}
 
 	response.Success(c, 200, "All other sessions revoked", nil)
+}
+
+func (h *Handler) GenerateTOTP(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+
+	result, err := h.service.GenerateTOTPSecret(userID.(uint))
+	if err != nil {
+		response.Error(c, 500, err.Error())
+		return
+	}
+
+	response.Success(c, 200, "TOTP secret generated", result)
+}
+
+func (h *Handler) EnableTOTP(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+
+	var req TOTPEnableRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+
+	if err := h.service.EnableTOTP(userID.(uint), req.Code); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+
+	response.Success(c, 200, "Two-factor authentication enabled", nil)
+}
+
+func (h *Handler) DisableTOTP(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+
+	var req TOTPDisableRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+
+	if err := h.service.DisableTOTP(userID.(uint), req.Password, req.Code); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+
+	response.Success(c, 200, "Two-factor authentication disabled", nil)
+}
+
+func (h *Handler) VerifyLoginTOTP(c *gin.Context) {
+	var req TOTPVerifyLoginRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+
+	result, err := h.service.VerifyLoginTOTP(req.TempToken, req.Code)
+	if err != nil {
+		response.Error(c, 401, err.Error())
+		return
+	}
+
+	middleware.SetAuthCookie(c, result.Token)
+	response.Success(c, 200, "TOTP verification successful", result)
 }
 
 func (h *Handler) GetDashboardStats(c *gin.Context) {
