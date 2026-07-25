@@ -27,9 +27,9 @@ func httpClient() *http.Client {
 		client = &http.Client{
 			Timeout: 30 * time.Second,
 			Transport: &http.Transport{
-				MaxIdleConns:        20,
-				IdleConnTimeout:     90 * time.Second,
-				DisableCompression:  false,
+				MaxIdleConns:       20,
+				IdleConnTimeout:    90 * time.Second,
+				DisableCompression: false,
 			},
 		}
 	})
@@ -179,7 +179,7 @@ func ReindexAll() error {
 
 	db := config.GetDB()
 	batchSize := config.AppConfig.EmbeddingBatchSize
-	tables := []string{"colleges", "courses", "exams", "scholarships", "news", "events", "blogs"}
+	tables := []string{"colleges", "courses", "exams", "scholarships", "news", "events", "blogs", "site_pages", "institution_entrances"}
 
 	for _, table := range tables {
 		log.Printf("Reindexing embeddings for table: %s", table)
@@ -189,6 +189,28 @@ func ReindexAll() error {
 	}
 
 	log.Println("Embedding reindex complete")
+	return nil
+}
+
+func ReindexAllForce(db *gorm.DB) error {
+	if !IsEnabled() {
+		log.Println("Embedding service not enabled, skipping reindex")
+		return nil
+	}
+
+	batchSize := config.AppConfig.EmbeddingBatchSize
+	tables := []string{"colleges", "courses", "exams", "scholarships", "news", "events", "blogs", "site_pages", "institution_entrances"}
+
+	for _, table := range tables {
+		log.Printf("Force reindexing embeddings for table: %s", table)
+		// Clear all existing embeddings first
+		db.Exec(fmt.Sprintf("UPDATE %s SET embedding = NULL WHERE embedding IS NOT NULL", table))
+		if err := reindexTable(db, table, batchSize); err != nil {
+			log.Printf("Error reindexing table %s: %v", table, err)
+		}
+	}
+
+	log.Println("Force reindex complete")
 	return nil
 }
 
@@ -261,6 +283,10 @@ func buildSelectForTable(table string) string {
 		return "id, title, COALESCE(description, '') as description, COALESCE(excerpt, '') as excerpt, COALESCE(category, '') as category, COALESCE(location, '') as location"
 	case "blogs":
 		return "id, title, COALESCE(excerpt, '') as excerpt, COALESCE(content, '') as content, COALESCE(category, '') as category, COALESCE(author, '') as author"
+	case "site_pages":
+		return "id, title, COALESCE(content, '') as content, COALESCE(slug, '') as slug"
+	case "institution_entrances":
+		return "id, title, COALESCE(description, '') as description, COALESCE(program, '') as program, COALESCE(institution_name, '') as institution_name, COALESCE(status, '') as status"
 	default:
 		return "id, title"
 	}
@@ -327,6 +353,18 @@ func buildEmbeddingInput(table string, row map[string]interface{}) string {
 			getStr(row, "category"),
 			getStr(row, "author"),
 		)
+	case "site_pages":
+		parts = append(parts,
+			getStr(row, "title"),
+			getStr(row, "content"),
+		)
+	case "institution_entrances":
+		parts = append(parts,
+			getStr(row, "title"),
+			getStr(row, "description"),
+			getStr(row, "program"),
+			getStr(row, "institution_name"),
+		)
 	}
 
 	var nonEmpty []string
@@ -359,5 +397,3 @@ func Float32SliceToPgVector(v []float32) string {
 	b.WriteString("]")
 	return b.String()
 }
-
-

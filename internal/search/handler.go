@@ -58,12 +58,24 @@ func (h *Handler) Reindex(c *gin.Context) {
 		response.Success(c, http.StatusAccepted, "Embedding is not enabled. Set EMBEDDING_ENABLED=true in .env", nil)
 		return
 	}
+	db := config.GetDB()
+	force := c.DefaultQuery("force", "false") == "true"
 	go func() {
-		if err := embedding.ReindexAll(); err != nil {
+		var err error
+		if force {
+			err = embedding.ReindexAllForce(db)
+		} else {
+			err = embedding.ReindexAll()
+		}
+		if err != nil {
 			log.Printf("Reindex error: %v", err)
 		}
 	}()
-	response.Success(c, http.StatusAccepted, "Embedding reindex started in background. Check server logs for progress.", nil)
+	msg := "Embedding reindex started in background"
+	if force {
+		msg = "Full AI retrain started — clearing and regenerating all embeddings"
+	}
+	response.Success(c, http.StatusAccepted, msg, nil)
 }
 
 func (h *Handler) GetVectorStatus(c *gin.Context) {

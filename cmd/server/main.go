@@ -572,7 +572,7 @@ func initVectorSearch(db *gorm.DB) error {
 		return nil
 	}
 	dim := config.AppConfig.VectorDimension
-	tables := []string{"colleges", "courses", "exams", "scholarships", "news", "events", "blogs", "site_pages"}
+	tables := []string{"colleges", "courses", "exams", "scholarships", "news", "events", "blogs", "site_pages", "institution_entrances"}
 	for _, table := range tables {
 		var colType string
 		db.Raw(fmt.Sprintf("SELECT data_type FROM information_schema.columns WHERE table_name = '%s' AND column_name = 'embedding'", table)).Scan(&colType)

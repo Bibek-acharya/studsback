@@ -121,6 +121,20 @@ func (s *Service) Chat(parent context.Context, stream io.Writer, req ChatRequest
 	contextItems := s.retrieveContext(req.Message)
 	log.Printf("ai: RAG retrieved %d context items for query: %q", len(contextItems), req.Message)
 	contextStr := s.buildContext(contextItems)
+
+	if contextStr == "" {
+		fallbackMsg := "I couldn't find any relevant information about that on StudSphere. Try searching for colleges, courses, or scholarships directly on the website, or rephrase your question."
+		payload, _ := json.Marshal(map[string]string{"token": fallbackMsg})
+		fmt.Fprintf(stream, "data: %s\n\n", payload)
+		doneEvent, _ := json.Marshal(map[string]bool{"done": true})
+		fmt.Fprintf(stream, "data: %s\n\n", doneEvent)
+		if flusher, ok := stream.(http.Flusher); ok {
+			flusher.Flush()
+		}
+		log.Printf("ai: no context found — returning fallback without LLM call")
+		return nil
+	}
+
 	systemMsg := s.buildSystemPrompt(contextStr)
 
 	messages := s.assembleMessages(req, systemMsg)
@@ -175,14 +189,15 @@ func (s *Service) vectorSearch(vec []float32) []contextResult {
 		table string
 		sql   string
 	}{
-		{"colleges", fmt.Sprintf("SELECT id, COALESCE(name,'') as title, COALESCE(description,'') as description, COALESCE(description,'') as content, 'college' as type, COALESCE(name,'') as url FROM colleges WHERE embedding IS NOT NULL AND embedding <=> '%s'::vector < 1.5 ORDER BY embedding <=> '%s'::vector LIMIT 3", vectorStr, vectorStr)},
-		{"courses", fmt.Sprintf("SELECT id, COALESCE(title,'') as title, COALESCE(description,'') as description, COALESCE(description,'') as content, 'course' as type, '' as url FROM courses WHERE embedding IS NOT NULL AND embedding <=> '%s'::vector < 1.5 ORDER BY embedding <=> '%s'::vector LIMIT 3", vectorStr, vectorStr)},
-		{"scholarships", fmt.Sprintf("SELECT id, COALESCE(title,'') as title, COALESCE(description,'') as description, COALESCE(description,'') as content, 'scholarship' as type, '' as url FROM scholarships WHERE embedding IS NOT NULL AND embedding <=> '%s'::vector < 1.5 ORDER BY embedding <=> '%s'::vector LIMIT 3", vectorStr, vectorStr)},
-		{"exams", fmt.Sprintf("SELECT id, COALESCE(title,'') as title, COALESCE(description,'') as description, COALESCE(description,'') as content, 'exam' as type, COALESCE(title,'') as url FROM exams WHERE embedding IS NOT NULL AND embedding <=> '%s'::vector < 1.5 ORDER BY embedding <=> '%s'::vector LIMIT 3", vectorStr, vectorStr)},
-		{"news", fmt.Sprintf("SELECT id, COALESCE(title,'') as title, COALESCE(excerpt,'') as description, COALESCE(content,'') as content, 'news' as type, '' as url FROM news WHERE embedding IS NOT NULL AND embedding <=> '%s'::vector < 1.5 ORDER BY embedding <=> '%s'::vector LIMIT 3", vectorStr, vectorStr)},
-		{"events", fmt.Sprintf("SELECT id, COALESCE(title,'') as title, COALESCE(description,'') as description, COALESCE(description,'') as content, 'event' as type, '' as url FROM events WHERE embedding IS NOT NULL AND embedding <=> '%s'::vector < 1.5 ORDER BY embedding <=> '%s'::vector LIMIT 3", vectorStr, vectorStr)},
-		{"blogs", fmt.Sprintf("SELECT id, COALESCE(title,'') as title, COALESCE(excerpt,'') as description, COALESCE(content,'') as content, 'blog' as type, '' as url FROM blogs WHERE embedding IS NOT NULL AND embedding <=> '%s'::vector < 1.5 ORDER BY embedding <=> '%s'::vector LIMIT 3", vectorStr, vectorStr)},
-		{"site_pages", fmt.Sprintf("SELECT id, COALESCE(title,'') as title, COALESCE(content,'') as description, COALESCE(content,'') as content, 'page' as type, COALESCE(slug,'') as url FROM site_pages WHERE embedding IS NOT NULL AND embedding <=> '%s'::vector < 1.5 ORDER BY embedding <=> '%s'::vector LIMIT 3", vectorStr, vectorStr)},
+		{"colleges", fmt.Sprintf("SELECT id, COALESCE(name,'') as title, COALESCE(description,'') as description, COALESCE(description,'') as content, 'college' as type, COALESCE(name,'') as url FROM colleges WHERE embedding IS NOT NULL AND embedding <=> '%s'::vector < 1.5 ORDER BY embedding <=> '%s'::vector LIMIT 10", vectorStr, vectorStr)},
+		{"courses", fmt.Sprintf("SELECT id, COALESCE(title,'') as title, COALESCE(description,'') as description, COALESCE(description,'') as content, 'course' as type, '' as url FROM courses WHERE embedding IS NOT NULL AND embedding <=> '%s'::vector < 1.5 ORDER BY embedding <=> '%s'::vector LIMIT 10", vectorStr, vectorStr)},
+		{"scholarships", fmt.Sprintf("SELECT id, COALESCE(title,'') as title, COALESCE(description,'') as description, COALESCE(description,'') as content, 'scholarship' as type, '' as url FROM scholarships WHERE embedding IS NOT NULL AND embedding <=> '%s'::vector < 1.5 ORDER BY embedding <=> '%s'::vector LIMIT 10", vectorStr, vectorStr)},
+		{"exams", fmt.Sprintf("SELECT id, COALESCE(title,'') as title, COALESCE(description,'') as description, COALESCE(description,'') as content, 'exam' as type, COALESCE(title,'') as url FROM exams WHERE embedding IS NOT NULL AND embedding <=> '%s'::vector < 1.5 ORDER BY embedding <=> '%s'::vector LIMIT 10", vectorStr, vectorStr)},
+		{"news", fmt.Sprintf("SELECT id, COALESCE(title,'') as title, COALESCE(excerpt,'') as description, COALESCE(content,'') as content, 'news' as type, '' as url FROM news WHERE embedding IS NOT NULL AND embedding <=> '%s'::vector < 1.5 ORDER BY embedding <=> '%s'::vector LIMIT 10", vectorStr, vectorStr)},
+		{"events", fmt.Sprintf("SELECT id, COALESCE(title,'') as title, COALESCE(description,'') as description, COALESCE(description,'') as content, 'event' as type, '' as url FROM events WHERE embedding IS NOT NULL AND embedding <=> '%s'::vector < 1.5 ORDER BY embedding <=> '%s'::vector LIMIT 10", vectorStr, vectorStr)},
+		{"blogs", fmt.Sprintf("SELECT id, COALESCE(title,'') as title, COALESCE(excerpt,'') as description, COALESCE(content,'') as content, 'blog' as type, '' as url FROM blogs WHERE embedding IS NOT NULL AND embedding <=> '%s'::vector < 1.5 ORDER BY embedding <=> '%s'::vector LIMIT 10", vectorStr, vectorStr)},
+		{"site_pages", fmt.Sprintf("SELECT id, COALESCE(title,'') as title, COALESCE(content,'') as description, COALESCE(content,'') as content, 'page' as type, COALESCE(slug,'') as url FROM site_pages WHERE embedding IS NOT NULL AND embedding <=> '%s'::vector < 1.5 ORDER BY embedding <=> '%s'::vector LIMIT 10", vectorStr, vectorStr)},
+		{"institution_entrances", fmt.Sprintf("SELECT id, COALESCE(title,'') as title, COALESCE(description,'') as description, COALESCE(description,'') as content, 'entrance' as type, COALESCE(title,'') as url FROM institution_entrances WHERE embedding IS NOT NULL AND embedding <=> '%s'::vector < 1.5 ORDER BY embedding <=> '%s'::vector LIMIT 10", vectorStr, vectorStr)},
 	}
 
 	for _, q := range queries {
@@ -206,11 +221,15 @@ func (s *Service) keywordSearch(q string) []contextResult {
 		paramLen int
 	}
 	queries := []tableQuery{
-		{"colleges", "SELECT id, name as title, COALESCE(description,'') as description, COALESCE(description,'') as content, 'college' as type, COALESCE(name,'') as url FROM colleges WHERE LOWER(COALESCE(name,'')) LIKE LOWER(?) OR LOWER(COALESCE(description,'')) LIKE LOWER(?) OR LOWER(COALESCE(location,'')) LIKE LOWER(?) LIMIT 3", 3},
-		{"courses", "SELECT id, title, COALESCE(description,'') as description, COALESCE(description,'') as content, 'course' as type, '' as url FROM courses WHERE LOWER(COALESCE(title,'')) LIKE LOWER(?) OR LOWER(COALESCE(description,'')) LIKE LOWER(?) OR LOWER(COALESCE(field,'')) LIKE LOWER(?) LIMIT 3", 3},
-		{"scholarships", "SELECT id, title, COALESCE(description,'') as description, COALESCE(description,'') as content, 'scholarship' as type, '' as url FROM scholarships WHERE LOWER(COALESCE(title,'')) LIKE LOWER(?) OR LOWER(COALESCE(description,'')) LIKE LOWER(?) OR LOWER(COALESCE(provider,'')) LIKE LOWER(?) LIMIT 3", 3},
-		{"exams", "SELECT id, title, COALESCE(description,'') as description, COALESCE(description,'') as content, 'exam' as type, COALESCE(title,'') as url FROM exams WHERE LOWER(COALESCE(title,'')) LIKE LOWER(?) OR LOWER(COALESCE(description,'')) LIKE LOWER(?) LIMIT 3", 2},
-		{"site_pages", "SELECT id, title, content as description, content as content, 'page' as type, slug as url FROM site_pages WHERE LOWER(title) LIKE ? OR LOWER(content) LIKE ? LIMIT 3", 2},
+		{"colleges", "SELECT id, name as title, COALESCE(description,'') as description, COALESCE(description,'') as content, 'college' as type, COALESCE(name,'') as url FROM colleges WHERE LOWER(COALESCE(name,'')) LIKE LOWER(?) OR LOWER(COALESCE(description,'')) LIKE LOWER(?) OR LOWER(COALESCE(location,'')) LIKE LOWER(?) LIMIT 10", 3},
+		{"courses", "SELECT id, title, COALESCE(description,'') as description, COALESCE(description,'') as content, 'course' as type, '' as url FROM courses WHERE LOWER(COALESCE(title,'')) LIKE LOWER(?) OR LOWER(COALESCE(description,'')) LIKE LOWER(?) OR LOWER(COALESCE(field,'')) LIKE LOWER(?) LIMIT 10", 3},
+		{"scholarships", "SELECT id, title, COALESCE(description,'') as description, COALESCE(description,'') as content, 'scholarship' as type, '' as url FROM scholarships WHERE LOWER(COALESCE(title,'')) LIKE LOWER(?) OR LOWER(COALESCE(description,'')) LIKE LOWER(?) OR LOWER(COALESCE(provider,'')) LIKE LOWER(?) LIMIT 10", 3},
+		{"exams", "SELECT id, title, COALESCE(description,'') as description, COALESCE(description,'') as content, 'exam' as type, COALESCE(title,'') as url FROM exams WHERE LOWER(COALESCE(title,'')) LIKE LOWER(?) OR LOWER(COALESCE(description,'')) LIKE LOWER(?) LIMIT 10", 2},
+		{"site_pages", "SELECT id, title, content as description, content as content, 'page' as type, slug as url FROM site_pages WHERE LOWER(title) LIKE ? OR LOWER(content) LIKE ? LIMIT 10", 2},
+		{"news", "SELECT id, title, COALESCE(excerpt,'') as description, COALESCE(content,'') as content, 'news' as type, '' as url FROM news WHERE LOWER(COALESCE(title,'')) LIKE LOWER(?) OR LOWER(COALESCE(excerpt,'')) LIKE LOWER(?) OR LOWER(COALESCE(content,'')) LIKE LOWER(?) LIMIT 10", 3},
+		{"events", "SELECT id, title, COALESCE(description,'') as description, COALESCE(description,'') as content, 'event' as type, '' as url FROM events WHERE LOWER(COALESCE(title,'')) LIKE LOWER(?) OR LOWER(COALESCE(description,'')) LIKE LOWER(?) LIMIT 10", 2},
+		{"institution_entrances", "SELECT id, title, COALESCE(description,'') as description, COALESCE(description,'') as content, 'entrance' as type, COALESCE(title,'') as url FROM institution_entrances WHERE LOWER(COALESCE(title,'')) LIKE LOWER(?) OR LOWER(COALESCE(description,'')) LIKE LOWER(?) OR LOWER(COALESCE(program,'')) LIKE LOWER(?) LIMIT 10", 3},
+		{"blogs", "SELECT id, title, COALESCE(excerpt,'') as description, COALESCE(content,'') as content, 'blog' as type, '' as url FROM blogs WHERE LOWER(COALESCE(title,'')) LIKE LOWER(?) OR LOWER(COALESCE(excerpt,'')) LIKE LOWER(?) OR LOWER(COALESCE(content,'')) LIKE LOWER(?) LIMIT 10", 3},
 	}
 
 	for _, q := range queries {
@@ -242,8 +261,8 @@ func (s *Service) buildContext(items []contextResult) string {
 			content = item.Description
 		}
 		runes := []rune(content)
-		if len(runes) > 600 {
-			content = string(runes[:600]) + "..."
+		if len(runes) > 2000 {
+			content = string(runes[:2000]) + "..."
 		}
 		b.WriteString(content)
 	}
@@ -254,16 +273,15 @@ func (s *Service) buildSystemPrompt(contextStr string) string {
 	base := "You are StudSphere AI, a helpful assistant for StudSphere.com — Nepal's " +
 		"college discovery, course comparison, and scholarship platform. " +
 		"Your job is to help students find the right college, course, exam, or scholarship in Nepal. " +
-		"Be friendly, concise, and practical. Use short paragraphs and bullet points when listing options. " +
-		"Always cite the relevant resource (college name, scholarship name, exam name) when answering."
+		"Be friendly, concise, and practical. Use short paragraphs and bullet points when listing options."
 
-	if contextStr == "" {
-		return base + " If the question is outside the scope of StudSphere, " +
-			"suggest that the user search the StudSphere website or contact support."
-	}
-	return base + "\n\nAnswer ONLY from the context provided below. " +
-		"If the context does not contain enough information, say so clearly and suggest where on StudSphere " +
-		"the user can find more. Never invent college names, scholarship amounts, deadlines, or contact details.\n\n" +
+	return base + "\n\nRULES (you MUST follow all of them):\n" +
+		"1. You have NO knowledge outside the CONTEXT section below. Do not use your training data.\n" +
+		"2. For EVERY fact you state, append the source in brackets — e.g. [College: Kathmandu University], [Scholarship: Fulbright], [Course: BSc Nursing].\n" +
+		"3. If the CONTEXT does not contain enough information, say \"I don't have enough information about that on StudSphere\" and suggest searching the website.\n" +
+		"4. Never invent college names, scholarship amounts, deadlines, contact details, or any other specific data.\n" +
+		"5. Never mention that you are following rules or that you received context — just answer naturally.\n" +
+		"6. If the user asks about topics outside StudSphere (general knowledge, entertainment, politics), politely say you can only answer questions about colleges, courses, scholarships, exams, and education in Nepal.\n\n" +
 		"--- CONTEXT ---\n" + contextStr
 }
 
