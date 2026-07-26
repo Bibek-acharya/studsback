@@ -20,6 +20,7 @@ import (
 	"studsphere/backend/internal/counselling"
 	"studsphere/backend/internal/education"
 	"studsphere/backend/internal/emailqueue"
+	"studsphere/backend/internal/faq"
 	"studsphere/backend/internal/feedback"
 	"studsphere/backend/internal/follow"
 	"studsphere/backend/internal/forum"
@@ -153,6 +154,8 @@ func main() {
 		&system.PublicNotification{},
 		&chat.SitePage{},
 		&feedback.Feedback{},
+		&faq.FAQCategory{},
+		&faq.FAQItem{},
 	); err != nil {
 		logger.Fatal("Failed to migrate database", "error", err)
 	} else {
@@ -236,6 +239,7 @@ func main() {
 	institutionHandler := institution.NewHandler(institutionSvc)
 
 	projectShikshaHandler := initModule(projectshiksha.NewRepository(db), projectshiksha.NewService, projectshiksha.NewHandler)
+	faqHandler := initModule(faq.NewRepository(db), faq.NewService, faq.NewHandler)
 	reviewHandler := initModule(review.NewRepository(db), review.NewService, review.NewHandler)
 	scholarshipRepo := scholarship.NewRepository(db)
 	scholarshipSvc := scholarship.NewService(scholarshipRepo, db, systemSvc)
@@ -383,6 +387,7 @@ func main() {
 	forum.RegisterRoutes(router, authMW, roleMW, forumHandler)
 	institution.RegisterRoutes(router, authMW, roleMW, institutionHandler)
 	projectshiksha.RegisterRoutes(router, authMW, roleMW, projectShikshaHandler)
+	faq.RegisterRoutes(router, authMW, roleMW, faqHandler)
 	review.RegisterRoutes(router, authMW, roleMW, reviewHandler)
 	scholarship.RegisterRoutes(router, authMW, roleMW, scholarshipHandler)
 	scholarshipprovider.RegisterRoutes(router, authMW, roleMW, scholarshipPHandler)
