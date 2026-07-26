@@ -13,15 +13,15 @@ func NewRepository(db *gorm.DB) *Repository {
 func (r *Repository) FindAllCategories() ([]FAQCategory, error) {
 	var cats []FAQCategory
 	err := r.db.Preload("Items", func(db *gorm.DB) *gorm.DB {
-		return db.Order("`order` ASC, id ASC")
-	}).Order("`order` ASC, id ASC").Find(&cats).Error
+		return db.Order("\"order\" ASC, id ASC")
+	}).Order("\"order\" ASC, id ASC").Find(&cats).Error
 	return cats, err
 }
 
 func (r *Repository) FindCategoryByID(id uint) (*FAQCategory, error) {
 	var cat FAQCategory
 	err := r.db.Preload("Items", func(db *gorm.DB) *gorm.DB {
-		return db.Order("`order` ASC, id ASC")
+		return db.Order("\"order\" ASC, id ASC")
 	}).First(&cat, id).Error
 	if err != nil {
 		return nil, err
