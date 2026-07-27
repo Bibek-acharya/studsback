@@ -93,21 +93,22 @@ func (CollegeUniversityCourse) TableName() string {
 }
 
 type News struct {
-	ID        uint           `gorm:"primarykey" json:"id"`
-	CreatedAt time.Time      `json:"created_at"`
-	UpdatedAt time.Time      `json:"updated_at"`
-	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
-	Slug      string         `gorm:"uniqueIndex" json:"slug"`
-	Category  string         `json:"category"`
-	Title     string         `gorm:"not null" json:"title" binding:"required"`
-	Excerpt   string         `gorm:"type:text" json:"excerpt"`
-	Content   string         `gorm:"type:text" json:"content"`
-	Image     string         `json:"image"`
-	Author    string         `json:"author"`
-	Date      string         `json:"date"`
-	ReadTime  string         `json:"readTime"`
-	Source    string         `json:"source"`
-	Tags      []byte         `gorm:"type:jsonb" json:"tags"`
+	ID           uint           `gorm:"primarykey" json:"id"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
+	DeletedAt    gorm.DeletedAt `gorm:"index" json:"-"`
+	Slug         string         `gorm:"uniqueIndex" json:"slug"`
+	UniversityID uint           `gorm:"index" json:"university_id"`
+	Category     string         `json:"category"`
+	Title        string         `gorm:"not null" json:"title" binding:"required"`
+	Excerpt      string         `gorm:"type:text" json:"excerpt"`
+	Content      string         `gorm:"type:text" json:"content"`
+	Image        string         `json:"image"`
+	Author       string         `json:"author"`
+	Date         string         `json:"date"`
+	ReadTime     string         `json:"readTime"`
+	Source       string         `json:"source"`
+	Tags         []byte         `gorm:"type:jsonb" json:"tags"`
 }
 
 func (n *News) BeforeCreate(tx *gorm.DB) error {
@@ -131,6 +132,7 @@ type Event struct {
 	UpdatedAt       time.Time      `json:"updated_at"`
 	DeletedAt       gorm.DeletedAt `gorm:"index" json:"-"`
 	Slug            string         `gorm:"uniqueIndex" json:"slug"`
+	UniversityID    uint           `gorm:"index" json:"university_id"`
 	Title           string         `gorm:"not null" json:"title" binding:"required"`
 	Excerpt         string         `gorm:"type:text" json:"excerpt"`
 	Description     string         `gorm:"type:text" json:"description"`

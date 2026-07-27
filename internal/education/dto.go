@@ -192,6 +192,7 @@ type NewsResponse struct {
 
 type EventResponse struct {
 	ID              uint   `json:"id"`
+	UniversityID    uint   `json:"university_id"`
 	Slug            string `json:"slug"`
 	Title           string `json:"title"`
 	Excerpt         string `json:"excerpt"`
@@ -209,6 +210,7 @@ type EventResponse struct {
 }
 
 type EventRequest struct {
+	UniversityID    uint   `json:"university_id"`
 	Title           string `json:"title" binding:"required"`
 	Excerpt         string `json:"excerpt"`
 	Description     string `json:"description"`
@@ -223,6 +225,7 @@ type EventRequest struct {
 }
 
 type UpdateEventRequest struct {
+	UniversityID    uint   `json:"university_id"`
 	Title           string `json:"title"`
 	Excerpt         string `json:"excerpt"`
 	Description     string `json:"description"`
@@ -367,8 +370,9 @@ type UpdateBlogRequest struct {
 }
 
 type CreateNewsRequest struct {
-	Category string   `json:"category" binding:"required"`
-	Title    string   `json:"title" binding:"required"`
+	UniversityID uint     `json:"university_id"`
+	Category     string   `json:"category" binding:"required"`
+	Title        string   `json:"title" binding:"required"`
 	Excerpt  string   `json:"excerpt"`
 	Content  string   `json:"content" binding:"required"`
 	Image    string   `json:"image"`
@@ -380,7 +384,8 @@ type CreateNewsRequest struct {
 }
 
 type UpdateNewsRequest struct {
-	Category string   `json:"category"`
+	UniversityID uint     `json:"university_id"`
+	Category     string   `json:"category"`
 	Title    string   `json:"title"`
 	Excerpt  string   `json:"excerpt"`
 	Content  string   `json:"content"`
@@ -393,8 +398,9 @@ type UpdateNewsRequest struct {
 }
 
 type AdminNewsResponse struct {
-	ID        uint     `json:"id"`
-	Slug      string   `json:"slug"`
+	ID           uint     `json:"id"`
+	UniversityID uint     `json:"university_id"`
+	Slug         string   `json:"slug"`
 	Category  string   `json:"category"`
 	Title     string   `json:"title"`
 	Excerpt   string   `json:"excerpt"`

@@ -117,6 +117,7 @@ func buildNewsResponse(news News) NewsResponse {
 func buildEventResponse(event Event) EventResponse {
 	return EventResponse{
 		ID:              event.ID,
+		UniversityID:    event.UniversityID,
 		Slug:            event.Slug,
 		Title:           event.Title,
 		Excerpt:         event.Excerpt,
@@ -987,8 +988,8 @@ func (s *Service) GetEducationEventsFiltered(page, limit int, category, search, 
 	return responses, meta, nil
 }
 
-func (s *Service) GetAllEventsAdmin(page, limit int) ([]EventResponse, PaginationMeta, error) {
-	events, total, err := s.repo.FindAllEvents(page, limit)
+func (s *Service) GetAllEventsAdmin(page, limit int, universityID *uint) ([]EventResponse, PaginationMeta, error) {
+	events, total, err := s.repo.FindAllEvents(page, limit, universityID)
 	if err != nil {
 		return nil, PaginationMeta{}, err
 	}
@@ -1014,6 +1015,7 @@ func (s *Service) GetAllEventsAdmin(page, limit int) ([]EventResponse, Paginatio
 
 func (s *Service) CreateEvent(req EventRequest) (*EventResponse, error) {
 	event := &Event{
+		UniversityID:    req.UniversityID,
 		Title:           req.Title,
 		Excerpt:         req.Excerpt,
 		Description:     req.Description,
@@ -1082,6 +1084,9 @@ func (s *Service) UpdateEvent(id string, req UpdateEventRequest) (*EventResponse
 	}
 	if req.Featured != nil {
 		updates["featured"] = *req.Featured
+	}
+	if req.UniversityID != 0 {
+		updates["university_id"] = req.UniversityID
 	}
 
 	event, err := s.repo.UpdateEvent(id, updates)
@@ -1451,25 +1456,26 @@ func (s *Service) UploadBlogImage(file *multipart.FileHeader) ([]string, error) 
 
 func buildAdminNewsResponse(news News) AdminNewsResponse {
 	return AdminNewsResponse{
-		ID:        news.ID,
-		Slug:      news.Slug,
-		Category:  news.Category,
-		Title:     news.Title,
-		Excerpt:   news.Excerpt,
-		Content:   news.Content,
-		Image:     news.Image,
-		Author:    news.Author,
-		Date:      news.Date,
-		ReadTime:  news.ReadTime,
-		Source:    news.Source,
-		Tags:      parseStringArrayField(news.Tags),
-		CreatedAt: news.CreatedAt.String(),
-		UpdatedAt: news.UpdatedAt.String(),
+		ID:           news.ID,
+		UniversityID: news.UniversityID,
+		Slug:         news.Slug,
+		Category:     news.Category,
+		Title:        news.Title,
+		Excerpt:      news.Excerpt,
+		Content:      news.Content,
+		Image:        news.Image,
+		Author:       news.Author,
+		Date:         news.Date,
+		ReadTime:     news.ReadTime,
+		Source:       news.Source,
+		Tags:         parseStringArrayField(news.Tags),
+		CreatedAt:    news.CreatedAt.String(),
+		UpdatedAt:    news.UpdatedAt.String(),
 	}
 }
 
-func (s *Service) GetAllNewsAdmin(page, limit int, category, search string) ([]AdminNewsResponse, PaginationMeta, error) {
-	news, total, err := s.repo.FindAllNewsAdmin(page, limit, category, search)
+func (s *Service) GetAllNewsAdmin(page, limit int, category, search string, universityID *uint) ([]AdminNewsResponse, PaginationMeta, error) {
+	news, total, err := s.repo.FindAllNewsAdmin(page, limit, category, search, universityID)
 	if err != nil {
 		return nil, PaginationMeta{}, err
 	}
@@ -1503,17 +1509,18 @@ func (s *Service) CreateNewsAdmin(req CreateNewsRequest) (*AdminNewsResponse, er
 	})
 
 	news := News{
-		Slug:     slugStr,
-		Category: req.Category,
-		Title:    req.Title,
-		Excerpt:  req.Excerpt,
-		Content:  req.Content,
-		Image:    req.Image,
-		Author:   req.Author,
-		Date:     req.Date,
-		ReadTime: req.ReadTime,
-		Source:   req.Source,
-		Tags:     tagsJSON,
+		Slug:         slugStr,
+		UniversityID: req.UniversityID,
+		Category:     req.Category,
+		Title:        req.Title,
+		Excerpt:      req.Excerpt,
+		Content:      req.Content,
+		Image:        req.Image,
+		Author:       req.Author,
+		Date:         req.Date,
+		ReadTime:     req.ReadTime,
+		Source:       req.Source,
+		Tags:         tagsJSON,
 	}
 
 	if err := s.repo.CreateNews(&news); err != nil {
@@ -1579,6 +1586,9 @@ func (s *Service) UpdateNewsAdmin(id string, req UpdateNewsRequest) (*AdminNewsR
 	if req.Tags != nil {
 		tagsJSON, _ := json.Marshal(req.Tags)
 		news.Tags = tagsJSON
+	}
+	if req.UniversityID != 0 {
+		news.UniversityID = req.UniversityID
 	}
 
 	if err := s.repo.UpdateNews(news); err != nil {
