@@ -1,5 +1,7 @@
 package university
 
+import "encoding/json"
+
 type CreateUniversityRequest struct {
 	Name           string      `json:"name" binding:"required"`
 	Logo           string      `json:"logo"`
@@ -98,21 +100,21 @@ type UniversityResponse struct {
 	Founder         string   `json:"founder"`
 	Website         string   `json:"website,omitempty"`
 	Cover           string   `json:"cover"`
-	About           []byte   `json:"about,omitempty"`
-	Contact         []byte   `json:"contact,omitempty"`
-	Quick           []byte   `json:"quick,omitempty"`
-	Overview        []byte   `json:"overview,omitempty"`
-	Leadership      []byte   `json:"leadership,omitempty"`
-	Courses         []byte   `json:"courses,omitempty"`
-	Programs        []byte   `json:"programs,omitempty"`
-	Scholarships    []byte   `json:"scholarships,omitempty"`
-	Events          []byte   `json:"events,omitempty"`
-	News            []byte   `json:"news,omitempty"`
-	Downloads       []byte   `json:"downloads,omitempty"`
-	Gallery         []byte   `json:"gallery,omitempty"`
-	Faculties       []byte   `json:"faculties,omitempty"`
-	Admissions      []byte   `json:"admissions,omitempty"`
-	Reviews         []byte   `json:"reviews,omitempty"`
+	About           json.RawMessage `json:"about,omitempty"`
+	Contact         json.RawMessage `json:"contact,omitempty"`
+	Quick           json.RawMessage `json:"quick,omitempty"`
+	Overview        json.RawMessage `json:"overview,omitempty"`
+	Leadership      json.RawMessage `json:"leadership,omitempty"`
+	Courses         json.RawMessage `json:"courses,omitempty"`
+	Programs        json.RawMessage `json:"programs,omitempty"`
+	Scholarships    json.RawMessage `json:"scholarships,omitempty"`
+	Events          json.RawMessage `json:"events,omitempty"`
+	News            json.RawMessage `json:"news,omitempty"`
+	Downloads       json.RawMessage `json:"downloads,omitempty"`
+	Gallery         json.RawMessage `json:"gallery,omitempty"`
+	Faculties       json.RawMessage `json:"faculties,omitempty"`
+	Admissions      json.RawMessage `json:"admissions,omitempty"`
+	Reviews         json.RawMessage `json:"reviews,omitempty"`
 }
 
 type UniversityCollegeResponse struct {

@@ -173,3 +173,62 @@ func (h *Handler) ReportReview(c *gin.Context) {
 
 	response.Success(c, http.StatusOK, "Review reported successfully", nil)
 }
+
+func (h *Handler) SubmitUniversityReview(c *gin.Context) {
+	userID := getUserID(c)
+
+	var req CreateUniversityReviewRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	review, err := h.service.SubmitUniversityReview(userID, req)
+	if err != nil {
+		if err.Error() == "you have already reviewed this university" {
+			response.Error(c, http.StatusConflict, err.Error())
+			return
+		}
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusCreated, "Review submitted successfully", gin.H{"review": review})
+}
+
+func (h *Handler) GetUniversityReviews(c *gin.Context) {
+	universityID, err := strconv.ParseUint(c.Param("universityId"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid university ID")
+		return
+	}
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+
+	result, err := h.service.GetUniversityReviews(uint(universityID), page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Reviews fetched successfully", result)
+}
+
+func (h *Handler) GetMyUniversityReview(c *gin.Context) {
+	userID := getUserID(c)
+
+	universityID, err := strconv.ParseUint(c.Param("universityId"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid university ID")
+		return
+	}
+
+	review, err := h.service.GetUserUniversityReview(userID, uint(universityID))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Review not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Review fetched successfully", gin.H{"review": review})
+}

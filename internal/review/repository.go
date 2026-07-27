@@ -55,6 +55,43 @@ func (r *Repository) FindByUser(userID uint, page, limit int) ([]Review, int64, 
 	return reviews, total, nil
 }
 
+func (r *Repository) FindByUniversity(universityID uint, page, limit int) ([]Review, int64, error) {
+	var reviews []Review
+	var total int64
+
+	if err := r.db.Model(&Review{}).Where("university_id = ? AND is_published = ?", universityID, true).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * limit
+	err := r.db.Where("university_id = ? AND is_published = ?", universityID, true).
+		Order("created_at desc").
+		Offset(offset).
+		Limit(limit).
+		Find(&reviews).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return reviews, total, nil
+}
+
+func (r *Repository) FindAllByUniversity(universityID uint) ([]Review, error) {
+	var reviews []Review
+	err := r.db.Where("university_id = ? AND is_published = ?", universityID, true).
+		Find(&reviews).Error
+	return reviews, err
+}
+
+func (r *Repository) FindByUserAndUniversity(userID, universityID uint) (*Review, error) {
+	var review Review
+	err := r.db.Where("user_id = ? AND university_id = ?", userID, universityID).First(&review).Error
+	if err != nil {
+		return nil, err
+	}
+	return &review, nil
+}
+
 func (r *Repository) FindByCollege(collegeID uint, page, limit int) ([]Review, int64, error) {
 	var reviews []Review
 	var total int64
@@ -121,4 +158,13 @@ func (r *Repository) IncrementHelpfulCount(reviewID uint) error {
 
 func (r *Repository) CreateReport(report *ReviewReport) error {
 	return r.db.Create(report).Error
+}
+
+func (r *Repository) UpdateUniversityRating(universityID uint, avgRating float64, reviewCount int) error {
+	return r.db.Table("universities").
+		Where("id = ?", universityID).
+		Updates(map[string]interface{}{
+			"rating":       avgRating,
+			"review_count": reviewCount,
+		}).Error
 }

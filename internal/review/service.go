@@ -235,6 +235,131 @@ func (s *Service) ReportReview(reviewID, userID uint, reason string) error {
 	return s.repo.CreateReport(report)
 }
 
+func (s *Service) SubmitUniversityReview(userID uint, req CreateUniversityReviewRequest) (*ReviewResponse, error) {
+	existing, err := s.repo.FindByUserAndUniversity(userID, req.UniversityID)
+	if err == nil && existing != nil {
+		return nil, errors.New("you have already reviewed this university")
+	}
+
+	ratings := map[string]float64{"overall": req.Rating}
+	ratingsJSON, err := json.Marshal(ratings)
+	if err != nil {
+		return nil, errors.New("failed to serialize ratings")
+	}
+
+	review := &Review{
+		UserID:       userID,
+		UniversityID: req.UniversityID,
+		StudentType:  "current",
+		Course:       "University",
+		Level:        "Bachelor",
+		BatchYear:    2024,
+		Ratings:      ratingsJSON,
+		SummaryTitle: req.Review,
+		Pros:         req.Review,
+		Cons:         "",
+		Email:        "",
+		IsPublished:  true,
+	}
+
+	if err := s.repo.Create(review); err != nil {
+		return nil, err
+	}
+
+	s.updateUniversityRating(req.UniversityID)
+
+	return toReviewResponse(review), nil
+}
+
+func (s *Service) GetUniversityReviews(universityID uint, page, limit int) (*UniversityReviewsResponse, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 10
+	}
+
+	reviews, total, err := s.repo.FindByUniversity(universityID, page, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	totalPages := int(math.Ceil(float64(total) / float64(limit)))
+
+	responses := make([]ReviewResponse, len(reviews))
+	for i, r := range reviews {
+		responses[i] = *toReviewResponse(&r)
+	}
+
+	var overallRating float64
+	distribution := map[int]int{1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
+
+	allReviews, err := s.repo.FindAllByUniversity(universityID)
+	if err == nil {
+		var totalRating float64
+		for _, r := range allReviews {
+			ratings := make(map[string]float64)
+			if err := json.Unmarshal(r.Ratings, &ratings); err == nil {
+				if val, ok := ratings["overall"]; ok {
+					totalRating += val
+					star := int(math.Round(val))
+					if star >= 1 && star <= 5 {
+						distribution[star]++
+					}
+				}
+			}
+		}
+		if len(allReviews) > 0 {
+			overallRating = math.Round(totalRating/float64(len(allReviews))*10) / 10
+		}
+	}
+
+	return &UniversityReviewsResponse{
+		Reviews:       responses,
+		OverallRating: overallRating,
+		ReviewCount:   int(total),
+		Distribution:  distribution,
+		Meta: Meta{
+			Total:      int(total),
+			Page:       page,
+			Limit:      limit,
+			TotalPages: totalPages,
+		},
+	}, nil
+}
+
+func (s *Service) GetUserUniversityReview(userID, universityID uint) (*ReviewResponse, error) {
+	review, err := s.repo.FindByUserAndUniversity(userID, universityID)
+	if err != nil {
+		return nil, err
+	}
+	return toReviewResponse(review), nil
+}
+
+func (s *Service) updateUniversityRating(universityID uint) {
+	allReviews, err := s.repo.FindAllByUniversity(universityID)
+	if err != nil {
+		return
+	}
+
+	var totalRating float64
+	for _, r := range allReviews {
+		ratings := make(map[string]float64)
+		if json.Unmarshal(r.Ratings, &ratings) == nil {
+			if val, ok := ratings["overall"]; ok {
+				totalRating += val
+			}
+		}
+	}
+
+	var avgRating float64
+	if len(allReviews) > 0 {
+		avgRating = math.Round(totalRating/float64(len(allReviews))*10) / 10
+	}
+
+	s.repo.UpdateUniversityRating(universityID, avgRating, len(allReviews))
+}
+
 func toReviewResponse(r *Review) *ReviewResponse {
 	ratings := make(map[string]float64)
 	if len(r.Ratings) > 0 {
@@ -244,6 +369,7 @@ func toReviewResponse(r *Review) *ReviewResponse {
 	return &ReviewResponse{
 		ID:                r.ID,
 		CollegeID:         r.CollegeID,
+		UniversityID:      r.UniversityID,
 		CollegeName:       r.CollegeName,
 		UserID:            r.UserID,
 		StudentType:       r.StudentType,

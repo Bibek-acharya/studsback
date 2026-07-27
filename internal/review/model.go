@@ -12,7 +12,8 @@ type Review struct {
 	UpdatedAt         time.Time      `json:"updated_at"`
 	DeletedAt         gorm.DeletedAt `gorm:"index" json:"-"`
 	UserID            uint           `gorm:"index;not null" json:"user_id"`
-	CollegeID         uint           `gorm:"index;not null" json:"college_id"`
+	CollegeID         uint           `gorm:"index" json:"college_id"`
+	UniversityID      uint           `gorm:"index" json:"university_id"`
 	CollegeName       string         `json:"college_name"`
 	StudentType       string         `gorm:"not null" json:"student_type"`
 	Course            string         `gorm:"not null" json:"course"`

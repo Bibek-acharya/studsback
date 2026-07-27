@@ -31,6 +31,7 @@ type ReportReviewRequest struct {
 type ReviewResponse struct {
 	ID                uint               `json:"id"`
 	CollegeID         uint               `json:"college_id"`
+	UniversityID      uint               `json:"university_id"`
 	CollegeName       string             `json:"college_name"`
 	UserID            uint               `json:"user_id"`
 	StudentType       string             `json:"student_type"`
@@ -63,6 +64,20 @@ type CollegeReviewsResponse struct {
 	ReviewCount      int                  `json:"review_count"`
 	CategoryAverages map[string]float64   `json:"category_averages"`
 	Meta             Meta                 `json:"meta"`
+}
+
+type CreateUniversityReviewRequest struct {
+	UniversityID uint    `json:"university_id" binding:"required"`
+	Rating       float64 `json:"rating" binding:"required,min=1,max=5"`
+	Review       string  `json:"review" binding:"required,min=10"`
+}
+
+type UniversityReviewsResponse struct {
+	Reviews       []ReviewResponse `json:"reviews"`
+	OverallRating float64          `json:"overall_rating"`
+	ReviewCount   int              `json:"review_count"`
+	Distribution  map[int]int      `json:"distribution"`
+	Meta          Meta             `json:"meta"`
 }
 
 type Meta struct {

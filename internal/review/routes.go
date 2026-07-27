@@ -25,7 +25,15 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 		education.Use(authMW)
 		{
 			education.GET("/college/:collegeId", h.GetCollegeReviews)
+			education.GET("/university/:universityId", h.GetUniversityReviews)
 			education.POST("/:id/helpful", h.MarkHelpful)
+		}
+
+		university := v1.Group("/user/university-reviews")
+		university.Use(authMW)
+		{
+			university.POST("", h.SubmitUniversityReview)
+			university.GET("/:universityId", h.GetMyUniversityReview)
 		}
 	}
 }
