@@ -376,6 +376,12 @@ func (s *Service) UpdateUniversity(id uint, req UpdateUniversityRequest) (*Unive
 	if req.Cover != nil {
 		uni.Cover = strings.TrimSpace(*req.Cover)
 	}
+	if req.ProgramsCount != nil {
+		uni.ProgramsCount = *req.ProgramsCount
+	}
+	if req.CollegesCount != nil {
+		uni.CollegesCount = *req.CollegesCount
+	}
 
 	if req.About != nil {
 		if b, err := json.Marshal(req.About); err == nil {
