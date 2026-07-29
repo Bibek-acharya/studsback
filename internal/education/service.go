@@ -988,8 +988,8 @@ func (s *Service) GetEducationEventsFiltered(page, limit int, category, search, 
 	return responses, meta, nil
 }
 
-func (s *Service) GetAllEventsAdmin(page, limit int, universityID *uint) ([]EventResponse, PaginationMeta, error) {
-	events, total, err := s.repo.FindAllEvents(page, limit, universityID)
+func (s *Service) GetAllEventsAdmin(page, limit int, universityID *uint, hasUniversity bool) ([]EventResponse, PaginationMeta, error) {
+	events, total, err := s.repo.FindAllEvents(page, limit, universityID, hasUniversity)
 	if err != nil {
 		return nil, PaginationMeta{}, err
 	}
@@ -1474,8 +1474,8 @@ func buildAdminNewsResponse(news News) AdminNewsResponse {
 	}
 }
 
-func (s *Service) GetAllNewsAdmin(page, limit int, category, search string, universityID *uint) ([]AdminNewsResponse, PaginationMeta, error) {
-	news, total, err := s.repo.FindAllNewsAdmin(page, limit, category, search, universityID)
+func (s *Service) GetAllNewsAdmin(page, limit int, category, search string, universityID *uint, hasUniversity bool) ([]AdminNewsResponse, PaginationMeta, error) {
+	news, total, err := s.repo.FindAllNewsAdmin(page, limit, category, search, universityID, hasUniversity)
 	if err != nil {
 		return nil, PaginationMeta{}, err
 	}

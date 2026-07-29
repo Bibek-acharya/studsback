@@ -750,6 +750,7 @@ func (s *Service) CreateInstitution(req CreateInstitutionRequest) (*InstitutionU
 		Status:             "approved",
 		Level:              req.Level,
 		Affiliation:        req.Affiliation,
+		UniversityID:       &req.UniversityID,
 		Verified:           false,
 		Claimed:            false,
 		District:           req.Location,
@@ -822,6 +823,8 @@ func (s *Service) GetInstitution(id uint) (*InstitutionDetailResponse, error) {
 		Mission:            user.Mission,
 		Level:              user.Level,
 		Affiliation:        user.Affiliation,
+		UniversityID:       user.UniversityID,
+		IsSponsored:        user.IsSponsored,
 		Latitude:           user.Latitude,
 		Longitude:          user.Longitude,
 		ProfileData:        profileData,
@@ -848,6 +851,12 @@ func (s *Service) UpdateInstitution(id uint, req UpdateInstitutionRequest) error
 	}
 	if req.Affiliation != "" {
 		user.Affiliation = req.Affiliation
+	}
+	if req.UniversityID != nil {
+		user.UniversityID = req.UniversityID
+	}
+	if req.IsSponsored != nil {
+		user.IsSponsored = *req.IsSponsored
 	}
 	if req.About != "" {
 		user.About = req.About

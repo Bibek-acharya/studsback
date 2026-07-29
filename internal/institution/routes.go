@@ -12,6 +12,8 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 		// Public institution routes (no auth)
 		v1.GET("/institutions/public/filter-counts", h.GetPublicInstitutionFilterCounts)
 		v1.GET("/institutions/public", h.ListPublicInstitutions)
+		v1.GET("/institutions/public/sponsored/:universityId", h.GetSponsoredInstitutions)
+		v1.GET("/institutions/public/by-university/:universityId", h.GetInstitutionsByUniversity)
 		v1.GET("/institutions/public/:id", h.GetPublicInstitution)
 		v1.GET("/institutions/public/blogs", h.ListPublicBlogs)
 		v1.GET("/institutions/public/news/by-slug/:slug", h.GetPublicNewsBySlug)
@@ -27,6 +29,12 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 		v1.GET("/admissions/published", h.GetPublishedAdmissionPages)
 		v1.GET("/admissions/published/institutions", h.GetPublishedAdmissionInstitutions)
 		v1.GET("/admissions/published/institutions/:id", h.GetPublishedAdmissionInstitutionByID)
+
+		adminInst := v1.Group("/admin/institutions")
+		adminInst.Use(authMW, roleMW)
+		{
+			adminInst.PUT("/:id/sponsored", h.ToggleInstitutionSponsored)
+		}
 
 		// Public counselling booking (auth only, no role check)
 		publicBooking := v1.Group("")

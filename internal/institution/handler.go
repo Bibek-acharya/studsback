@@ -1364,6 +1364,65 @@ func (h *Handler) ListPublicInstitutions(c *gin.Context) {
 	})
 }
 
+func (h *Handler) GetSponsoredInstitutions(c *gin.Context) {
+	universityID, err := strconv.ParseUint(c.Param("universityId"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid university ID")
+		return
+	}
+
+	results, err := h.service.GetSponsoredInstitutions(uint(universityID))
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch sponsored institutions")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Sponsored institutions retrieved successfully", gin.H{
+		"institutions": results,
+	})
+}
+
+func (h *Handler) GetInstitutionsByUniversity(c *gin.Context) {
+	universityID, err := strconv.ParseUint(c.Param("universityId"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid university ID")
+		return
+	}
+
+	results, err := h.service.GetInstitutionsByUniversity(uint(universityID))
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch institutions")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Institutions retrieved successfully", gin.H{
+		"institutions": results,
+	})
+}
+
+func (h *Handler) ToggleInstitutionSponsored(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid institution ID")
+		return
+	}
+
+	var req struct {
+		IsSponsored bool `json:"is_sponsored"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err := h.service.ToggleSponsored(uint(id), req.IsSponsored); err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to update sponsored status")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Sponsored status updated", nil)
+}
+
 func (h *Handler) GetPublicInstitution(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {

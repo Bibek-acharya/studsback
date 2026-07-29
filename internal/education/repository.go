@@ -492,11 +492,14 @@ func (r *Repository) FindEventsFiltered(page, limit int, category, search, sort,
 	return events, total, err
 }
 
-func (r *Repository) FindAllEvents(page, limit int, universityID *uint) ([]Event, int64, error) {
+func (r *Repository) FindAllEvents(page, limit int, universityID *uint, hasUniversity bool) ([]Event, int64, error) {
 	var events []Event
 	var total int64
 
 	query := r.db.Model(&Event{})
+	if hasUniversity {
+		query = query.Where("university_id > 0")
+	}
 	if universityID != nil {
 		query = query.Where("university_id = ?", *universityID)
 	}
@@ -767,7 +770,7 @@ func (r *Repository) IncrementCommentLikes(id uint) error {
 
 // ─── Admin News CRUD ─────────────────────────────────────────────────────────
 
-func (r *Repository) FindAllNewsAdmin(page, limit int, category, search string, universityID *uint) ([]News, int64, error) {
+func (r *Repository) FindAllNewsAdmin(page, limit int, category, search string, universityID *uint, hasUniversity bool) ([]News, int64, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -783,6 +786,9 @@ func (r *Repository) FindAllNewsAdmin(page, limit int, category, search string, 
 	}
 	if search != "" {
 		query = query.Where("title ILIKE ? OR excerpt ILIKE ?", "%"+search+"%", "%"+search+"%")
+	}
+	if hasUniversity {
+		query = query.Where("university_id > 0")
 	}
 	if universityID != nil {
 		query = query.Where("university_id = ?", *universityID)

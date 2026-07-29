@@ -304,6 +304,23 @@ func (r *Repository) FindPublicInstitutions(page, pageSize int, search, location
 	return users, total, err
 }
 
+func (r *Repository) FindByUniversityID(universityID uint) ([]InstitutionUser, error) {
+	var users []InstitutionUser
+	err := r.db.Where("university_id = ? AND status = ? AND deleted_at IS NULL", universityID, "approved").
+		Order("institution_name ASC").
+		Find(&users).Error
+	return users, err
+}
+
+func (r *Repository) FindSponsoredByUniversityID(universityID uint) ([]InstitutionUser, error) {
+	var users []InstitutionUser
+	err := r.db.Where("university_id = ? AND is_sponsored = ? AND status = ? AND deleted_at IS NULL", universityID, true, "approved").
+		Order("institution_name ASC").
+		Limit(10).
+		Find(&users).Error
+	return users, err
+}
+
 func (r *Repository) FindPublicInstitutionByID(id uint) (*InstitutionUser, error) {
 	var user InstitutionUser
 	err := r.db.Joins("LEFT JOIN institution_settings ON institution_settings.institution_id = institution_users.id").
@@ -1374,4 +1391,8 @@ func (r *Repository) GetPublicFilterCounts() (*PublicInstitutionFilterCountsResp
 	}
 
 	return resp, nil
+}
+
+func (r *Repository) UpdateInstitutionField(id uint, field string, value interface{}) error {
+	return r.db.Model(&InstitutionUser{}).Where("id = ?", id).Update(field, value).Error
 }

@@ -887,6 +887,8 @@ type PublicInstitutionResponse struct {
 	Verified        bool   `json:"verified"`
 	Claimed         bool   `json:"claimed"`
 	Affiliation     string `json:"affiliation,omitempty"`
+	UniversityID    *uint  `json:"university_id"`
+	IsSponsored     bool   `json:"is_sponsored"`
 	LogoURL         string `json:"logo_url,omitempty"`
 	BannerURL       string `json:"banner_url,omitempty"`
 	About           string `json:"about,omitempty"`

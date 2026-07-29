@@ -476,13 +476,14 @@ func (h *Handler) DeleteBlog(c *gin.Context) {
 func (h *Handler) AdminGetEvents(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
+	hasUniversity := c.Query("has_university") == "true"
 	var universityID *uint
 	if uid, err := strconv.ParseUint(c.Query("university_id"), 10, 64); err == nil && uid > 0 {
 		id := uint(uid)
 		universityID = &id
 	}
 
-	events, meta, err := h.service.GetAllEventsAdmin(page, limit, universityID)
+	events, meta, err := h.service.GetAllEventsAdmin(page, limit, universityID, hasUniversity)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "Failed to fetch events")
 		return
@@ -582,13 +583,14 @@ func (h *Handler) AdminGetNews(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 	category := c.Query("category")
 	search := c.Query("search")
+	hasUniversity := c.Query("has_university") == "true"
 	var universityID *uint
 	if uid, err := strconv.ParseUint(c.Query("university_id"), 10, 64); err == nil && uid > 0 {
 		id := uint(uid)
 		universityID = &id
 	}
 
-	news, meta, err := h.service.GetAllNewsAdmin(page, limit, category, search, universityID)
+	news, meta, err := h.service.GetAllNewsAdmin(page, limit, category, search, universityID, hasUniversity)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "Failed to fetch news")
 		return

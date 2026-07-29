@@ -295,6 +295,8 @@ type InstitutionUser struct {
 	Claimed            bool           `gorm:"default:false" json:"claimed"`
 	Verified           bool           `gorm:"default:false" json:"verified"`
 	Affiliation        string         `gorm:"default:''" json:"affiliation"`
+	UniversityID       *uint          `gorm:"index" json:"university_id"`
+	IsSponsored        bool           `gorm:"default:false" json:"is_sponsored"`
 	CollegeID          uint           `gorm:"default:0" json:"college_id"`
 	ContactEmail       string         `gorm:"default:''" json:"contact_email"`
 	ContactPhone       string         `gorm:"default:''" json:"contact_phone"`

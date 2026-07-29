@@ -2251,6 +2251,8 @@ func (s *Service) ListPublicInstitutions(page, limit int, search, location, inst
 			Verified:        u.Verified,
 			Claimed:         u.Claimed,
 			Affiliation:     u.Affiliation,
+			UniversityID:    u.UniversityID,
+			IsSponsored:     u.IsSponsored,
 			LogoURL:         logoURL,
 			BannerURL:       bannerURL,
 			About:           u.About,
@@ -2386,6 +2388,59 @@ func (s *Service) GetPublicInstitution(id uint) (*PublicInstitutionDetailRespons
 		BrochureData:            pd.BrochureData,
 		Type:                    user.OrganizationType,
 	}, nil
+}
+
+func (s *Service) GetSponsoredInstitutions(universityID uint) ([]PublicInstitutionResponse, error) {
+	users, err := s.repo.FindSponsoredByUniversityID(universityID)
+	if err != nil {
+		return nil, err
+	}
+	return toPublicResponses(users), nil
+}
+
+func (s *Service) GetInstitutionsByUniversity(universityID uint) ([]PublicInstitutionResponse, error) {
+	users, err := s.repo.FindByUniversityID(universityID)
+	if err != nil {
+		return nil, err
+	}
+	return toPublicResponses(users), nil
+}
+
+func toPublicResponses(users []InstitutionUser) []PublicInstitutionResponse {
+	results := make([]PublicInstitutionResponse, len(users))
+	for i, u := range users {
+		logoURL := u.LogoURL
+		bannerURL := u.BannerURL
+		if strings.HasPrefix(logoURL, "data:") {
+			logoURL = ""
+		}
+		if strings.HasPrefix(bannerURL, "data:") {
+			bannerURL = ""
+		}
+		results[i] = PublicInstitutionResponse{
+			ID:              u.ID,
+			InstitutionName: u.InstitutionName,
+			Verified:        u.Verified,
+			Claimed:         u.Claimed,
+			Affiliation:     u.Affiliation,
+			UniversityID:    u.UniversityID,
+			IsSponsored:     u.IsSponsored,
+			LogoURL:         logoURL,
+			BannerURL:       bannerURL,
+			About:           u.About,
+			District:        u.District,
+			WebsiteURL:      u.WebsiteURL,
+			Status:          u.Status,
+			Featured:        u.Featured,
+			CollegeID:       u.CollegeID,
+			Type:            u.OrganizationType,
+		}
+	}
+	return results
+}
+
+func (s *Service) ToggleSponsored(id uint, isSponsored bool) error {
+	return s.repo.UpdateInstitutionField(id, "is_sponsored", isSponsored)
 }
 
 func (s *Service) GetPublicInstitutionFilterCounts() (*PublicInstitutionFilterCountsResponse, error) {

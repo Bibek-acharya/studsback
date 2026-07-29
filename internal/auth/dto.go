@@ -141,6 +141,8 @@ type UpdateInstitutionRequest struct {
 	Website         string      `json:"website"`
 	Level           string      `json:"level"`
 	Affiliation     string      `json:"affiliation"`
+	UniversityID    *uint       `json:"university_id"`
+	IsSponsored     *bool       `json:"is_sponsored"`
 	About           string      `json:"about"`
 	Vision          string      `json:"vision"`
 	Mission         string      `json:"mission"`
@@ -169,6 +171,8 @@ type InstitutionDetailResponse struct {
 	Mission            string                 `json:"mission"`
 	Level              string                 `json:"level"`
 	Affiliation        string                 `json:"affiliation"`
+	UniversityID       *uint                  `json:"university_id"`
+	IsSponsored        bool                   `json:"is_sponsored"`
 	Latitude           *float64               `json:"latitude,omitempty"`
 	Longitude          *float64               `json:"longitude,omitempty"`
 	ProfileData        map[string]interface{} `json:"profile_data"`
@@ -180,6 +184,7 @@ type CreateInstitutionRequest struct {
 	Website         string      `json:"website"`
 	Level           string      `json:"level"`
 	Affiliation     string      `json:"affiliation"`
+	UniversityID    uint        `json:"university_id"`
 	LogoURL         string      `json:"logo_url"`
 	BannerURL       string      `json:"banner_url"`
 	About           string      `json:"about"`
