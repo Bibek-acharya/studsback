@@ -22,7 +22,9 @@ type University struct {
 	Verified       bool           `gorm:"default:false" json:"verified"`
 	Popular        bool           `gorm:"default:false" json:"popular"`
 	Status         string         `gorm:"default:'published'" json:"status,omitempty"`
-	Description    string         `gorm:"type:text" json:"description,omitempty"`
+	ProgramsCount      int            `gorm:"default:0" json:"programsCount"`
+	CollegesCount      int            `gorm:"default:0" json:"collegesCount"`
+	Description        string         `gorm:"type:text" json:"description,omitempty"`
 	Established    string         `json:"established,omitempty"`
 	Students       string         `json:"students,omitempty"`
 	Chancellor     string         `json:"chancellor,omitempty"`

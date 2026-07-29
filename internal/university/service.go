@@ -9,15 +9,12 @@ import (
 var ErrNameRequired = errors.New("name is required")
 
 func toUniversityResponse(uni University, colleges []College) UniversityResponse {
-	programsCount := 0
-	collegesCount := len(colleges)
 	ratingTotal := 0.0
 	ratedCount := 0
 	popularPrograms := make([]string, 0)
 	seenPrograms := map[string]bool{}
 
 	for _, college := range colleges {
-		programsCount += college.Programs
 		if college.Rating > 0 {
 			ratingTotal += college.Rating
 			ratedCount++
@@ -57,8 +54,8 @@ func toUniversityResponse(uni University, colleges []College) UniversityResponse
 		Verified:        uni.Verified,
 		IsPopular:       uni.Popular,
 		Status:          uni.Status,
-		ProgramsCount:   programsCount,
-		CollegesCount:   collegesCount,
+		ProgramsCount:   uni.ProgramsCount,
+		CollegesCount:   uni.CollegesCount,
 		PopularPrograms: popularPrograms,
 		Description:     uni.Description,
 		Established:     uni.Established,
@@ -220,6 +217,8 @@ func (s *Service) CreateUniversity(req CreateUniversityRequest) (*University, er
 		Verified:       req.Verified,
 		Popular:        req.Popular,
 		Status:         req.Status,
+		ProgramsCount:  req.ProgramsCount,
+		CollegesCount:  req.CollegesCount,
 		Description:    strings.TrimSpace(req.Description),
 		Established:    strings.TrimSpace(req.Established),
 		Students:       strings.TrimSpace(req.Students),
