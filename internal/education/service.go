@@ -903,8 +903,8 @@ func (s *Service) GetEducationNewsBySlug(slug string) (*NewsResponse, error) {
 	return &resp, nil
 }
 
-func (s *Service) GetEducationNewsFiltered(page, limit int, category, search, sort string) ([]NewsResponse, PaginationMeta, error) {
-	news, total, err := s.repo.FindNewsFiltered(page, limit, category, search, sort)
+func (s *Service) GetEducationNewsFiltered(page, limit int, category, search, sort string, universityID *uint) ([]NewsResponse, PaginationMeta, error) {
+	news, total, err := s.repo.FindNewsFiltered(page, limit, category, search, sort, universityID)
 	if err != nil {
 		return nil, PaginationMeta{}, err
 	}
@@ -963,8 +963,8 @@ func (s *Service) GetEducationEventBySlug(slug string) (*EventResponse, error) {
 	return &resp, nil
 }
 
-func (s *Service) GetEducationEventsFiltered(page, limit int, category, search, sort, featuredStr string) ([]EventResponse, PaginationMeta, error) {
-	events, total, err := s.repo.FindEventsFiltered(page, limit, category, search, sort, featuredStr)
+func (s *Service) GetEducationEventsFiltered(page, limit int, category, search, sort, featuredStr string, universityID *uint) ([]EventResponse, PaginationMeta, error) {
+	events, total, err := s.repo.FindEventsFiltered(page, limit, category, search, sort, featuredStr, universityID)
 	if err != nil {
 		return nil, PaginationMeta{}, err
 	}

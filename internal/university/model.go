@@ -11,7 +11,7 @@ type University struct {
 	CreatedAt      time.Time      `json:"created_at"`
 	UpdatedAt      time.Time      `json:"updated_at"`
 	DeletedAt      gorm.DeletedAt `gorm:"index" json:"-"`
-	Name           string         `gorm:"uniqueIndex;not null" json:"name"`
+	Name           string         `gorm:"uniqueIndex:idx_university_name;not null" json:"name"`
 	Logo           string         `json:"logo,omitempty"`
 	Location       string         `json:"location,omitempty"`
 	Type           string         `json:"type,omitempty"`

@@ -94,6 +94,19 @@ func (r *Repository) Update(uni *University) error {
 	return r.db.Save(uni).Error
 }
 
+func (r *Repository) FindDeletedByName(name string) (*University, error) {
+	var uni University
+	err := r.db.Unscoped().Where("name = ? AND deleted_at IS NOT NULL", name).First(&uni).Error
+	if err != nil {
+		return nil, err
+	}
+	return &uni, nil
+}
+
+func (r *Repository) Restore(id uint) error {
+	return r.db.Unscoped().Model(&University{}).Where("id = ?", id).Update("deleted_at", nil).Error
+}
+
 func (r *Repository) Delete(id uint) error {
 	return r.db.Unscoped().Delete(&University{}, id).Error
 }

@@ -159,6 +159,7 @@ func main() {
 	); err != nil {
 		logger.Fatal("Failed to migrate database", "error", err)
 	} else {
+		db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_universities_name ON universities(name) WHERE deleted_at IS NULL`);
 		if err := allowAnonymousScholarshipApplications(db); err != nil {
 			logger.Fatal("Failed to update scholarship application user_id nullability", "error", err)
 		}

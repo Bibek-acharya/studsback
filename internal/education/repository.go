@@ -358,7 +358,7 @@ func (r *Repository) FindNews(limit int) ([]News, error) {
 	return news, err
 }
 
-func (r *Repository) FindNewsFiltered(page, limit int, category, search, sort string) ([]News, int64, error) {
+func (r *Repository) FindNewsFiltered(page, limit int, category, search, sort string, universityID *uint) ([]News, int64, error) {
 	var err error
 
 	if page < 1 {
@@ -376,6 +376,9 @@ func (r *Repository) FindNewsFiltered(page, limit int, category, search, sort st
 	}
 	if search != "" {
 		query = query.Where("title ILIKE ? OR excerpt ILIKE ?", "%"+search+"%", "%"+search+"%")
+	}
+	if universityID != nil {
+		query = query.Where("university_id = ?", *universityID)
 	}
 
 	var total int64
@@ -445,7 +448,7 @@ func (r *Repository) FindEvents() ([]Event, error) {
 	return events, err
 }
 
-func (r *Repository) FindEventsFiltered(page, limit int, category, search, sort, featuredStr string) ([]Event, int64, error) {
+func (r *Repository) FindEventsFiltered(page, limit int, category, search, sort, featuredStr string, universityID *uint) ([]Event, int64, error) {
 	var events []Event
 	var err error
 
@@ -468,6 +471,9 @@ func (r *Repository) FindEventsFiltered(page, limit int, category, search, sort,
 	if featuredStr != "" {
 		featured := featuredStr == "true"
 		query = query.Where("featured = ?", featured)
+	}
+	if universityID != nil {
+		query = query.Where("university_id = ?", *universityID)
 	}
 
 	var total int64

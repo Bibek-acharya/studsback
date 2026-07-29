@@ -184,6 +184,30 @@ func (s *Service) CreateUniversity(req CreateUniversityRequest) (*University, er
 		return nil, ErrNameRequired
 	}
 
+	// Restore soft-deleted university with same name if exists
+	if existing, err := s.repo.FindDeletedByName(req.Name); err == nil && existing != nil {
+		if err := s.repo.Restore(existing.ID); err != nil {
+			return nil, err
+		}
+		existing.Name = req.Name
+		existing.Logo = strings.TrimSpace(req.Logo)
+		existing.Location = strings.TrimSpace(req.Location)
+		existing.Type = strings.TrimSpace(req.Type)
+		existing.IsNepali = req.IsNepali
+		existing.Rank = req.Rank
+		existing.Verified = req.Verified
+		existing.Popular = req.Popular
+		existing.Status = req.Status
+		existing.Description = strings.TrimSpace(req.Description)
+		existing.Established = strings.TrimSpace(req.Established)
+		existing.Website = strings.TrimSpace(req.Website)
+		existing.Cover = strings.TrimSpace(req.Cover)
+		if err := s.repo.Update(existing); err != nil {
+			return nil, err
+		}
+		return existing, nil
+	}
+
 	uni := &University{
 		Name:           req.Name,
 		Logo:           strings.TrimSpace(req.Logo),

@@ -149,9 +149,13 @@ func (h *Handler) GetEducationNews(c *gin.Context) {
 	category := c.Query("category")
 	search := c.Query("search")
 	sort := c.DefaultQuery("sort", "newest")
+	var universityID *uint
+	if uid, err := strconv.ParseUint(c.Query("university_id"), 10, 64); err == nil && uid > 0 {
+		id := uint(uid)
+		universityID = &id
+	}
 
-	// If no filtering params, use old endpoint
-	if category == "" && search == "" {
+	if category == "" && search == "" && universityID == nil {
 		news, err := h.service.GetEducationNews()
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, "Failed to fetch news")
@@ -161,7 +165,7 @@ func (h *Handler) GetEducationNews(c *gin.Context) {
 		return
 	}
 
-	news, meta, err := h.service.GetEducationNewsFiltered(page, limit, category, search, sort)
+	news, meta, err := h.service.GetEducationNewsFiltered(page, limit, category, search, sort, universityID)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "Failed to fetch news")
 		return
@@ -214,9 +218,13 @@ func (h *Handler) GetEducationEvents(c *gin.Context) {
 	search := c.Query("search")
 	sort := c.DefaultQuery("sort", "newest")
 	featuredStr := c.Query("featured")
+	var universityID *uint
+	if uid, err := strconv.ParseUint(c.Query("university_id"), 10, 64); err == nil && uid > 0 {
+		id := uint(uid)
+		universityID = &id
+	}
 
-	// If no filtering params, use old endpoint
-	if category == "" && search == "" && featuredStr == "" {
+	if category == "" && search == "" && featuredStr == "" && universityID == nil {
 		events, err := h.service.GetEducationEvents()
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, "Failed to fetch events")
@@ -226,7 +234,7 @@ func (h *Handler) GetEducationEvents(c *gin.Context) {
 		return
 	}
 
-	events, meta, err := h.service.GetEducationEventsFiltered(page, limit, category, search, sort, featuredStr)
+	events, meta, err := h.service.GetEducationEventsFiltered(page, limit, category, search, sort, featuredStr, universityID)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "Failed to fetch events")
 		return
