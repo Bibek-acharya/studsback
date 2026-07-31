@@ -46,6 +46,8 @@ type University struct {
 	Gallery        []byte         `gorm:"type:jsonb" json:"gallery,omitempty"`
 	Faculties      []byte         `gorm:"type:jsonb" json:"faculties,omitempty"`
 	Admissions     []byte         `gorm:"type:jsonb" json:"admissions,omitempty"`
+	OfficialNotices []byte        `gorm:"type:jsonb" json:"official_notices,omitempty"`
+	LatestNews     []byte         `gorm:"type:jsonb" json:"latest_news,omitempty"`
 	Reviews        []byte         `gorm:"type:jsonb" json:"reviews,omitempty"`
 }
 

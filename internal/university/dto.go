@@ -38,6 +38,8 @@ type CreateUniversityRequest struct {
 	Gallery        interface{} `json:"gallery"`
 	Faculties      interface{} `json:"faculties"`
 	Admissions     interface{} `json:"admissions"`
+	OfficialNotices interface{} `json:"official_notices"`
+	LatestNews     interface{} `json:"latest_news"`
 	Reviews        interface{} `json:"reviews"`
 }
 
@@ -77,6 +79,8 @@ type UpdateUniversityRequest struct {
 	Gallery        interface{} `json:"gallery"`
 	Faculties      interface{} `json:"faculties"`
 	Admissions     interface{} `json:"admissions"`
+	OfficialNotices interface{} `json:"official_notices"`
+	LatestNews     interface{} `json:"latest_news"`
 	Reviews        interface{} `json:"reviews"`
 }
 
@@ -118,6 +122,8 @@ type UniversityResponse struct {
 	Gallery         json.RawMessage `json:"gallery,omitempty"`
 	Faculties       json.RawMessage `json:"faculties,omitempty"`
 	Admissions      json.RawMessage `json:"admissions,omitempty"`
+	OfficialNotices json.RawMessage `json:"official_notices,omitempty"`
+	LatestNews      json.RawMessage `json:"latest_news,omitempty"`
 	Reviews         json.RawMessage `json:"reviews,omitempty"`
 }
 

@@ -79,6 +79,8 @@ func toUniversityResponse(uni University, colleges []College) UniversityResponse
 		Gallery:         json.RawMessage(uni.Gallery),
 		Faculties:       json.RawMessage(uni.Faculties),
 		Admissions:      json.RawMessage(uni.Admissions),
+		OfficialNotices: json.RawMessage(uni.OfficialNotices),
+		LatestNews:      json.RawMessage(uni.LatestNews),
 		Reviews:         json.RawMessage(uni.Reviews),
 	}
 }
@@ -173,6 +175,35 @@ func (s *Service) GetUniversityFilterCounts(isNepali string) (*UniversityFilterC
 
 func (s *Service) GetUniversityTab(id uint, tab string) ([]byte, error) {
 	return s.repo.GetTabData(id, tab)
+}
+
+func (s *Service) GetUniversityCourses(id uint, page, limit int) ([]map[string]interface{}, int, error) {
+	data, err := s.repo.GetTabData(id, "courses")
+	if err != nil {
+		return nil, 0, err
+	}
+
+	if len(data) == 0 {
+		return []map[string]interface{}{}, 0, nil
+	}
+
+	var courses []map[string]interface{}
+	if err := json.Unmarshal(data, &courses); err != nil {
+		return nil, 0, err
+	}
+
+	total := len(courses)
+	start := (page - 1) * limit
+	end := start + limit
+
+	if start >= total {
+		return []map[string]interface{}{}, total, nil
+	}
+	if end > total {
+		end = total
+	}
+
+	return courses[start:end], total, nil
 }
 
 func (s *Service) CreateUniversity(req CreateUniversityRequest) (*University, error) {
@@ -297,6 +328,16 @@ func (s *Service) CreateUniversity(req CreateUniversityRequest) (*University, er
 	if req.Admissions != nil {
 		if b, err := json.Marshal(req.Admissions); err == nil {
 			uni.Admissions = b
+		}
+	}
+	if req.OfficialNotices != nil {
+		if b, err := json.Marshal(req.OfficialNotices); err == nil {
+			uni.OfficialNotices = b
+		}
+	}
+	if req.LatestNews != nil {
+		if b, err := json.Marshal(req.LatestNews); err == nil {
+			uni.LatestNews = b
 		}
 	}
 	if req.Reviews != nil {
@@ -451,6 +492,16 @@ func (s *Service) UpdateUniversity(id uint, req UpdateUniversityRequest) (*Unive
 	if req.Admissions != nil {
 		if b, err := json.Marshal(req.Admissions); err == nil {
 			uni.Admissions = b
+		}
+	}
+	if req.OfficialNotices != nil {
+		if b, err := json.Marshal(req.OfficialNotices); err == nil {
+			uni.OfficialNotices = b
+		}
+	}
+	if req.LatestNews != nil {
+		if b, err := json.Marshal(req.LatestNews); err == nil {
+			uni.LatestNews = b
 		}
 	}
 	if req.Reviews != nil {

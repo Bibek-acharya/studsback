@@ -89,6 +89,37 @@ func (h *Handler) AdminGetUniversityByID(c *gin.Context) {
 	})
 }
 
+func (h *Handler) GetUniversityCourses(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		response.Error(c, 400, "Invalid university ID")
+		return
+	}
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 10
+	}
+
+	courses, total, err := h.service.GetUniversityCourses(uint(id), page, limit)
+	if err != nil {
+		response.Error(c, 500, "Failed to fetch courses")
+		return
+	}
+
+	response.Success(c, 200, "Courses retrieved successfully", gin.H{
+		"courses": courses,
+		"total":   total,
+		"page":    page,
+		"limit":   limit,
+	})
+}
+
 func (h *Handler) GetUniversityTab(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
