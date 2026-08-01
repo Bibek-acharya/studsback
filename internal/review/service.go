@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"math"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -255,7 +256,7 @@ func (s *Service) SubmitUniversityReview(userID uint, req CreateUniversityReview
 		Level:        "Bachelor",
 		BatchYear:    2024,
 		Ratings:      ratingsJSON,
-		SummaryTitle: "University Review",
+		SummaryTitle: req.Pros,
 		Pros:         req.Pros,
 		Cons:         req.Cons,
 		Email:        "",
@@ -366,12 +367,29 @@ func toReviewResponse(r *Review) *ReviewResponse {
 		json.Unmarshal(r.Ratings, &ratings)
 	}
 
+	firstName := strings.TrimSpace(r.User.FirstName)
+	lastName := strings.TrimSpace(r.User.LastName)
+	nameParts := make([]string, 0, 2)
+	initials := make([]byte, 0, 2)
+	for _, name := range []string{firstName, lastName} {
+		if name == "" {
+			continue
+		}
+		nameParts = append(nameParts, name)
+		initials = append(initials, strings.ToUpper(name[:1])[0])
+	}
+	if len(initials) == 0 {
+		initials = []byte{'U'}
+	}
+
 	return &ReviewResponse{
 		ID:                r.ID,
 		CollegeID:         r.CollegeID,
 		UniversityID:      r.UniversityID,
 		CollegeName:       r.CollegeName,
 		UserID:            r.UserID,
+		UserName:          strings.Join(nameParts, " "),
+		UserInitials:      string(initials),
 		StudentType:       r.StudentType,
 		Course:            r.Course,
 		Level:             r.Level,

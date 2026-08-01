@@ -64,7 +64,7 @@ func (r *Repository) FindByUniversity(universityID uint, page, limit int) ([]Rev
 	}
 
 	offset := (page - 1) * limit
-	err := r.db.Where("university_id = ? AND is_published = ?", universityID, true).
+	err := r.db.Preload("User").Where("university_id = ? AND is_published = ?", universityID, true).
 		Order("created_at desc").
 		Offset(offset).
 		Limit(limit).
@@ -78,14 +78,14 @@ func (r *Repository) FindByUniversity(universityID uint, page, limit int) ([]Rev
 
 func (r *Repository) FindAllByUniversity(universityID uint) ([]Review, error) {
 	var reviews []Review
-	err := r.db.Where("university_id = ? AND is_published = ?", universityID, true).
+	err := r.db.Preload("User").Where("university_id = ? AND is_published = ?", universityID, true).
 		Find(&reviews).Error
 	return reviews, err
 }
 
 func (r *Repository) FindByUserAndUniversity(userID, universityID uint) (*Review, error) {
 	var review Review
-	err := r.db.Where("user_id = ? AND university_id = ?", userID, universityID).First(&review).Error
+	err := r.db.Preload("User").Where("user_id = ? AND university_id = ?", userID, universityID).First(&review).Error
 	if err != nil {
 		return nil, err
 	}

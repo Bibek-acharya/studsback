@@ -34,6 +34,8 @@ type ReviewResponse struct {
 	UniversityID      uint               `json:"university_id"`
 	CollegeName       string             `json:"college_name"`
 	UserID            uint               `json:"user_id"`
+	UserName          string             `json:"user_name"`
+	UserInitials      string             `json:"user_initials"`
 	StudentType       string             `json:"student_type"`
 	Course            string             `json:"course"`
 	Level             string             `json:"level"`

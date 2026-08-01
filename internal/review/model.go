@@ -3,6 +3,8 @@ package review
 import (
 	"time"
 
+	"studsphere/backend/internal/auth"
+
 	"gorm.io/gorm"
 )
 
@@ -12,6 +14,7 @@ type Review struct {
 	UpdatedAt         time.Time      `json:"updated_at"`
 	DeletedAt         gorm.DeletedAt `gorm:"index" json:"-"`
 	UserID            uint           `gorm:"index;not null" json:"user_id"`
+	User              auth.User      `gorm:"foreignKey:UserID" json:"-"`
 	CollegeID         uint           `gorm:"index" json:"college_id"`
 	UniversityID      uint           `gorm:"index" json:"university_id"`
 	CollegeName       string         `json:"college_name"`
