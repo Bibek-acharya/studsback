@@ -3,6 +3,7 @@ package review
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -145,6 +146,77 @@ func TestUpdateUniversityReview(t *testing.T) {
 	}
 	if updated.UserName != "Ada Lovelace" {
 		t.Fatalf("UserName = %q, want Ada Lovelace", updated.UserName)
+	}
+}
+
+func TestUpdateUniversityReviewChangesOnlySuppliedFields(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&auth.User{}, &university.University{}, &Review{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&university.University{ID: 7, Name: "Lumbini University"}).Error; err != nil {
+		t.Fatal(err)
+	}
+	user := auth.User{Email: "ada@example.com", FirstName: "Ada", LastName: "Lovelace"}
+	if err := db.Create(&user).Error; err != nil {
+		t.Fatal(err)
+	}
+	review := &Review{
+		UserID:       user.ID,
+		UniversityID: 7,
+		Ratings:      []byte(`{"overall":4}`),
+		Pros:         "Excellent faculty",
+		Cons:         "Limited housing",
+		SummaryTitle: "Original summary",
+		Email:        "original@example.com",
+		IsPublished:  true,
+	}
+	if err := db.Create(review).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	pros := "Outstanding faculty"
+	updated, err := NewService(NewRepository(db)).UpdateUniversityReview(user.ID, 7, UpdateUniversityReviewRequest{Pros: &pros})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.Pros != pros {
+		t.Fatalf("Pros = %q, want %q", updated.Pros, pros)
+	}
+
+	var stored Review
+	if err := db.First(&stored, review.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if stored.Cons != "Limited housing" || stored.SummaryTitle != "Original summary" || stored.Email != "original@example.com" || !stored.IsPublished {
+		t.Fatalf("unrelated fields changed: cons=%q summary=%q email=%q published=%v", stored.Cons, stored.SummaryTitle, stored.Email, stored.IsPublished)
+	}
+}
+
+func TestUniversityReviewHasCompositeUniqueIndex(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&Review{}); err != nil {
+		t.Fatal(err)
+	}
+	first := &Review{UserID: 1, UniversityID: 7, Ratings: []byte(`{"overall":4}`), Pros: "Excellent faculty", Cons: "Limited housing", SummaryTitle: "Original"}
+	if err := db.Create(first).Error; err != nil {
+		t.Fatal(err)
+	}
+	duplicate := &Review{UserID: 1, UniversityID: 7, Ratings: []byte(`{"overall":5}`), Pros: "Outstanding faculty", Cons: "Very limited housing", SummaryTitle: "Duplicate"}
+	if err := db.Create(duplicate).Error; err == nil {
+		t.Fatal("duplicate user/university review was accepted")
+	}
+}
+
+func TestIsDuplicateReviewError(t *testing.T) {
+	if !isDuplicateReviewError(errors.New("ERROR: duplicate key value violates unique constraint")) {
+		t.Fatal("duplicate constraint error was not recognized")
 	}
 }
 

@@ -124,10 +124,10 @@ func (r *Repository) Save(review *Review) error {
 	return r.db.Save(review).Error
 }
 
-func (r *Repository) SaveByUserAndUniversity(review *Review) error {
+func (r *Repository) UpdateUniversityFields(review *Review, updates map[string]interface{}) error {
 	result := r.db.Model(&Review{}).
 		Where("id = ? AND user_id = ? AND university_id = ?", review.ID, review.UserID, review.UniversityID).
-		Updates(review)
+		Updates(updates)
 	if result.Error != nil {
 		return result.Error
 	}

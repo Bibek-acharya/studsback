@@ -44,6 +44,9 @@ func (s *Service) SubmitReview(userID uint, req CreateReviewRequest) (*ReviewRes
 	}
 
 	if err := s.repo.Create(review); err != nil {
+		if isDuplicateReviewError(err) {
+			return nil, errors.New("you have already reviewed this university")
+		}
 		return nil, err
 	}
 
@@ -354,6 +357,7 @@ func (s *Service) UpdateUniversityReview(userID, universityID uint, req UpdateUn
 		return nil, err
 	}
 
+	updates := make(map[string]interface{})
 	if req.Rating != nil {
 		ratings := make(map[string]float64)
 		if len(review.Ratings) > 0 {
@@ -362,19 +366,20 @@ func (s *Service) UpdateUniversityReview(userID, universityID uint, req UpdateUn
 			}
 		}
 		ratings["overall"] = *req.Rating
-		review.Ratings, err = json.Marshal(ratings)
+		ratingsJSON, err := json.Marshal(ratings)
 		if err != nil {
 			return nil, errors.New("failed to serialize ratings")
 		}
+		updates["ratings"] = ratingsJSON
 	}
 	if req.Pros != nil {
-		review.Pros = *req.Pros
+		updates["pros"] = *req.Pros
 	}
 	if req.Cons != nil {
-		review.Cons = *req.Cons
+		updates["cons"] = *req.Cons
 	}
 
-	if err := s.repo.SaveByUserAndUniversity(review); err != nil {
+	if err := s.repo.UpdateUniversityFields(review, updates); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("review not found")
 		}
@@ -382,7 +387,21 @@ func (s *Service) UpdateUniversityReview(userID, universityID uint, req UpdateUn
 	}
 
 	s.updateUniversityRating(universityID)
-	return toReviewResponse(review), nil
+	updated, err := s.repo.FindByUserAndUniversity(userID, universityID)
+	if err != nil {
+		return nil, err
+	}
+	return toReviewResponse(updated), nil
+}
+
+func isDuplicateReviewError(err error) bool {
+	if errors.Is(err, gorm.ErrDuplicatedKey) {
+		return true
+	}
+	lower := strings.ToLower(err.Error())
+	return strings.Contains(lower, "duplicate key") ||
+		strings.Contains(lower, "unique constraint") ||
+		strings.Contains(lower, "unique violation")
 }
 
 func (s *Service) updateUniversityRating(universityID uint) {

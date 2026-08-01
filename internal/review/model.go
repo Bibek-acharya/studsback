@@ -13,10 +13,10 @@ type Review struct {
 	CreatedAt         time.Time      `json:"created_at"`
 	UpdatedAt         time.Time      `json:"updated_at"`
 	DeletedAt         gorm.DeletedAt `gorm:"index" json:"-"`
-	UserID            uint           `gorm:"index;not null" json:"user_id"`
+	UserID            uint           `gorm:"index;uniqueIndex:idx_reviews_user_university,where:university_id <> 0;not null" json:"user_id"`
 	User              auth.User      `gorm:"foreignKey:UserID" json:"-"`
 	CollegeID         uint           `gorm:"index" json:"college_id"`
-	UniversityID      uint           `gorm:"index" json:"university_id"`
+	UniversityID      uint           `gorm:"index;uniqueIndex:idx_reviews_user_university,where:university_id <> 0" json:"university_id"`
 	CollegeName       string         `json:"college_name"`
 	StudentType       string         `gorm:"not null" json:"student_type"`
 	Course            string         `gorm:"not null" json:"course"`
