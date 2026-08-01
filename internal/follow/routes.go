@@ -12,7 +12,7 @@ func RegisterRoutes(r *gin.Engine, authMW gin.HandlerFunc, h *Handler) {
 	{
 		follow.POST("/institution/:id", h.Follow)
 		follow.DELETE("/institution/:id", h.Unfollow)
-		follow.GET("/status/:institutionId", h.Status)
+		follow.GET("/status/:targetId", h.Status)
 		follow.GET("/list", h.FollowedList)
 	}
 }

@@ -22,14 +22,20 @@ func (h *Handler) Follow(c *gin.Context) {
 		return
 	}
 
-	instID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	targetID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid institution ID"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid target ID"})
 		return
 	}
 
-	if err := h.service.Follow(userID, uint(instID)); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to follow institution"})
+	targetType := c.DefaultQuery("type", "institution")
+	if targetType != "institution" && targetType != "university" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid target type"})
+		return
+	}
+
+	if err := h.service.Follow(userID, uint(targetID), targetType); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to follow"})
 		return
 	}
 
@@ -43,13 +49,15 @@ func (h *Handler) Unfollow(c *gin.Context) {
 		return
 	}
 
-	instID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	targetID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid institution ID"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid target ID"})
 		return
 	}
 
-	h.service.Unfollow(userID, uint(instID))
+	targetType := c.DefaultQuery("type", "institution")
+
+	h.service.Unfollow(userID, uint(targetID), targetType)
 	c.JSON(http.StatusOK, gin.H{"message": "Unfollowed successfully"})
 }
 
@@ -60,13 +68,15 @@ func (h *Handler) Status(c *gin.Context) {
 		return
 	}
 
-	instID, err := strconv.ParseUint(c.Param("institutionId"), 10, 64)
+	targetID, err := strconv.ParseUint(c.Param("targetId"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid institution ID"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid target ID"})
 		return
 	}
 
-	following, _ := h.service.IsFollowing(userID, uint(instID))
+	targetType := c.DefaultQuery("type", "institution")
+
+	following, _ := h.service.IsFollowing(userID, uint(targetID), targetType)
 	c.JSON(http.StatusOK, gin.H{"following": following})
 }
 
@@ -77,9 +87,21 @@ func (h *Handler) FollowedList(c *gin.Context) {
 		return
 	}
 
-	ids, _ := h.service.GetFollowedInstitutions(userID)
+	targetType := c.DefaultQuery("type", "institution")
+
+	var ids []uint
+	var err error
+	if targetType == "university" {
+		ids, err = h.service.GetFollowedUniversities(userID)
+	} else {
+		ids, err = h.service.GetFollowedInstitutions(userID)
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch followed list"})
+		return
+	}
 	if ids == nil {
 		ids = []uint{}
 	}
-	c.JSON(http.StatusOK, gin.H{"institution_ids": ids})
+	c.JSON(http.StatusOK, gin.H{"target_ids": ids})
 }

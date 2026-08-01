@@ -145,6 +145,7 @@ func main() {
 		&review.Review{},
 		&review.ReviewHelpful{},
 		&review.ReviewReport{},
+		&follow.UserFollow{},
 		&projectshiksha.ShikshaApplication{},
 		&projectshiksha.ShikshaPayment{},
 		&system.ContactInquiry{},

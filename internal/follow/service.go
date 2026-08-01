@@ -8,18 +8,22 @@ func NewService(repo *Repository) *Service {
 	return &Service{repo: repo}
 }
 
-func (s *Service) Follow(userID, institutionID uint) error {
-	return s.repo.Follow(userID, institutionID)
+func (s *Service) Follow(userID, targetID uint, targetType string) error {
+	return s.repo.Follow(userID, targetID, targetType)
 }
 
-func (s *Service) Unfollow(userID, institutionID uint) error {
-	return s.repo.Unfollow(userID, institutionID)
+func (s *Service) Unfollow(userID, targetID uint, targetType string) error {
+	return s.repo.Unfollow(userID, targetID, targetType)
 }
 
-func (s *Service) IsFollowing(userID, institutionID uint) (bool, error) {
-	return s.repo.IsFollowing(userID, institutionID)
+func (s *Service) IsFollowing(userID, targetID uint, targetType string) (bool, error) {
+	return s.repo.IsFollowing(userID, targetID, targetType)
 }
 
 func (s *Service) GetFollowedInstitutions(userID uint) ([]uint, error) {
-	return s.repo.GetFollowedInstitutionIDs(userID)
+	return s.repo.GetFollowedTargetIDs(userID, "institution")
+}
+
+func (s *Service) GetFollowedUniversities(userID uint) ([]uint, error) {
+	return s.repo.GetFollowedTargetIDs(userID, "university")
 }
