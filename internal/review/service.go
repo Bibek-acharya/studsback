@@ -341,6 +341,47 @@ func (s *Service) GetUserUniversityReview(userID, universityID uint) (*ReviewRes
 	return toReviewResponse(review), nil
 }
 
+func (s *Service) UpdateUniversityReview(userID, universityID uint, req UpdateUniversityReviewRequest) (*ReviewResponse, error) {
+	if req.Rating == nil && req.Pros == nil && req.Cons == nil {
+		return nil, errors.New("At least one review field is required")
+	}
+
+	review, err := s.repo.FindByUserAndUniversity(userID, universityID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("review not found")
+		}
+		return nil, err
+	}
+
+	if req.Rating != nil {
+		ratings := make(map[string]float64)
+		if len(review.Ratings) > 0 {
+			if err := json.Unmarshal(review.Ratings, &ratings); err != nil {
+				return nil, errors.New("failed to deserialize ratings")
+			}
+		}
+		ratings["overall"] = *req.Rating
+		review.Ratings, err = json.Marshal(ratings)
+		if err != nil {
+			return nil, errors.New("failed to serialize ratings")
+		}
+	}
+	if req.Pros != nil {
+		review.Pros = *req.Pros
+	}
+	if req.Cons != nil {
+		review.Cons = *req.Cons
+	}
+
+	if err := s.repo.SaveByUserAndUniversity(review); err != nil {
+		return nil, err
+	}
+
+	s.updateUniversityRating(universityID)
+	return toReviewResponse(review), nil
+}
+
 func (s *Service) updateUniversityRating(universityID uint) {
 	allReviews, err := s.repo.FindAllByUniversity(universityID)
 	if err != nil {

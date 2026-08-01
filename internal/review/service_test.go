@@ -96,3 +96,49 @@ func TestSubmitUniversityReviewPersistsSeparateProsAndCons(t *testing.T) {
 		t.Fatalf("stored identity = %q/%q", stored.UserName, stored.UserInitials)
 	}
 }
+
+func TestUpdateUniversityReview(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&auth.User{}, &university.University{}, &Review{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&university.University{ID: 7, Name: "Lumbini University"}).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	user := auth.User{Email: "ada@example.com", FirstName: "Ada", LastName: "Lovelace"}
+	if err := db.Create(&user).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	service := NewService(NewRepository(db))
+	if _, err := service.SubmitUniversityReview(user.ID, CreateUniversityReviewRequest{
+		UniversityID: 7,
+		Rating:       4,
+		Pros:         "Excellent faculty",
+		Cons:         "Limited housing",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	rating := 5.0
+	pros := "Outstanding faculty"
+	cons := "Very limited housing"
+	updated, err := service.UpdateUniversityReview(user.ID, 7, UpdateUniversityReviewRequest{
+		Rating: &rating,
+		Pros:   &pros,
+		Cons:   &cons,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.Ratings["overall"] != 5 || updated.Pros != pros || updated.Cons != cons {
+		t.Fatalf("updated review = rating %v, pros %q, cons %q", updated.Ratings["overall"], updated.Pros, updated.Cons)
+	}
+	if updated.UserName != "Ada Lovelace" {
+		t.Fatalf("UserName = %q, want Ada Lovelace", updated.UserName)
+	}
+}

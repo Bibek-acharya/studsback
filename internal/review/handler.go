@@ -232,3 +232,35 @@ func (h *Handler) GetMyUniversityReview(c *gin.Context) {
 
 	response.Success(c, http.StatusOK, "Review fetched successfully", gin.H{"review": review})
 }
+
+func (h *Handler) UpdateUniversityReview(c *gin.Context) {
+	userID := getUserID(c)
+
+	universityID, err := strconv.ParseUint(c.Param("universityId"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid university ID")
+		return
+	}
+
+	var req UpdateUniversityReviewRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, humanizeValidationError(err))
+		return
+	}
+
+	review, err := h.service.UpdateUniversityReview(userID, uint(universityID), req)
+	if err != nil {
+		if err.Error() == "review not found" {
+			response.Error(c, http.StatusNotFound, err.Error())
+			return
+		}
+		if err.Error() == "At least one review field is required" {
+			response.Error(c, http.StatusBadRequest, err.Error())
+			return
+		}
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Review updated successfully", gin.H{"review": review})
+}

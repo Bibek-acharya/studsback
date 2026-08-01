@@ -34,6 +34,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 		{
 			university.POST("", h.SubmitUniversityReview)
 			university.GET("/:universityId", h.GetMyUniversityReview)
+			university.PUT("/:universityId", h.UpdateUniversityReview)
 		}
 	}
 }

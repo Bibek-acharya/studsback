@@ -124,6 +124,17 @@ func (r *Repository) Save(review *Review) error {
 	return r.db.Save(review).Error
 }
 
+func (r *Repository) SaveByUserAndUniversity(review *Review) error {
+	result := r.db.Where("id = ? AND user_id = ? AND university_id = ?", review.ID, review.UserID, review.UniversityID).Save(review)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
 func (r *Repository) Delete(id, userID uint) error {
 	result := r.db.Where("id = ? AND user_id = ?", id, userID).Delete(&Review{})
 	if result.Error != nil {

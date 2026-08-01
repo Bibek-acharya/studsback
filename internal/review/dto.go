@@ -76,7 +76,7 @@ type CreateUniversityReviewRequest struct {
 }
 
 type UpdateUniversityReviewRequest struct {
-	Rating *float64 `json:"rating"`
+	Rating *float64 `json:"rating" binding:"omitempty,min=1,max=5" validate:"omitempty,min=1,max=5"`
 	Pros   *string  `json:"pros" binding:"omitempty,min=10" validate:"omitempty,min=10"`
 	Cons   *string  `json:"cons" binding:"omitempty,min=10" validate:"omitempty,min=10"`
 }
