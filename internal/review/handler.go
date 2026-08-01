@@ -179,7 +179,7 @@ func (h *Handler) SubmitUniversityReview(c *gin.Context) {
 
 	var req CreateUniversityReviewRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, err.Error())
+		response.Error(c, http.StatusBadRequest, humanizeValidationError(err))
 		return
 	}
 

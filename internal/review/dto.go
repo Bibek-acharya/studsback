@@ -59,17 +59,24 @@ type PaginatedReviewsResponse struct {
 }
 
 type CollegeReviewsResponse struct {
-	Reviews          []ReviewResponse     `json:"reviews"`
-	OverallRating    float64              `json:"overall_rating"`
-	ReviewCount      int                  `json:"review_count"`
-	CategoryAverages map[string]float64   `json:"category_averages"`
-	Meta             Meta                 `json:"meta"`
+	Reviews          []ReviewResponse   `json:"reviews"`
+	OverallRating    float64            `json:"overall_rating"`
+	ReviewCount      int                `json:"review_count"`
+	CategoryAverages map[string]float64 `json:"category_averages"`
+	Meta             Meta               `json:"meta"`
 }
 
 type CreateUniversityReviewRequest struct {
-	UniversityID uint    `json:"university_id" binding:"required"`
-	Rating       float64 `json:"rating" binding:"required,min=1,max=5"`
-	Review       string  `json:"review" binding:"required,min=10"`
+	UniversityID uint    `json:"university_id" binding:"required" validate:"required"`
+	Rating       float64 `json:"rating" binding:"required,min=1,max=5" validate:"required,min=1,max=5"`
+	Pros         string  `json:"pros" binding:"required,min=10" validate:"required,min=10"`
+	Cons         string  `json:"cons" binding:"required,min=10" validate:"required,min=10"`
+}
+
+type UpdateUniversityReviewRequest struct {
+	Rating *float64 `json:"rating"`
+	Pros   *string  `json:"pros" binding:"omitempty,min=10" validate:"omitempty,min=10"`
+	Cons   *string  `json:"cons" binding:"omitempty,min=10" validate:"omitempty,min=10"`
 }
 
 type UniversityReviewsResponse struct {

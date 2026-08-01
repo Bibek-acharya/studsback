@@ -255,9 +255,9 @@ func (s *Service) SubmitUniversityReview(userID uint, req CreateUniversityReview
 		Level:        "Bachelor",
 		BatchYear:    2024,
 		Ratings:      ratingsJSON,
-		SummaryTitle: req.Review,
-		Pros:         req.Review,
-		Cons:         "",
+		SummaryTitle: "University Review",
+		Pros:         req.Pros,
+		Cons:         req.Cons,
 		Email:        "",
 		IsPublished:  true,
 	}
