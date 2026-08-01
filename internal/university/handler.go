@@ -98,6 +98,7 @@ func (h *Handler) GetUniversityCourses(c *gin.Context) {
 
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	level := c.Query("level")
 
 	if page < 1 {
 		page = 1
@@ -106,7 +107,7 @@ func (h *Handler) GetUniversityCourses(c *gin.Context) {
 		limit = 10
 	}
 
-	courses, total, err := h.service.GetUniversityCourses(uint(id), page, limit)
+	courses, total, err := h.service.GetUniversityCourses(uint(id), page, limit, level)
 	if err != nil {
 		response.Error(c, 500, "Failed to fetch courses")
 		return
@@ -117,6 +118,38 @@ func (h *Handler) GetUniversityCourses(c *gin.Context) {
 		"total":   total,
 		"page":    page,
 		"limit":   limit,
+	})
+}
+
+func (h *Handler) GetUniversityScholarships(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		response.Error(c, 400, "Invalid university ID")
+		return
+	}
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	level := c.Query("level")
+
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 10
+	}
+
+	scholarships, total, err := h.service.GetUniversityScholarships(uint(id), page, limit, level)
+	if err != nil {
+		response.Error(c, 500, "Failed to fetch scholarships")
+		return
+	}
+
+	response.Success(c, 200, "Scholarships retrieved successfully", gin.H{
+		"scholarships": scholarships,
+		"total":        total,
+		"page":         page,
+		"limit":        limit,
 	})
 }
 

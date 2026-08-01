@@ -177,7 +177,7 @@ func (s *Service) GetUniversityTab(id uint, tab string) ([]byte, error) {
 	return s.repo.GetTabData(id, tab)
 }
 
-func (s *Service) GetUniversityCourses(id uint, page, limit int) ([]map[string]interface{}, int, error) {
+func (s *Service) GetUniversityCourses(id uint, page, limit int, level string) ([]map[string]interface{}, int, error) {
 	data, err := s.repo.GetTabData(id, "courses")
 	if err != nil {
 		return nil, 0, err
@@ -192,6 +192,17 @@ func (s *Service) GetUniversityCourses(id uint, page, limit int) ([]map[string]i
 		return nil, 0, err
 	}
 
+	// Filter by level if specified
+	if level != "" && level != "all" {
+		var filtered []map[string]interface{}
+		for _, course := range courses {
+			if courseLevel, ok := course["level"].(string); ok && courseLevel == level {
+				filtered = append(filtered, course)
+			}
+		}
+		courses = filtered
+	}
+
 	total := len(courses)
 	start := (page - 1) * limit
 	end := start + limit
@@ -204,6 +215,46 @@ func (s *Service) GetUniversityCourses(id uint, page, limit int) ([]map[string]i
 	}
 
 	return courses[start:end], total, nil
+}
+
+func (s *Service) GetUniversityScholarships(id uint, page, limit int, level string) ([]map[string]interface{}, int, error) {
+	data, err := s.repo.GetTabData(id, "scholarships")
+	if err != nil {
+		return nil, 0, err
+	}
+
+	if len(data) == 0 {
+		return []map[string]interface{}{}, 0, nil
+	}
+
+	var scholarships []map[string]interface{}
+	if err := json.Unmarshal(data, &scholarships); err != nil {
+		return nil, 0, err
+	}
+
+	// Filter by level if specified
+	if level != "" && level != "all" {
+		var filtered []map[string]interface{}
+		for _, scholarship := range scholarships {
+			if scholarshipLevel, ok := scholarship["level"].(string); ok && scholarshipLevel == level {
+				filtered = append(filtered, scholarship)
+			}
+		}
+		scholarships = filtered
+	}
+
+	total := len(scholarships)
+	start := (page - 1) * limit
+	end := start + limit
+
+	if start >= total {
+		return []map[string]interface{}{}, total, nil
+	}
+	if end > total {
+		end = total
+	}
+
+	return scholarships[start:end], total, nil
 }
 
 func (s *Service) CreateUniversity(req CreateUniversityRequest) (*University, error) {
