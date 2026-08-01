@@ -6,6 +6,7 @@ import (
 
 	"studsphere/backend/internal/institution"
 	"studsphere/backend/internal/shared/response"
+	"studsphere/backend/internal/shared/sanitize"
 
 	"github.com/gin-gonic/gin"
 )
@@ -91,6 +92,8 @@ func (h *Handler) CreateCollege(c *gin.Context) {
 		return
 	}
 
+	req.Description = sanitize.HTML(req.Description)
+
 	result, err := h.service.CreateCollege(req)
 	if err != nil {
 		response.Error(c, 400, err.Error())
@@ -128,6 +131,10 @@ func (h *Handler) UpdateCollege(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, 400, err.Error())
 		return
+	}
+
+	if req.Description != "" {
+		req.Description = sanitize.HTML(req.Description)
 	}
 
 	result, err := h.service.UpdateCollege(uint(parsedID), req)

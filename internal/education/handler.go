@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"studsphere/backend/internal/shared/response"
+	"studsphere/backend/internal/shared/sanitize"
 
 	"github.com/gin-gonic/gin"
 )
@@ -437,6 +438,9 @@ func (h *Handler) CreateBlog(c *gin.Context) {
 		return
 	}
 
+	req.Excerpt = sanitize.HTML(req.Excerpt)
+	req.Content = sanitize.HTML(req.Content)
+
 	blog, err := h.service.CreateBlog(req)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "Failed to create blog")
@@ -452,6 +456,13 @@ func (h *Handler) UpdateBlog(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	if req.Excerpt != "" {
+		req.Excerpt = sanitize.HTML(req.Excerpt)
+	}
+	if req.Content != "" {
+		req.Content = sanitize.HTML(req.Content)
 	}
 
 	blog, err := h.service.UpdateBlog(id, req)
@@ -513,6 +524,9 @@ func (h *Handler) CreateEvent(c *gin.Context) {
 		return
 	}
 
+	req.Excerpt = sanitize.HTML(req.Excerpt)
+	req.Description = sanitize.HTML(req.Description)
+
 	event, err := h.service.CreateEvent(req)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "Failed to create event")
@@ -528,6 +542,13 @@ func (h *Handler) UpdateEvent(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	if req.Excerpt != "" {
+		req.Excerpt = sanitize.HTML(req.Excerpt)
+	}
+	if req.Description != "" {
+		req.Description = sanitize.HTML(req.Description)
 	}
 
 	event, err := h.service.UpdateEvent(id, req)
@@ -609,6 +630,9 @@ func (h *Handler) AdminCreateNews(c *gin.Context) {
 		return
 	}
 
+	req.Excerpt = sanitize.HTML(req.Excerpt)
+	req.Content = sanitize.HTML(req.Content)
+
 	news, err := h.service.CreateNewsAdmin(req)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "Failed to create news")
@@ -635,6 +659,13 @@ func (h *Handler) AdminUpdateNews(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	if req.Excerpt != "" {
+		req.Excerpt = sanitize.HTML(req.Excerpt)
+	}
+	if req.Content != "" {
+		req.Content = sanitize.HTML(req.Content)
 	}
 
 	news, err := h.service.UpdateNewsAdmin(id, req)
@@ -680,6 +711,8 @@ func (h *Handler) AdminCreateCourse(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
+
+	req.Description = sanitize.HTML(req.Description)
 
 	course, err := h.service.CreateCourse(req)
 	if err != nil {
@@ -739,6 +772,11 @@ func (h *Handler) AdminUpdateCourse(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	if req.Description != nil && *req.Description != "" {
+		sanitized := sanitize.HTML(*req.Description)
+		req.Description = &sanitized
 	}
 
 	course, err := h.service.UpdateCourse(id, req)

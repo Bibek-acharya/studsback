@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"studsphere/backend/internal/shared/response"
+	"studsphere/backend/internal/shared/sanitize"
 
 	"github.com/gin-gonic/gin"
 )
@@ -203,6 +204,8 @@ func (h *Handler) CreateUniversity(c *gin.Context) {
 		return
 	}
 
+	req.Description = sanitize.HTML(req.Description)
+
 	uni, err := h.service.CreateUniversity(req)
 	if err != nil {
 		if err == ErrNameRequired {
@@ -229,6 +232,11 @@ func (h *Handler) UpdateUniversity(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, 400, err.Error())
 		return
+	}
+
+	if req.Description != nil && *req.Description != "" {
+		sanitized := sanitize.HTML(*req.Description)
+		req.Description = &sanitized
 	}
 
 	uni, err := h.service.UpdateUniversity(uint(id), req)

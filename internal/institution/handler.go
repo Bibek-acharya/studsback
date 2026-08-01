@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"studsphere/backend/internal/shared/response"
+	"studsphere/backend/internal/shared/sanitize"
 	"studsphere/backend/internal/shared/utils"
 
 	"github.com/gin-gonic/gin"
@@ -69,6 +70,16 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	if req.About != "" {
+		req.About = sanitize.HTML(req.About)
+	}
+	if req.Vision != "" {
+		req.Vision = sanitize.HTML(req.Vision)
+	}
+	if req.Mission != "" {
+		req.Mission = sanitize.HTML(req.Mission)
 	}
 
 	data, err := h.service.UpdateProfile(instID, req)
@@ -612,6 +623,9 @@ func (h *Handler) CreateEvent(c *gin.Context) {
 		return
 	}
 
+	req.ShortDesc = sanitize.HTML(req.ShortDesc)
+	req.Description = sanitize.HTML(req.Description)
+
 	event, err := h.service.CreateEvent(instID, req)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
@@ -633,6 +647,13 @@ func (h *Handler) UpdateEvent(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	if req.ShortDesc != "" {
+		req.ShortDesc = sanitize.HTML(req.ShortDesc)
+	}
+	if req.Description != "" {
+		req.Description = sanitize.HTML(req.Description)
 	}
 
 	event, err := h.service.UpdateEvent(instID, uint(id), req)
@@ -857,6 +878,9 @@ func (h *Handler) CreateNews(c *gin.Context) {
 		return
 	}
 
+	req.ShortDesc = sanitize.HTML(req.ShortDesc)
+	req.Content = sanitize.HTML(req.Content)
+
 	news, err := h.service.CreateNews(instID, req)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "Failed to create news")
@@ -878,6 +902,13 @@ func (h *Handler) UpdateNews(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	if req.ShortDesc != "" {
+		req.ShortDesc = sanitize.HTML(req.ShortDesc)
+	}
+	if req.Content != "" {
+		req.Content = sanitize.HTML(req.Content)
 	}
 
 	news, err := h.service.UpdateNews(instID, uint(id), req)
@@ -968,6 +999,9 @@ func (h *Handler) CreateBlog(c *gin.Context) {
 		return
 	}
 
+	req.Content = sanitize.HTML(req.Content)
+	req.Excerpt = sanitize.HTML(req.Excerpt)
+
 	blog, err := h.service.CreateBlog(instID, req)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "Failed to create blog")
@@ -989,6 +1023,13 @@ func (h *Handler) UpdateBlog(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	if req.Content != "" {
+		req.Content = sanitize.HTML(req.Content)
+	}
+	if req.Excerpt != "" {
+		req.Excerpt = sanitize.HTML(req.Excerpt)
 	}
 
 	blog, err := h.service.UpdateBlog(instID, uint(id), req)

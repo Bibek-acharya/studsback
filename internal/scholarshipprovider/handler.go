@@ -13,6 +13,7 @@ import (
 	"github.com/xuri/excelize/v2"
 
 	"studsphere/backend/internal/shared/response"
+	"studsphere/backend/internal/shared/sanitize"
 	"studsphere/backend/internal/shared/utils"
 
 	"github.com/gin-gonic/gin"
@@ -188,6 +189,11 @@ func (h *Handler) CreateScholarship(c *gin.Context) {
 		return
 	}
 
+	req.Description = sanitize.HTML(req.Description)
+	req.AboutParagraph1 = sanitize.HTML(req.AboutParagraph1)
+	req.ScholarshipDescription1 = sanitize.HTML(req.ScholarshipDescription1)
+	req.ScholarshipDescription2 = sanitize.HTML(req.ScholarshipDescription2)
+
 	scholarship, err := h.service.CreateScholarship(providerID, req)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "Failed to create scholarship")
@@ -261,6 +267,11 @@ func (h *Handler) UpdateScholarship(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
+
+	req.Description = sanitize.HTML(req.Description)
+	req.AboutParagraph1 = sanitize.HTML(req.AboutParagraph1)
+	req.ScholarshipDescription1 = sanitize.HTML(req.ScholarshipDescription1)
+	req.ScholarshipDescription2 = sanitize.HTML(req.ScholarshipDescription2)
 
 	scholarship, err := h.service.UpdateScholarship(providerID, uint(id), req)
 	if err != nil {
@@ -1347,6 +1358,9 @@ func (h *Handler) CreateNews(c *gin.Context) {
 		return
 	}
 
+	req.ShortDesc = sanitize.HTML(req.ShortDesc)
+	req.Content = sanitize.HTML(req.Content)
+
 	news, err := h.service.CreateNews(providerID, req)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "Failed to create news")
@@ -1418,6 +1432,9 @@ func (h *Handler) UpdateNews(c *gin.Context) {
 		return
 	}
 
+	req.ShortDesc = sanitize.HTML(req.ShortDesc)
+	req.Content = sanitize.HTML(req.Content)
+
 	news, err := h.service.UpdateNews(providerID, uint(id), req)
 	if err != nil {
 		response.Error(c, http.StatusNotFound, "News not found")
@@ -1457,6 +1474,9 @@ func (h *Handler) CreateEvent(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
+
+	req.ShortDesc = sanitize.HTML(req.ShortDesc)
+	req.Description = sanitize.HTML(req.Description)
 
 	event, err := h.service.CreateEvent(providerID, req)
 	if err != nil {
@@ -1529,6 +1549,9 @@ func (h *Handler) UpdateEvent(c *gin.Context) {
 		return
 	}
 
+	req.ShortDesc = sanitize.HTML(req.ShortDesc)
+	req.Description = sanitize.HTML(req.Description)
+
 	event, err := h.service.UpdateEvent(providerID, uint(id), req)
 	if err != nil {
 		response.Error(c, http.StatusNotFound, "Event not found")
@@ -1568,6 +1591,8 @@ func (h *Handler) CreateBlog(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
+
+	req.Content = sanitize.HTML(req.Content)
 
 	blog, err := h.service.CreateBlog(providerID, req)
 	if err != nil {
@@ -1639,6 +1664,8 @@ func (h *Handler) UpdateBlog(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
+
+	req.Content = sanitize.HTML(req.Content)
 
 	blog, err := h.service.UpdateBlog(providerID, uint(id), req)
 	if err != nil {
@@ -2878,6 +2905,9 @@ func (h *Handler) CreateService(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
+
+	req.Description = sanitize.HTML(req.Description)
+
 	item, err := h.service.CreateService(providerID, req)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "Failed to create service")
@@ -2923,6 +2953,9 @@ func (h *Handler) UpdateService(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
+
+	req.Description = sanitize.HTML(req.Description)
+
 	item, err := h.service.UpdateService(providerID, uint(id), req)
 	if err != nil {
 		response.Error(c, http.StatusNotFound, "Service not found")
@@ -2953,6 +2986,9 @@ func (h *Handler) CreateSector(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
+
+	req.Description = sanitize.HTML(req.Description)
+
 	item, err := h.service.CreateSector(providerID, req)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "Failed to create sector")
@@ -2998,6 +3034,9 @@ func (h *Handler) UpdateSector(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
+
+	req.Description = sanitize.HTML(req.Description)
+
 	item, err := h.service.UpdateSector(providerID, uint(id), req)
 	if err != nil {
 		response.Error(c, http.StatusNotFound, "Sector not found")
@@ -3028,6 +3067,9 @@ func (h *Handler) CreateProject(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
+
+	req.Description = sanitize.HTML(req.Description)
+
 	item, err := h.service.CreateProject(providerID, req)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "Failed to create project")
@@ -3073,6 +3115,9 @@ func (h *Handler) UpdateProject(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
+
+	req.Description = sanitize.HTML(req.Description)
+
 	item, err := h.service.UpdateProject(providerID, uint(id), req)
 	if err != nil {
 		response.Error(c, http.StatusNotFound, "Project not found")
@@ -3178,6 +3223,11 @@ func (h *Handler) CreateReview(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
+
+	req.Content = sanitize.HTML(req.Content)
+	req.Pros = sanitize.HTML(req.Pros)
+	req.Cons = sanitize.HTML(req.Cons)
+
 	item, err := h.service.CreateReview(providerID, req)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "Failed to create review")
@@ -3223,6 +3273,11 @@ func (h *Handler) UpdateReview(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
+
+	req.Content = sanitize.HTML(req.Content)
+	req.Pros = sanitize.HTML(req.Pros)
+	req.Cons = sanitize.HTML(req.Cons)
+
 	item, err := h.service.UpdateReview(providerID, uint(id), req)
 	if err != nil {
 		response.Error(c, http.StatusNotFound, "Review not found")
@@ -3251,9 +3306,12 @@ func (h *Handler) CreateVolunteer(c *gin.Context) {
 	providerID := getProviderID(c)
 	var req CreateVolunteerRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "Invalid request: "+err.Error())
+		response.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
+
+	req.Description = sanitize.HTML(req.Description)
+
 	v, err := h.service.CreateVolunteer(providerID, &req)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, err.Error())
@@ -3302,6 +3360,9 @@ func (h *Handler) UpdateVolunteer(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "Invalid request: "+err.Error())
 		return
 	}
+
+	req.Description = sanitize.HTML(req.Description)
+
 	v, err := h.service.UpdateVolunteer(uint(id), providerID, &req)
 	if err != nil {
 		response.Error(c, http.StatusNotFound, err.Error())
