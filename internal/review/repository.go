@@ -18,7 +18,7 @@ func (r *Repository) Create(review *Review) error {
 
 func (r *Repository) FindByID(id uint) (*Review, error) {
 	var review Review
-	err := r.db.First(&review, id).Error
+	err := r.db.Preload("User").First(&review, id).Error
 	if err != nil {
 		return nil, err
 	}

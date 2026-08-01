@@ -69,7 +69,7 @@ func TestSubmitUniversityReviewPersistsSeparateProsAndCons(t *testing.T) {
 	}
 
 	service := NewService(NewRepository(db))
-	_, err = service.SubmitUniversityReview(user.ID, CreateUniversityReviewRequest{
+	created, err := service.SubmitUniversityReview(user.ID, CreateUniversityReviewRequest{
 		UniversityID: 7,
 		Rating:       4,
 		Pros:         "Excellent faculty",
@@ -77,6 +77,9 @@ func TestSubmitUniversityReviewPersistsSeparateProsAndCons(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+	if created.UserName != "Ada Lovelace" || created.UserInitials != "AL" {
+		t.Fatalf("created identity = %q/%q", created.UserName, created.UserInitials)
 	}
 
 	stored, err := service.GetUserUniversityReview(user.ID, 7)

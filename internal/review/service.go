@@ -266,6 +266,10 @@ func (s *Service) SubmitUniversityReview(userID uint, req CreateUniversityReview
 	if err := s.repo.Create(review); err != nil {
 		return nil, err
 	}
+	review, err = s.repo.FindByID(review.ID)
+	if err != nil {
+		return nil, err
+	}
 
 	s.updateUniversityRating(req.UniversityID)
 
