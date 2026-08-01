@@ -98,6 +98,10 @@ func buildCourseResponse(course Course, colleges int) CourseResponse {
 }
 
 func buildNewsResponse(news News) NewsResponse {
+	date := news.Date
+	if date == "" {
+		date = news.CreatedAt.Format("2006-01-02")
+	}
 	return NewsResponse{
 		ID:       news.ID,
 		Slug:     news.Slug,
@@ -107,7 +111,7 @@ func buildNewsResponse(news News) NewsResponse {
 		Content:  news.Content,
 		Image:    news.Image,
 		Author:   news.Author,
-		Date:     news.Date,
+		Date:     date,
 		ReadTime: news.ReadTime,
 		Source:   news.Source,
 		Tags:     parseStringArrayField(news.Tags),
@@ -115,6 +119,10 @@ func buildNewsResponse(news News) NewsResponse {
 }
 
 func buildEventResponse(event Event) EventResponse {
+	date := event.Date
+	if date == "" {
+		date = event.CreatedAt.Format("2006-01-02")
+	}
 	return EventResponse{
 		ID:              event.ID,
 		UniversityID:    event.UniversityID,
@@ -125,7 +133,7 @@ func buildEventResponse(event Event) EventResponse {
 		Category:        event.Category,
 		Organizer:       event.Organizer,
 		Location:        event.Location,
-		Date:            event.Date,
+		Date:            date,
 		Time:            event.Time,
 		RegistrationFee: event.RegistrationFee,
 		Image:           event.Image,
