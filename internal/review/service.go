@@ -375,6 +375,9 @@ func (s *Service) UpdateUniversityReview(userID, universityID uint, req UpdateUn
 	}
 
 	if err := s.repo.SaveByUserAndUniversity(review); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("review not found")
+		}
 		return nil, err
 	}
 

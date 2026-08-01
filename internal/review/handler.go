@@ -2,6 +2,7 @@ package review
 
 import (
 	"errors"
+	"io"
 	"net/http"
 	"strconv"
 
@@ -244,6 +245,10 @@ func (h *Handler) UpdateUniversityReview(c *gin.Context) {
 
 	var req UpdateUniversityReviewRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		if errors.Is(err, io.EOF) {
+			response.Error(c, http.StatusBadRequest, "At least one review field is required")
+			return
+		}
 		response.Error(c, http.StatusBadRequest, humanizeValidationError(err))
 		return
 	}
