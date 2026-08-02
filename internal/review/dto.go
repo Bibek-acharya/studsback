@@ -95,3 +95,24 @@ type Meta struct {
 	Limit      int `json:"limit"`
 	TotalPages int `json:"total_pages"`
 }
+
+type CreateDateReportRequest struct {
+	UniversityID uint   `form:"university_id" binding:"required"`
+	Contact      string `form:"contact" binding:"required,len=10"`
+	Feedback     string `form:"feedback" binding:"required,min=20"`
+}
+
+type UpdateDateReportRequest struct {
+	Status string `json:"status" binding:"required,oneof=resolved dismissed"`
+}
+
+type DateReportResponse struct {
+	ID             uint   `json:"id"`
+	UniversityID   uint   `json:"university_id"`
+	UniversityName string `json:"university_name"`
+	Contact        string `json:"contact"`
+	Feedback       string `json:"feedback"`
+	FileURL        string `json:"file_url"`
+	Status         string `json:"status"`
+	CreatedAt      string `json:"created_at"`
+}

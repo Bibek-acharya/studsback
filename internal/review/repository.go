@@ -181,3 +181,98 @@ func (r *Repository) UpdateUniversityRating(universityID uint, avgRating float64
 			"review_count": reviewCount,
 		}).Error
 }
+
+// Admin methods for managing reviews
+func (r *Repository) AdminDeleteReview(id uint) error {
+	result := r.db.Delete(&Review{}, id)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *Repository) AdminGetAllReviews(page, limit int) ([]Review, int64, error) {
+	var reviews []Review
+	var total int64
+
+	if err := r.db.Model(&Review{}).Where("university_id > 0").Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * limit
+	err := r.db.Preload("User").Where("university_id > 0").
+		Order("created_at desc").
+		Offset(offset).
+		Limit(limit).
+		Find(&reviews).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return reviews, total, nil
+}
+
+// Date report methods
+func (r *Repository) CreateDateReport(report *DateReport) error {
+	return r.db.Create(report).Error
+}
+
+func (r *Repository) FindDateReportByID(id uint) (*DateReport, error) {
+	var report DateReport
+	err := r.db.First(&report, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &report, nil
+}
+
+func (r *Repository) GetAllDateReports(page, limit int) ([]DateReport, int64, error) {
+	var reports []DateReport
+	var total int64
+
+	if err := r.db.Model(&DateReport{}).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * limit
+	err := r.db.Order("created_at desc").
+		Offset(offset).
+		Limit(limit).
+		Find(&reports).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return reports, total, nil
+}
+
+func (r *Repository) UpdateDateReportStatus(id uint, status string) error {
+	result := r.db.Model(&DateReport{}).Where("id = ?", id).Update("status", status)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *Repository) DeleteDateReport(id uint) error {
+	result := r.db.Delete(&DateReport{}, id)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *Repository) GetUniversityByID(id uint) (string, error) {
+	var name string
+	err := r.db.Table("universities").Where("id = ?", id).Pluck("name", &name).Error
+	return name, err
+}

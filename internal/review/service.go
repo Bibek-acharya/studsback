@@ -428,6 +428,140 @@ func (s *Service) updateUniversityRating(universityID uint) {
 	s.repo.UpdateUniversityRating(universityID, avgRating, len(allReviews))
 }
 
+// Admin methods for managing reviews
+func (s *Service) AdminDeleteReview(reviewID uint) error {
+	return s.repo.AdminDeleteReview(reviewID)
+}
+
+func (s *Service) AdminGetAllReviews(page, limit int) (*PaginatedReviewsResponse, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 10
+	}
+
+	reviews, total, err := s.repo.AdminGetAllReviews(page, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	totalPages := int(math.Ceil(float64(total) / float64(limit)))
+
+	responses := make([]ReviewResponse, len(reviews))
+	for i, r := range reviews {
+		responses[i] = *toReviewResponse(&r)
+	}
+
+	return &PaginatedReviewsResponse{
+		Reviews: responses,
+		Meta: Meta{
+			Total:      int(total),
+			Page:       page,
+			Limit:      limit,
+			TotalPages: totalPages,
+		},
+	}, nil
+}
+
+func (s *Service) AdminGetUniversityReviews(universityID uint, page, limit int) (*PaginatedReviewsResponse, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 10
+	}
+
+	reviews, total, err := s.repo.FindByUniversity(universityID, page, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	totalPages := int(math.Ceil(float64(total) / float64(limit)))
+
+	responses := make([]ReviewResponse, len(reviews))
+	for i, r := range reviews {
+		responses[i] = *toReviewResponse(&r)
+	}
+
+	return &PaginatedReviewsResponse{
+		Reviews: responses,
+		Meta: Meta{
+			Total:      int(total),
+			Page:       page,
+			Limit:      limit,
+			TotalPages: totalPages,
+		},
+	}, nil
+}
+
+// Date report methods
+func (s *Service) CreateDateReport(req CreateDateReportRequest, fileURL string) (*DateReportResponse, error) {
+	report := &DateReport{
+		UniversityID: req.UniversityID,
+		Contact:      req.Contact,
+		Feedback:     req.Feedback,
+		FileURL:      fileURL,
+		Status:       "pending",
+	}
+
+	if err := s.repo.CreateDateReport(report); err != nil {
+		return nil, err
+	}
+
+	uniName, _ := s.repo.GetUniversityByID(req.UniversityID)
+
+	return &DateReportResponse{
+		ID:             report.ID,
+		UniversityID:   report.UniversityID,
+		UniversityName: uniName,
+		Contact:        report.Contact,
+		Feedback:       report.Feedback,
+		FileURL:        report.FileURL,
+		Status:         report.Status,
+		CreatedAt:      report.CreatedAt.Format(time.RFC3339),
+	}, nil
+}
+
+func (s *Service) GetAllDateReports(page, limit int) ([]DateReportResponse, int64, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 10
+	}
+
+	reports, total, err := s.repo.GetAllDateReports(page, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	responses := make([]DateReportResponse, len(reports))
+	for i, r := range reports {
+		uniName, _ := s.repo.GetUniversityByID(r.UniversityID)
+		responses[i] = DateReportResponse{
+			ID:             r.ID,
+			UniversityID:   r.UniversityID,
+			UniversityName: uniName,
+			Contact:        r.Contact,
+			Feedback:       r.Feedback,
+			FileURL:        r.FileURL,
+			Status:         r.Status,
+			CreatedAt:      r.CreatedAt.Format(time.RFC3339),
+		}
+	}
+
+	return responses, total, nil
+}
+
+func (s *Service) UpdateDateReportStatus(id uint, status string) error {
+	return s.repo.UpdateDateReportStatus(id, status)
+}
+
+func (s *Service) DeleteDateReport(id uint) error {
+	return s.repo.DeleteDateReport(id)
+}
+
 func toReviewResponse(r *Review) *ReviewResponse {
 	ratings := make(map[string]float64)
 	if len(r.Ratings) > 0 {

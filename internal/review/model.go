@@ -51,3 +51,16 @@ type ReviewReport struct {
 	UserID    uint           `gorm:"index;not null" json:"user_id"`
 	Reason    string         `gorm:"type:text;not null" json:"reason"`
 }
+
+type DateReport struct {
+	ID             uint           `gorm:"primarykey" json:"id"`
+	CreatedAt      time.Time      `json:"created_at"`
+	UpdatedAt      time.Time      `json:"updated_at"`
+	DeletedAt      gorm.DeletedAt `gorm:"index" json:"-"`
+	UniversityID   uint           `gorm:"index;not null" json:"university_id"`
+	UniversityName string         `gorm:"-" json:"university_name,omitempty"`
+	Contact        string         `gorm:"size:10;not null" json:"contact"`
+	Feedback       string         `gorm:"type:text;not null" json:"feedback"`
+	FileURL        string         `json:"file_url"`
+	Status         string         `gorm:"size:20;default:pending;not null" json:"status"` // pending, resolved, dismissed
+}
