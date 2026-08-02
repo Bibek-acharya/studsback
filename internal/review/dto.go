@@ -36,11 +36,13 @@ type ReviewResponse struct {
 	UserID            uint               `json:"user_id"`
 	UserName          string             `json:"user_name"`
 	UserInitials      string             `json:"user_initials"`
+	UserProfileImage  string             `json:"user_profile_image"`
 	StudentType       string             `json:"student_type"`
 	Course            string             `json:"course"`
 	Level             string             `json:"level"`
 	BatchYear         int                `json:"batch_year"`
 	Ratings           map[string]float64 `json:"ratings"`
+	Rating            float64            `json:"rating"`
 	Pros              string             `json:"pros"`
 	Cons              string             `json:"cons"`
 	SummaryTitle      string             `json:"summary_title"`

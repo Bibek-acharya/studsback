@@ -568,6 +568,19 @@ func toReviewResponse(r *Review) *ReviewResponse {
 		json.Unmarshal(r.Ratings, &ratings)
 	}
 
+	// Get the overall rating
+	var rating float64
+	if val, ok := ratings["overall"]; ok {
+		rating = val
+	} else if len(ratings) > 0 {
+		// Calculate average if no overall rating
+		var sum float64
+		for _, v := range ratings {
+			sum += v
+		}
+		rating = sum / float64(len(ratings))
+	}
+
 	firstName := strings.TrimSpace(r.User.FirstName)
 	lastName := strings.TrimSpace(r.User.LastName)
 	nameParts := make([]string, 0, 2)
@@ -591,11 +604,13 @@ func toReviewResponse(r *Review) *ReviewResponse {
 		UserID:            r.UserID,
 		UserName:          strings.Join(nameParts, " "),
 		UserInitials:      string(initials),
+		UserProfileImage:  r.User.ImageURL,
 		StudentType:       r.StudentType,
 		Course:            r.Course,
 		Level:             r.Level,
 		BatchYear:         r.BatchYear,
 		Ratings:           ratings,
+		Rating:            rating,
 		Pros:              r.Pros,
 		Cons:              r.Cons,
 		SummaryTitle:      r.SummaryTitle,
