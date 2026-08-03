@@ -35,6 +35,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 	applicants.Use(roleMW)
 	{
 		applicants.PUT("/:id/status", h.UpdateApplicantStatus)
+		applicants.PUT("/:id/notes", h.UpdateApplicantNotes)
 		applicants.POST("/:id/email", h.SendApplicantEmail)
 		applicants.GET("/:id/resume", h.ServeResume)
 		applicants.GET("/:id/cover-letter", h.ServeCoverLetter)

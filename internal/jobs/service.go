@@ -266,6 +266,20 @@ func (s *Service) UpdateApplicationStatus(id uint, req UpdateApplicantStatusRequ
 	return app, nil
 }
 
+func (s *Service) UpdateApplicationNotes(id uint, notes string) (*JobApplication, error) {
+	app, err := s.repo.FindApplicationByID(id)
+	if err != nil {
+		return nil, errors.New("application not found")
+	}
+
+	app.Notes = notes
+
+	if err := s.repo.UpdateApplication(app); err != nil {
+		return nil, errors.New("failed to update notes")
+	}
+	return app, nil
+}
+
 func (s *Service) SendApplicantEmail(id uint, req SendApplicantEmailRequest) error {
 	app, err := s.repo.FindApplicationByID(id)
 	if err != nil {

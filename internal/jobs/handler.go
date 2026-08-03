@@ -254,6 +254,30 @@ func (h *Handler) UpdateApplicantStatus(c *gin.Context) {
 	response.Success(c, 200, "Status updated successfully", toApplicationResponse(app))
 }
 
+func (h *Handler) UpdateApplicantNotes(c *gin.Context) {
+	id, err := parseID(c.Param("id"))
+	if err != nil {
+		response.Error(c, 400, "Invalid application ID")
+		return
+	}
+
+	var req struct {
+		Notes string `json:"notes"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+
+	app, err := h.service.UpdateApplicationNotes(id, req.Notes)
+	if err != nil {
+		response.Error(c, 500, err.Error())
+		return
+	}
+
+	response.Success(c, 200, "Notes updated successfully", toApplicationResponse(app))
+}
+
 func (h *Handler) SendApplicantEmail(c *gin.Context) {
 	id, err := parseID(c.Param("id"))
 	if err != nil {
