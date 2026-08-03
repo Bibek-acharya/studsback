@@ -23,6 +23,7 @@ import (
 	"studsphere/backend/internal/faq"
 	"studsphere/backend/internal/feedback"
 	"studsphere/backend/internal/follow"
+	"studsphere/backend/internal/jobs"
 	"studsphere/backend/internal/forum"
 	"studsphere/backend/internal/institution"
 	"studsphere/backend/internal/location"
@@ -102,6 +103,8 @@ func main() {
 		&forum.ForumSave{},
 		&forum.ForumPollVote{},
 		&admission.Admission{},
+		&jobs.Job{},
+		&jobs.JobApplication{},
 		&scholarshipprovider.ProviderScholarship{},
 		&scholarshipprovider.ProviderApplication{},
 		&scholarshipprovider.ProviderInterview{},
@@ -283,6 +286,7 @@ func main() {
 	followRepo := follow.NewRepository(db)
 	followService := follow.NewService(followRepo)
 	followHandler := follow.NewHandler(followService)
+	jobsHandler := initModule(jobs.NewRepository(db), jobs.NewService, jobs.NewHandler)
 	logger.Info("All module handlers initialized")
 
 	logger.Info("Setting up router...")
@@ -405,6 +409,7 @@ func main() {
 	ai.RegisterRoutes(router, aiHandler)
 	location.RegisterRoutes(router, locationHandler)
 	follow.RegisterRoutes(router, authMW, followHandler)
+	jobs.RegisterRoutes(router, authMW, roleMW, jobsHandler)
 
 	logger.Info("All routes registered", "port", config.AppConfig.Port)
 
