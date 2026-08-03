@@ -286,7 +286,7 @@ func main() {
 	followRepo := follow.NewRepository(db)
 	followService := follow.NewService(followRepo)
 	followHandler := follow.NewHandler(followService)
-	jobsHandler := initModule(jobs.NewRepository(db), jobs.NewService, jobs.NewHandler)
+	jobsHandler := jobs.NewHandler(jobs.NewServiceWithDB(jobs.NewRepository(db), db))
 	logger.Info("All module handlers initialized")
 
 	logger.Info("Setting up router...")

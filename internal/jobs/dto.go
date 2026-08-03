@@ -9,6 +9,7 @@ type CreateJobRequest struct {
 	Requirements       string  `json:"requirements"`
 	Location           string  `json:"location"`
 	JobType            string  `json:"job_type" binding:"required,oneof=full-time part-time contract internship"`
+	PositionsOpen      int     `json:"positions_open"`
 	SalaryRange        string  `json:"salary_range"`
 	ApplicationDeadline *string `json:"application_deadline"`
 	Status             string  `json:"status" binding:"required,oneof=draft published"`
@@ -21,6 +22,7 @@ type UpdateJobRequest struct {
 	Requirements       *string `json:"requirements"`
 	Location           *string `json:"location"`
 	JobType            *string `json:"job_type" binding:"omitempty,oneof=full-time part-time contract internship"`
+	PositionsOpen      *int    `json:"positions_open"`
 	SalaryRange        *string `json:"salary_range"`
 	ApplicationDeadline *string `json:"application_deadline"`
 	Status             *string `json:"status" binding:"omitempty,oneof=draft published closed"`
@@ -47,6 +49,7 @@ type JobResponse struct {
 	Requirements       string  `json:"requirements"`
 	Location           string  `json:"location"`
 	JobType            string  `json:"job_type"`
+	PositionsOpen      int     `json:"positions_open"`
 	SalaryRange        string  `json:"salary_range"`
 	ApplicationDeadline *string `json:"application_deadline,omitempty"`
 	Status             string  `json:"status"`
@@ -98,6 +101,7 @@ func toJobResponse(job *Job, appCount int64) JobResponse {
 		Requirements:    job.Requirements,
 		Location:        job.Location,
 		JobType:         job.JobType,
+		PositionsOpen:   job.PositionsOpen,
 		SalaryRange:     job.SalaryRange,
 		Status:          job.Status,
 		ApplicationCount: appCount,

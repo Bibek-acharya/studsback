@@ -17,6 +17,7 @@ type Job struct {
 	Requirements       string         `gorm:"type:text" json:"requirements"`
 	Location           string         `gorm:"type:varchar(255)" json:"location"`
 	JobType            string         `gorm:"type:varchar(50);not null" json:"job_type"`
+	PositionsOpen      int            `gorm:"not null;default:1" json:"positions_open"`
 	SalaryRange        string         `gorm:"type:varchar(100)" json:"salary_range"`
 	ApplicationDeadline *time.Time    `json:"application_deadline,omitempty"`
 	Status             string         `gorm:"type:varchar(20);not null;default:'draft'" json:"status"`

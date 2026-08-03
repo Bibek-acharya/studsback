@@ -8,14 +8,21 @@ import (
 
 	"studsphere/backend/internal/emailqueue"
 	"studsphere/backend/internal/shared/storage"
+
+	"gorm.io/gorm"
 )
 
 type Service struct {
 	repo *Repository
+	db   *gorm.DB
 }
 
 func NewService(repo *Repository) *Service {
 	return &Service{repo: repo}
+}
+
+func NewServiceWithDB(repo *Repository, db *gorm.DB) *Service {
+	return &Service{repo: repo, db: db}
 }
 
 func (s *Service) CreateJob(req CreateJobRequest) (*Job, error) {
@@ -26,6 +33,7 @@ func (s *Service) CreateJob(req CreateJobRequest) (*Job, error) {
 		Requirements: req.Requirements,
 		Location:     req.Location,
 		JobType:      req.JobType,
+		PositionsOpen: req.PositionsOpen,
 		SalaryRange:  req.SalaryRange,
 		Status:       req.Status,
 	}
@@ -85,6 +93,9 @@ func (s *Service) UpdateJob(id uint, req UpdateJobRequest) (*Job, error) {
 	if req.JobType != nil {
 		job.JobType = *req.JobType
 	}
+	if req.PositionsOpen != nil {
+		job.PositionsOpen = *req.PositionsOpen
+	}
 	if req.SalaryRange != nil {
 		job.SalaryRange = *req.SalaryRange
 	}
@@ -124,6 +135,13 @@ func (s *Service) DeleteJob(id uint) error {
 	return s.repo.DeleteJob(id)
 }
 
+func (s *Service) autoCloseExpiredJobs() {
+	now := time.Now()
+	s.db.Model(&Job{}).
+		Where("status = ? AND application_deadline IS NOT NULL AND application_deadline < ?", "published", now).
+		Update("status", "closed")
+}
+
 func (s *Service) ListPublishedJobs(department, search string, page, limit int) *PaginatedJobsResponse {
 	if page < 1 {
 		page = 1
@@ -131,6 +149,8 @@ func (s *Service) ListPublishedJobs(department, search string, page, limit int) 
 	if limit < 1 || limit > 50 {
 		limit = 12
 	}
+
+	s.autoCloseExpiredJobs()
 
 	jobs, total, _ := s.repo.ListPublishedJobs(department, search, page, limit)
 
