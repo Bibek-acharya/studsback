@@ -14,6 +14,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 		v1.GET("/institutions/public", h.ListPublicInstitutions)
 		v1.GET("/institutions/public/sponsored/:universityId", h.GetSponsoredInstitutions)
 		v1.GET("/institutions/public/by-university/:universityId", h.GetInstitutionsByUniversity)
+		v1.GET("/institutions/public/by-universities", h.GetInstitutionsByUniversities)
 		v1.GET("/institutions/public/:id", h.GetPublicInstitution)
 		v1.GET("/institutions/public/blogs", h.ListPublicBlogs)
 		v1.GET("/institutions/public/news/by-slug/:slug", h.GetPublicNewsBySlug)

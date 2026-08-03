@@ -2406,6 +2406,14 @@ func (s *Service) GetInstitutionsByUniversity(universityID uint) ([]PublicInstit
 	return toPublicResponses(users), nil
 }
 
+func (s *Service) GetInstitutionsByUniversities(universityIDs []uint) ([]PublicInstitutionResponse, error) {
+	users, err := s.repo.FindByUniversityIDs(universityIDs)
+	if err != nil {
+		return nil, err
+	}
+	return toPublicResponses(users), nil
+}
+
 func toPublicResponses(users []InstitutionUser) []PublicInstitutionResponse {
 	results := make([]PublicInstitutionResponse, len(users))
 	for i, u := range users {

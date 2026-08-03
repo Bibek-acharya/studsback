@@ -306,9 +306,18 @@ func (r *Repository) FindPublicInstitutions(page, pageSize int, search, location
 
 func (r *Repository) FindByUniversityID(universityID uint) ([]InstitutionUser, error) {
 	var users []InstitutionUser
-	err := r.db.Where("university_id = ? AND status = ? AND deleted_at IS NULL", universityID, "approved").
-		Order("institution_name ASC").
-		Find(&users).Error
+	var uni struct{ Name string }
+	r.db.Table("universities").Select("name").Where("id = ?", universityID).Scan(&uni)
+
+	query := r.db.Where("status = ? AND deleted_at IS NULL", "approved")
+	if universityID > 0 {
+		query = query.Where("university_id = ?", universityID)
+	}
+	if uni.Name != "" {
+		query = query.Or("affiliation LIKE ?", "%"+uni.Name+"%")
+	}
+
+	err := query.Order("institution_name ASC").Find(&users).Error
 	return users, err
 }
 
@@ -317,6 +326,14 @@ func (r *Repository) FindSponsoredByUniversityID(universityID uint) ([]Instituti
 	err := r.db.Where("university_id = ? AND is_sponsored = ? AND status = ? AND deleted_at IS NULL", universityID, true, "approved").
 		Order("institution_name ASC").
 		Limit(10).
+		Find(&users).Error
+	return users, err
+}
+
+func (r *Repository) FindByUniversityIDs(universityIDs []uint) ([]InstitutionUser, error) {
+	var users []InstitutionUser
+	err := r.db.Where("university_id IN ? AND status = ? AND deleted_at IS NULL", universityIDs, "approved").
+		Order("institution_name ASC").
 		Find(&users).Error
 	return users, err
 }

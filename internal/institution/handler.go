@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"studsphere/backend/internal/shared/response"
@@ -1431,6 +1432,34 @@ func (h *Handler) GetInstitutionsByUniversity(c *gin.Context) {
 	}
 
 	results, err := h.service.GetInstitutionsByUniversity(uint(universityID))
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch institutions")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Institutions retrieved successfully", gin.H{
+		"institutions": results,
+	})
+}
+
+func (h *Handler) GetInstitutionsByUniversities(c *gin.Context) {
+	idsParam := c.Query("ids")
+	if idsParam == "" {
+		response.Error(c, http.StatusBadRequest, "Missing ids parameter")
+		return
+	}
+
+	var universityIDs []uint
+	for _, idStr := range strings.Split(idsParam, ",") {
+		id, err := strconv.ParseUint(strings.TrimSpace(idStr), 10, 64)
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, "Invalid university ID in list")
+			return
+		}
+		universityIDs = append(universityIDs, uint(id))
+	}
+
+	results, err := h.service.GetInstitutionsByUniversities(universityIDs)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "Failed to fetch institutions")
 		return
