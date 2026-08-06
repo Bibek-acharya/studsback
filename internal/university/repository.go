@@ -103,6 +103,37 @@ func (r *Repository) FindDeletedByName(name string) (*University, error) {
 	return &uni, nil
 }
 
+func (r *Repository) FindAffiliatedColleges(universityID uint) ([]AffiliatedCollege, error) {
+	var results []AffiliatedCollege
+
+	err := r.db.Raw(`
+		SELECT
+			iu.id,
+			'institution' AS source,
+			iu.institution_name AS name,
+			iu.college_id,
+			COALESCE(c.image_url, '') AS image_url,
+			COALESCE(c.location, '') AS location,
+			COALESCE(c.college_type, '') AS type,
+			COALESCE(c.rating, 0) AS rating,
+			COALESCE(c.reviews, 0) AS reviews,
+			COALESCE(c.programs, 0) AS programs,
+			COALESCE(c.verified, false) AS verified,
+			COALESCE(c.featured, false) AS featured,
+			COALESCE(iu.affiliation, '') AS affiliation,
+			COALESCE(c.website, '') AS website
+		FROM institution_users iu
+		LEFT JOIN colleges c ON iu.college_id = c.id
+		WHERE iu.university_id = ?
+		  AND iu.status = 'approved'
+		  AND iu.college_id > 0
+		  AND iu.deleted_at IS NULL
+		ORDER BY c.featured DESC, c.rating DESC, iu.institution_name ASC
+	`, universityID).Scan(&results).Error
+
+	return results, err
+}
+
 func (r *Repository) Restore(id uint) error {
 	return r.db.Unscoped().Model(&University{}).Where("id = ?", id).Update("deleted_at", nil).Error
 }
