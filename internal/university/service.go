@@ -580,3 +580,23 @@ func (s *Service) DeleteUniversity(id uint) error {
 	}
 	return s.repo.Delete(id)
 }
+
+func (s *Service) GetAffiliatedColleges(universityID uint) (*AffiliatedCollegesResponse, error) {
+	uni, err := s.repo.FindByID(universityID)
+	if err != nil {
+		return nil, err
+	}
+
+	colleges, err := s.repo.FindAffiliatedColleges(universityID)
+	if err != nil {
+		return nil, err
+	}
+
+	uniResp := toUniversityResponse(*uni, []College{})
+
+	return &AffiliatedCollegesResponse{
+		University:         &uniResp,
+		AffiliatedColleges: colleges,
+		Total:              len(colleges),
+	}, nil
+}
