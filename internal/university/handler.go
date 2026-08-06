@@ -269,3 +269,19 @@ func (h *Handler) DeleteUniversity(c *gin.Context) {
 
 	response.Success(c, 200, "University deleted successfully", nil)
 }
+
+func (h *Handler) GetAffiliatedColleges(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		response.Error(c, 400, "Invalid university ID")
+		return
+	}
+
+	result, err := h.service.GetAffiliatedColleges(uint(id))
+	if err != nil {
+		response.Error(c, 404, "University not found")
+		return
+	}
+
+	response.Success(c, 200, "Affiliated colleges retrieved successfully", result)
+}

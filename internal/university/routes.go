@@ -14,6 +14,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 		universities.GET("/:id", h.GetUniversityByID)
 		universities.GET("/:id/courses", h.GetUniversityCourses)
 		universities.GET("/:id/scholarships", h.GetUniversityScholarships)
+		universities.GET("/:id/affiliated-colleges", h.GetAffiliatedColleges)
 		universities.GET("/:id/:tab", h.GetUniversityTab)
 	}
 
