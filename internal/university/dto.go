@@ -150,3 +150,9 @@ type UniversityFilterCountsResponse struct {
 	RatingCounts   map[string]int64 `json:"rating_counts"`
 	AcademicCounts map[string]int64 `json:"academic_counts"`
 }
+
+type AffiliatedCollegesResponse struct {
+	University         *UniversityResponse  `json:"university"`
+	AffiliatedColleges []AffiliatedCollege  `json:"affiliated_colleges"`
+	Total              int                  `json:"total"`
+}
