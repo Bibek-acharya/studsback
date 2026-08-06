@@ -539,6 +539,7 @@ type WhatsNewData struct {
 
 type ProgramDataItem struct {
 	Title           string   `json:"title"`
+	Level           string   `json:"level"`
 	Subtitle        string   `json:"subtitle"`
 	AdmissionStatus string   `json:"admissionStatus"`
 	ProgramIcon     string   `json:"programIcon"`
@@ -558,6 +559,7 @@ type FacilityDataItem struct {
 type CourseDataItem struct {
 	CourseName      string `json:"courseName"`
 	Name            string `json:"name"`
+	Level           string `json:"level"`
 	CurriculumLink  string `json:"curriculumLink"`
 	FeesText        string `json:"feesText"`
 	Fees            string `json:"fees"`
