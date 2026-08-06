@@ -2372,6 +2372,7 @@ func (s *Service) GetPublicInstitution(id uint) (*PublicInstitutionDetailRespons
 		AlumniData:              pd.AlumniData,
 		GalleryData:             pd.GalleryData,
 		DownloadsData:           pd.DownloadsData,
+		FaqsData:                pd.FaqsData,
 		InstitutionPrograms:     programResponses,
 		InstitutionEvents:       eventResponses,
 		InstitutionNews:         newsResponses,

@@ -923,6 +923,7 @@ type PublicInstitutionDetailResponse struct {
 	AlumniData              interface{}           `json:"alumni_data,omitempty"`
 	GalleryData             interface{}           `json:"gallery_data,omitempty"`
 	DownloadsData           []DownloadDataItem    `json:"downloads_data,omitempty"`
+	FaqsData                []FaqDataItem         `json:"faqs_data,omitempty"`
 	InstitutionPrograms     []ProgramResponse     `json:"institution_programs,omitempty"`
 	InstitutionEvents       []EventResponse       `json:"institution_events,omitempty"`
 	InstitutionNews         []NewsResponse        `json:"institution_news,omitempty"`
