@@ -572,6 +572,12 @@ func fixMissingColumns(db *gorm.DB) error {
 	db.Exec(`UPDATE provider_scholarships SET slug = 'provider-scholarship-' || id WHERE slug IS NULL OR slug = ''`)
 	db.Exec(`UPDATE provider_volunteers SET slug = 'volunteer-' || id WHERE slug IS NULL OR slug = ''`)
 	db.Exec(`UPDATE institution_users SET profile_status = 'published' WHERE profile_status = 'draft' AND id IN (SELECT institution_id FROM institution_settings WHERE public_profile = true)`)
+
+	if !config.IsSQLite {
+		db.Exec(`UPDATE institution_news SET slug = 'inst-' || LOWER(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(title, '[^a-zA-Z0-9\s-]', '', 'g'), '\s+', '-', 'g'), '-+', '-', 'g')) WHERE (slug IS NULL OR slug = '') AND deleted_at IS NULL`)
+		db.Exec(`UPDATE institution_events SET slug = 'inst-' || LOWER(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(name, '[^a-zA-Z0-9\s-]', '', 'g'), '\s+', '-', 'g'), '-+', '-', 'g')) WHERE (slug IS NULL OR slug = '') AND deleted_at IS NULL`)
+		db.Exec(`UPDATE institution_blogs SET slug = 'inst-' || LOWER(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(title, '[^a-zA-Z0-9\s-]', '', 'g'), '\s+', '-', 'g'), '-+', '-', 'g')) WHERE (slug IS NULL OR slug = '') AND deleted_at IS NULL`)
+	}
 	return nil
 }
 

@@ -30,12 +30,12 @@ DECLARE
   final_slug TEXT;
   counter INT;
 BEGIN
-  FOR r IN SELECT id, title FROM institution_news WHERE slug = '' OR slug IS NULL
+  FOR r IN SELECT id, title FROM institution_news WHERE (slug = '' OR slug IS NULL) AND deleted_at IS NULL
   LOOP
     base_slug := 'inst-' || generate_slug(r.title);
     final_slug := base_slug;
     counter := 1;
-    WHILE EXISTS (SELECT 1 FROM institution_news WHERE slug = final_slug AND id != r.id) LOOP
+    WHILE EXISTS (SELECT 1 FROM institution_news WHERE slug = final_slug AND id != r.id AND deleted_at IS NULL) LOOP
       counter := counter + 1;
       final_slug := base_slug || '-' || counter;
     END LOOP;
@@ -51,12 +51,12 @@ DECLARE
   final_slug TEXT;
   counter INT;
 BEGIN
-  FOR r IN SELECT id, name FROM institution_events WHERE slug = '' OR slug IS NULL
+  FOR r IN SELECT id, name FROM institution_events WHERE (slug = '' OR slug IS NULL) AND deleted_at IS NULL
   LOOP
     base_slug := 'inst-' || generate_slug(r.name);
     final_slug := base_slug;
     counter := 1;
-    WHILE EXISTS (SELECT 1 FROM institution_events WHERE slug = final_slug AND id != r.id) LOOP
+    WHILE EXISTS (SELECT 1 FROM institution_events WHERE slug = final_slug AND id != r.id AND deleted_at IS NULL) LOOP
       counter := counter + 1;
       final_slug := base_slug || '-' || counter;
     END LOOP;
@@ -72,12 +72,12 @@ DECLARE
   final_slug TEXT;
   counter INT;
 BEGIN
-  FOR r IN SELECT id, title FROM institution_blogs WHERE slug = '' OR slug IS NULL
+  FOR r IN SELECT id, title FROM institution_blogs WHERE (slug = '' OR slug IS NULL) AND deleted_at IS NULL
   LOOP
     base_slug := 'inst-' || generate_slug(r.title);
     final_slug := base_slug;
     counter := 1;
-    WHILE EXISTS (SELECT 1 FROM institution_blogs WHERE slug = final_slug AND id != r.id) LOOP
+    WHILE EXISTS (SELECT 1 FROM institution_blogs WHERE slug = final_slug AND id != r.id AND deleted_at IS NULL) LOOP
       counter := counter + 1;
       final_slug := base_slug || '-' || counter;
     END LOOP;
