@@ -566,6 +566,7 @@ type CourseDataItem struct {
 	Duration        string `json:"duration"`
 	Eligibility     string `json:"eligibility"`
 	Seats           string `json:"seats"`
+	SubDescription  string `json:"sub_description"`
 	ApplicationDate string `json:"applicationDate"`
 	ApplyLink       string `json:"applyLink"`
 }
