@@ -163,11 +163,11 @@ type InstitutionEvent struct {
 	Status             string         `gorm:"default:'draft'" json:"status"`
 }
 
-func (ie *InstitutionEvent) BeforeCreate(tx *gorm.DB) error {
+func (ie *InstitutionEvent) BeforeSave(tx *gorm.DB) error {
 	if ie.Slug == "" {
 		ie.Slug = slug.GenerateUnique("inst-"+ie.Name, func(s string) bool {
 			var count int64
-			tx.Model(&InstitutionEvent{}).Where("slug = ?", s).Count(&count)
+			tx.Model(&InstitutionEvent{}).Where("slug = ? AND id != ?", s, ie.ID).Count(&count)
 			return count > 0
 		})
 	}
@@ -194,11 +194,11 @@ type InstitutionNews struct {
 	PublishedAt   *time.Time     `json:"published_at"`
 }
 
-func (in *InstitutionNews) BeforeCreate(tx *gorm.DB) error {
+func (in *InstitutionNews) BeforeSave(tx *gorm.DB) error {
 	if in.Slug == "" {
 		in.Slug = slug.GenerateUnique("inst-"+in.Title, func(s string) bool {
 			var count int64
-			tx.Model(&InstitutionNews{}).Where("slug = ?", s).Count(&count)
+			tx.Model(&InstitutionNews{}).Where("slug = ? AND id != ?", s, in.ID).Count(&count)
 			return count > 0
 		})
 	}
@@ -224,11 +224,11 @@ type InstitutionBlog struct {
 	PublishedAt   *time.Time     `json:"published_at"`
 }
 
-func (ib *InstitutionBlog) BeforeCreate(tx *gorm.DB) error {
+func (ib *InstitutionBlog) BeforeSave(tx *gorm.DB) error {
 	if ib.Slug == "" {
 		ib.Slug = slug.GenerateUnique("inst-"+ib.Title, func(s string) bool {
 			var count int64
-			tx.Model(&InstitutionBlog{}).Where("slug = ?", s).Count(&count)
+			tx.Model(&InstitutionBlog{}).Where("slug = ? AND id != ?", s, ib.ID).Count(&count)
 			return count > 0
 		})
 	}
