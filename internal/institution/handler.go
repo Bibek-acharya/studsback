@@ -2069,6 +2069,7 @@ func toEventResponse(e InstitutionEvent) EventResponse {
 	}
 	return EventResponse{
 		ID:                 e.ID,
+		Slug:               e.Slug,
 		CreatedAt:          e.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:          e.UpdatedAt.Format(time.RFC3339),
 		InstitutionID:      e.InstitutionID,
@@ -2109,6 +2110,7 @@ func toNewsResponse(n InstitutionNews) NewsResponse {
 	}
 	return NewsResponse{
 		ID:            n.ID,
+		Slug:          n.Slug,
 		CreatedAt:     n.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:     n.UpdatedAt.Format(time.RFC3339),
 		InstitutionID: n.InstitutionID,
