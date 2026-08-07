@@ -781,9 +781,15 @@ func (h *Handler) ListPublicEvents(c *gin.Context) {
 }
 
 func (h *Handler) GetPublicEventByID(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	idParam := c.Param("id")
+	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, "Invalid event ID")
+		event, slugErr := h.service.GetPublicEventBySlug(idParam)
+		if slugErr != nil {
+			response.Error(c, http.StatusNotFound, "Event not found")
+			return
+		}
+		response.Success(c, http.StatusOK, "Event retrieved successfully", toEventResponse(*event))
 		return
 	}
 
@@ -845,9 +851,15 @@ func (h *Handler) GetPublicScholarshipByID(c *gin.Context) {
 }
 
 func (h *Handler) GetPublicNewsByID(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	idParam := c.Param("id")
+	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, "Invalid news ID")
+		news, slugErr := h.service.GetPublicNewsBySlug(idParam)
+		if slugErr != nil {
+			response.Error(c, http.StatusNotFound, "News not found")
+			return
+		}
+		response.Success(c, http.StatusOK, "News retrieved successfully", toNewsResponse(*news))
 		return
 	}
 
