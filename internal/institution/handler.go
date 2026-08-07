@@ -1401,8 +1401,13 @@ func (h *Handler) ListPublicInstitutions(c *gin.Context) {
 	search := c.Query("search")
 	location := c.Query("location")
 	instType := c.Query("type")
+	academic := c.QueryArray("academic")
+	courseDuration := c.QueryArray("courseDuration")
+	facilities := c.QueryArray("facilities")
+	program := c.QueryArray("program")
+	course := c.QueryArray("course")
 
-	results, total, err := h.service.ListPublicInstitutions(page, limit, search, location, instType)
+	results, total, err := h.service.ListPublicInstitutions(page, limit, search, location, instType, academic, courseDuration, facilities, program, course)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "Failed to fetch institutions")
 		return

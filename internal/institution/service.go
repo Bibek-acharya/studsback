@@ -2233,8 +2233,8 @@ func (s *Service) UpdateScholarshipApplicationStatus(instID, id uint, req Update
 	return application, nil
 }
 
-func (s *Service) ListPublicInstitutions(page, limit int, search, location, instType string) ([]PublicInstitutionResponse, int64, error) {
-	users, total, err := s.repo.FindPublicInstitutions(page, limit, search, location, instType)
+func (s *Service) ListPublicInstitutions(page, limit int, search, location, instType string, academic, courseDuration, facilities, program, course []string) ([]PublicInstitutionResponse, int64, error) {
+	users, total, err := s.repo.FindPublicInstitutions(page, limit, search, location, instType, academic, courseDuration, facilities, program, course)
 	if err != nil {
 		return nil, 0, err
 	}

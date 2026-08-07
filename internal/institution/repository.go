@@ -268,7 +268,7 @@ func (r *Repository) SaveInstitutionUser(user *InstitutionUser) error {
 	return r.db.Save(user).Error
 }
 
-func (r *Repository) FindPublicInstitutions(page, pageSize int, search, location, instType string) ([]InstitutionUser, int64, error) {
+func (r *Repository) FindPublicInstitutions(page, pageSize int, search, location, instType string, academic, courseDuration, facilities, program, course []string) ([]InstitutionUser, int64, error) {
 	var users []InstitutionUser
 	var total int64
 
@@ -284,10 +284,58 @@ func (r *Repository) FindPublicInstitutions(page, pageSize int, search, location
 		query = query.Where("(institution_users.institution_name ILIKE ? OR institution_users.district ILIKE ?)", like, like)
 	}
 	if location != "" {
-		query = query.Where("institution_users.district ILIKE ?", "%"+location+"%")
+		locations := strings.Split(location, ",")
+		for _, loc := range locations {
+			loc = strings.TrimSpace(loc)
+			if loc != "" {
+				query = query.Where("institution_users.district ILIKE ?", "%"+loc+"%")
+			}
+		}
 	}
 	if instType != "" {
 		query = query.Where("institution_users.organization_type = ?", instType)
+	}
+	if len(academic) > 0 {
+		for _, level := range academic {
+			query = query.Where("institution_users.level ILIKE ?", "%"+level+"%")
+		}
+	}
+	if len(courseDuration) > 0 {
+		for _, dur := range courseDuration {
+			query = query.Where(`EXISTS (
+				SELECT 1 FROM jsonb_array_elements(institution_users.profile_data->'courses_data') AS course
+				WHERE course->>'duration' ILIKE ?
+			)`, "%"+dur+"%")
+		}
+	}
+	if len(facilities) > 0 {
+		for _, fac := range facilities {
+			query = query.Where(`EXISTS (
+				SELECT 1 FROM jsonb_array_elements(institution_users.profile_data->'facilities_data') AS f
+				WHERE f->>'heading' ILIKE ?
+			)`, "%"+fac+"%")
+		}
+	}
+	if len(program) > 0 {
+		for _, p := range program {
+			query = query.Where(`(
+				EXISTS (
+					SELECT 1 FROM jsonb_array_elements(institution_users.profile_data->'courses_data') AS c
+					WHERE c->>'name' ILIKE ?
+				) OR EXISTS (
+					SELECT 1 FROM jsonb_array_elements(institution_users.profile_data->'institution_programs') AS ip
+					WHERE ip->>'name' ILIKE ?
+				)
+			)`, "%"+p+"%", "%"+p+"%")
+		}
+	}
+	if len(course) > 0 {
+		for _, c := range course {
+			query = query.Where(`EXISTS (
+				SELECT 1 FROM jsonb_array_elements(institution_users.profile_data->'courses_data') AS c
+				WHERE c->>'name' ILIKE ? OR c->>'courseName' ILIKE ?
+			)`, "%"+c+"%", "%"+c+"%")
+		}
 	}
 
 	if err := query.Count(&total).Error; err != nil {
@@ -1378,10 +1426,11 @@ func (r *Repository) GetPublicFilterCounts() (*PublicInstitutionFilterCountsResp
 	var facetRows []struct {
 		District    string
 		Affiliation string
+		Level       string
 	}
 
 	if err := r.db.Model(&InstitutionUser{}).
-		Select("district, affiliation").
+		Select("district, affiliation, level").
 		Joins("LEFT JOIN institution_settings ON institution_settings.institution_id = institution_users.id").
 		Where("(institution_settings.public_profile = ? OR institution_settings.id IS NULL)", true).
 		Where("institution_users.profile_status = ?", "published").
@@ -1391,8 +1440,29 @@ func (r *Repository) GetPublicFilterCounts() (*PublicInstitutionFilterCountsResp
 		return nil, err
 	}
 
+	academicLevelCounts := map[string]int64{
+		"+2":                        0,
+		"A-Level":                   0,
+		"TSLC (CTEVT)":              0,
+		"Diploma (CTEVT)":           0,
+		"PCL":                       0,
+		"Bachelor's":                0,
+		"Bachelor's (Honours)":      0,
+		"Postgraduate Diploma (PGD)": 0,
+		"Master's":                  0,
+		"MPhil":                     0,
+		"PhD":                       0,
+	}
+
 	for _, row := range facetRows {
 		searchText := strings.ToLower(row.District + " " + row.Affiliation)
+
+		levelLower := strings.ToLower(row.Level)
+		for level := range academicLevelCounts {
+			if strings.Contains(levelLower, strings.ToLower(level)) {
+				academicLevelCounts[level]++
+			}
+		}
 
 		for facetID, keywords := range facetKeywordsByID {
 			for _, keyword := range keywords {
@@ -1404,6 +1474,59 @@ func (r *Repository) GetPublicFilterCounts() (*PublicInstitutionFilterCountsResp
 					break
 				}
 			}
+		}
+	}
+
+	for level, count := range academicLevelCounts {
+		resp.FacetCountsByID[level] = count
+	}
+
+	courseDurations := []string{"1 Year", "2 Years", "3 Years", "4 Years", "5+ Years"}
+	durationPatterns := map[string]string{
+		"1 Year":   "1 year",
+		"2 Years":  "2 year",
+		"3 Years":  "3 year",
+		"4 Years":  "4 year",
+		"5+ Years": "5 year",
+	}
+	for _, dur := range courseDurations {
+		var count int64
+		err := r.db.Raw(`SELECT COUNT(DISTINCT iu.id)
+			FROM institution_users iu
+			LEFT JOIN institution_settings iss ON iss.institution_id = iu.id
+			WHERE (iss.public_profile = ? OR iss.id IS NULL)
+			AND iu.profile_status = 'published' AND iu.deleted_at IS NULL AND iu.status = 'approved'
+			AND EXISTS (
+				SELECT 1 FROM jsonb_array_elements(iu.profile_data->'courses_data') AS c
+				WHERE c->>'duration' ILIKE ?
+			)`, true, "%"+durationPatterns[dur]+"%").Scan(&count).Error
+		if err == nil {
+			resp.FacetCountsByID[dur] = count
+		}
+	}
+
+	facilityNames := []string{"Library", "Hostel", "Transportation", "Lab", "Sports", "Cafeteria"}
+	facilityPatterns := map[string]string{
+		"Library":       "library",
+		"Hostel":        "hostel",
+		"Transportation": "transport",
+		"Lab":           "lab",
+		"Sports":        "sport",
+		"Cafeteria":     "cafeteria",
+	}
+	for _, fac := range facilityNames {
+		var count int64
+		err := r.db.Raw(`SELECT COUNT(DISTINCT iu.id)
+			FROM institution_users iu
+			LEFT JOIN institution_settings iss ON iss.institution_id = iu.id
+			WHERE (iss.public_profile = ? OR iss.id IS NULL)
+			AND iu.profile_status = 'published' AND iu.deleted_at IS NULL AND iu.status = 'approved'
+			AND EXISTS (
+				SELECT 1 FROM jsonb_array_elements(iu.profile_data->'facilities_data') AS f
+				WHERE f->>'heading' ILIKE ?
+			)`, true, "%"+facilityPatterns[fac]+"%").Scan(&count).Error
+		if err == nil {
+			resp.FacetCountsByID[fac] = count
 		}
 	}
 
