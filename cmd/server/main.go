@@ -506,6 +506,7 @@ func fixMissingColumns(db *gorm.DB) error {
 		{"institution_users", "tiktok_url TEXT DEFAULT ''"},
 		{"institution_users", "youtube_url TEXT DEFAULT ''"},
 		{"institution_users", "linkedin_url TEXT DEFAULT ''"},
+		{"institution_users", "level TEXT DEFAULT ''"},
 		{"scholarship_provider_users", "about_text TEXT DEFAULT ''"},
 		{"scholarship_provider_users", "mission TEXT DEFAULT ''"},
 		{`scholarship_provider_users`, `"values" TEXT DEFAULT ''`},

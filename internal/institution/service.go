@@ -140,6 +140,7 @@ func (s *Service) GetProfile(instID uint) (*ProfileResponse, error) {
 		Vision:               user.Vision,
 		Mission:              user.Mission,
 		Affiliation:          user.Affiliation,
+		Level:                user.Level,
 		Videos:               pd.Videos,
 		OverviewData:         pd.OverviewData,
 		LeadershipData:       pd.LeadershipData,
@@ -216,6 +217,9 @@ func (s *Service) UpdateProfile(instID uint, req UpdateProfileRequest) (*Profile
 	}
 	if req.Affiliation != "" {
 		user.Affiliation = req.Affiliation
+	}
+	if req.Level != "" {
+		user.Level = req.Level
 	}
 	if req.MapURL != "" {
 		user.MapURL = req.MapURL
@@ -2363,6 +2367,7 @@ func (s *Service) GetPublicInstitution(id uint) (*PublicInstitutionDetailRespons
 		Mission:                 user.Mission,
 		District:                user.District,
 		WebsiteURL:              user.WebsiteURL,
+		Level:                   user.Level,
 		Videos:                  pd.Videos,
 		OverviewData:            pd.OverviewData,
 		LeadershipData:          pd.LeadershipData,

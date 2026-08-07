@@ -671,6 +671,7 @@ type UpdateProfileRequest struct {
 	RegistrationNumber   string                 `json:"registration_number"`
 	Location             string                 `json:"location"`
 	Website              string                 `json:"website"`
+	Level                string                 `json:"level"`
 	ContactEmail         string                 `json:"contact_email"`
 	ContactPhone         string                 `json:"contact_phone"`
 	Affiliation          string                 `json:"affiliation"`
@@ -727,6 +728,7 @@ type ProfileResponse struct {
 	Vision               string                 `json:"vision,omitempty"`
 	Mission              string                 `json:"mission,omitempty"`
 	Affiliation          string                 `json:"affiliation,omitempty"`
+	Level                string                 `json:"level,omitempty"`
 	Videos               interface{}            `json:"videos,omitempty"`
 	OverviewData         interface{}            `json:"overview_data,omitempty"`
 	LeadershipData       interface{}            `json:"leadership_data,omitempty"`
@@ -916,6 +918,7 @@ type PublicInstitutionDetailResponse struct {
 	Mission                 string                `json:"mission,omitempty"`
 	District                string                `json:"district,omitempty"`
 	WebsiteURL              string                `json:"website_url,omitempty"`
+	Level                   string                `json:"level,omitempty"`
 	Videos                  interface{}           `json:"videos,omitempty"`
 	OverviewData            interface{}           `json:"overview_data,omitempty"`
 	LeadershipData          interface{}           `json:"leadership_data,omitempty"`
