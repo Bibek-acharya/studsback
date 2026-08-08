@@ -49,7 +49,8 @@ type Config struct {
 	LLMEnabled bool
 	LLMBaseURL string
 	LLMModel   string
-	LLMAPIKey  string
+	LLMAPIKey   string
+	LLMProvider string
 
 	GeminiAPIKey string
 	GeminiModel  string
@@ -120,7 +121,8 @@ func Load() {
 		LLMEnabled: getEnv("LLM_ENABLED", "false") == "true",
 		LLMBaseURL: getEnv("LLM_BASE_URL", "http://localhost:11434/v1"),
 		LLMModel:   getEnv("LLM_MODEL", "llama3.1:8b"),
-		LLMAPIKey:  getEnv("LLM_API_KEY", ""),
+		LLMAPIKey:   getEnv("LLM_API_KEY", ""),
+		LLMProvider: getEnv("LLM_PROVIDER", "llama"),
 
 		GeminiAPIKey: getEnv("GEMINI_API_KEY", ""),
 		GeminiModel:  getEnv("GEMINI_MODEL", "gemini-2.0-flash-lite"),
