@@ -60,20 +60,32 @@ func (c *LLMClient) GenerateSummary(ctx context.Context, prompt string) (string,
 	return "", fmt.Errorf("all LLM providers failed")
 }
 
-type ollamaRequest struct {
-	Model  string `json:"model"`
-	Prompt string `json:"prompt"`
-	Stream bool   `json:"stream"`
+// OpenAI-compatible request for Ollama /v1 endpoint
+type openAIRequest struct {
+	Model    string          `json:"model"`
+	Messages []openAIMessage `json:"messages"`
+	Stream   bool            `json:"stream"`
 }
 
-type ollamaResponse struct {
-	Response string `json:"response"`
+type openAIMessage struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
+type openAIResponse struct {
+	Choices []struct {
+		Message struct {
+			Content string `json:"content"`
+		} `json:"message"`
+	} `json:"choices"`
 }
 
 func (c *LLMClient) generateWithOllama(ctx context.Context, prompt string) (string, error) {
-	reqBody := ollamaRequest{
-		Model:  c.ollamaModel,
-		Prompt: prompt,
+	reqBody := openAIRequest{
+		Model: c.ollamaModel,
+		Messages: []openAIMessage{
+			{Role: "user", Content: prompt},
+		},
 		Stream: false,
 	}
 
@@ -82,7 +94,14 @@ func (c *LLMClient) generateWithOllama(ctx context.Context, prompt string) (stri
 		return "", err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", c.ollamaBaseURL+"/api/generate", bytes.NewReader(body))
+	// Use OpenAI-compatible /v1/chat/completions endpoint
+	url := c.ollamaBaseURL
+	if !strings.HasSuffix(url, "/v1") {
+		url = url + "/v1"
+	}
+	url = url + "/chat/completions"
+
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
 	if err != nil {
 		return "", err
 	}
@@ -99,12 +118,16 @@ func (c *LLMClient) generateWithOllama(ctx context.Context, prompt string) (stri
 		return "", fmt.Errorf("ollama error %d: %s", resp.StatusCode, string(respBody))
 	}
 
-	var ollamaResp ollamaResponse
-	if err := json.NewDecoder(resp.Body).Decode(&ollamaResp); err != nil {
+	var openAIResp openAIResponse
+	if err := json.NewDecoder(resp.Body).Decode(&openAIResp); err != nil {
 		return "", err
 	}
 
-	return ollamaResp.Response, nil
+	if len(openAIResp.Choices) == 0 {
+		return "", fmt.Errorf("ollama returned empty response")
+	}
+
+	return openAIResp.Choices[0].Message.Content, nil
 }
 
 type geminiRequest struct {
