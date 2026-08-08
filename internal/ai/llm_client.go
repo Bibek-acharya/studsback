@@ -225,7 +225,46 @@ func BuildWhatsNewPrompt(data map[string]interface{}) string {
 		}
 	}
 
-	sections = append(sections, "\nWrite the summary using bullet points (-) for each key point. Mention that admissions are open and encourage prospective students to explore the programs. Keep it under 200 words.")
+	// Extract important dates from entrances
+	if entrances, ok := data["entrances_data"].([]interface{}); ok && len(entrances) > 0 {
+		for _, e := range entrances {
+			if em, ok := e.(map[string]interface{}); ok {
+				if title, _ := em["title"].(string); title != "" {
+					if dateStr, _ := em["date"].(string); dateStr != "" {
+						sections = append(sections, fmt.Sprintf("Important date: %s on %s", title, dateStr))
+					}
+				}
+			}
+		}
+	}
+
+	// Extract important dates from events
+	if events, ok := data["events_data"].([]interface{}); ok && len(events) > 0 {
+		for _, ev := range events {
+			if evm, ok := ev.(map[string]interface{}); ok {
+				if name, _ := evm["name"].(string); name != "" {
+					if startDate, _ := evm["start_date"].(string); startDate != "" {
+						sections = append(sections, fmt.Sprintf("Upcoming event: %s on %s", name, startDate))
+					}
+				}
+			}
+		}
+	}
+
+	// Extract scholarship deadlines
+	if scholarships, ok := data["scholarships_data"].([]interface{}); ok && len(scholarships) > 0 {
+		for _, s := range scholarships {
+			if sm, ok := s.(map[string]interface{}); ok {
+				if title, _ := sm["title"].(string); title != "" {
+					if deadline, _ := sm["deadline"].(string); deadline != "" {
+						sections = append(sections, fmt.Sprintf("Scholarship deadline: %s - %s", title, deadline))
+					}
+				}
+			}
+		}
+	}
+
+	sections = append(sections, "\nWrite the summary using bullet points (-) for each key point. Always mention important dates (deadlines, events, exam dates) if available. Mention that admissions are open and encourage prospective students to explore the programs. Keep it under 200 words.")
 
 	return strings.Join(sections, "\n")
 }
