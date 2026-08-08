@@ -264,7 +264,7 @@ func BuildWhatsNewPrompt(data map[string]interface{}) string {
 		}
 	}
 
-	sections = append(sections, "\nWrite the summary using bullet points (-) for each key point. Always mention important dates (deadlines, events, exam dates) if available. Mention that admissions are open and encourage prospective students to explore the programs. Keep it under 200 words.")
+	sections = append(sections, "\nIMPORTANT RULES:\n1. Output MUST be valid HTML only. No markdown. Use <p> for paragraphs, <strong> for bold, <em> for italic, <ul> and <li> for bullet lists, <h3> for subheadings.\n2. Do NOT use markdown syntax like **, *, or -.\n3. Do NOT include placeholder text like [Insert date], [TBD], [Coming soon], or any bracketed placeholders.\n4. Only include information that is explicitly provided in the context above. If dates, deadlines, or other details are not provided, simply omit them.\n5. Mention that admissions are open and encourage prospective students to explore the programs.\n6. Keep it under 200 words.")
 
 	return strings.Join(sections, "\n")
 }
