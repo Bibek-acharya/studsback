@@ -1,12 +1,14 @@
 package institution
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 	"time"
 
+	"studsphere/backend/internal/ai"
 	"studsphere/backend/internal/shared/utils"
 	"studsphere/backend/internal/system"
 )
@@ -1923,6 +1925,27 @@ func (s *Service) UpdateAdmissionPage(instID, id uint, req UpdateAdmissionPageRe
 	}
 
 	return toAdmissionPageResponse(page), nil
+}
+
+func (s *Service) GenerateWhatsNew(pageID uint, data map[string]interface{}) (map[string]interface{}, error) {
+	llmClient := ai.NewLLMClient()
+
+	prompt := ai.BuildWhatsNewPrompt(data)
+
+	summary, err := llmClient.GenerateSummary(context.Background(), prompt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate summary: %w", err)
+	}
+
+	if existingData, ok := data["whats_new_data"].(map[string]interface{}); ok {
+		existingData["description"] = summary
+	} else {
+		data["whats_new_data"] = map[string]interface{}{
+			"description": summary,
+		}
+	}
+
+	return data, nil
 }
 
 func (s *Service) DeleteAdmissionPage(instID, id uint) error {

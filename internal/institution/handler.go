@@ -1821,6 +1821,31 @@ func (h *Handler) UpdateAdmissionPage(c *gin.Context) {
 	response.Success(c, http.StatusOK, "Admission updated successfully", page)
 }
 
+func (h *Handler) GenerateWhatsNew(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid admission page ID")
+		return
+	}
+
+	var req struct {
+		Data map[string]interface{} `json:"data" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	updatedData, err := h.service.GenerateWhatsNew(uint(id), req.Data)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "What's New summary generated successfully", updatedData)
+}
+
 func (h *Handler) DeleteAdmissionPage(c *gin.Context) {
 	instID := getInstID(c)
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)

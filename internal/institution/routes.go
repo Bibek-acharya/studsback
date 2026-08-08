@@ -131,6 +131,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			institution.GET("/admission-pages/:id", h.GetAdmissionPage)
 			institution.PUT("/admission-pages/:id", h.UpdateAdmissionPage)
 			institution.DELETE("/admission-pages/:id", h.DeleteAdmissionPage)
+			institution.POST("/admission-pages/:id/generate-whats-new", h.GenerateWhatsNew)
 
 			institution.GET("/scholarship-applications", h.GetScholarshipApplications)
 			institution.PUT("/scholarship-applications/:id/status", h.UpdateScholarshipApplicationStatus)
