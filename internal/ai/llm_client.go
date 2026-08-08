@@ -225,7 +225,7 @@ func BuildWhatsNewPrompt(data map[string]interface{}) string {
 		}
 	}
 
-	sections = append(sections, "\nWrite the summary in a welcoming, informative tone. Mention that admissions are open and encourage prospective students to explore the programs. Keep it under 200 words.")
+	sections = append(sections, "\nWrite the summary using bullet points (-) for each key point. Mention that admissions are open and encourage prospective students to explore the programs. Keep it under 200 words.")
 
 	return strings.Join(sections, "\n")
 }
