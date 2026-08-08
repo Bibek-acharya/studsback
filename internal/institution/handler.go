@@ -1930,6 +1930,22 @@ func (h *Handler) GetPublishedAdmissionInstitutionByID(c *gin.Context) {
 	response.Success(c, http.StatusOK, "Published admission institution retrieved successfully", result)
 }
 
+func (h *Handler) GetPublishedAdmissionByPageID(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid admission page ID")
+		return
+	}
+
+	result, err := h.service.GetPublishedAdmissionByPageID(uint(id))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Published admission not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Published admission retrieved successfully", result)
+}
+
 func toProgramResponse(p InstitutionProgram) ProgramResponse {
 	var data interface{}
 	if p.Data != nil {

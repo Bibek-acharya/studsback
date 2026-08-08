@@ -934,6 +934,7 @@ type PublicInstitutionDetailResponse struct {
 	InstitutionEvents       []EventResponse       `json:"institution_events,omitempty"`
 	InstitutionNews         []NewsResponse        `json:"institution_news,omitempty"`
 	InstitutionScholarships []ScholarshipResponse `json:"institution_scholarships,omitempty"`
+	AdmissionPageID         uint                  `json:"admission_page_id,omitempty"`
 	AdmissionPageData       json.RawMessage       `json:"admission_page_data,omitempty"`
 	ContactEmail            string                `json:"contact_email,omitempty"`
 	ContactPhone            string                `json:"contact_phone,omitempty"`
@@ -1000,6 +1001,7 @@ type FeaturedProgramItem struct {
 
 type PublishedAdmissionInstitutionItem struct {
 	ID               uint                  `json:"id"`
+	AdmissionPageID  uint                  `json:"admission_page_id"`
 	Name             string                `json:"name"`
 	ImageURL         string                `json:"image_url,omitempty"`
 	Location         string                `json:"location"`

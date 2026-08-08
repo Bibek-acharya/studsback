@@ -2017,6 +2017,7 @@ func (s *Service) GetPublishedAdmissionInstitutions(page, limit int, level strin
 	colleges := make([]PublishedAdmissionInstitutionItem, len(results))
 	for i, row := range results {
 		id, _ := row["id"].(int64)
+		admissionPageID, _ := row["admission_page_id"].(int64)
 		name, _ := row["name"].(string)
 		imageURL, _ := row["image_url"].(string)
 		location, _ := row["location"].(string)
@@ -2055,6 +2056,7 @@ func (s *Service) GetPublishedAdmissionInstitutions(page, limit int, level strin
 
 		colleges[i] = PublishedAdmissionInstitutionItem{
 			ID:               uint(id),
+			AdmissionPageID:  uint(admissionPageID),
 			Name:             name,
 			ImageURL:         imageURL,
 			Location:         location,
@@ -2134,6 +2136,78 @@ func (s *Service) GetPublishedAdmissionInstitutionByID(id uint, level string) (*
 		college.FeaturedPrograms = featuredPrograms
 	}
 	pCount, _ := s.repo.CountProgramsByInstitution(id)
+	college.Programs = int(pCount)
+
+	var data json.RawMessage
+	if admissionPage.Data != nil {
+		data = json.RawMessage(*admissionPage.Data)
+	}
+
+	var publishedAt *string
+	if admissionPage.PublishedAt != nil {
+		s := admissionPage.PublishedAt.Format(time.RFC3339)
+		publishedAt = &s
+	}
+
+	return &PublishedAdmissionInstitutionDetailResponse{
+		Institution: college,
+		Data:        data,
+		CreatedAt:   admissionPage.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:   admissionPage.UpdatedAt.Format(time.RFC3339),
+		PublishedAt: publishedAt,
+	}, nil
+}
+
+func (s *Service) GetPublishedAdmissionByPageID(pageID uint) (*PublishedAdmissionInstitutionDetailResponse, error) {
+	admissionPage, err := s.repo.FindPublishedAdmissionPageByID(pageID)
+	if err != nil {
+		return nil, err
+	}
+
+	instID := admissionPage.InstitutionID
+	rows, err := s.repo.FindPublishedAdmissionInstitutionByID(instID)
+	if err != nil {
+		return nil, err
+	}
+
+	college := &PublishedAdmissionInstitutionItem{}
+	if len(rows) > 0 {
+		row := rows[0]
+		college.ID = uint(getInt64(row, "id"))
+		college.AdmissionPageID = pageID
+		college.Name = getString(row, "name")
+		college.ImageURL = getString(row, "image_url")
+		college.Location = getString(row, "location")
+		college.Type = getString(row, "type")
+		college.Rating = getFloat64(row, "rating")
+		college.Website = getString(row, "website")
+		college.Affiliation = getString(row, "affiliation")
+		college.Verified = getBool(row, "verified")
+		college.ContactEmail = getString(row, "contact_email")
+		college.ContactPhone = getString(row, "contact_phone")
+
+		featuredPrograms := []FeaturedProgramItem{}
+		if admissionPage.Data != nil {
+			var pageData struct {
+				ProgramsData []struct {
+					Title           string `json:"title"`
+					AdmissionStatus string `json:"admissionStatus"`
+				} `json:"programs_data"`
+			}
+			if err := json.Unmarshal([]byte(*admissionPage.Data), &pageData); err == nil {
+				for _, p := range pageData.ProgramsData {
+					if t := strings.TrimSpace(p.Title); t != "" {
+						featuredPrograms = append(featuredPrograms, FeaturedProgramItem{
+							Title:           t,
+							AdmissionStatus: strings.TrimSpace(p.AdmissionStatus),
+						})
+					}
+				}
+			}
+		}
+		college.FeaturedPrograms = featuredPrograms
+	}
+	pCount, _ := s.repo.CountProgramsByInstitution(instID)
 	college.Programs = int(pCount)
 
 	var data json.RawMessage
@@ -2407,6 +2481,7 @@ func (s *Service) GetPublicInstitution(id uint) (*PublicInstitutionDetailRespons
 		InstitutionEvents:       eventResponses,
 		InstitutionNews:         newsResponses,
 		InstitutionScholarships: scholarshipResponses,
+		AdmissionPageID:         admissionPage.ID,
 		AdmissionPageData:       admissionPageData,
 		ContactEmail:            user.ContactEmail,
 		ContactPhone:            user.ContactPhone,

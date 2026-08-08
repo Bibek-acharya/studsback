@@ -1070,6 +1070,15 @@ func (r *Repository) FindAdmissionPageByID(id uint, instID uint) (*AdmissionPage
 	return &page, nil
 }
 
+func (r *Repository) FindPublishedAdmissionPageByID(id uint) (*AdmissionPage, error) {
+	var page AdmissionPage
+	err := r.db.Where("id = ? AND status = ? AND deleted_at IS NULL", id, "published").First(&page).Error
+	if err != nil {
+		return nil, err
+	}
+	return &page, nil
+}
+
 func (r *Repository) CreateAdmissionPage(page *AdmissionPage) error {
 	return r.db.Create(page).Error
 }
@@ -1222,7 +1231,16 @@ func (r *Repository) FindPublishedAdmissionInstitutions(page, limit int, level s
 	}
 
 	offset := (page - 1) * limit
-	dataArgs := append(args, offset, limit)
+
+	// Build admission_page_id subquery
+	apIDSubQuery := `(SELECT ap.id FROM admission_pages ap
+		WHERE ap.institution_id = iu.id AND ap.status = 'published' AND ap.deleted_at IS NULL`
+	apIDArgs := []interface{}{}
+	if level != "" {
+		apIDSubQuery += ` AND ap.level = ?`
+		apIDArgs = append(apIDArgs, level)
+	}
+	apIDSubQuery += ` ORDER BY ap.published_at DESC LIMIT 1)`
 
 	dataQuery := `SELECT 
 		iu.id,
@@ -1234,6 +1252,7 @@ func (r *Repository) FindPublishedAdmissionInstitutions(page, limit int, level s
 		COALESCE(iu.website_url, '') AS website,
 		COALESCE(iu.affiliation, '') AS affiliation,
 		COALESCE(iu.verified, false) AS verified,
+		` + apIDSubQuery + ` AS admission_page_id,
 		COALESCE(
 			(SELECT ap.data->'overview_data'->>'heroBanner' FROM admission_pages ap
 				WHERE ap.institution_id = iu.id AND ap.status = 'published' AND ap.deleted_at IS NULL
@@ -1256,6 +1275,9 @@ func (r *Repository) FindPublishedAdmissionInstitutions(page, limit int, level s
 		AND iu.deleted_at IS NULL
 		ORDER BY (SELECT MAX(ap2.published_at) FROM admission_pages ap2 WHERE ap2.institution_id = iu.id AND ap2.status = 'published') DESC
 		OFFSET ? LIMIT ?`
+
+	dataArgs := append(args, apIDArgs...)
+	dataArgs = append(dataArgs, offset, limit)
 
 	if err := r.db.Raw(dataQuery, dataArgs...).Scan(&results).Error; err != nil {
 		return nil, 0, err
