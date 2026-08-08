@@ -1896,6 +1896,12 @@ func (h *Handler) GetPublishedAdmissionInstitutions(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "18"))
 	level := c.Query("level")
+	search := c.Query("search")
+	sortBy := c.Query("sortBy")
+	provinces := c.QueryArray("province")
+	districts := c.QueryArray("district")
+	locals := c.QueryArray("local")
+	types := c.QueryArray("type")
 	if page < 1 {
 		page = 1
 	}
@@ -1903,7 +1909,7 @@ func (h *Handler) GetPublishedAdmissionInstitutions(c *gin.Context) {
 		limit = 18
 	}
 
-	result, err := h.service.GetPublishedAdmissionInstitutions(page, limit, level)
+	result, err := h.service.GetPublishedAdmissionInstitutions(page, limit, level, search, provinces, districts, locals, types, sortBy)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "Failed to fetch published admission institutions")
 		return

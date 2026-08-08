@@ -2008,8 +2008,8 @@ func mapAdmissionLevel(level string) string {
 	return level
 }
 
-func (s *Service) GetPublishedAdmissionInstitutions(page, limit int, level string) (*PublishedAdmissionInstitutionListResponse, error) {
-	results, total, err := s.repo.FindPublishedAdmissionInstitutions(page, limit, mapAdmissionLevel(level))
+func (s *Service) GetPublishedAdmissionInstitutions(page, limit int, level, search string, provinces, districts, locals, types []string, sortBy string) (*PublishedAdmissionInstitutionListResponse, error) {
+	results, total, err := s.repo.FindPublishedAdmissionInstitutions(page, limit, mapAdmissionLevel(level), search, provinces, districts, locals, types, sortBy)
 	if err != nil {
 		return nil, err
 	}

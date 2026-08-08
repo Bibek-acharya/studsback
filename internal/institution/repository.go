@@ -1210,7 +1210,7 @@ func (r *Repository) FindEntranceByID(id uint) (*InstitutionEntrance, error) {
 	return &entrance, nil
 }
 
-func (r *Repository) FindPublishedAdmissionInstitutions(page, limit int, level string) ([]map[string]interface{}, int64, error) {
+func (r *Repository) FindPublishedAdmissionInstitutions(page, limit int, level, search string, provinces, districts, locals, types []string, sortBy string) ([]map[string]interface{}, int64, error) {
 	var total int64
 	var results []map[string]interface{}
 
@@ -1221,10 +1221,74 @@ func (r *Repository) FindPublishedAdmissionInstitutions(page, limit int, level s
 		args = append(args, level)
 	}
 
+	// Build WHERE conditions for institution_users
+	whereConditions := []string{"iu.id IN (" + subQuery + ")", "iu.deleted_at IS NULL"}
+
+	if search != "" {
+		whereConditions = append(whereConditions, "iu.institution_name ILIKE ?")
+		args = append(args, "%"+search+"%")
+	}
+
+	if len(provinces) > 0 {
+		placeholders := ""
+		for i, p := range provinces {
+			if i > 0 {
+				placeholders += ","
+			}
+			placeholders += "?"
+			args = append(args, p)
+		}
+		whereConditions = append(whereConditions, "iu.province IN ("+placeholders+")")
+	}
+
+	if len(districts) > 0 {
+		placeholders := ""
+		for i, d := range districts {
+			if i > 0 {
+				placeholders += ","
+			}
+			placeholders += "?"
+			args = append(args, d)
+		}
+		whereConditions = append(whereConditions, "iu.district IN ("+placeholders+")")
+	}
+
+	if len(locals) > 0 {
+		// locality is stored in profile_data JSONB as 'location' or 'local_body'
+		localConditions := ""
+		for i, l := range locals {
+			if i > 0 {
+				localConditions += " OR "
+			}
+			localConditions += "iu.profile_data->>'location' = ? OR iu.profile_data->>'local_body' = ?"
+			args = append(args, l, l)
+		}
+		whereConditions = append(whereConditions, "("+localConditions+")")
+	}
+
+	if len(types) > 0 {
+		placeholders := ""
+		for i, t := range types {
+			if i > 0 {
+				placeholders += ","
+			}
+			placeholders += "?"
+			args = append(args, t)
+		}
+		whereConditions = append(whereConditions, "iu.organization_type IN ("+placeholders+")")
+	}
+
+	whereClause := ""
+	for i, cond := range whereConditions {
+		if i == 0 {
+			whereClause += "WHERE " + cond
+		} else {
+			whereClause += " AND " + cond
+		}
+	}
+
 	// Count institutions with published admissions
-	countQuery := `SELECT COUNT(*) FROM institution_users iu 
-		WHERE iu.id IN (` + subQuery + `)
-		AND iu.deleted_at IS NULL`
+	countQuery := `SELECT COUNT(*) FROM institution_users iu ` + whereClause
 
 	if err := r.db.Raw(countQuery, args...).Scan(&total).Error; err != nil {
 		return nil, 0, err
@@ -1241,6 +1305,14 @@ func (r *Repository) FindPublishedAdmissionInstitutions(page, limit int, level s
 		apIDArgs = append(apIDArgs, level)
 	}
 	apIDSubQuery += ` ORDER BY ap.published_at DESC LIMIT 1)`
+
+	// Build ORDER BY
+	orderBy := "(SELECT MAX(ap2.published_at) FROM admission_pages ap2 WHERE ap2.institution_id = iu.id AND ap2.status = 'published') DESC"
+	if sortBy == "name" {
+		orderBy = "iu.institution_name ASC"
+	} else if sortBy == "newest" {
+		orderBy = "(SELECT MAX(ap2.published_at) FROM admission_pages ap2 WHERE ap2.institution_id = iu.id AND ap2.status = 'published') DESC"
+	}
 
 	dataQuery := `SELECT 
 		iu.id,
@@ -1271,9 +1343,8 @@ func (r *Repository) FindPublishedAdmissionInstitutions(page, limit int, level s
 			'[]'::jsonb
 		) AS featured_programs
 		FROM institution_users iu
-		WHERE iu.id IN (` + subQuery + `)
-		AND iu.deleted_at IS NULL
-		ORDER BY (SELECT MAX(ap2.published_at) FROM admission_pages ap2 WHERE ap2.institution_id = iu.id AND ap2.status = 'published') DESC
+		` + whereClause + `
+		ORDER BY ` + orderBy + `
 		OFFSET ? LIMIT ?`
 
 	dataArgs := append(args, apIDArgs...)
