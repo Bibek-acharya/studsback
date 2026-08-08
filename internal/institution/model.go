@@ -412,6 +412,7 @@ type AdmissionPage struct {
 	InstitutionLocation string         `gorm:"default:''" json:"institution_location"`
 	InstitutionLink     string         `gorm:"default:''" json:"institution_link"`
 	Title               string         `json:"title"`
+	Level               string         `gorm:"default:''" json:"level"`
 	Status              string         `gorm:"default:'draft'" json:"status"`
 	PublishedAt         *time.Time     `json:"published_at,omitempty"`
 	Data                *string        `gorm:"type:jsonb;default:'{}'" json:"data"`

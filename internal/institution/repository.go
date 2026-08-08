@@ -1114,11 +1114,13 @@ func (r *Repository) FindPublishedAdmissionPages(page, limit int) ([]AdmissionPa
 	return pages, total, err
 }
 
-func (r *Repository) FindPublishedAdmissionByInstitutionID(instID uint) (*AdmissionPage, error) {
+func (r *Repository) FindPublishedAdmissionByInstitutionID(instID uint, level string) (*AdmissionPage, error) {
 	var page AdmissionPage
-	err := r.db.Where("institution_id = ? AND status = ? AND deleted_at IS NULL", instID, "published").
-		Order("published_at DESC").
-		First(&page).Error
+	query := r.db.Where("institution_id = ? AND status = ? AND deleted_at IS NULL", instID, "published")
+	if level != "" {
+		query = query.Where("level = ?", level)
+	}
+	err := query.Order("published_at DESC").First(&page).Error
 	if err != nil {
 		return nil, err
 	}

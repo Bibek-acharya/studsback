@@ -541,6 +541,7 @@ func fixMissingColumns(db *gorm.DB) error {
 		{"institution_programs", "global_course_id INTEGER DEFAULT NULL"},
 		{"institution_programs", "overrides JSONB DEFAULT '{}'"},
 		{"institution_programs", "nullified_fields JSONB DEFAULT '[]'"},
+		{"admission_pages", "level TEXT DEFAULT ''"},
 	}
 	for _, c := range cols {
 		if err := addColumnIfMissing(db, c.table, c.def); err != nil {
@@ -578,6 +579,7 @@ func fixMissingColumns(db *gorm.DB) error {
 		db.Exec(`UPDATE institution_news SET slug = 'inst-' || id || '-' || LOWER(REPLACE(REPLACE(REPLACE(title, ' ', '-'), '''', ''), '&', '')) WHERE (slug IS NULL OR slug = '') AND deleted_at IS NULL`)
 		db.Exec(`UPDATE institution_events SET slug = 'inst-' || id || '-' || LOWER(REPLACE(REPLACE(REPLACE(name, ' ', '-'), '''', ''), '&', '')) WHERE (slug IS NULL OR slug = '') AND deleted_at IS NULL`)
 		db.Exec(`UPDATE institution_blogs SET slug = 'inst-' || id || '-' || LOWER(REPLACE(REPLACE(REPLACE(title, ' ', '-'), '''', ''), '&', '')) WHERE (slug IS NULL OR slug = '') AND deleted_at IS NULL`)
+		db.Exec(`UPDATE admission_pages SET level = COALESCE(data->'overview_data'->>'level', '') WHERE (level IS NULL OR level = '') AND deleted_at IS NULL`)
 	}
 	return nil
 }

@@ -1919,7 +1919,9 @@ func (h *Handler) GetPublishedAdmissionInstitutionByID(c *gin.Context) {
 		return
 	}
 
-	result, err := h.service.GetPublishedAdmissionInstitutionByID(uint(id))
+	level := c.Query("level")
+
+	result, err := h.service.GetPublishedAdmissionInstitutionByID(uint(id), level)
 	if err != nil {
 		response.Error(c, http.StatusNotFound, "Published admission institution not found")
 		return

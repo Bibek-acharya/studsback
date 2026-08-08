@@ -1825,6 +1825,7 @@ func (s *Service) CreateAdmissionPage(instID uint, req CreateAdmissionPageReques
 		InstitutionLocation: req.InstitutionLocation,
 		InstitutionLink:     req.InstitutionLink,
 		Title:               extractAdmissionTitle(&dataStr),
+		Level:               extractLevel(&dataStr),
 		Status:              "draft",
 		Data:                &dataStr,
 	}
@@ -1887,6 +1888,7 @@ func (s *Service) UpdateAdmissionPage(instID, id uint, req UpdateAdmissionPageRe
 		dataStr := string(req.Data)
 		page.Data = &dataStr
 		page.Title = extractAdmissionTitle(&dataStr)
+		page.Level = extractLevel(&dataStr)
 	}
 
 	if req.Status != nil {
@@ -2084,13 +2086,13 @@ func (s *Service) GetPublishedAdmissionInstitutions(page, limit int, level strin
 	}, nil
 }
 
-func (s *Service) GetPublishedAdmissionInstitutionByID(id uint) (*PublishedAdmissionInstitutionDetailResponse, error) {
+func (s *Service) GetPublishedAdmissionInstitutionByID(id uint, level string) (*PublishedAdmissionInstitutionDetailResponse, error) {
 	rows, err := s.repo.FindPublishedAdmissionInstitutionByID(id)
 	if err != nil {
 		return nil, err
 	}
 
-	admissionPage, err := s.repo.FindPublishedAdmissionByInstitutionID(id)
+	admissionPage, err := s.repo.FindPublishedAdmissionByInstitutionID(id, level)
 	if err != nil {
 		return nil, err
 	}
@@ -2371,7 +2373,7 @@ func (s *Service) GetPublicInstitution(id uint) (*PublicInstitutionDetailRespons
 	}
 
 	var admissionPageData json.RawMessage
-	admissionPage, err := s.repo.FindPublishedAdmissionByInstitutionID(id)
+	admissionPage, err := s.repo.FindPublishedAdmissionByInstitutionID(id, "")
 	if err == nil && admissionPage != nil && admissionPage.Data != nil {
 		admissionPageData = json.RawMessage(*admissionPage.Data)
 	}
