@@ -130,18 +130,6 @@ func (c *LLMClient) generateWithOllama(ctx context.Context, prompt string) (stri
 	return openAIResp.Choices[0].Message.Content, nil
 }
 
-type geminiRequest struct {
-	Contents []geminiContent `json:"contents"`
-}
-
-type geminiContent struct {
-	Parts []geminiPart `json:"parts"`
-}
-
-type geminiPart struct {
-	Text string `json:"text"`
-}
-
 type geminiResponse struct {
 	Candidates []struct {
 		Content struct {
