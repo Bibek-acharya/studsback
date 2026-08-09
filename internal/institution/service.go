@@ -118,6 +118,12 @@ func (s *Service) GetProfile(instID uint) (*ProfileResponse, error) {
 		subType = "premium"
 	}
 
+	// Parse university_affiliations from bytes to JSON array
+	var uniAffiliations interface{}
+	if len(user.UniversityAffiliations) > 0 {
+		json.Unmarshal(user.UniversityAffiliations, &uniAffiliations)
+	}
+
 	return &ProfileResponse{
 		SubscriptionType:     subType,
 		ID:                   user.ID,
@@ -143,7 +149,7 @@ func (s *Service) GetProfile(instID uint) (*ProfileResponse, error) {
 		Vision:               user.Vision,
 		Mission:              user.Mission,
 		Affiliation:                user.Affiliation,
-		UniversityAffiliations:     user.UniversityAffiliations,
+		UniversityAffiliations:     uniAffiliations,
 		NonUniversityAffiliation:   user.NonUniversityAffiliation,
 		Level:                      user.Level,
 		Videos:               pd.Videos,
