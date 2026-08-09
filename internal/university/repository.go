@@ -79,7 +79,7 @@ func (r *Repository) FindCollegesByUniversityID(universityID uint) ([]College, e
 	if len(mappingCollegeIDs) > 0 {
 		query = query.Where("id IN ?", mappingCollegeIDs)
 	} else {
-		query = query.Where("university_id = ?", universityID)
+		query = query.Where("? = ANY(university_affiliations::int[])", universityID)
 	}
 
 	err = query.Find(&colleges).Error
