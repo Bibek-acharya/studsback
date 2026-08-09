@@ -732,8 +732,10 @@ type ProfileResponse struct {
 	About                string                 `json:"about,omitempty"`
 	Vision               string                 `json:"vision,omitempty"`
 	Mission              string                 `json:"mission,omitempty"`
-	Affiliation          string                 `json:"affiliation,omitempty"`
-	Level                string                 `json:"level,omitempty"`
+	Affiliation                string                 `json:"affiliation,omitempty"`
+	UniversityAffiliations     interface{}            `json:"university_affiliations,omitempty"`
+	NonUniversityAffiliation   string                 `json:"non_university_affiliation,omitempty"`
+	Level                      string                 `json:"level,omitempty"`
 	Videos               interface{}            `json:"videos,omitempty"`
 	OverviewData         interface{}            `json:"overview_data,omitempty"`
 	LeadershipData       interface{}            `json:"leadership_data,omitempty"`
