@@ -306,6 +306,11 @@ func (s *Service) UpdateProfile(instID uint, req UpdateProfileRequest) (*Profile
 		return nil, err
 	}
 
+	// Sync university_affiliations to linked college table
+	if user.CollegeID > 0 && len(user.UniversityAffiliations) > 0 {
+		s.repo.db.Table("colleges").Where("id = ?", user.CollegeID).Update("university_affiliations", user.UniversityAffiliations)
+	}
+
 	return s.GetProfile(instID)
 }
 
