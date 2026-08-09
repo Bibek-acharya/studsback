@@ -241,6 +241,13 @@ func (s *Service) UpdateProfile(instID uint, req UpdateProfileRequest) (*Profile
 		if data, err := json.Marshal(req.UniversityAffiliations); err == nil {
 			user.UniversityAffiliations = data
 		}
+		// Set UniversityID from first affiliation for backward compatibility
+		if arr, ok := req.UniversityAffiliations.([]interface{}); ok && len(arr) > 0 {
+			if id, ok := arr[0].(float64); ok && id > 0 {
+				uid := uint(id)
+				user.UniversityID = &uid
+			}
+		}
 	}
 	if req.Level != "" {
 		user.Level = req.Level
