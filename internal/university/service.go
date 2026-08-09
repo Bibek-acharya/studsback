@@ -126,7 +126,7 @@ func (s *Service) GetUniversityByID(id uint) (*UniversityResponse, []UniversityC
 	for _, college := range colleges {
 		collegeResponses = append(collegeResponses, UniversityCollegeResponse{
 			ID:           college.ID,
-			UniversityID: college.UniversityID,
+			UniversityID: uni.ID,
 			Name:         college.Name,
 			Logo:         college.ImageURL,
 			Rating:       college.Rating,
@@ -155,7 +155,7 @@ func (s *Service) AdminGetUniversityByID(id uint) (*UniversityResponse, []Univer
 	for _, college := range colleges {
 		collegeResponses = append(collegeResponses, UniversityCollegeResponse{
 			ID:           college.ID,
-			UniversityID: college.UniversityID,
+			UniversityID: uni.ID,
 			Name:         college.Name,
 			Logo:         college.ImageURL,
 			Rating:       college.Rating,

@@ -90,7 +90,6 @@ type UpdateCollegeRequest struct {
 
 type CollegeResponse struct {
 	ID               uint        `json:"id"`
-	UniversityID     uint        `json:"university_id"`
 	CreatedAt        interface{} `json:"created_at"`
 	UpdatedAt        interface{} `json:"updated_at"`
 	Name             string      `json:"name"`

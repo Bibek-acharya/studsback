@@ -90,7 +90,6 @@ func (s *Service) CreateCollege(req CreateCollegeRequest) (*CollegeResponse, err
 	}
 
 	college := College{
-		UniversityID:     req.UniversityID,
 		Name:             req.Name,
 		FullName:         req.FullName,
 		Location:         req.Location,
@@ -166,7 +165,6 @@ func (s *Service) UpdateCollege(id uint, req UpdateCollegeRequest) (*CollegeResp
 		if err != nil {
 			return nil, errors.New("invalid affiliation. College must be affiliated to an existing university")
 		}
-		college.UniversityID = university.ID
 		college.Affiliation = university.Name
 	}
 	if req.UniversityID != nil {
@@ -174,7 +172,6 @@ func (s *Service) UpdateCollege(id uint, req UpdateCollegeRequest) (*CollegeResp
 		if err != nil {
 			return nil, errors.New("invalid university_id. College must be affiliated to an existing university")
 		}
-		college.UniversityID = university.ID
 		college.Affiliation = university.Name
 	}
 	if req.CollegeType != "" {
@@ -403,20 +400,14 @@ func buildCollegeMapDTOs(colleges []College) []CollegeMapDTO {
 }
 
 func buildCollegeResponse(college College) CollegeResponse {
-	affiliation := college.Affiliation
-	if college.University.ID != 0 && college.University.Name != "" {
-		affiliation = college.University.Name
-	}
-
 	return CollegeResponse{
 		ID:               college.ID,
-		UniversityID:     college.UniversityID,
 		CreatedAt:        college.CreatedAt,
 		UpdatedAt:        college.UpdatedAt,
 		Name:             college.Name,
 		FullName:         college.FullName,
 		Location:         college.Location,
-		Affiliation:      affiliation,
+		Affiliation:      college.Affiliation,
 		CollegeType:      college.CollegeType,
 		Verified:         college.Verified,
 		Claimed:          college.Claimed,

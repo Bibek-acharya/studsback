@@ -201,7 +201,6 @@ func (r *Repository) FindAll(filters CollegeFilters) ([]College, int64, error) {
 	if filters.FeeMax > 0 {
 		var allColleges []College
 		if err := query.Order(sort + " " + order).
-			Preload("University").
 			Find(&allColleges).Error; err != nil {
 			return nil, 0, err
 		}
@@ -236,7 +235,6 @@ func (r *Repository) FindAll(filters CollegeFilters) ([]College, int64, error) {
 	if err := query.Order(sort + " " + order).
 		Offset(offset).
 		Limit(filters.PageSize).
-		Preload("University").
 		Find(&colleges).Error; err != nil {
 		return nil, 0, err
 	}
@@ -246,7 +244,7 @@ func (r *Repository) FindAll(filters CollegeFilters) ([]College, int64, error) {
 
 func (r *Repository) FindByID(id uint) (*College, error) {
 	var college College
-	err := r.db.Preload("University").First(&college, id).Error
+	err := r.db.First(&college, id).Error
 	if err != nil {
 		return nil, err
 	}
@@ -344,7 +342,6 @@ func (r *Repository) FindAllForRecommendation(limit int) ([]College, error) {
 	var colleges []College
 	err := r.db.Model(&College{}).
 		Where("deleted_at IS NULL").
-		Preload("University").
 		Order("rating DESC NULLS LAST, reviews DESC").
 		Limit(limit).
 		Find(&colleges).Error
