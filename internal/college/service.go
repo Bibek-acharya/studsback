@@ -57,16 +57,8 @@ func (s *Service) GetCollegeByID(id uint) (*CollegeResponse, error) {
 }
 
 func (s *Service) CreateCollege(req CreateCollegeRequest) (*CollegeResponse, error) {
-	if !s.repo.UniversityExists(req.UniversityID) {
-		return nil, errors.New("invalid university_id. College must be affiliated to an existing university")
-	}
-
-	university, err := s.repo.FindUniversityByID(req.UniversityID)
-	if err != nil {
-		return nil, errors.New("invalid university_id. College must be affiliated to an existing university")
-	}
-
 	var featuredPrograms, amenities, profileTags []byte
+	var err error
 
 	if len(req.FeaturedPrograms) > 0 {
 		featuredPrograms, err = json.Marshal(req.FeaturedPrograms)
@@ -93,7 +85,7 @@ func (s *Service) CreateCollege(req CreateCollegeRequest) (*CollegeResponse, err
 		Name:             req.Name,
 		FullName:         req.FullName,
 		Location:         req.Location,
-		Affiliation:      university.Name,
+		Affiliation:      req.Affiliation,
 		CollegeType:      req.CollegeType,
 		Verified:         req.Verified,
 		Popular:          req.Popular,
@@ -161,18 +153,7 @@ func (s *Service) UpdateCollege(id uint, req UpdateCollegeRequest) (*CollegeResp
 		college.Location = req.Location
 	}
 	if req.Affiliation != "" {
-		university, err := s.repo.FindUniversityByName(req.Affiliation)
-		if err != nil {
-			return nil, errors.New("invalid affiliation. College must be affiliated to an existing university")
-		}
-		college.Affiliation = university.Name
-	}
-	if req.UniversityID != nil {
-		university, err := s.repo.FindUniversityByID(*req.UniversityID)
-		if err != nil {
-			return nil, errors.New("invalid university_id. College must be affiliated to an existing university")
-		}
-		college.Affiliation = university.Name
+		college.Affiliation = req.Affiliation
 	}
 	if req.CollegeType != "" {
 		college.CollegeType = req.CollegeType

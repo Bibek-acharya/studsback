@@ -108,10 +108,6 @@ func (r *Repository) FindAll(filters CollegeFilters) ([]College, int64, error) {
 
 	query := r.db.Model(&College{})
 
-	if filters.UniversityID != "" {
-		query = query.Where("university_id = ?", filters.UniversityID)
-	}
-
 	if filters.Location != "" {
 		query = applyMultiILIKEFilter(query, "location", parseCSV(filters.Location))
 	}
@@ -332,12 +328,6 @@ func (r *Repository) FindFeatured(limit int) ([]College, error) {
 	return colleges, err
 }
 
-func (r *Repository) UniversityExists(id uint) bool {
-	var count int64
-	r.db.Model(&University{}).Where("id = ?", id).Count(&count)
-	return count > 0
-}
-
 func (r *Repository) FindAllForRecommendation(limit int) ([]College, error) {
 	var colleges []College
 	err := r.db.Model(&College{}).
@@ -346,18 +336,6 @@ func (r *Repository) FindAllForRecommendation(limit int) ([]College, error) {
 		Limit(limit).
 		Find(&colleges).Error
 	return colleges, err
-}
-
-func (r *Repository) FindUniversityByName(name string) (*University, error) {
-	var university University
-	err := r.db.Where("LOWER(name) = LOWER(?)", name).First(&university).Error
-	return &university, err
-}
-
-func (r *Repository) FindUniversityByID(id uint) (*University, error) {
-	var university University
-	err := r.db.First(&university, id).Error
-	return &university, err
 }
 
 func parseTypes(typeStr string) []string {
