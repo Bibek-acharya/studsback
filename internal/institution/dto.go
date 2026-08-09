@@ -726,6 +726,7 @@ type ProfileResponse struct {
 	LinkedinURL          string                 `json:"linkedin_url,omitempty"`
 	LogoURL              string                 `json:"logo_url,omitempty"`
 	BannerURL            string                 `json:"banner_url,omitempty"`
+	CardImageURL         string                 `json:"card_image_url,omitempty"`
 	About                string                 `json:"about,omitempty"`
 	Vision               string                 `json:"vision,omitempty"`
 	Mission              string                 `json:"mission,omitempty"`

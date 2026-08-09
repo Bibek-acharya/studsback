@@ -138,6 +138,7 @@ func (s *Service) GetProfile(instID uint) (*ProfileResponse, error) {
 		LinkedinURL:          user.LinkedinURL,
 		LogoURL:              user.LogoURL,
 		BannerURL:            user.BannerURL,
+		CardImageURL:         user.CardImageURL,
 		About:                user.About,
 		Vision:               user.Vision,
 		Mission:              user.Mission,
