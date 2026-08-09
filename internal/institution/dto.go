@@ -684,6 +684,7 @@ type UpdateProfileRequest struct {
 	LinkedinURL          string                 `json:"linkedin_url"`
 	LogoURL              string                 `json:"logo_url"`
 	BannerURL            string                 `json:"banner_url"`
+	CardImageURL         string                 `json:"card_image_url"`
 	About                string                 `json:"about"`
 	Vision               string                 `json:"vision"`
 	Mission              string                 `json:"mission"`
@@ -896,6 +897,7 @@ type PublicInstitutionResponse struct {
 	IsSponsored     bool   `json:"is_sponsored"`
 	LogoURL         string `json:"logo_url,omitempty"`
 	BannerURL       string `json:"banner_url,omitempty"`
+	CardImageURL    string `json:"card_image_url,omitempty"`
 	About           string `json:"about,omitempty"`
 	District        string `json:"district,omitempty"`
 	WebsiteURL      string `json:"website_url,omitempty"`
@@ -914,6 +916,7 @@ type PublicInstitutionDetailResponse struct {
 	ProfileStatus           string                `json:"profile_status"`
 	LogoURL                 string                `json:"logo_url,omitempty"`
 	BannerURL               string                `json:"banner_url,omitempty"`
+	CardImageURL            string                `json:"card_image_url,omitempty"`
 	About                   string                `json:"about,omitempty"`
 	Vision                  string                `json:"vision,omitempty"`
 	Mission                 string                `json:"mission,omitempty"`

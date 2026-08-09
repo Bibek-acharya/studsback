@@ -289,6 +289,7 @@ type InstitutionUser struct {
 	WebsiteURL         string         `gorm:"default:''" json:"website_url"`
 	LogoURL            string         `gorm:"default:''" json:"logo_url"`
 	BannerURL          string         `gorm:"default:''" json:"banner_url"`
+	CardImageURL       string         `gorm:"default:''" json:"card_image_url"`
 	About              string         `gorm:"type:text" json:"about"`
 	Vision             string         `gorm:"type:text" json:"vision"`
 	Mission            string         `gorm:"type:text" json:"mission"`
