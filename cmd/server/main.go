@@ -37,6 +37,7 @@ import (
 	"studsphere/backend/internal/shared/middleware"
 	"studsphere/backend/internal/shared/seeder"
 	"studsphere/backend/internal/shared/storage"
+	"studsphere/backend/migrations"
 	"studsphere/backend/internal/studentdashboard"
 	"studsphere/backend/internal/system"
 	"studsphere/backend/internal/tools"
@@ -170,6 +171,9 @@ func main() {
 		}
 		if err := fixMissingColumns(db); err != nil {
 			logger.Fatal("Failed to fix missing columns", "error", err)
+		}
+		if err := migrations.AddUniversityAffiliations(db); err != nil {
+			logger.Fatal("Failed to run university affiliations migration", "error", err)
 		}
 		// Cleanup dangling sub-users with provider_id = 0 from previous bug
 		if err := db.Exec("DELETE FROM provider_access_users WHERE provider_id = 0").Error; err != nil {

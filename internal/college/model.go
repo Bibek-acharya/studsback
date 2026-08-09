@@ -16,8 +16,10 @@ type College struct {
 	CreatedAt        time.Time      `json:"created_at"`
 	UpdatedAt        time.Time      `json:"updated_at"`
 	DeletedAt        gorm.DeletedAt `gorm:"index" json:"-"`
-	UniversityID     uint           `gorm:"index" json:"university_id"`
-	University       University     `gorm:"foreignKey:UniversityID" json:"university,omitempty"`
+	UniversityID            uint           `gorm:"index" json:"university_id"`
+	University              University     `gorm:"foreignKey:UniversityID" json:"university,omitempty"`
+	UniversityAffiliations  []byte         `gorm:"type:jsonb" json:"university_affiliations,omitempty"`
+	NonUniversityAffiliation string        `gorm:"type:text" json:"non_university_affiliation,omitempty"`
 	Name             string         `gorm:"not null;index" json:"name"`
 	FullName         string         `json:"full_name,omitempty"`
 	Location         string         `gorm:"not null" json:"location"`
