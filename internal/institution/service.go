@@ -202,6 +202,17 @@ func (s *Service) UpdateProfile(instID uint, req UpdateProfileRequest) (*Profile
 			user.BannerURL = req.BannerURL
 		}
 	}
+	if req.CardImageURL != "" {
+		if utils.IsDataURI(req.CardImageURL) {
+			url, err := utils.SaveDataURI(req.CardImageURL, "institution/card")
+			if err != nil {
+				return nil, fmt.Errorf("failed to save card image data URI: %w", err)
+			}
+			user.CardImageURL = url
+		} else {
+			user.CardImageURL = req.CardImageURL
+		}
+	}
 	if req.About != "" {
 		user.About = req.About
 	}
