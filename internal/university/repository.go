@@ -1,6 +1,7 @@
 package university
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -79,7 +80,7 @@ func (r *Repository) FindCollegesByUniversityID(universityID uint) ([]College, e
 	if len(mappingCollegeIDs) > 0 {
 		query = query.Where("id IN ?", mappingCollegeIDs)
 	} else {
-		query = query.Where("? = ANY(university_affiliations::int[])", universityID)
+		query = query.Where("university_affiliations @> ?::jsonb", fmt.Sprintf("[%d]", universityID))
 	}
 
 	err = query.Find(&colleges).Error
@@ -105,6 +106,7 @@ func (r *Repository) FindDeletedByName(name string) (*University, error) {
 
 func (r *Repository) FindAffiliatedColleges(universityID uint) ([]AffiliatedCollege, error) {
 	var results []AffiliatedCollege
+	jsonbValue := fmt.Sprintf("[%d]", universityID)
 
 	err := r.db.Raw(`
 		SELECT
@@ -123,10 +125,10 @@ func (r *Repository) FindAffiliatedColleges(universityID uint) ([]AffiliatedColl
 			COALESCE(c.affiliation, '') AS affiliation,
 			COALESCE(c.website, '') AS website
 		FROM colleges c
-		WHERE ? = ANY(c.university_affiliations::int[])
+		WHERE c.university_affiliations @> ?::jsonb
 		  AND c.deleted_at IS NULL
 		ORDER BY c.featured DESC, c.rating DESC, c.name ASC
-	`, universityID).Scan(&results).Error
+	`, jsonbValue).Scan(&results).Error
 
 	return results, err
 }

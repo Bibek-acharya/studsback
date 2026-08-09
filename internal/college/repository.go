@@ -2,6 +2,7 @@ package college
 
 import (
 	"encoding/json"
+	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
@@ -117,7 +118,7 @@ func (r *Repository) FindAll(filters CollegeFilters) ([]College, int64, error) {
 	}
 
 	if filters.UniversityID != "" {
-		query = query.Where("? = ANY(university_affiliations::int[])", filters.UniversityID)
+		query = query.Where("university_affiliations @> ?::jsonb", fmt.Sprintf("[%s]", filters.UniversityID))
 	}
 
 	if len(filters.Academic) > 0 {
