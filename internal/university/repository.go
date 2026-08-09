@@ -108,10 +108,10 @@ func (r *Repository) FindAffiliatedColleges(universityID uint) ([]AffiliatedColl
 
 	err := r.db.Raw(`
 		SELECT
-			iu.id,
-			'institution' AS source,
-			iu.institution_name AS name,
-			iu.college_id,
+			c.id,
+			'college' AS source,
+			c.name,
+			c.id AS college_id,
 			COALESCE(c.image_url, '') AS image_url,
 			COALESCE(c.location, '') AS location,
 			COALESCE(c.college_type, '') AS type,
@@ -120,15 +120,12 @@ func (r *Repository) FindAffiliatedColleges(universityID uint) ([]AffiliatedColl
 			COALESCE(c.programs, 0) AS programs,
 			COALESCE(c.verified, false) AS verified,
 			COALESCE(c.featured, false) AS featured,
-			COALESCE(iu.affiliation, '') AS affiliation,
+			COALESCE(c.affiliation, '') AS affiliation,
 			COALESCE(c.website, '') AS website
-		FROM institution_users iu
-		LEFT JOIN colleges c ON iu.college_id = c.id
-		WHERE iu.university_id = ?
-		  AND iu.status = 'approved'
-		  AND iu.college_id > 0
-		  AND iu.deleted_at IS NULL
-		ORDER BY c.featured DESC, c.rating DESC, iu.institution_name ASC
+		FROM colleges c
+		WHERE ? = ANY(c.university_affiliations::int[])
+		  AND c.deleted_at IS NULL
+		ORDER BY c.featured DESC, c.rating DESC, c.name ASC
 	`, universityID).Scan(&results).Error
 
 	return results, err
