@@ -116,6 +116,10 @@ func (r *Repository) FindAll(filters CollegeFilters) ([]College, int64, error) {
 		query = applyMultiILIKEFilter(query, "affiliation", parseCSV(filters.Affiliation))
 	}
 
+	if filters.UniversityID != "" {
+		query = query.Where("? = ANY(university_affiliations::int[])", filters.UniversityID)
+	}
+
 	if len(filters.Academic) > 0 {
 		query = applyFacetSearchFilter(query, filters.Academic)
 	}
