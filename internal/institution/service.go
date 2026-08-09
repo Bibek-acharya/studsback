@@ -2463,6 +2463,7 @@ func (s *Service) GetPublicInstitution(id uint) (*PublicInstitutionDetailRespons
 		ProfileStatus:           user.ProfileStatus,
 		LogoURL:                 logoURL,
 		BannerURL:               bannerURL,
+		CardImageURL:            user.CardImageURL,
 		About:                   user.About,
 		Vision:                  user.Vision,
 		Mission:                 user.Mission,
@@ -2533,6 +2534,10 @@ func toPublicResponses(users []InstitutionUser) []PublicInstitutionResponse {
 		if strings.HasPrefix(bannerURL, "data:") {
 			bannerURL = ""
 		}
+		cardImageURL := u.CardImageURL
+		if strings.HasPrefix(cardImageURL, "data:") {
+			cardImageURL = ""
+		}
 		results[i] = PublicInstitutionResponse{
 			ID:              u.ID,
 			InstitutionName: u.InstitutionName,
@@ -2543,6 +2548,7 @@ func toPublicResponses(users []InstitutionUser) []PublicInstitutionResponse {
 			IsSponsored:     u.IsSponsored,
 			LogoURL:         logoURL,
 			BannerURL:       bannerURL,
+			CardImageURL:    cardImageURL,
 			About:           u.About,
 			District:        u.District,
 			WebsiteURL:      u.WebsiteURL,
