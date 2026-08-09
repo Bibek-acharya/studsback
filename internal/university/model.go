@@ -53,7 +53,6 @@ type University struct {
 
 type College struct {
 	ID               uint    `json:"id"`
-	UniversityID     uint    `json:"university_id"`
 	Name             string  `json:"name"`
 	ImageURL         string  `json:"image_url"`
 	Rating           float64 `json:"rating"`
