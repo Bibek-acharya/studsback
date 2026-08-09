@@ -232,6 +232,14 @@ func (s *Service) UpdateProfile(instID uint, req UpdateProfileRequest) (*Profile
 	if req.Affiliation != "" {
 		user.Affiliation = req.Affiliation
 	}
+	if req.NonUniversityAffiliation != "" {
+		user.NonUniversityAffiliation = req.NonUniversityAffiliation
+	}
+	if req.UniversityAffiliations != nil {
+		if data, err := json.Marshal(req.UniversityAffiliations); err == nil {
+			user.UniversityAffiliations = data
+		}
+	}
 	if req.Level != "" {
 		user.Level = req.Level
 	}

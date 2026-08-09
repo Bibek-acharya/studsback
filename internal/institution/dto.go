@@ -675,8 +675,10 @@ type UpdateProfileRequest struct {
 	Level                string                 `json:"level"`
 	ContactEmail         string                 `json:"contact_email"`
 	ContactPhone         string                 `json:"contact_phone"`
-	Affiliation          string                 `json:"affiliation"`
-	MapURL               string                 `json:"map_url"`
+	Affiliation                string                 `json:"affiliation"`
+	UniversityAffiliations     interface{}            `json:"university_affiliations"`
+	NonUniversityAffiliation   string                 `json:"non_university_affiliation"`
+	MapURL                     string                 `json:"map_url"`
 	FacebookURL          string                 `json:"facebook_url"`
 	InstagramURL         string                 `json:"instagram_url"`
 	TiktokURL            string                 `json:"tiktok_url"`
