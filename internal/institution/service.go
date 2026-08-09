@@ -2447,9 +2447,11 @@ func (s *Service) GetPublicInstitution(id uint) (*PublicInstitutionDetailRespons
 	}
 
 	var admissionPageData json.RawMessage
+	var admissionPageID uint
 	admissionPage, err := s.repo.FindPublishedAdmissionByInstitutionID(id, "")
 	if err == nil && admissionPage != nil && admissionPage.Data != nil {
 		admissionPageData = json.RawMessage(*admissionPage.Data)
+		admissionPageID = admissionPage.ID
 	}
 
 	return &PublicInstitutionDetailResponse{
@@ -2481,7 +2483,7 @@ func (s *Service) GetPublicInstitution(id uint) (*PublicInstitutionDetailRespons
 		InstitutionEvents:       eventResponses,
 		InstitutionNews:         newsResponses,
 		InstitutionScholarships: scholarshipResponses,
-		AdmissionPageID:         admissionPage.ID,
+		AdmissionPageID:         admissionPageID,
 		AdmissionPageData:       admissionPageData,
 		ContactEmail:            user.ContactEmail,
 		ContactPhone:            user.ContactPhone,
