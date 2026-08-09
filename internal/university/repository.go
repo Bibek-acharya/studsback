@@ -108,6 +108,7 @@ func (r *Repository) FindAffiliatedColleges(universityID uint) ([]AffiliatedColl
 	var results []AffiliatedCollege
 	jsonbValue := fmt.Sprintf("[%d]", universityID)
 
+	// First get institutions that have claimed a college
 	err := r.db.Raw(`
 		SELECT
 			c.id,
@@ -130,7 +131,42 @@ func (r *Repository) FindAffiliatedColleges(universityID uint) ([]AffiliatedColl
 		ORDER BY c.featured DESC, c.rating DESC, c.name ASC
 	`, jsonbValue).Scan(&results).Error
 
-	return results, err
+	if err != nil {
+		return nil, err
+	}
+
+	// Also get institutions that haven't claimed a college yet
+	var instResults []AffiliatedCollege
+	err = r.db.Raw(`
+		SELECT
+			iu.id,
+			'institution' AS source,
+			iu.institution_name AS name,
+			0 AS college_id,
+			COALESCE(iu.logo_url, '') AS image_url,
+			COALESCE(iu.district, '') AS location,
+			'Institution' AS type,
+			0 AS rating,
+			0 AS reviews,
+			0 AS programs,
+			COALESCE(iu.verified, false) AS verified,
+			COALESCE(iu.featured, false) AS featured,
+			COALESCE(iu.affiliation, '') AS affiliation,
+			COALESCE(iu.website_url, '') AS website
+		FROM institution_users iu
+		WHERE iu.university_affiliations @> ?::jsonb
+		  AND iu.status = 'approved'
+		  AND iu.college_id = 0
+		  AND iu.deleted_at IS NULL
+		ORDER BY iu.featured DESC, iu.institution_name ASC
+	`, jsonbValue).Scan(&instResults).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	results = append(results, instResults...)
+	return results, nil
 }
 
 func (r *Repository) Restore(id uint) error {
