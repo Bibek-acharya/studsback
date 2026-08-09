@@ -2,6 +2,7 @@ package institution
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 
@@ -915,7 +916,7 @@ func (r *Repository) SaveSettings(settings *InstitutionSettings) error {
 
 func (r *Repository) FindCollegeByUniversityID(universityID uint) (*College, error) {
 	var college College
-	err := r.db.Where("university_id = ?", universityID).First(&college).Error
+	err := r.db.Where("university_affiliations @> ?::jsonb", fmt.Sprintf("[%d]", universityID)).First(&college).Error
 	if err != nil {
 		return nil, err
 	}
@@ -1591,6 +1592,7 @@ func (r *Repository) GetPublicFilterCounts() (*PublicInstitutionFilterCountsResp
 			LEFT JOIN institution_settings iss ON iss.institution_id = iu.id
 			WHERE (iss.public_profile = ? OR iss.id IS NULL)
 			AND iu.profile_status = 'published' AND iu.deleted_at IS NULL AND iu.status = 'approved'
+			AND jsonb_typeof(iu.profile_data->'courses_data') = 'array'
 			AND EXISTS (
 				SELECT 1 FROM jsonb_array_elements(iu.profile_data->'courses_data') AS c
 				WHERE c->>'duration' ILIKE ?
