@@ -2360,6 +2360,10 @@ func (s *Service) ListPublicInstitutions(page, limit int, search, location, inst
 		if strings.HasPrefix(bannerURL, "data:") {
 			bannerURL = ""
 		}
+		cardImageURL := u.CardImageURL
+		if strings.HasPrefix(cardImageURL, "data:") {
+			cardImageURL = ""
+		}
 		results[i] = PublicInstitutionResponse{
 			ID:              u.ID,
 			InstitutionName: u.InstitutionName,
@@ -2370,6 +2374,7 @@ func (s *Service) ListPublicInstitutions(page, limit int, search, location, inst
 			IsSponsored:     u.IsSponsored,
 			LogoURL:         logoURL,
 			BannerURL:       bannerURL,
+			CardImageURL:    cardImageURL,
 			About:           u.About,
 			District:        u.District,
 			WebsiteURL:      u.WebsiteURL,
