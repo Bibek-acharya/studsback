@@ -433,11 +433,7 @@ func main() {
 
 	// Setup messaging routes
 	api := router.Group("/api/v1")
-	if natsConn != nil {
-		messaging.SetupRoutes(api, db, redisClient, natsConn)
-	} else {
-		logger.Warn("NATS not connected, skipping messaging routes")
-	}
+	messaging.SetupRoutes(api, db, redisClient, natsConn)
 
 	logger.Info("All routes registered", "port", config.AppConfig.Port)
 

@@ -1,6 +1,8 @@
 package messaging
 
 import (
+	"log"
+
 	"github.com/gin-gonic/gin"
 	"github.com/nats-io/nats.go"
 	"github.com/redis/go-redis/v9"
@@ -26,28 +28,31 @@ func SetupRoutes(router *gin.RouterGroup, db *gorm.DB, redis *redis.Client, nats
 	conversationService := application.NewConversationService(conversationRepo, participantRepo, messageRepo, attachmentRepo)
 	messageService := application.NewMessageService(messageRepo, participantRepo, conversationRepo, attachmentRepo, outboxRepo)
 	readService := application.NewReadService(participantRepo, messageRepo, outboxRepo)
-	typingService := application.NewTypingService(redis)
-	_ = typingService // reserved for future use
-
+	_ = application.NewTypingService(redis)
 	uploadService := application.NewUploadService(attachmentRepo)
 
 	// Presence
 	presenceService := presence.NewPresenceService(redis)
 
-	// Events
-	eventPublisher := events.NewEventPublisher(nats, outboxRepo)
-	eventSubscriber := events.NewEventSubscriber(nats)
+	// Events (optional — only if NATS is available)
+	var eventPublisher events.EventPublisher
+	var eventSubscriber events.EventSubscriber
+	var hub *ws.Hub
 
-	// WebSocket Hub
-	hub := ws.NewHub(eventSubscriber, presenceService)
-	go hub.Run()
-	eventPublisher.Start()
+	if nats != nil {
+		eventPublisher = events.NewEventPublisher(nats, outboxRepo)
+		eventSubscriber = events.NewEventSubscriber(nats)
+		hub = ws.NewHub(eventSubscriber, presenceService)
+		go hub.Run()
+		eventPublisher.Start()
+	} else {
+		log.Println("NATS not connected, real-time events disabled")
+	}
 
 	// HTTP Handlers
 	conversationHandler := httpHandler.NewConversationHandler(conversationService)
 	messageHandler := httpHandler.NewMessageHandler(messageService, readService)
 	uploadHandler := httpHandler.NewUploadHandler(uploadService)
-	wsHandler := ws.NewWSHandler(hub)
 
 	// Routes
 	messaging := router.Group("/conversations")
@@ -63,5 +68,10 @@ func SetupRoutes(router *gin.RouterGroup, db *gorm.DB, redis *redis.Client, nats
 	}
 
 	router.POST("/uploads", uploadHandler.Upload)
-	router.GET("/ws", wsHandler.HandleWS)
+
+	// WebSocket (only if NATS is available)
+	if hub != nil {
+		wsHandler := ws.NewWSHandler(hub)
+		router.GET("/ws", wsHandler.HandleWS)
+	}
 }

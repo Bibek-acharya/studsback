@@ -50,8 +50,9 @@ func (r *Repository) CountPendingBookings(instID uint) (int64, error) {
 
 func (r *Repository) CountUnreadMessages(instID uint) (int64, error) {
 	var count int64
-	err := r.db.Table("institution_messages").
-		Where("institution_id = ? AND read = ?", instID, false).Count(&count).Error
+	err := r.db.Table("conversation_participants").
+		Where("participant_type = ? AND participant_id = ?", "institution", instID).
+		Select("COALESCE(SUM(unread_count), 0)").Scan(&count).Error
 	return count, err
 }
 

@@ -218,7 +218,9 @@ func (r *Repository) CountActiveInvites(userID uint) (int64, error) {
 
 func (r *Repository) CountUnreadMessages(userID uint) (int64, error) {
 	var count int64
-	err := r.db.Table("messages").Where("receiver_id = ? AND read = ?", userID, false).Count(&count).Error
+	err := r.db.Table("conversation_participants").
+		Where("participant_type = ? AND participant_id = ?", "student", userID).
+		Select("COALESCE(SUM(unread_count), 0)").Scan(&count).Error
 	return count, err
 }
 
