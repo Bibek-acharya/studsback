@@ -135,14 +135,14 @@ func (r *Repository) FindAffiliatedColleges(universityID uint) ([]AffiliatedColl
 		return nil, err
 	}
 
-	// Also get institutions that haven't claimed a college yet
+	// Also get institutions with university affiliation
 	var instResults []AffiliatedCollege
 	err = r.db.Raw(`
 		SELECT
 			iu.id,
 			'institution' AS source,
 			iu.institution_name AS name,
-			0 AS college_id,
+			COALESCE(iu.college_id, 0) AS college_id,
 			COALESCE(iu.logo_url, '') AS image_url,
 			COALESCE(iu.district, '') AS location,
 			'Institution' AS type,
@@ -156,7 +156,6 @@ func (r *Repository) FindAffiliatedColleges(universityID uint) ([]AffiliatedColl
 		FROM institution_users iu
 		WHERE iu.university_affiliations @> ?::jsonb
 		  AND iu.status = 'approved'
-		  AND iu.college_id = 0
 		  AND iu.deleted_at IS NULL
 		ORDER BY iu.featured DESC, iu.institution_name ASC
 	`, jsonbValue).Scan(&instResults).Error
