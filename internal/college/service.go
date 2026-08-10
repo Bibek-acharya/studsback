@@ -375,6 +375,7 @@ func buildCollegeMapDTOs(colleges []College) []CollegeMapDTO {
 			District:  c.Location,
 			Type:      c.CollegeType,
 			Rating:    c.Rating,
+			Reviews:   c.Reviews,
 		}
 	}
 	return dtos
