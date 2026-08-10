@@ -326,6 +326,42 @@ func (r *Repository) FindInstitutionsByCollegeIDs(collegeIDs []uint) (map[uint]I
 	return result, nil
 }
 
+// ReviewAgg holds aggregated review data for a college
+type ReviewAgg struct {
+	CollegeID uint
+	Rating    float64
+	Reviews   int
+}
+
+// FindReviewAggregations returns rating and review count for the given college IDs
+func (r *Repository) FindReviewAggregations(collegeIDs []uint) (map[uint]ReviewAgg, error) {
+	type row struct {
+		CollegeID   uint    `gorm:"column:college_id"`
+		ReviewCount int     `gorm:"column:review_count"`
+		AvgRating   float64 `gorm:"column:avg_rating"`
+	}
+	var rows []row
+	err := r.db.Table("reviews").
+		Select("college_id, COUNT(*) as review_count, COALESCE(ROUND(AVG(COALESCE((ratings->>'academics')::numeric,0) + COALESCE((ratings->>'campus_life')::numeric,0) + COALESCE((ratings->>'career_support')::numeric,0) + COALESCE((ratings->>'value_for_money')::numeric,0)) / 4.0, 1), 0) as avg_rating").
+		Where("college_id IN ?", collegeIDs).
+		Where("college_id > 0").
+		Where("deleted_at IS NULL").
+		Group("college_id").
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[uint]ReviewAgg, len(rows))
+	for _, r := range rows {
+		result[r.CollegeID] = ReviewAgg{
+			CollegeID: r.CollegeID,
+			Rating:    r.AvgRating,
+			Reviews:   r.ReviewCount,
+		}
+	}
+	return result, nil
+}
+
 type InstitutionMapDTO struct {
 	ID        uint    `json:"id"`
 	Name      string  `json:"name"`

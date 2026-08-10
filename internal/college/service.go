@@ -364,6 +364,17 @@ func (s *Service) GetMapColleges(north, south, east, west float64) ([]CollegeMap
 				}
 			}
 		}
+
+		// Enrich with review aggregations from reviews table
+		reviewMap, err := s.repo.FindReviewAggregations(collegeIDs)
+		if err == nil {
+			for i, dto := range dtos {
+				if agg, ok := reviewMap[dto.ID]; ok {
+					dtos[i].Rating = agg.Rating
+					dtos[i].Reviews = agg.Reviews
+				}
+			}
+		}
 	}
 
 	institutions, err := s.repo.FindInstitutionsWithCoords()
