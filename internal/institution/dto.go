@@ -473,36 +473,6 @@ type QMSResponse struct {
 	Documents     []byte  `json:"documents"`
 }
 
-type CreateMessageRequest struct {
-	UserID  uint   `json:"user_id" binding:"required"`
-	Subject string `json:"subject" binding:"required"`
-	Content string `json:"content" binding:"required"`
-}
-
-type CreateInquiryRequest struct {
-	Subject string `json:"subject" binding:"required"`
-	Content string `json:"content" binding:"required"`
-}
-
-type MessageResponse struct {
-	ID            uint   `json:"id"`
-	CreatedAt     string `json:"created_at"`
-	UpdatedAt     string `json:"updated_at"`
-	InstitutionID uint   `json:"institution_id"`
-	UserID        uint   `json:"user_id"`
-	Subject       string `json:"subject"`
-	Content       string `json:"content"`
-	Read          bool   `json:"read"`
-	Direction     string `json:"direction"`
-}
-
-type StudentContact struct {
-	UserID      uint   `json:"user_id"`
-	Name        string `json:"name"`
-	LastMessage string `json:"last_message"`
-	Unread      int    `json:"unread"`
-}
-
 type UpdateSettingsRequest struct {
 	EmailNotifs   bool   `json:"email_notifications"`
 	Timezone      string `json:"timezone"`

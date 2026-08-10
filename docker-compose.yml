@@ -60,6 +60,36 @@ services:
       start_period: 600s
     restart: unless-stopped
 
+  redis:
+    image: redis:7-alpine
+    container_name: studsphere_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+  nats:
+    image: nats:2-alpine
+    container_name: studsphere_nats
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    command: ["--jetstream", "--store_dir", "/data"]
+    volumes:
+      - nats_data:/data
+    healthcheck:
+      test: ["CMD", "nats-server", "--signal", "ldm=localhost:8222"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
   backend:
     build:
       context: .
@@ -79,8 +109,14 @@ services:
         condition: service_healthy
       ollama-llm:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:
   ollama_data:
   ollama_llm_data:
+  redis_data:
+  nats_data:

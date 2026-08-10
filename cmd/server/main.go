@@ -27,6 +27,7 @@ import (
 	"studsphere/backend/internal/forum"
 	"studsphere/backend/internal/institution"
 	"studsphere/backend/internal/location"
+	"studsphere/backend/internal/messaging"
 	"studsphere/backend/internal/projectshiksha"
 	"studsphere/backend/internal/review"
 	"studsphere/backend/internal/scholarship"
@@ -44,6 +45,8 @@ import (
 	"studsphere/backend/internal/university"
 
 	"github.com/gin-gonic/gin"
+	"github.com/nats-io/nats.go"
+	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 )
 
@@ -128,7 +131,6 @@ func main() {
 		&scholarshipprovider.ProviderReview{},
 		&scholarshipprovider.ProviderVolunteer{},
 		&scholarshipprovider.VolunteerApplication{},
-		&studentdashboard.Message{},
 		&studentdashboard.CalendarEvent{},
 		&studentdashboard.SphereInvite{},
 		&studentdashboard.Bookmark{},
@@ -143,7 +145,6 @@ func main() {
 		&institution.InstitutionNews{},
 		&institution.InstitutionBlog{},
 		&institution.InstitutionQMS{},
-		&institution.InstitutionMessage{},
 		&institution.AdmissionPage{},
 		&institution.InstitutionSettings{},
 		&review.Review{},
@@ -186,6 +187,21 @@ func main() {
 		} else {
 			logger.Info("Vector search initialized successfully")
 		}
+	}
+
+	// Initialize Redis for messaging
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     config.AppConfig.RedisAddr,
+		Password: config.AppConfig.RedisPassword,
+		DB:       config.AppConfig.RedisDB,
+	})
+
+	// Initialize NATS for messaging
+	natsConn, err := nats.Connect(config.AppConfig.NATSURL)
+	if err != nil {
+		logger.Warn("Failed to connect to NATS, messaging will be HTTP-only", "error", err)
+	} else {
+		logger.Info("Connected to NATS")
 	}
 
 	logger.Info("Seeding super admin account...")
@@ -414,6 +430,14 @@ func main() {
 	location.RegisterRoutes(router, locationHandler)
 	follow.RegisterRoutes(router, authMW, followHandler)
 	jobs.RegisterRoutes(router, authMW, roleMW, jobsHandler)
+
+	// Setup messaging routes
+	api := router.Group("/api/v1")
+	if natsConn != nil {
+		messaging.SetupRoutes(api, db, redisClient, natsConn)
+	} else {
+		logger.Warn("NATS not connected, skipping messaging routes")
+	}
 
 	logger.Info("All routes registered", "port", config.AppConfig.Port)
 

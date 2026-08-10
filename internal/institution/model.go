@@ -249,19 +249,6 @@ type InstitutionQMS struct {
 	Documents     []byte         `gorm:"type:jsonb" json:"documents"`
 }
 
-type InstitutionMessage struct {
-	ID            uint           `gorm:"primarykey" json:"id"`
-	CreatedAt     time.Time      `json:"created_at"`
-	UpdatedAt     time.Time      `json:"updated_at"`
-	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
-	InstitutionID uint           `gorm:"index;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"institution_id"`
-	UserID        uint           `gorm:"index" json:"user_id"`
-	Subject       string         `json:"subject"`
-	Content       string         `gorm:"type:text" json:"content"`
-	Read          bool           `gorm:"default:false" json:"read"`
-	Direction     string         `json:"direction"`
-}
-
 type InstitutionSettings struct {
 	ID            uint      `gorm:"primarykey" json:"id"`
 	CreatedAt     time.Time `json:"created_at"`

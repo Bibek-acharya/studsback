@@ -12,12 +12,6 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 		protected := v1.Group("")
 		protected.Use(authMW)
 		{
-			protected.GET("/messages", h.GetMessages)
-			protected.GET("/messages/:id", h.GetMessageByID)
-			protected.POST("/messages", h.CreateMessage)
-			protected.POST("/messages/:id/reply", h.ReplyToMessage)
-			protected.GET("/messages/contacts", h.GetMessageContacts)
-
 			protected.GET("/calendar/events", h.GetCalendarEvents)
 			protected.GET("/calendar/events/:id", h.GetCalendarEventByID)
 			protected.POST("/calendar/events", h.CreateCalendarEvent)

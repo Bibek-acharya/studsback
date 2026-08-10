@@ -6,19 +6,6 @@ import (
 	"gorm.io/gorm"
 )
 
-type Message struct {
-	ID         uint           `gorm:"primarykey" json:"id"`
-	CreatedAt  time.Time      `json:"created_at"`
-	UpdatedAt  time.Time      `json:"updated_at"`
-	DeletedAt  gorm.DeletedAt `gorm:"index" json:"-"`
-	SenderID   uint           `gorm:"index" json:"sender_id"`
-	ReceiverID uint           `gorm:"index" json:"receiver_id"`
-	Subject    string         `json:"subject"`
-	Content    string         `gorm:"type:text" json:"content"`
-	Read       bool           `gorm:"default:false" json:"read"`
-	Direction  string         `json:"direction"`
-}
-
 type CalendarEvent struct {
 	ID          uint           `gorm:"primarykey" json:"id"`
 	CreatedAt   time.Time      `json:"created_at"`

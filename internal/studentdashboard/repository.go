@@ -1,7 +1,6 @@
 package studentdashboard
 
 import (
-	"fmt"
 	"studsphere/backend/internal/admission"
 	"studsphere/backend/internal/auth"
 	"studsphere/backend/internal/scholarship"
@@ -16,115 +15,6 @@ type Repository struct {
 
 func NewRepository(db *gorm.DB) *Repository {
 	return &Repository{db: db}
-}
-
-func (r *Repository) GetMessages(userID uint, page, limit int) ([]Message, int64, error) {
-	var total int64
-	if err := r.db.Model(&Message{}).Where("sender_id = ? OR receiver_id = ?", userID, userID).Count(&total).Error; err != nil {
-		return nil, 0, err
-	}
-
-	var messages []Message
-	offset := (page - 1) * limit
-	if err := r.db.Where("sender_id = ? OR receiver_id = ?", userID, userID).
-		Order("created_at desc").Offset(offset).Limit(limit).Find(&messages).Error; err != nil {
-		return nil, 0, err
-	}
-
-	return messages, total, nil
-}
-
-func (r *Repository) GetMessageByID(msgID uint, userID uint) (*Message, error) {
-	var message Message
-	if err := r.db.Where("id = ? AND (sender_id = ? OR receiver_id = ?)", msgID, userID, userID).
-		First(&message).Error; err != nil {
-		return nil, err
-	}
-	return &message, nil
-}
-
-func (r *Repository) CreateMessage(message *Message) error {
-	return r.db.Create(message).Error
-}
-
-func (r *Repository) CreateInstitutionMessage(userID, receiverID uint, subject, content string) error {
-	var instID uint
-	r.db.Table("institution_users").Where("id = ?", receiverID).Select("id").Take(&instID)
-	if instID == 0 {
-		return nil
-	}
-	return r.db.Table("institution_messages").Create(map[string]interface{}{
-		"institution_id": instID,
-		"user_id":        userID,
-		"subject":        subject,
-		"content":        content,
-		"direction":      "inbound",
-	}).Error
-}
-
-func (r *Repository) GetMessageForReply(msgID uint) (*Message, error) {
-	var message Message
-	if err := r.db.Where("id = ?", msgID).First(&message).Error; err != nil {
-		return nil, err
-	}
-	return &message, nil
-}
-
-func (r *Repository) GetContacts(userID uint) ([]Contact, error) {
-	var messages []Message
-	if err := r.db.Where("sender_id = ? OR receiver_id = ?", userID, userID).
-		Order("created_at desc").Find(&messages).Error; err != nil {
-		return nil, err
-	}
-
-	contactMap := map[uint]*Contact{}
-	for _, msg := range messages {
-		var contactID uint
-		if msg.SenderID == userID {
-			contactID = msg.ReceiverID
-		} else {
-			contactID = msg.SenderID
-		}
-
-		if _, exists := contactMap[contactID]; !exists {
-			var user struct {
-				FirstName string
-				LastName  string
-			}
-			r.db.Model(&User{}).Where("id = ?", contactID).First(&user)
-			name := user.FirstName + " " + user.LastName
-			if name == " " {
-				var instUser struct {
-					InstitutionName string
-				}
-				r.db.Table("institution_users").Where("id = ?", contactID).First(&instUser)
-				name = instUser.InstitutionName
-				if name == "" {
-					name = fmt.Sprintf("User #%d", contactID)
-				}
-			}
-			contactMap[contactID] = &Contact{
-				UserID:      contactID,
-				Name:        name,
-				LastMessage: msg.Content,
-			}
-		}
-
-		if msg.ReceiverID == userID && !msg.Read {
-			contactMap[contactID].Unread++
-		}
-	}
-
-	contacts := make([]Contact, 0, len(contactMap))
-	for _, c := range contactMap {
-		contacts = append(contacts, *c)
-	}
-
-	return contacts, nil
-}
-
-func (r *Repository) MarkMessageRead(msgID uint) error {
-	return r.db.Model(&Message{}).Where("id = ?", msgID).Update("read", true).Error
 }
 
 func (r *Repository) GetCalendarEvents(userID uint) ([]CalendarEvent, error) {
@@ -328,7 +218,7 @@ func (r *Repository) CountActiveInvites(userID uint) (int64, error) {
 
 func (r *Repository) CountUnreadMessages(userID uint) (int64, error) {
 	var count int64
-	err := r.db.Model(&Message{}).Where("receiver_id = ? AND read = ?", userID, false).Count(&count).Error
+	err := r.db.Table("messages").Where("receiver_id = ? AND read = ?", userID, false).Count(&count).Error
 	return count, err
 }
 
@@ -359,13 +249,6 @@ func (r *Repository) GetUserAdmissions(userID uint, page, limit int) ([]admissio
 	}
 
 	return admissions, total, nil
-}
-
-type Contact struct {
-	UserID      uint   `json:"user_id"`
-	Name        string `json:"name"`
-	LastMessage string `json:"last_message"`
-	Unread      int    `json:"unread"`
 }
 
 type User struct {

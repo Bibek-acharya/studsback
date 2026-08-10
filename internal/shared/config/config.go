@@ -66,6 +66,15 @@ type Config struct {
 	EsewaSecretKey    string
 	EsewaSuccessURL   string
 	EsewaFailureURL   string
+
+	// Redis
+	RedisAddr     string
+	RedisPassword string
+	RedisDB       int
+
+	// NATS
+	NATSURL    string
+	NATSStream string
 }
 
 var AppConfig *Config
@@ -138,6 +147,12 @@ func Load() {
 		EsewaSecretKey:    getEnv("ESEWA_SECRET_KEY", "8gBm/:&EnhH.1/q"),
 		EsewaSuccessURL:   getEnv("ESEWA_SUCCESS_URL", "http://localhost:3000/scholarship-apply/project-shiksha/success"),
 		EsewaFailureURL:   getEnv("ESEWA_FAILURE_URL", "http://localhost:3000/scholarship-apply/project-shiksha/payment"),
+
+		RedisAddr:     getEnv("REDIS_ADDR", "localhost:6379"),
+		RedisPassword: getEnv("REDIS_PASSWORD", ""),
+		RedisDB:       getEnvInt("REDIS_DB", 0),
+		NATSURL:       getEnv("NATS_URL", "nats://localhost:4222"),
+		NATSStream:    getEnv("NATS_STREAM_NAME", "messaging"),
 	}
 }
 

@@ -50,7 +50,7 @@ func (r *Repository) CountPendingBookings(instID uint) (int64, error) {
 
 func (r *Repository) CountUnreadMessages(instID uint) (int64, error) {
 	var count int64
-	err := r.db.Model(&InstitutionMessage{}).
+	err := r.db.Table("institution_messages").
 		Where("institution_id = ? AND read = ?", instID, false).Count(&count).Error
 	return count, err
 }
@@ -840,63 +840,6 @@ func (r *Repository) DeleteQMS(id uint, instID uint) error {
 		return gorm.ErrRecordNotFound
 	}
 	return nil
-}
-
-func (r *Repository) FindMessagesByInstitution(instID uint, page, limit int) ([]InstitutionMessage, int64, error) {
-	var messages []InstitutionMessage
-	var total int64
-
-	if err := r.db.Model(&InstitutionMessage{}).Where("institution_id = ?", instID).Count(&total).Error; err != nil {
-		return nil, 0, err
-	}
-
-	offset := (page - 1) * limit
-	err := r.db.Where("institution_id = ?", instID).
-		Order("created_at desc").Offset(offset).Limit(limit).Find(&messages).Error
-	return messages, total, err
-}
-
-func (r *Repository) FindMessageByIDAndInstitution(id uint, instID uint) (*InstitutionMessage, error) {
-	var message InstitutionMessage
-	err := r.db.Where("id = ? AND institution_id = ?", id, instID).First(&message).Error
-	if err != nil {
-		return nil, err
-	}
-	return &message, nil
-}
-
-func (r *Repository) CreateMessage(message *InstitutionMessage) error {
-	return r.db.Create(message).Error
-}
-
-func (r *Repository) CreateUserMessage(senderID, receiverID uint, subject, content, direction string) error {
-	return r.db.Table("messages").Create(map[string]interface{}{
-		"sender_id":   senderID,
-		"receiver_id": receiverID,
-		"subject":     subject,
-		"content":     content,
-		"direction":   direction,
-		"read":        false,
-	}).Error
-}
-
-func (r *Repository) FindAllMessagesByInstitution(instID uint) ([]InstitutionMessage, error) {
-	var messages []InstitutionMessage
-	err := r.db.Where("institution_id = ?", instID).Order("created_at desc").Find(&messages).Error
-	return messages, err
-}
-
-func (r *Repository) FindUserByID(id uint) (*User, error) {
-	var user User
-	err := r.db.First(&user, id).Error
-	if err != nil {
-		return nil, err
-	}
-	return &user, nil
-}
-
-func (r *Repository) SaveMessage(message *InstitutionMessage) error {
-	return r.db.Save(message).Error
 }
 
 func (r *Repository) FindOrCreateSettings(instID uint) (*InstitutionSettings, error) {

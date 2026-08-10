@@ -1226,115 +1226,6 @@ func (h *Handler) DeleteQMS(c *gin.Context) {
 	response.Success(c, http.StatusOK, "QMS record deleted successfully", nil)
 }
 
-func (h *Handler) GetMessages(c *gin.Context) {
-	instID := getInstID(c)
-
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
-	if page < 1 {
-		page = 1
-	}
-	if limit < 1 || limit > 50 {
-		limit = 20
-	}
-
-	messages, total, err := h.service.GetMessages(instID, page, limit)
-	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "Failed to fetch messages")
-		return
-	}
-
-	var resp []MessageResponse
-	for _, m := range messages {
-		resp = append(resp, toMessageResponse(m))
-	}
-
-	response.Success(c, http.StatusOK, "Messages retrieved successfully", gin.H{
-		"messages": resp,
-		"meta": gin.H{
-			"total": total,
-			"page":  page,
-			"limit": limit,
-		},
-	})
-}
-
-func (h *Handler) GetMessageByID(c *gin.Context) {
-	instID := getInstID(c)
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		response.Error(c, http.StatusBadRequest, "Invalid message ID")
-		return
-	}
-
-	message, err := h.service.GetMessageByID(instID, uint(id))
-	if err != nil {
-		response.Error(c, http.StatusNotFound, "Message not found")
-		return
-	}
-
-	response.Success(c, http.StatusOK, "Message retrieved successfully", toMessageResponse(*message))
-}
-
-func (h *Handler) CreateMessage(c *gin.Context) {
-	instID := getInstID(c)
-
-	var req CreateMessageRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	message, err := h.service.CreateMessage(instID, req)
-	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "Failed to send message")
-		return
-	}
-
-	response.Success(c, http.StatusCreated, "Message sent successfully", toMessageResponse(*message))
-}
-
-func (h *Handler) CreateInquiry(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 64)
-	if err != nil {
-		response.Error(c, http.StatusBadRequest, "Invalid institution ID")
-		return
-	}
-
-	userID, exists := c.Get("user_id")
-	if !exists {
-		response.Error(c, http.StatusUnauthorized, "User not authenticated")
-		return
-	}
-
-	var req CreateInquiryRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	message, err := h.service.CreateInquiry(uint(id), userID.(uint), req)
-	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "Failed to send inquiry")
-		return
-	}
-
-	response.Success(c, http.StatusCreated, "Inquiry sent successfully", toMessageResponse(*message))
-}
-
-func (h *Handler) GetMessageStudents(c *gin.Context) {
-	instID := getInstID(c)
-
-	contacts, err := h.service.GetMessageStudents(instID)
-	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "Failed to fetch student contacts")
-		return
-	}
-
-	response.Success(c, http.StatusOK, "Student contacts retrieved successfully", contacts)
-}
-
 func (h *Handler) UploadFile(c *gin.Context) {
 	file, err := c.FormFile("file")
 	if err != nil {
@@ -2231,20 +2122,6 @@ func toQMSResponse(q InstitutionQMS) QMSResponse {
 		Status:        q.Status,
 		Score:         q.Score,
 		Documents:     q.Documents,
-	}
-}
-
-func toMessageResponse(m InstitutionMessage) MessageResponse {
-	return MessageResponse{
-		ID:            m.ID,
-		CreatedAt:     m.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:     m.UpdatedAt.Format(time.RFC3339),
-		InstitutionID: m.InstitutionID,
-		UserID:        m.UserID,
-		Subject:       m.Subject,
-		Content:       m.Content,
-		Read:          m.Read,
-		Direction:     m.Direction,
 	}
 }
 
