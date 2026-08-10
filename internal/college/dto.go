@@ -1,17 +1,18 @@
 package college
 
 type CollegeMapDTO struct {
-	ID        uint    `json:"id"`
-	Name      string  `json:"name"`
-	Slug      string  `json:"slug,omitempty"`
-	Latitude  float64 `json:"latitude"`
-	Longitude float64 `json:"longitude"`
-	Logo      string  `json:"logo,omitempty"`
-	District  string  `json:"district,omitempty"`
-	Province  string  `json:"province,omitempty"`
-	Type      string  `json:"type,omitempty"`
-	Rating    float64 `json:"rating,omitempty"`
-	Reviews   int     `json:"reviews,omitempty"`
+	ID        uint        `json:"id"`
+	Name      string      `json:"name"`
+	Slug      string      `json:"slug,omitempty"`
+	Latitude  float64     `json:"latitude"`
+	Longitude float64     `json:"longitude"`
+	Logo      string      `json:"logo,omitempty"`
+	District  string      `json:"district,omitempty"`
+	Province  string      `json:"province,omitempty"`
+	Type      string      `json:"type,omitempty"`
+	Rating    float64     `json:"rating,omitempty"`
+	Reviews   int         `json:"reviews,omitempty"`
+	Gallery   interface{} `json:"gallery,omitempty"`
 }
 
 type CollegeRecommendationBreakdown struct {

@@ -376,6 +376,7 @@ func buildCollegeMapDTOs(colleges []College) []CollegeMapDTO {
 			Type:      c.CollegeType,
 			Rating:    c.Rating,
 			Reviews:   c.Reviews,
+			Gallery:   parseJSONField(c.Gallery, []interface{}{}),
 		}
 	}
 	return dtos
