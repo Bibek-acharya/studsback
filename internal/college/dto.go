@@ -10,9 +10,9 @@ type CollegeMapDTO struct {
 	District  string      `json:"district,omitempty"`
 	Province  string      `json:"province,omitempty"`
 	Type      string      `json:"type,omitempty"`
-	Rating    float64     `json:"rating,omitempty"`
-	Reviews   int         `json:"reviews,omitempty"`
-	Gallery   interface{} `json:"gallery,omitempty"`
+	Rating    float64     `json:"rating"`
+	Reviews   int         `json:"reviews"`
+	Gallery   interface{} `json:"gallery"`
 }
 
 type CollegeRecommendationBreakdown struct {
