@@ -80,11 +80,11 @@ services:
     ports:
       - "4222:4222"
       - "8222:8222"
-    command: ["--jetstream", "--store_dir", "/data"]
+    command: ["--jetstream", "--store_dir", "/data", "-m", "8222"]
     volumes:
       - nats_data:/data
     healthcheck:
-      test: ["CMD", "nats-server", "--signal", "ldm=localhost:8222"]
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8222/healthz || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 3
