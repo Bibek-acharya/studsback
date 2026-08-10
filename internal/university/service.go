@@ -582,7 +582,8 @@ func (s *Service) DeleteUniversity(id uint) error {
 }
 
 func (s *Service) GetAffiliatedColleges(universityID uint) (*AffiliatedCollegesResponse, error) {
-	uni, err := s.repo.FindByID(universityID)
+	var uni University
+	err := s.repo.db.Select("id, name").First(&uni, universityID).Error
 	if err != nil {
 		return nil, err
 	}
@@ -592,10 +593,11 @@ func (s *Service) GetAffiliatedColleges(universityID uint) (*AffiliatedCollegesR
 		return nil, err
 	}
 
-	uniResp := toUniversityResponse(*uni, []College{})
-
 	return &AffiliatedCollegesResponse{
-		University:         &uniResp,
+		University: &UniversityResponse{
+			ID:   uni.ID,
+			Name: uni.Name,
+		},
 		AffiliatedColleges: colleges,
 		Total:              len(colleges),
 	}, nil
