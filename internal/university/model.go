@@ -70,18 +70,20 @@ type CollegeUniversityCourse struct {
 }
 
 type AffiliatedCollege struct {
-	ID          uint    `json:"id"`
-	Source      string  `json:"source"`
-	Name        string  `json:"name"`
-	CollegeID   uint    `json:"college_id"`
-	ImageURL    string  `json:"image_url"`
-	Location    string  `json:"location"`
-	Type        string  `json:"type"`
-	Rating      float64 `json:"rating"`
-	Reviews     int     `json:"reviews"`
-	Programs    int     `json:"programs"`
-	Verified    bool    `json:"verified"`
-	Featured    bool    `json:"featured"`
-	Affiliation string  `json:"affiliation"`
-	Website     string  `json:"website"`
+	ID           uint    `json:"id"`
+	Source       string  `json:"source"`
+	Name         string  `json:"name"`
+	CollegeID    uint    `json:"college_id"`
+	ImageURL     string  `json:"image_url"`
+	CardImageURL string  `json:"card_image_url"`
+	BannerURL    string  `json:"banner_url"`
+	Location     string  `json:"location"`
+	Type         string  `json:"type"`
+	Rating       float64 `json:"rating"`
+	Reviews      int     `json:"reviews"`
+	Programs     int     `json:"programs"`
+	Verified     bool    `json:"verified"`
+	Featured     bool    `json:"featured"`
+	Affiliation  string  `json:"affiliation"`
+	Website      string  `json:"website"`
 }
