@@ -124,6 +124,7 @@ func (r *Repository) FindAffiliatedColleges(universityID uint) ([]AffiliatedColl
 			COALESCE(c.reviews, 0) AS reviews,
 			COALESCE(c.programs, 0) AS programs,
 			COALESCE(c.verified, false) AS verified,
+			COALESCE(c.claimed, false) AS claimed,
 			COALESCE(c.featured, false) AS featured,
 			COALESCE(c.affiliation, '') AS affiliation,
 			COALESCE(c.website, '') AS website
@@ -154,6 +155,7 @@ func (r *Repository) FindAffiliatedColleges(universityID uint) ([]AffiliatedColl
 			0 AS reviews,
 			0 AS programs,
 			COALESCE(iu.verified, false) AS verified,
+			COALESCE(iu.claimed, false) AS claimed,
 			COALESCE(iu.featured, false) AS featured,
 			COALESCE(iu.affiliation, '') AS affiliation,
 			COALESCE(iu.website_url, '') AS website

@@ -83,6 +83,7 @@ type AffiliatedCollege struct {
 	Reviews      int     `json:"reviews"`
 	Programs     int     `json:"programs"`
 	Verified     bool    `json:"verified"`
+	Claimed      bool    `json:"claimed"`
 	Featured     bool    `json:"featured"`
 	Affiliation  string  `json:"affiliation"`
 	Website      string  `json:"website"`
