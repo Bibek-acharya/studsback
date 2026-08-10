@@ -513,6 +513,8 @@ func fixMissingColumns(db *gorm.DB) error {
 		{"institution_users", "level TEXT DEFAULT ''"},
 		{"institution_users", "university_affiliations JSONB DEFAULT '[]'"},
 		{"institution_users", "non_university_affiliation TEXT DEFAULT ''"},
+		{"colleges", "card_image_url TEXT DEFAULT ''"},
+		{"colleges", "banner_url TEXT DEFAULT ''"},
 		{"scholarship_provider_users", "about_text TEXT DEFAULT ''"},
 		{"scholarship_provider_users", "mission TEXT DEFAULT ''"},
 		{`scholarship_provider_users`, `"values" TEXT DEFAULT ''`},
