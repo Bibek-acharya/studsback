@@ -338,6 +338,34 @@ func (s *Service) GetMapColleges(north, south, east, west float64) ([]CollegeMap
 
 	dtos := buildCollegeMapDTOs(colleges)
 
+	// Enrich DTOs with institution data (gallery, logo, etc.)
+	if len(colleges) > 0 {
+		collegeIDs := make([]uint, len(colleges))
+		for i, c := range colleges {
+			collegeIDs[i] = c.ID
+		}
+		institutionMap, err := s.repo.FindInstitutionsByCollegeIDs(collegeIDs)
+		if err == nil {
+			for i, dto := range dtos {
+				if inst, ok := institutionMap[dto.ID]; ok {
+					// Prefer institution logo over college image
+					if inst.LogoURL != "" {
+						dtos[i].Logo = inst.LogoURL
+					}
+					// Get gallery from institution profile_data
+					if inst.ProfileData != nil {
+						var profileData map[string]interface{}
+						if err := json.Unmarshal([]byte(*inst.ProfileData), &profileData); err == nil {
+							if gallery, ok := profileData["gallery_data"]; ok {
+								dtos[i].Gallery = gallery
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
 	institutions, err := s.repo.FindInstitutionsWithCoords()
 	if err == nil {
 		for _, inst := range institutions {

@@ -291,6 +291,41 @@ func (r *Repository) FindAllWithCoords() ([]College, error) {
 	return colleges, err
 }
 
+// InstitutionBasic holds minimal institution data for map enrichment
+type InstitutionBasic struct {
+	CollegeID   uint
+	LogoURL     string
+	ProfileData *string
+}
+
+// FindInstitutionsByCollegeIDs returns institution data keyed by college_id
+func (r *Repository) FindInstitutionsByCollegeIDs(collegeIDs []uint) (map[uint]InstitutionBasic, error) {
+	type row struct {
+		CollegeID   uint   `gorm:"column:college_id"`
+		LogoURL     string `gorm:"column:logo_url"`
+		ProfileData string `gorm:"column:profile_data"`
+	}
+	var rows []row
+	err := r.db.Table("institution_users").
+		Select("college_id, logo_url, profile_data").
+		Where("college_id IN ?", collegeIDs).
+		Where("college_id > 0").
+		Where("deleted_at IS NULL").
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[uint]InstitutionBasic, len(rows))
+	for _, r := range rows {
+		result[r.CollegeID] = InstitutionBasic{
+			CollegeID:   r.CollegeID,
+			LogoURL:     r.LogoURL,
+			ProfileData: &r.ProfileData,
+		}
+	}
+	return result, nil
+}
+
 type InstitutionMapDTO struct {
 	ID        uint    `json:"id"`
 	Name      string  `json:"name"`
