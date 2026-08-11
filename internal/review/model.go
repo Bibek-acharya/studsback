@@ -19,13 +19,13 @@ type Review struct {
 	UniversityID      uint           `gorm:"index;uniqueIndex:idx_reviews_user_university,where:university_id <> 0" json:"university_id"`
 	CollegeName       string         `json:"college_name"`
 	StudentType       string         `gorm:"not null" json:"student_type"`
-	Course            string         `gorm:"not null" json:"course"`
-	Level             string         `gorm:"not null" json:"level"`
+	Course            string         `json:"course"`
+	Level             string         `json:"level"`
 	BatchYear         int            `gorm:"not null" json:"batch_year"`
 	Ratings           []byte         `gorm:"type:jsonb;not null" json:"ratings"`
 	Pros              string         `gorm:"type:text;not null" json:"pros"`
 	Cons              string         `gorm:"type:text;not null" json:"cons"`
-	SummaryTitle      string         `gorm:"not null" json:"summary_title"`
+	SummaryTitle      string         `json:"summary_title"`
 	YearlyFee         *float64       `json:"yearly_fee"`
 	Scholarship       *bool          `json:"scholarship"`
 	InternshipOutcome *string        `json:"internship_outcome"`

@@ -597,6 +597,9 @@ func fixMissingColumns(db *gorm.DB) error {
 		if err := db.Exec(`CREATE SEQUENCE IF NOT EXISTS scholarship_roll_number_seq START WITH 50`).Error; err != nil {
 			return err
 		}
+		db.Exec(`ALTER TABLE reviews ALTER COLUMN course DROP NOT NULL`)
+		db.Exec(`ALTER TABLE reviews ALTER COLUMN "level" DROP NOT NULL`)
+		db.Exec(`ALTER TABLE reviews ALTER COLUMN summary_title DROP NOT NULL`)
 	}
 	db.Exec(`UPDATE scholarships SET slug = 'scholarship-' || id WHERE slug IS NULL OR slug = ''`)
 	db.Exec(`UPDATE provider_scholarships SET slug = 'provider-scholarship-' || id WHERE slug IS NULL OR slug = ''`)
