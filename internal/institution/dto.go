@@ -924,8 +924,9 @@ type PublicInstitutionDetailResponse struct {
 	TiktokURL               string                `json:"tiktok_url,omitempty"`
 	YoutubeURL              string                `json:"youtube_url,omitempty"`
 	LinkedinURL             string                `json:"linkedin_url,omitempty"`
-	BrochureData            *BrochureData         `json:"brochure_data,omitempty"`
+	BrochureData            interface{}           `json:"brochure_data"`
 	Type                    string                `json:"type"`
+	FollowerCount           int64                 `json:"follower_count"`
 }
 
 // --- Admission Page DTOs ---

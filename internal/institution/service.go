@@ -2452,6 +2452,7 @@ func (s *Service) GetPublicInstitution(id uint) (*PublicInstitutionDetailRespons
 		LinkedinURL:             user.LinkedinURL,
 		BrochureData:            pd.BrochureData,
 		Type:                    user.OrganizationType,
+		FollowerCount:           s.getFollowerCount(id),
 	}, nil
 }
 
@@ -2528,6 +2529,11 @@ func (s *Service) GetPublicInstitutionFilterCounts() (*PublicInstitutionFilterCo
 
 func (s *Service) GetStudentProfile(studentID uint) (*StudentProfileResponse, error) {
 	return s.repo.FindUserByID(studentID)
+}
+
+func (s *Service) getFollowerCount(institutionID uint) int64 {
+	count, _ := s.repo.CountFollowers(institutionID)
+	return count
 }
 
 func (s *Service) GetInstitutionInquiries(institutionID uint, page, limit int, status, inquiryType, search string) ([]system.ContactInquiry, int64, error) {

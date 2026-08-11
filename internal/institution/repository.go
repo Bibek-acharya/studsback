@@ -1607,6 +1607,14 @@ func (r *Repository) FindUserByID(id uint) (*StudentProfileResponse, error) {
 	}, nil
 }
 
+func (r *Repository) CountFollowers(institutionID uint) (int64, error) {
+	var count int64
+	err := r.db.Table("user_follows").
+		Where("target_id = ? AND target_type = ?", institutionID, "institution").
+		Count(&count).Error
+	return count, err
+}
+
 func (r *Repository) FindInstitutionFollowers(institutionID uint, search string, page, limit int) ([]FollowerResponse, int64, error) {
 	var total int64
 	type Row struct {
