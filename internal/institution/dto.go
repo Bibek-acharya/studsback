@@ -680,6 +680,7 @@ type UpdateProfileRequest struct {
 
 type ProfileResponse struct {
 	ID                   uint                   `json:"id"`
+	CollegeID            uint                   `json:"college_id"`
 	InstitutionName      string                 `json:"institution_name"`
 	Email                string                 `json:"email"`
 	SubscriptionType     string                 `json:"subscription_type"`

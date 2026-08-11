@@ -127,6 +127,7 @@ func (s *Service) GetProfile(instID uint) (*ProfileResponse, error) {
 	return &ProfileResponse{
 		SubscriptionType:     subType,
 		ID:                   user.ID,
+		CollegeID:            user.CollegeID,
 		InstitutionName:      user.InstitutionName,
 		Email:                user.Email,
 		RegistrationNumber:   user.RegistrationNumber,
