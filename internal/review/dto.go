@@ -1,8 +1,8 @@
 package review
 
 type CreateReviewRequest struct {
-	CollegeID         uint               `json:"college_id" binding:"required"`
-	CollegeName       string             `json:"college_name"`
+	CollegeID         uint               `json:"college_id"`
+	CollegeName       string             `json:"college_name" binding:"required"`
 	StudentType       string             `json:"student_type" binding:"required,oneof=current alumni"`
 	Course            string             `json:"course"`
 	Level             string             `json:"level"`

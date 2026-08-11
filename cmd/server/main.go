@@ -28,6 +28,7 @@ import (
 	"studsphere/backend/internal/institution"
 	"studsphere/backend/internal/location"
 	"studsphere/backend/internal/messaging"
+	"studsphere/backend/internal/messaging/domain"
 	"studsphere/backend/internal/projectshiksha"
 	"studsphere/backend/internal/review"
 	"studsphere/backend/internal/scholarship"
@@ -163,6 +164,12 @@ func main() {
 		&feedback.Feedback{},
 		&faq.FAQCategory{},
 		&faq.FAQItem{},
+		&domain.Conversation{},
+		&domain.Message{},
+		&domain.Participant{},
+		&domain.Attachment{},
+		&domain.PendingUpload{},
+		&domain.OutboxEvent{},
 	); err != nil {
 		logger.Fatal("Failed to migrate database", "error", err)
 	} else {
