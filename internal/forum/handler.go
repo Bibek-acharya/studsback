@@ -1,7 +1,10 @@
 package forum
 
 import (
+	"strings"
+
 	"studsphere/backend/internal/shared/response"
+	"studsphere/backend/internal/shared/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -413,8 +416,25 @@ func (h *Handler) UploadForumMedia(c *gin.Context) {
 
 func getUserID(c *gin.Context) uint {
 	userID, exists := c.Get("user_id")
-	if !exists {
-		return 0
+	if exists {
+		return userID.(uint)
 	}
-	return userID.(uint)
+
+	authHeader := c.GetHeader("Authorization")
+	if authHeader != "" {
+		parts := strings.Split(authHeader, " ")
+		if len(parts) == 2 && parts[0] == "Bearer" {
+			if claims, err := utils.ValidateToken(parts[1]); err == nil {
+				return claims.UserID
+			}
+		}
+	}
+
+	if cookieToken, err := c.Cookie("token"); err == nil && cookieToken != "" {
+		if claims, err := utils.ValidateToken(cookieToken); err == nil {
+			return claims.UserID
+		}
+	}
+
+	return 0
 }

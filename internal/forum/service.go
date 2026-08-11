@@ -324,16 +324,22 @@ func (s *Service) GetForumPostComments(postID uint, limit, offset int) (map[stri
 }
 
 func (s *Service) CreateForumPost(req CreatePostRequest, userID uint) (*PostResponse, error) {
-	if req.CommunityID != 0 {
-		community, err := s.repo.GetCommunityByID(req.CommunityID)
+	if req.CommunityID == 0 {
+		general, err := s.repo.FindCommunityByName("General")
 		if err != nil {
-			return nil, errors.New("community not found")
+			return nil, errors.New("General community not found")
 		}
-		if !community.IsGeneral {
-			_, err = s.repo.FindMembership(req.CommunityID, userID)
-			if err != nil {
-				return nil, errors.New("you must join this community before posting")
-			}
+		req.CommunityID = general.ID
+	}
+
+	community, err := s.repo.GetCommunityByID(req.CommunityID)
+	if err != nil {
+		return nil, errors.New("community not found")
+	}
+	if !community.IsGeneral {
+		_, err = s.repo.FindMembership(req.CommunityID, userID)
+		if err != nil {
+			return nil, errors.New("you must join this community before posting")
 		}
 	}
 
@@ -355,7 +361,7 @@ func (s *Service) CreateForumPost(req CreatePostRequest, userID uint) (*PostResp
 		return nil, errors.New("failed to create post")
 	}
 
-	post, err := s.repo.GetPostByID(post.ID)
+	post, err = s.repo.GetPostByID(post.ID)
 	if err != nil {
 		return nil, errors.New("failed to fetch created post")
 	}
