@@ -51,6 +51,10 @@ func (s *Service) SubmitReview(userID uint, req CreateReviewRequest) (*ReviewRes
 		return nil, err
 	}
 
+	if review.CollegeID > 0 {
+		_ = s.repo.UpdateCollegeRating(review.CollegeID)
+	}
+
 	return toReviewResponse(review), nil
 }
 
@@ -85,7 +89,7 @@ func (s *Service) GetUserReviews(userID uint, page, limit int) (*PaginatedReview
 	}, nil
 }
 
-func (s *Service) GetCollegeReviews(collegeID uint, page, limit int) (*CollegeReviewsResponse, error) {
+func (s *Service) GetCollegeReviews(collegeID, instID uint, page, limit int) (*CollegeReviewsResponse, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -93,15 +97,39 @@ func (s *Service) GetCollegeReviews(collegeID uint, page, limit int) (*CollegeRe
 		limit = 10
 	}
 
-	reviews, total, err := s.repo.FindByCollege(collegeID, page, limit)
-	if err != nil {
-		return nil, err
+	allReviews := make([]Review, 0)
+	var total int64
+
+	if collegeID > 0 {
+		r, t, err := s.repo.FindByCollege(collegeID, page, limit)
+		if err != nil {
+			return nil, err
+		}
+		allReviews = append(allReviews, r...)
+		total = t
+	}
+
+	if instID > 0 {
+		r, t, err := s.repo.FindByInstitution(instID, page, limit)
+		if err != nil {
+			return nil, err
+		}
+		seen := make(map[uint]bool)
+		for _, existing := range allReviews {
+			seen[existing.ID] = true
+		}
+		for _, rev := range r {
+			if !seen[rev.ID] {
+				allReviews = append(allReviews, rev)
+			}
+		}
+		total += t
 	}
 
 	totalPages := int(math.Ceil(float64(total) / float64(limit)))
 
-	responses := make([]ReviewResponse, len(reviews))
-	for i, r := range reviews {
+	responses := make([]ReviewResponse, len(allReviews))
+	for i, r := range allReviews {
 		responses[i] = *toReviewResponse(&r)
 	}
 
@@ -109,37 +137,44 @@ func (s *Service) GetCollegeReviews(collegeID uint, page, limit int) (*CollegeRe
 	categoryAverages := make(map[string]float64)
 	categoryCounts := make(map[string]int)
 
-	allReviews, err := s.repo.FindAllByCollege(collegeID)
-	if err == nil {
-		var totalRating float64
-		for _, r := range allReviews {
-			ratings := make(map[string]float64)
-			if err := json.Unmarshal(r.Ratings, &ratings); err == nil {
-				for cat, val := range ratings {
-					categoryAverages[cat] += val
-					categoryCounts[cat]++
-				}
-				for _, val := range ratings {
-					totalRating += val
-				}
+	forReviewCalc := allReviews
+	if collegeID > 0 {
+		extra, _ := s.repo.FindAllByCollege(collegeID)
+		forReviewCalc = append(forReviewCalc, extra...)
+	}
+	if instID > 0 {
+		extra, _ := s.repo.FindAllByInstitution(instID)
+		forReviewCalc = append(forReviewCalc, extra...)
+	}
+
+	seenForCalc := make(map[uint]bool)
+	var uniqueReviews []Review
+	for _, r := range forReviewCalc {
+		if !seenForCalc[r.ID] {
+			seenForCalc[r.ID] = true
+			uniqueReviews = append(uniqueReviews, r)
+		}
+	}
+
+	var totalRating float64
+	for _, r := range uniqueReviews {
+		ratings := make(map[string]float64)
+		if err := json.Unmarshal(r.Ratings, &ratings); err == nil {
+			for cat, val := range ratings {
+				categoryAverages[cat] += val
+				categoryCounts[cat]++
+			}
+			for _, val := range ratings {
+				totalRating += val
 			}
 		}
-		if len(allReviews) > 0 {
-			ratingCount := 0
-			for _, r := range allReviews {
-				ratings := make(map[string]float64)
-				if json.Unmarshal(r.Ratings, &ratings) == nil {
-					ratingCount += len(ratings)
-				}
-			}
-			if ratingCount > 0 {
-				overallRating = math.Round(totalRating/float64(len(allReviews))*10) / 10
-			}
-		}
-		for cat := range categoryAverages {
-			if categoryCounts[cat] > 0 {
-				categoryAverages[cat] = math.Round(categoryAverages[cat]/float64(categoryCounts[cat])*10) / 10
-			}
+	}
+	if len(uniqueReviews) > 0 {
+		overallRating = math.Round(totalRating/float64(len(uniqueReviews))*10) / 10
+	}
+	for cat := range categoryAverages {
+		if categoryCounts[cat] > 0 {
+			categoryAverages[cat] = math.Round(categoryAverages[cat]/float64(categoryCounts[cat])*10) / 10
 		}
 	}
 

@@ -362,6 +362,26 @@ func (r *Repository) FindReviewAggregations(collegeIDs []uint) (map[uint]ReviewA
 	return result, nil
 }
 
+func (r *Repository) UpdateCollegeRating(collegeID uint) error {
+	var result struct {
+		AvgRating  float64
+		TotalCount int64
+	}
+	err := r.db.Table("reviews").
+		Select("COALESCE(AVG(ratings->>'Overall Experience')::numeric, 0) as avg_rating, COUNT(*) as total_count").
+		Where("college_id = ? AND is_published = ?", collegeID, true).
+		Scan(&result).Error
+	if err != nil {
+		return err
+	}
+	return r.db.Table("colleges").
+		Where("id = ?", collegeID).
+		Updates(map[string]interface{}{
+			"rating":  result.AvgRating,
+			"reviews": result.TotalCount,
+		}).Error
+}
+
 type InstitutionMapDTO struct {
 	ID        uint    `json:"id"`
 	Name      string  `json:"name"`
