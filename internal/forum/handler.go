@@ -158,7 +158,15 @@ func (h *Handler) CreateForumPost(c *gin.Context) {
 
 	post, err := h.service.CreateForumPost(req, userID.(uint))
 	if err != nil {
-		response.Error(c, 500, err.Error())
+		msg := err.Error()
+		switch msg {
+		case "you must join this community before posting":
+			response.Error(c, 403, msg)
+		case "community not found", "General community not found":
+			response.Error(c, 404, msg)
+		default:
+			response.Error(c, 500, msg)
+		}
 		return
 	}
 
