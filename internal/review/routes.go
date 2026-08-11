@@ -49,6 +49,15 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			adminReviews.DELETE("/:id", h.AdminDeleteReview)
 		}
 
+		// Institution review management routes
+		instReviews := v1.Group("/institution/reviews")
+		instReviews.Use(authMW)
+		instReviews.Use(roleMW)
+		{
+			instReviews.GET("/college/:collegeId", h.GetCollegeReviews)
+			instReviews.DELETE("/:id", h.AdminDeleteReview)
+		}
+
 		// Admin date report management routes
 		adminDateReports := v1.Group("/admin/date-reports")
 		adminDateReports.Use(authMW)
