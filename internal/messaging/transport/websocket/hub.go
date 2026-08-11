@@ -90,6 +90,11 @@ func (h *Hub) HandleMessage(conn *Connection, msg WSMessage) {
 			return
 		}
 		fmt.Printf("typing start from %s:%d in conversation %d\n", conn.userType, conn.userID, data.ConversationID)
+		h.broadcastToConversation(events.Event{Type: "typing.start", Data: map[string]interface{}{
+			"conversation_id": float64(data.ConversationID),
+			"user_type":       conn.userType,
+			"user_id":         float64(conn.userID),
+		}})
 
 	case "typing.stop":
 		var data TypingData
@@ -97,6 +102,11 @@ func (h *Hub) HandleMessage(conn *Connection, msg WSMessage) {
 			return
 		}
 		fmt.Printf("typing stop from %s:%d in conversation %d\n", conn.userType, conn.userID, data.ConversationID)
+		h.broadcastToConversation(events.Event{Type: "typing.stop", Data: map[string]interface{}{
+			"conversation_id": float64(data.ConversationID),
+			"user_type":       conn.userType,
+			"user_id":         float64(conn.userID),
+		}})
 
 	case "ping":
 		conn.WriteMessage(WSMessage{Version: 1, Type: "pong"})
@@ -105,30 +115,64 @@ func (h *Hub) HandleMessage(conn *Connection, msg WSMessage) {
 
 func (h *Hub) onMessageCreated(event events.Event) {
 	fmt.Printf("message.created event: %v\n", event.Data)
+	h.broadcastToConversation(event)
 }
 
 func (h *Hub) onMessageRead(event events.Event) {
 	fmt.Printf("message.read event: %v\n", event.Data)
+	h.broadcastToConversation(event)
 }
 
 func (h *Hub) onMessageEdited(event events.Event) {
 	fmt.Printf("message.edited event: %v\n", event.Data)
+	h.broadcastToConversation(event)
 }
 
 func (h *Hub) onMessageDeleted(event events.Event) {
 	fmt.Printf("message.deleted event: %v\n", event.Data)
+	h.broadcastToConversation(event)
 }
 
 func (h *Hub) onTypingStart(event events.Event) {
 	fmt.Printf("typing.start event: %v\n", event.Data)
+	h.broadcastToConversation(event)
 }
 
 func (h *Hub) onTypingStop(event events.Event) {
 	fmt.Printf("typing.stop event: %v\n", event.Data)
+	h.broadcastToConversation(event)
 }
 
 func (h *Hub) onPresenceChanged(event events.Event) {
 	fmt.Printf("presence.changed event: %v\n", event.Data)
+}
+
+func (h *Hub) broadcastToConversation(event events.Event) {
+	data, ok := event.Data.(map[string]interface{})
+	if !ok {
+		return
+	}
+
+	convID, ok := data["conversation_id"].(float64)
+	if !ok {
+		return
+	}
+
+	wsMsg := WSMessage{
+		Version: 1,
+		Type:    event.Type,
+		Data:    event.Data,
+	}
+
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	for _, conns := range h.connections {
+		for _, conn := range conns {
+			_ = uint(convID)
+			conn.WriteMessage(wsMsg)
+		}
+	}
 }
 
 func mapToStruct(data interface{}, target interface{}) error {
