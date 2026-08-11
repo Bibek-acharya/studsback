@@ -39,14 +39,16 @@ func SetupRoutes(router *gin.RouterGroup, db *gorm.DB, redis *redis.Client, nats
 	var eventSubscriber events.EventSubscriber
 	var hub *ws.Hub
 
+	hub = ws.NewHub(nil, presenceService, participantRepo)
+	go hub.Run()
+
 	if nats != nil {
 		eventPublisher = events.NewEventPublisher(nats, outboxRepo)
 		eventSubscriber = events.NewEventSubscriber(nats)
-		hub = ws.NewHub(eventSubscriber, presenceService)
-		go hub.Run()
+		hub.SetSubscriber(eventSubscriber)
 		eventPublisher.Start()
 	} else {
-		log.Println("NATS not connected, real-time events disabled")
+		log.Println("NATS not connected, real-time via direct hub broadcast")
 	}
 
 	// HTTP Handlers
@@ -72,9 +74,7 @@ func SetupRoutes(router *gin.RouterGroup, db *gorm.DB, redis *redis.Client, nats
 	uploads.Use(authMiddleware)
 	uploads.POST("", uploadHandler.Upload)
 
-	// WebSocket (only if NATS is available)
-	if hub != nil {
-		wsHandler := ws.NewWSHandler(hub)
-		router.GET("/ws", wsHandler.HandleWS)
-	}
+	// WebSocket
+	wsHandler := ws.NewWSHandler(hub)
+	router.GET("/ws", wsHandler.HandleWS)
 }
