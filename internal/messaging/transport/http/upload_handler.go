@@ -16,8 +16,8 @@ func NewUploadHandler(s application.UploadService) *UploadHandler {
 }
 
 func (h *UploadHandler) Upload(c *gin.Context) {
-	userID, _ := c.Get("userID")
-	userType, _ := c.Get("userType")
+	userID, _ := c.Get("user_id")
+	userType, _ := c.Get("user_role")
 
 	file, err := c.FormFile("file")
 	if err != nil {
