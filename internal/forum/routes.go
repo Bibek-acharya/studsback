@@ -29,6 +29,15 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 				protectedForum.POST("/upload", h.UploadForumMedia)
 				protectedForum.POST("/communities", h.CreateForumCommunity)
 				protectedForum.POST("/communities/:id/join", h.JoinForumCommunity)
+				protectedForum.PUT("/communities/:id", h.UpdateForumCommunity)
+				protectedForum.DELETE("/communities/:id", h.DeleteForumCommunity)
+			}
+
+			adminForum := forum.Group("/admin")
+			adminForum.Use(authMW)
+			adminForum.Use(roleMW)
+			{
+				adminForum.DELETE("/posts/:id", h.AdminDeleteForumPost)
 			}
 		}
 	}

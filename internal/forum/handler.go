@@ -64,6 +64,53 @@ func (h *Handler) JoinForumCommunity(c *gin.Context) {
 	response.Success(c, 200, "Community membership updated", community)
 }
 
+func (h *Handler) UpdateForumCommunity(c *gin.Context) {
+	communityID, err := ParseUint(c.Param("id"))
+	if err != nil || communityID <= 0 {
+		response.Error(c, 400, "Invalid community ID")
+		return
+	}
+
+	var req UpdateCommunityRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+
+	community, err := h.service.UpdateForumCommunity(communityID, req)
+	if err != nil {
+		if err.Error() == "community not found" {
+			response.Error(c, 404, err.Error())
+		} else {
+			response.Error(c, 500, err.Error())
+		}
+		return
+	}
+
+	response.Success(c, 200, "Community updated successfully", community)
+}
+
+func (h *Handler) DeleteForumCommunity(c *gin.Context) {
+	communityID, err := ParseUint(c.Param("id"))
+	if err != nil || communityID <= 0 {
+		response.Error(c, 400, "Invalid community ID")
+		return
+	}
+
+	if err := h.service.DeleteForumCommunity(communityID); err != nil {
+		if err.Error() == "community not found" {
+			response.Error(c, 404, err.Error())
+		} else if err.Error() == "the General community cannot be deleted" {
+			response.Error(c, 403, err.Error())
+		} else {
+			response.Error(c, 500, err.Error())
+		}
+		return
+	}
+
+	response.Success(c, 200, "Community deleted successfully", nil)
+}
+
 func (h *Handler) GetForumPosts(c *gin.Context) {
 	category := c.Query("category")
 	communityID := c.Query("community_id")
@@ -155,6 +202,25 @@ func (h *Handler) DeleteForumPost(c *gin.Context) {
 			response.Error(c, 404, err.Error())
 		} else {
 			response.Error(c, 403, err.Error())
+		}
+		return
+	}
+
+	response.Success(c, 200, "Post deleted successfully", nil)
+}
+
+func (h *Handler) AdminDeleteForumPost(c *gin.Context) {
+	postID, err := ParseUint(c.Param("id"))
+	if err != nil {
+		response.Error(c, 400, "Invalid post ID")
+		return
+	}
+
+	if err := h.service.AdminDeleteForumPost(postID); err != nil {
+		if err.Error() == "post not found" {
+			response.Error(c, 404, err.Error())
+		} else {
+			response.Error(c, 500, err.Error())
 		}
 		return
 	}

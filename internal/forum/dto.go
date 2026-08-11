@@ -3,7 +3,14 @@ package forum
 type CreateCommunityRequest struct {
 	Name        string `json:"name" binding:"required"`
 	Description string `json:"description"`
-	Emoji       string `json:"emoji"`
+	Icon        string `json:"icon"`
+	BgColor     string `json:"bg_color"`
+}
+
+type UpdateCommunityRequest struct {
+	Name        string `json:"name" binding:"required"`
+	Description string `json:"description"`
+	Icon        string `json:"icon"`
 	BgColor     string `json:"bg_color"`
 }
 
@@ -36,10 +43,11 @@ type CommunityResponse struct {
 	ID          uint   `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
-	Emoji       string `json:"emoji"`
+	Icon        string `json:"icon"`
 	BgColor     string `json:"bg_color"`
 	MemberCount int    `json:"member_count"`
 	IsMember    bool   `json:"is_member"`
+	IsGeneral   bool   `json:"is_general"`
 	PostCount   int    `json:"post_count"`
 }
 
