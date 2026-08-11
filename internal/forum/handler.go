@@ -130,6 +130,16 @@ func (h *Handler) GetForumPosts(c *gin.Context) {
 	response.Success(c, 200, "Posts retrieved successfully", posts)
 }
 
+func (h *Handler) GetTrendingForumPosts(c *gin.Context) {
+	posts, err := h.service.GetTrendingForumPosts()
+	if err != nil {
+		response.Error(c, 500, err.Error())
+		return
+	}
+
+	response.Success(c, 200, "Trending posts retrieved successfully", posts)
+}
+
 func (h *Handler) CreateForumPost(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {

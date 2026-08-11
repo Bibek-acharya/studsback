@@ -276,6 +276,26 @@ func (s *Service) GetForumPosts(category, communityID string, currentUserID uint
 	return responses, nil
 }
 
+func (s *Service) GetTrendingForumPosts() ([]TrendingPostResponse, error) {
+	posts, err := s.repo.GetTrendingPosts(5)
+	if err != nil {
+		return nil, errors.New("failed to fetch trending posts")
+	}
+
+	var responses []TrendingPostResponse
+	for _, p := range posts {
+		responses = append(responses, TrendingPostResponse{
+			ID:           p.ID,
+			Title:        p.Title,
+			Category:     p.Category,
+			Upvotes:      p.Upvotes,
+			CommentCount: p.CommentCount,
+		})
+	}
+
+	return responses, nil
+}
+
 func (s *Service) GetForumPostComments(postID uint, limit, offset int) (map[string]interface{}, error) {
 	totalCount, err := s.repo.GetCommentCount(postID)
 	if err != nil {

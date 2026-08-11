@@ -1,6 +1,8 @@
 package forum
 
 import (
+	"time"
+
 	"gorm.io/gorm"
 )
 
@@ -262,4 +264,13 @@ func (r *Repository) DeleteMembersByCommunityID(communityID uint) error {
 
 func (r *Repository) HardDeletePost(postID uint) error {
 	return r.db.Unscoped().Where("id = ?", postID).Delete(&ForumPost{}).Error
+}
+
+func (r *Repository) GetTrendingPosts(limit int) ([]ForumPost, error) {
+	var posts []ForumPost
+	err := r.db.Where("created_at >= ?", time.Now().Add(-24*time.Hour)).
+		Order("(upvotes + comment_count) DESC").
+		Limit(limit).
+		Find(&posts).Error
+	return posts, err
 }

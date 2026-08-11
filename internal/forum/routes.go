@@ -12,6 +12,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 		forum := v1.Group("/forum")
 		{
 			forum.GET("/posts", h.GetForumPosts)
+			forum.GET("/posts/trending", h.GetTrendingForumPosts)
 			forum.GET("/posts/:id/comments", h.GetForumPostComments)
 			forum.GET("/communities", h.GetForumCommunities)
 

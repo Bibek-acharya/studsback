@@ -85,3 +85,11 @@ type CommentResponse struct {
 	ParentID  *uint             `json:"parent_id"`
 	Replies   []CommentResponse `json:"replies"`
 }
+
+type TrendingPostResponse struct {
+	ID           uint   `json:"id"`
+	Title        string `json:"title"`
+	Category     string `json:"category"`
+	Upvotes      int    `json:"upvotes"`
+	CommentCount int    `json:"comment_count"`
+}
