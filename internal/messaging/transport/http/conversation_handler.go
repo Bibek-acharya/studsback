@@ -97,7 +97,8 @@ func (h *ConversationHandler) Create(c *gin.Context) {
 	}
 
 	var req struct {
-		InstitutionID   uint   `json:"institution_id" binding:"required"`
+		InstitutionID   uint   `json:"institution_id"`
+		StudentID       uint   `json:"student_id"`
 		Content         string `json:"content" binding:"required"`
 		Subject         string `json:"subject"`
 		ClientMessageID string `json:"client_message_id" binding:"required"`
@@ -111,17 +112,25 @@ func (h *ConversationHandler) Create(c *gin.Context) {
 
 	studentID := uint(0)
 	institutionID := uint(0)
+	senderType := ""
 
 	if role == "student" {
 		studentID = userID.(uint)
 		institutionID = req.InstitutionID
+		senderType = "student"
 	} else {
 		institutionID = userID.(uint)
-		studentID = req.InstitutionID
+		studentID = req.StudentID
+		senderType = "institution"
+	}
+
+	if studentID == 0 || institutionID == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "missing student_id or institution_id"})
+		return
 	}
 
 	conversation, message, err := h.service.Create(
-		studentID, institutionID, req.Content, req.Subject, req.ClientMessageID, req.AttachmentIDs,
+		studentID, institutionID, senderType, req.Content, req.Subject, req.ClientMessageID, req.AttachmentIDs,
 	)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

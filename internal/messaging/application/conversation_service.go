@@ -7,7 +7,7 @@ import (
 )
 
 type ConversationService interface {
-	Create(studentID, institutionID uint, content, subject, clientMessageID string, attachmentIDs []uint) (*domain.Conversation, *domain.Message, error)
+	Create(studentID, institutionID uint, senderType, content, subject, clientMessageID string, attachmentIDs []uint) (*domain.Conversation, *domain.Message, error)
 	GetByID(id uint) (*domain.Conversation, error)
 	ListByStudent(studentID uint, limit, offset int) ([]domain.Conversation, error)
 	ListByInstitution(institutionID uint, limit, offset int) ([]domain.Conversation, error)
@@ -34,24 +34,28 @@ func NewConversationService(
 	}
 }
 
-func (s *conversationService) Create(studentID, institutionID uint, content, subject, clientMessageID string, attachmentIDs []uint) (*domain.Conversation, *domain.Message, error) {
+func (s *conversationService) Create(studentID, institutionID uint, senderType, content, subject, clientMessageID string, attachmentIDs []uint) (*domain.Conversation, *domain.Message, error) {
 	existing, _ := s.conversationRepo.GetByStudentAndInstitution(studentID, institutionID)
+
+	var conversation *domain.Conversation
+	var err error
+
 	if existing != nil {
-		return nil, nil, fmt.Errorf("conversation already exists between student %d and institution %d", studentID, institutionID)
-	}
+		conversation = existing
+	} else {
+		conversation = &domain.Conversation{
+			StudentID:     studentID,
+			InstitutionID: institutionID,
+		}
 
-	conversation := &domain.Conversation{
-		StudentID:     studentID,
-		InstitutionID: institutionID,
-	}
+		participants := []domain.Participant{
+			{ParticipantType: "student", ParticipantID: studentID, UnreadCount: 0},
+			{ParticipantType: "institution", ParticipantID: institutionID, UnreadCount: 1},
+		}
 
-	participants := []domain.Participant{
-		{ParticipantType: "student", ParticipantID: studentID, UnreadCount: 0},
-		{ParticipantType: "institution", ParticipantID: institutionID, UnreadCount: 1},
-	}
-
-	if err := s.conversationRepo.Create(conversation, participants); err != nil {
-		return nil, nil, fmt.Errorf("failed to create conversation: %w", err)
+		if err = s.conversationRepo.Create(conversation, participants); err != nil {
+			return nil, nil, fmt.Errorf("failed to create conversation: %w", err)
+		}
 	}
 
 	preview := content
@@ -59,10 +63,15 @@ func (s *conversationService) Create(studentID, institutionID uint, content, sub
 		preview = preview[:100] + "..."
 	}
 
+	senderID := studentID
+	if senderType == "institution" {
+		senderID = institutionID
+	}
+
 	message := &domain.Message{
 		ConversationID:  conversation.ID,
-		SenderType:      "student",
-		SenderID:        studentID,
+		SenderType:      senderType,
+		SenderID:        senderID,
 		ClientMessageID: clientMessageID,
 		Content:         content,
 	}
