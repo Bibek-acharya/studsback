@@ -69,8 +69,9 @@ func (h *Handler) GetCollegeReviews(c *gin.Context) {
 
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	instID, _ := strconv.ParseUint(c.Query("inst_id"), 10, 64)
 
-	result, err := h.service.GetCollegeReviews(uint(collegeID), page, limit)
+	result, err := h.service.GetCollegeReviews(uint(collegeID), uint(instID), page, limit)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return

@@ -2242,3 +2242,20 @@ func (h *Handler) GetPublicInstitutionFilterCounts(c *gin.Context) {
 
 	response.Success(c, http.StatusOK, "Institution filter counts retrieved successfully", result)
 }
+
+func (h *Handler) GetStudentProfile(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "invalid student id")
+		return
+	}
+
+	profile, err := h.service.GetStudentProfile(uint(id))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "student not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "student profile retrieved", profile)
+}

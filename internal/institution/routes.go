@@ -124,6 +124,8 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 
 			institution.GET("/scholarship-applications", h.GetScholarshipApplications)
 			institution.PUT("/scholarship-applications/:id/status", h.UpdateScholarshipApplicationStatus)
+
+			institution.GET("/students/:id", h.GetStudentProfile)
 		}
 	}
 }

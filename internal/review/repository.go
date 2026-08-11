@@ -141,6 +141,13 @@ func (r *Repository) FindAllByCollege(collegeID uint) ([]Review, error) {
 	return reviews, err
 }
 
+func (r *Repository) FindAllByInstitution(instID uint) ([]Review, error) {
+	var reviews []Review
+	err := r.db.Where("institution_id = ? AND is_published = ?", instID, true).
+		Find(&reviews).Error
+	return reviews, err
+}
+
 func (r *Repository) Save(review *Review) error {
 	return r.db.Save(review).Error
 }

@@ -2523,3 +2523,7 @@ func (s *Service) ToggleSponsored(id uint, isSponsored bool) error {
 func (s *Service) GetPublicInstitutionFilterCounts() (*PublicInstitutionFilterCountsResponse, error) {
 	return s.repo.GetPublicFilterCounts()
 }
+
+func (s *Service) GetStudentProfile(studentID uint) (*StudentProfileResponse, error) {
+	return s.repo.FindUserByID(studentID)
+}

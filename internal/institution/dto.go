@@ -1028,3 +1028,14 @@ type PublicInstitutionFilterCountsResponse struct {
 	Verified        int64            `json:"verified"`
 	Popular         int64            `json:"popular"`
 }
+
+type StudentProfileResponse struct {
+	ID        uint   `json:"id"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+	Email     string `json:"email"`
+	Phone     string `json:"phone"`
+	Address   string `json:"address"`
+	Bio       string `json:"bio"`
+	ImageURL  string `json:"image_url"`
+}

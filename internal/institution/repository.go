@@ -1577,3 +1577,32 @@ func (r *Repository) GetPublicFilterCounts() (*PublicInstitutionFilterCountsResp
 func (r *Repository) UpdateInstitutionField(id uint, field string, value interface{}) error {
 	return r.db.Model(&InstitutionUser{}).Where("id = ?", id).Update(field, value).Error
 }
+
+type userRow struct {
+	ID        uint
+	FirstName string
+	LastName  string
+	Email     string
+	Phone     string
+	Address   string
+	Bio       string
+	ImageURL  string
+}
+
+func (r *Repository) FindUserByID(id uint) (*StudentProfileResponse, error) {
+	var row userRow
+	err := r.db.Table("users").Where("id = ? AND deleted_at IS NULL", id).First(&row).Error
+	if err != nil {
+		return nil, err
+	}
+	return &StudentProfileResponse{
+		ID:        row.ID,
+		FirstName: row.FirstName,
+		LastName:  row.LastName,
+		Email:     row.Email,
+		Phone:     row.Phone,
+		Address:   row.Address,
+		Bio:       row.Bio,
+		ImageURL:  row.ImageURL,
+	}, nil
+}
