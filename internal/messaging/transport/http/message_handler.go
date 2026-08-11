@@ -6,15 +6,17 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"studsphere/backend/internal/messaging/application"
+	ws "studsphere/backend/internal/messaging/transport/websocket"
 )
 
 type MessageHandler struct {
 	messageService application.MessageService
 	readService    application.ReadService
+	hub            *ws.Hub
 }
 
-func NewMessageHandler(ms application.MessageService, rs application.ReadService) *MessageHandler {
-	return &MessageHandler{messageService: ms, readService: rs}
+func NewMessageHandler(ms application.MessageService, rs application.ReadService, hub *ws.Hub) *MessageHandler {
+	return &MessageHandler{messageService: ms, readService: rs, hub: hub}
 }
 
 func (h *MessageHandler) List(c *gin.Context) {
@@ -60,6 +62,11 @@ func (h *MessageHandler) Send(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	h.hub.BroadcastToConversation(uint(conversationID), "message.created", map[string]interface{}{
+		"conversation_id": float64(conversationID),
+		"message":         message,
+	})
 
 	c.JSON(http.StatusCreated, message)
 }
@@ -132,6 +139,13 @@ func (h *MessageHandler) MarkRead(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	h.hub.BroadcastToConversation(uint(conversationID), "message.read", map[string]interface{}{
+		"conversation_id": float64(conversationID),
+		"reader_type":     role,
+		"reader_id":       float64(userID.(uint)),
+		"last_message_id": float64(req.LastMessageID),
+	})
 
 	c.JSON(http.StatusOK, gin.H{"message": "marked as read"})
 }

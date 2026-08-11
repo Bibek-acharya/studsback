@@ -53,7 +53,7 @@ func SetupRoutes(router *gin.RouterGroup, db *gorm.DB, redis *redis.Client, nats
 
 	// HTTP Handlers
 	conversationHandler := httpHandler.NewConversationHandler(conversationService, db)
-	messageHandler := httpHandler.NewMessageHandler(messageService, readService)
+	messageHandler := httpHandler.NewMessageHandler(messageService, readService, hub)
 	uploadHandler := httpHandler.NewUploadHandler(uploadService)
 
 	// Routes (protected by auth)
