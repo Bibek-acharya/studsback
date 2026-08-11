@@ -54,6 +54,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 		instReviews.Use(authMW)
 		instReviews.Use(roleMW)
 		{
+			instReviews.GET("", h.GetInstitutionReviews)
 			instReviews.GET("/college/:collegeId", h.GetCollegeReviews)
 			instReviews.DELETE("/:id", h.AdminDeleteReview)
 		}

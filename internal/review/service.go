@@ -157,6 +157,37 @@ func (s *Service) GetCollegeReviews(collegeID uint, page, limit int) (*CollegeRe
 	}, nil
 }
 
+func (s *Service) GetInstitutionReviews(instID uint, page, limit int) (*PaginatedReviewsResponse, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 10
+	}
+
+	reviews, total, err := s.repo.FindByInstitution(instID, page, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	totalPages := int(math.Ceil(float64(total) / float64(limit)))
+
+	responses := make([]ReviewResponse, len(reviews))
+	for i, r := range reviews {
+		responses[i] = *toReviewResponse(&r)
+	}
+
+	return &PaginatedReviewsResponse{
+		Reviews: responses,
+		Meta: Meta{
+			Total:      int(total),
+			Page:       page,
+			Limit:      limit,
+			TotalPages: totalPages,
+		},
+	}, nil
+}
+
 func (s *Service) UpdateReview(reviewID, userID uint, req UpdateReviewRequest) (*ReviewResponse, error) {
 	review, err := s.repo.FindByIDAndUser(reviewID, userID)
 	if err != nil {

@@ -79,6 +79,21 @@ func (h *Handler) GetCollegeReviews(c *gin.Context) {
 	response.Success(c, http.StatusOK, "Reviews fetched successfully", result)
 }
 
+func (h *Handler) GetInstitutionReviews(c *gin.Context) {
+	instID := getUserID(c)
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+
+	result, err := h.service.GetInstitutionReviews(instID, page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Reviews fetched successfully", result)
+}
+
 func (h *Handler) UpdateReview(c *gin.Context) {
 	userID := getUserID(c)
 

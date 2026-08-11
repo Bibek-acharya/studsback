@@ -113,6 +113,27 @@ func (r *Repository) FindByCollege(collegeID uint, page, limit int) ([]Review, i
 	return reviews, total, nil
 }
 
+func (r *Repository) FindByInstitution(instID uint, page, limit int) ([]Review, int64, error) {
+	var reviews []Review
+	var total int64
+
+	if err := r.db.Model(&Review{}).Where("institution_id = ? AND is_published = ?", instID, true).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * limit
+	err := r.db.Preload("User").Where("institution_id = ? AND is_published = ?", instID, true).
+		Order("created_at desc").
+		Offset(offset).
+		Limit(limit).
+		Find(&reviews).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return reviews, total, nil
+}
+
 func (r *Repository) FindAllByCollege(collegeID uint) ([]Review, error) {
 	var reviews []Review
 	err := r.db.Where("college_id = ? AND is_published = ?", collegeID, true).
