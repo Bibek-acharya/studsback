@@ -16,7 +16,7 @@ import (
 	ws "studsphere/backend/internal/messaging/transport/websocket"
 )
 
-func SetupRoutes(router *gin.RouterGroup, db *gorm.DB, redis *redis.Client, nats *nats.Conn) {
+func SetupRoutes(router *gin.RouterGroup, db *gorm.DB, redis *redis.Client, nats *nats.Conn, authMiddleware gin.HandlerFunc) {
 	// Repositories
 	conversationRepo := repository.NewConversationRepository(db)
 	messageRepo := repository.NewMessageRepository(db)
@@ -54,8 +54,9 @@ func SetupRoutes(router *gin.RouterGroup, db *gorm.DB, redis *redis.Client, nats
 	messageHandler := httpHandler.NewMessageHandler(messageService, readService)
 	uploadHandler := httpHandler.NewUploadHandler(uploadService)
 
-	// Routes
+	// Routes (protected by auth)
 	messaging := router.Group("/conversations")
+	messaging.Use(authMiddleware)
 	{
 		messaging.GET("", conversationHandler.List)
 		messaging.GET("/:id", conversationHandler.GetByID)
@@ -67,7 +68,9 @@ func SetupRoutes(router *gin.RouterGroup, db *gorm.DB, redis *redis.Client, nats
 		messaging.POST("/:id/read", messageHandler.MarkRead)
 	}
 
-	router.POST("/uploads", uploadHandler.Upload)
+	uploads := router.Group("/uploads")
+	uploads.Use(authMiddleware)
+	uploads.POST("", uploadHandler.Upload)
 
 	// WebSocket (only if NATS is available)
 	if hub != nil {

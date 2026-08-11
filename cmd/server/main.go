@@ -433,7 +433,7 @@ func main() {
 
 	// Setup messaging routes
 	api := router.Group("/api/v1")
-	messaging.SetupRoutes(api, db, redisClient, natsConn)
+	messaging.SetupRoutes(api, db, redisClient, natsConn, authMW)
 
 	logger.Info("All routes registered", "port", config.AppConfig.Port)
 
