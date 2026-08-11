@@ -68,8 +68,8 @@ func (h *ConversationHandler) Create(c *gin.Context) {
 		role = userRole.(string)
 	}
 
-	if role != "student" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "only students can create conversations"})
+	if role != "student" && role != "institution" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "only students and institutions can create conversations"})
 		return
 	}
 
@@ -86,8 +86,19 @@ func (h *ConversationHandler) Create(c *gin.Context) {
 		return
 	}
 
+	studentID := uint(0)
+	institutionID := uint(0)
+
+	if role == "student" {
+		studentID = userID.(uint)
+		institutionID = req.InstitutionID
+	} else {
+		institutionID = userID.(uint)
+		studentID = req.InstitutionID
+	}
+
 	conversation, message, err := h.service.Create(
-		userID.(uint), req.InstitutionID, req.Content, req.Subject, req.ClientMessageID, req.AttachmentIDs,
+		studentID, institutionID, req.Content, req.Subject, req.ClientMessageID, req.AttachmentIDs,
 	)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
