@@ -17,6 +17,7 @@ type Review struct {
 	User              auth.User      `gorm:"foreignKey:UserID" json:"-"`
 	CollegeID         uint           `gorm:"index" json:"college_id"`
 	UniversityID      uint           `gorm:"index;uniqueIndex:idx_reviews_user_university,where:university_id <> 0" json:"university_id"`
+	InstitutionID     uint           `gorm:"index" json:"institution_id"`
 	CollegeName       string         `json:"college_name"`
 	StudentType       string         `gorm:"not null" json:"student_type"`
 	Course            string         `json:"course"`

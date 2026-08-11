@@ -64,12 +64,6 @@ func (s *uploadService) Upload(file *multipart.FileHeader, uploaderType string, 
 		return nil, fmt.Errorf("failed to upload to storage: %w", err)
 	}
 
-	var thumbnailKey string
-	if isImage(ext) {
-		thumbKey := fmt.Sprintf("messages/%s_thumb%s", id, ext)
-		thumbnailKey = thumbKey
-	}
-
 	upload := &domain.PendingUpload{
 		UploaderType: uploaderType,
 		UploaderID:   uploaderID,
@@ -77,7 +71,7 @@ func (s *uploadService) Upload(file *multipart.FileHeader, uploaderType string, 
 		FileSize:     file.Size,
 		FileType:     contentType,
 		StorageKey:   storageKey,
-		ThumbnailKey: thumbnailKey,
+		ThumbnailKey: "",
 		ExpiresAt:    time.Now().Add(24 * time.Hour),
 	}
 

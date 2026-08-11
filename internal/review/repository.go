@@ -27,7 +27,7 @@ func (r *Repository) FindByID(id uint) (*Review, error) {
 
 func (r *Repository) FindByIDAndUser(id, userID uint) (*Review, error) {
 	var review Review
-	err := r.db.Where("id = ? AND user_id = ?", id, userID).First(&review).Error
+	err := r.db.Preload("User").Where("id = ? AND user_id = ?", id, userID).First(&review).Error
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func (r *Repository) FindByUser(userID uint, page, limit int) ([]Review, int64, 
 	}
 
 	offset := (page - 1) * limit
-	err := r.db.Where("user_id = ?", userID).
+	err := r.db.Preload("User").Where("user_id = ?", userID).
 		Order("created_at desc").
 		Offset(offset).
 		Limit(limit).
@@ -101,7 +101,7 @@ func (r *Repository) FindByCollege(collegeID uint, page, limit int) ([]Review, i
 	}
 
 	offset := (page - 1) * limit
-	err := r.db.Where("college_id = ? AND is_published = ?", collegeID, true).
+	err := r.db.Preload("User").Where("college_id = ? AND is_published = ?", collegeID, true).
 		Order("created_at desc").
 		Offset(offset).
 		Limit(limit).

@@ -3,6 +3,7 @@ package review
 type CreateReviewRequest struct {
 	CollegeID         uint               `json:"college_id"`
 	CollegeName       string             `json:"college_name" binding:"required"`
+	InstitutionID     uint               `json:"institution_id"`
 	StudentType       string             `json:"student_type" binding:"required,oneof=current alumni"`
 	Course            string             `json:"course"`
 	Level             string             `json:"level"`
@@ -32,6 +33,7 @@ type ReviewResponse struct {
 	ID                uint               `json:"id"`
 	CollegeID         uint               `json:"college_id"`
 	UniversityID      uint               `json:"university_id"`
+	InstitutionID     uint               `json:"institution_id"`
 	CollegeName       string             `json:"college_name"`
 	UserID            uint               `json:"user_id"`
 	UserName          string             `json:"user_name"`
