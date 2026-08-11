@@ -201,7 +201,7 @@ func (r *Repository) FindAll(filters CollegeFilters) ([]College, int64, error) {
 
 	if filters.FeeMax > 0 {
 		var allColleges []College
-		if err := query.Order(sort + " " + order).
+		if err := query.Order("colleges.featured DESC, colleges.verified DESC, colleges.claimed DESC, " + sort + " " + order).
 			Find(&allColleges).Error; err != nil {
 			return nil, 0, err
 		}
@@ -233,7 +233,7 @@ func (r *Repository) FindAll(filters CollegeFilters) ([]College, int64, error) {
 
 	offset := (filters.Page - 1) * filters.PageSize
 
-	if err := query.Order(sort + " " + order).
+	if err := query.Order("colleges.featured DESC, colleges.verified DESC, colleges.claimed DESC, " + sort + " " + order).
 		Offset(offset).
 		Limit(filters.PageSize).
 		Find(&colleges).Error; err != nil {

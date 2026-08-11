@@ -347,7 +347,7 @@ func (r *Repository) FindPublicInstitutions(page, pageSize int, search, location
 	offset := (page - 1) * pageSize
 	err := query.
 		Select("institution_users.*").
-		Order("institution_users.verified DESC, institution_users.created_at DESC").
+		Order("institution_users.featured DESC, institution_users.verified DESC, institution_users.claimed DESC, institution_users.created_at DESC").
 		Offset(offset).Limit(pageSize).
 		Find(&users).Error
 
