@@ -33,8 +33,13 @@ func (h *MessageHandler) List(c *gin.Context) {
 
 func (h *MessageHandler) Send(c *gin.Context) {
 	conversationID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	userID, _ := c.Get("userID")
-	userType, _ := c.Get("userType")
+	userID, _ := c.Get("user_id")
+	userRole, _ := c.Get("user_role")
+
+	role := ""
+	if userRole != nil {
+		role = userRole.(string)
+	}
 
 	var req struct {
 		Content         string `json:"content"`
@@ -48,7 +53,7 @@ func (h *MessageHandler) Send(c *gin.Context) {
 	}
 
 	message, err := h.messageService.SendMessage(
-		uint(conversationID), userType.(string), userID.(uint),
+		uint(conversationID), role, userID.(uint),
 		req.Content, req.ClientMessageID, req.AttachmentIDs,
 	)
 	if err != nil {
@@ -61,8 +66,13 @@ func (h *MessageHandler) Send(c *gin.Context) {
 
 func (h *MessageHandler) Edit(c *gin.Context) {
 	messageID, _ := strconv.ParseUint(c.Param("msg_id"), 10, 64)
-	userID, _ := c.Get("userID")
-	userType, _ := c.Get("userType")
+	userID, _ := c.Get("user_id")
+	userRole, _ := c.Get("user_role")
+
+	role := ""
+	if userRole != nil {
+		role = userRole.(string)
+	}
 
 	var req struct {
 		Content string `json:"content" binding:"required"`
@@ -73,7 +83,7 @@ func (h *MessageHandler) Edit(c *gin.Context) {
 		return
 	}
 
-	if err := h.messageService.EditMessage(uint(messageID), userType.(string), userID.(uint), req.Content); err != nil {
+	if err := h.messageService.EditMessage(uint(messageID), role, userID.(uint), req.Content); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -83,10 +93,15 @@ func (h *MessageHandler) Edit(c *gin.Context) {
 
 func (h *MessageHandler) Delete(c *gin.Context) {
 	messageID, _ := strconv.ParseUint(c.Param("msg_id"), 10, 64)
-	userID, _ := c.Get("userID")
-	userType, _ := c.Get("userType")
+	userID, _ := c.Get("user_id")
+	userRole, _ := c.Get("user_role")
 
-	if err := h.messageService.DeleteMessage(uint(messageID), userType.(string), userID.(uint)); err != nil {
+	role := ""
+	if userRole != nil {
+		role = userRole.(string)
+	}
+
+	if err := h.messageService.DeleteMessage(uint(messageID), role, userID.(uint)); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -96,8 +111,13 @@ func (h *MessageHandler) Delete(c *gin.Context) {
 
 func (h *MessageHandler) MarkRead(c *gin.Context) {
 	conversationID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	userID, _ := c.Get("userID")
-	userType, _ := c.Get("userType")
+	userID, _ := c.Get("user_id")
+	userRole, _ := c.Get("user_role")
+
+	role := ""
+	if userRole != nil {
+		role = userRole.(string)
+	}
 
 	var req struct {
 		LastMessageID uint `json:"last_message_id" binding:"required"`
@@ -108,7 +128,7 @@ func (h *MessageHandler) MarkRead(c *gin.Context) {
 		return
 	}
 
-	if err := h.readService.MarkAsRead(uint(conversationID), userType.(string), userID.(uint), req.LastMessageID); err != nil {
+	if err := h.readService.MarkAsRead(uint(conversationID), role, userID.(uint), req.LastMessageID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

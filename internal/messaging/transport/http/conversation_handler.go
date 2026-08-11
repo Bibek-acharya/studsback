@@ -18,8 +18,8 @@ func NewConversationHandler(s application.ConversationService) *ConversationHand
 }
 
 func (h *ConversationHandler) List(c *gin.Context) {
-	userID, _ := c.Get("userID")
-	userType, _ := c.Get("userType")
+	userID, _ := c.Get("user_id")
+	userRole, _ := c.Get("user_role")
 
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
@@ -27,7 +27,12 @@ func (h *ConversationHandler) List(c *gin.Context) {
 	var conversations []domain.Conversation
 	var err error
 
-	switch userType {
+	role := ""
+	if userRole != nil {
+		role = userRole.(string)
+	}
+
+	switch role {
 	case "student":
 		conversations, err = h.service.ListByStudent(userID.(uint), limit, offset)
 	case "institution":
@@ -55,10 +60,15 @@ func (h *ConversationHandler) GetByID(c *gin.Context) {
 }
 
 func (h *ConversationHandler) Create(c *gin.Context) {
-	userID, _ := c.Get("userID")
-	userType, _ := c.Get("userType")
+	userID, _ := c.Get("user_id")
+	userRole, _ := c.Get("user_role")
 
-	if userType != "student" {
+	role := ""
+	if userRole != nil {
+		role = userRole.(string)
+	}
+
+	if role != "student" {
 		c.JSON(http.StatusForbidden, gin.H{"error": "only students can create conversations"})
 		return
 	}
