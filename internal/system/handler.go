@@ -410,16 +410,17 @@ func (h *Handler) GetPublicNotifications(c *gin.Context) {
 
 func toContactInquiryResponse(inquiry *ContactInquiry) ContactInquiryResponse {
 	return ContactInquiryResponse{
-		ID:        inquiry.ID,
-		Name:      inquiry.Name,
-		Email:     inquiry.Email,
-		Phone:     inquiry.Phone,
-		Subject:   inquiry.Subject,
-		Message:   inquiry.Message,
-		Type:      inquiry.Type,
-		Status:    inquiry.Status,
-		CreatedAt: inquiry.CreatedAt.Format("2006-01-02T15:04:05Z"),
-		UpdatedAt: inquiry.UpdatedAt.Format("2006-01-02T15:04:05Z"),
+		ID:            inquiry.ID,
+		InstitutionID: inquiry.InstitutionID,
+		Name:          inquiry.Name,
+		Email:         inquiry.Email,
+		Phone:         inquiry.Phone,
+		Subject:       inquiry.Subject,
+		Message:       inquiry.Message,
+		Type:          inquiry.Type,
+		Status:        inquiry.Status,
+		CreatedAt:     inquiry.CreatedAt.Format("2006-01-02T15:04:05Z"),
+		UpdatedAt:     inquiry.UpdatedAt.Format("2006-01-02T15:04:05Z"),
 	}
 }
 

@@ -30,13 +30,14 @@ func (s *Service) SubmitContactInquiry(req ContactInquiryRequest) (*ContactInqui
 	}
 
 	inquiry := &ContactInquiry{
-		Name:    req.Name,
-		Email:   req.Email,
-		Phone:   req.Phone,
-		Subject: req.Subject,
-		Message: req.Message,
-		Type:    inquiryType,
-		Status:  "new",
+		Name:          req.Name,
+		Email:         req.Email,
+		Phone:         req.Phone,
+		Subject:       req.Subject,
+		Message:       req.Message,
+		Type:          inquiryType,
+		Status:        "new",
+		InstitutionID: req.InstitutionID,
 	}
 
 	if err := s.repo.CreateContactInquiry(inquiry); err != nil {
@@ -63,7 +64,8 @@ func (s *Service) GetContactInquiryByID(id uint) (*ContactInquiry, error) {
 
 func (s *Service) UpdateContactInquiryStatus(id uint, status string) (*ContactInquiry, error) {
 	validStatuses := map[string]bool{
-		"new": true, "read": true, "in_progress": true, "resolved": true, "closed": true,
+		"new": true, "New": true, "read": true, "in_progress": true, "resolved": true, "closed": true, "Closed": true,
+		"In Contact": true, "Follow Up": true, "Admitted": true,
 	}
 	if !validStatuses[status] {
 		return nil, errors.New("invalid status")
@@ -74,6 +76,16 @@ func (s *Service) UpdateContactInquiryStatus(id uint, status string) (*ContactIn
 
 func (s *Service) DeleteContactInquiry(id uint) error {
 	return s.repo.DeleteContactInquiry(id)
+}
+
+func (s *Service) GetInstitutionInquiries(institutionID uint, page, limit int, status, inquiryType, search string) ([]ContactInquiry, int64, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50 {
+		limit = 20
+	}
+	return s.repo.FindInstitutionInquiries(institutionID, page, limit, status, inquiryType, search)
 }
 
 func (s *Service) GetAds(page, limit int, pageFilter, positionFilter string, active *bool) ([]Ad, int64, error) {

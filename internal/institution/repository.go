@@ -1606,3 +1606,54 @@ func (r *Repository) FindUserByID(id uint) (*StudentProfileResponse, error) {
 		ImageURL:  row.ImageURL,
 	}, nil
 }
+
+func (r *Repository) FindInstitutionFollowers(institutionID uint, search string, page, limit int) ([]FollowerResponse, int64, error) {
+	var total int64
+	type Row struct {
+		ID         uint
+		FirstName  string
+		LastName   string
+		Email      string
+		Phone      string
+		Address    string
+		ImageURL   string
+		FollowedAt time.Time
+	}
+	countQuery := r.db.Table("user_follows").
+		Joins("JOIN users ON users.id = user_follows.user_id").
+		Where("user_follows.target_id = ? AND user_follows.target_type = ? AND users.deleted_at IS NULL", institutionID, "institution")
+	if search != "" {
+		countQuery = countQuery.Where("(users.first_name ILIKE ? OR users.last_name ILIKE ? OR users.email ILIKE ?)", "%"+search+"%", "%"+search+"%", "%"+search+"%")
+	}
+	if err := countQuery.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * limit
+	var rows []Row
+	query := r.db.Table("user_follows").
+		Select("users.id, users.first_name, users.last_name, users.email, users.phone, users.address, users.image_url, user_follows.created_at as followed_at").
+		Joins("JOIN users ON users.id = user_follows.user_id").
+		Where("user_follows.target_id = ? AND user_follows.target_type = ? AND users.deleted_at IS NULL", institutionID, "institution")
+	if search != "" {
+		query = query.Where("(users.first_name ILIKE ? OR users.last_name ILIKE ? OR users.email ILIKE ?)", "%"+search+"%", "%"+search+"%", "%"+search+"%")
+	}
+	if err := query.Order("user_follows.created_at desc").Offset(offset).Limit(limit).Find(&rows).Error; err != nil {
+		return nil, 0, err
+	}
+
+	followers := make([]FollowerResponse, len(rows))
+	for i, row := range rows {
+		followers[i] = FollowerResponse{
+			ID:         row.ID,
+			FirstName:  row.FirstName,
+			LastName:   row.LastName,
+			Email:      row.Email,
+			Phone:      row.Phone,
+			Address:    row.Address,
+			ImageURL:   row.ImageURL,
+			FollowedAt: row.FollowedAt.Format("2006-01-02T15:04:05Z"),
+		}
+	}
+	return followers, total, nil
+}

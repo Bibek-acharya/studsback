@@ -2527,3 +2527,11 @@ func (s *Service) GetPublicInstitutionFilterCounts() (*PublicInstitutionFilterCo
 func (s *Service) GetStudentProfile(studentID uint) (*StudentProfileResponse, error) {
 	return s.repo.FindUserByID(studentID)
 }
+
+func (s *Service) GetInstitutionInquiries(institutionID uint, page, limit int, status, inquiryType, search string) ([]system.ContactInquiry, int64, error) {
+	return s.systemSvc.GetInstitutionInquiries(institutionID, page, limit, status, inquiryType, search)
+}
+
+func (s *Service) GetInstitutionFollowers(institutionID uint, search string, page, limit int) ([]FollowerResponse, int64, error) {
+	return s.repo.FindInstitutionFollowers(institutionID, search, page, limit)
+}

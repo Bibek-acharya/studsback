@@ -269,7 +269,7 @@ func main() {
 	forumHandler := initModule(forum.NewRepository(db), forum.NewService, forum.NewHandler)
 
 	institutionSvc := institution.NewService(institutionRepo, systemSvc)
-	institutionHandler := institution.NewHandler(institutionSvc)
+	institutionHandler := institution.NewHandler(institutionSvc, systemSvc)
 
 	projectShikshaHandler := initModule(projectshiksha.NewRepository(db), projectshiksha.NewService, projectshiksha.NewHandler)
 	faqHandler := initModule(faq.NewRepository(db), faq.NewService, faq.NewHandler)

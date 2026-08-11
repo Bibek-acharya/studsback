@@ -1039,3 +1039,14 @@ type StudentProfileResponse struct {
 	Bio       string `json:"bio"`
 	ImageURL  string `json:"image_url"`
 }
+
+type FollowerResponse struct {
+	ID         uint   `json:"id"`
+	FirstName  string `json:"first_name"`
+	LastName   string `json:"last_name"`
+	Email      string `json:"email"`
+	Phone      string `json:"phone"`
+	Address    string `json:"address"`
+	ImageURL   string `json:"image_url"`
+	FollowedAt string `json:"followed_at"`
+}

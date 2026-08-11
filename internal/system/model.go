@@ -7,17 +7,18 @@ import (
 )
 
 type ContactInquiry struct {
-	ID        uint           `gorm:"primarykey" json:"id"`
-	CreatedAt time.Time      `json:"created_at"`
-	UpdatedAt time.Time      `json:"updated_at"`
-	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
-	Name      string         `gorm:"not null" json:"name"`
-	Email     string         `gorm:"not null" json:"email"`
-	Phone     string         `json:"phone"`
-	Subject   string         `json:"subject"`
-	Message   string         `gorm:"type:text" json:"message"`
-	Type      string         `gorm:"default:'general'" json:"type"`
-	Status    string         `gorm:"default:'new'" json:"status"`
+	ID            uint           `gorm:"primarykey" json:"id"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
+	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
+	InstitutionID *uint          `gorm:"index" json:"institution_id"`
+	Name          string         `gorm:"not null" json:"name"`
+	Email         string         `gorm:"not null" json:"email"`
+	Phone         string         `json:"phone"`
+	Subject       string         `json:"subject"`
+	Message       string         `gorm:"type:text" json:"message"`
+	Type          string         `gorm:"default:'general'" json:"type"`
+	Status        string         `gorm:"default:'new'" json:"status"`
 }
 
 type Ad struct {

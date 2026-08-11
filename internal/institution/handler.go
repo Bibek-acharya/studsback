@@ -11,16 +11,18 @@ import (
 	"studsphere/backend/internal/shared/response"
 	"studsphere/backend/internal/shared/sanitize"
 	"studsphere/backend/internal/shared/utils"
+	"studsphere/backend/internal/system"
 
 	"github.com/gin-gonic/gin"
 )
 
 type Handler struct {
-	service *Service
+	service   *Service
+	systemSvc *system.Service
 }
 
-func NewHandler(service *Service) *Handler {
-	return &Handler{service: service}
+func NewHandler(service *Service, systemSvc *system.Service) *Handler {
+	return &Handler{service: service, systemSvc: systemSvc}
 }
 
 func getInstID(c *gin.Context) uint {
@@ -2258,4 +2260,99 @@ func (h *Handler) GetStudentProfile(c *gin.Context) {
 	}
 
 	response.Success(c, http.StatusOK, "student profile retrieved", profile)
+}
+
+func (h *Handler) GetInstitutionInquiries(c *gin.Context) {
+	instID := getInstID(c)
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	status := c.Query("status")
+	inquiryType := c.Query("type")
+	search := c.Query("search")
+
+	inquiries, total, err := h.service.GetInstitutionInquiries(instID, page, limit, status, inquiryType, search)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to retrieve inquiries")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Inquiries retrieved", gin.H{
+		"inquiries": inquiries,
+		"pagination": gin.H{
+			"total": total,
+			"page":  page,
+			"limit": limit,
+		},
+	})
+}
+
+func (h *Handler) GetInstitutionFollowers(c *gin.Context) {
+	instID := getInstID(c)
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	search := c.Query("search")
+
+	followers, total, err := h.service.GetInstitutionFollowers(instID, search, page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to retrieve followers")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Followers retrieved", gin.H{
+		"followers": followers,
+		"pagination": gin.H{
+			"total": total,
+			"page":  page,
+			"limit": limit,
+		},
+	})
+}
+
+func (h *Handler) UpdateInquiryStatus(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid ID")
+		return
+	}
+
+	var req struct {
+		Status string `json:"status" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if h.systemSvc == nil {
+		response.Error(c, http.StatusInternalServerError, "System service not available")
+		return
+	}
+
+	inquiry, err := h.systemSvc.UpdateContactInquiryStatus(uint(id), req.Status)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Status updated", inquiry)
+}
+
+func (h *Handler) DeleteInquiry(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid ID")
+		return
+	}
+
+	if h.systemSvc == nil {
+		response.Error(c, http.StatusInternalServerError, "System service not available")
+		return
+	}
+
+	if err := h.systemSvc.DeleteContactInquiry(uint(id)); err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to delete inquiry")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Inquiry deleted", nil)
 }

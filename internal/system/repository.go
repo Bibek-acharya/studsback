@@ -73,6 +73,33 @@ func (r *Repository) DeleteContactInquiry(id uint) error {
 	return nil
 }
 
+func (r *Repository) FindInstitutionInquiries(institutionID uint, page, limit int, status, inquiryType, search string) ([]ContactInquiry, int64, error) {
+	var inquiries []ContactInquiry
+	var total int64
+
+	query := r.db.Model(&ContactInquiry{}).Where("institution_id = ?", institutionID)
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
+	if inquiryType != "" {
+		query = query.Where("type = ?", inquiryType)
+	}
+	if search != "" {
+		query = query.Where("name ILIKE ?", "%"+search+"%")
+	}
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * limit
+	if err := query.Order("created_at desc").Offset(offset).Limit(limit).Find(&inquiries).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return inquiries, total, nil
+}
+
 func (r *Repository) FindAds(page, limit int, pageFilter, positionFilter string, active *bool) ([]Ad, int64, error) {
 	var ads []Ad
 	var total int64

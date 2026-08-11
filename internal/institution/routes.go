@@ -126,6 +126,12 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			institution.PUT("/scholarship-applications/:id/status", h.UpdateScholarshipApplicationStatus)
 
 			institution.GET("/students/:id", h.GetStudentProfile)
+
+			institution.GET("/inquiries", h.GetInstitutionInquiries)
+			institution.PUT("/inquiries/:id/status", h.UpdateInquiryStatus)
+			institution.DELETE("/inquiries/:id", h.DeleteInquiry)
+
+			institution.GET("/followers", h.GetInstitutionFollowers)
 		}
 	}
 }
