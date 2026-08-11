@@ -70,6 +70,9 @@ func (s *messageService) SendMessage(conversationID uint, senderType string, sen
 		}
 	}
 
+	attachments, _ := s.attachmentRepo.GetByMessageID(message.ID)
+	message.Attachments = attachments
+
 	payload, _ := json.Marshal(map[string]interface{}{
 		"conversation_id": conversationID,
 		"message":         message,
@@ -156,5 +159,13 @@ func (s *messageService) DeleteMessage(messageID uint, senderType string, sender
 }
 
 func (s *messageService) GetByConversationID(conversationID uint, limit, offset int) ([]domain.Message, error) {
-	return s.messageRepo.GetByConversationID(conversationID, limit, offset)
+	messages, err := s.messageRepo.GetByConversationID(conversationID, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	for i := range messages {
+		attachments, _ := s.attachmentRepo.GetByMessageID(messages[i].ID)
+		messages[i].Attachments = attachments
+	}
+	return messages, nil
 }

@@ -12,6 +12,7 @@ type Message struct {
     Content          string     `json:"content" gorm:"type:text"`
     EditedAt         *time.Time `json:"edited_at"`
     DeletedAt        *time.Time `json:"deleted_at"`
+    Attachments      []Attachment `json:"attachments" gorm:"-"`
 }
 
 func (Message) TableName() string {
