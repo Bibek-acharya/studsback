@@ -16,9 +16,9 @@ type UpdateCommunityRequest struct {
 
 type CreatePostRequest struct {
 	CommunityID uint     `json:"community_id"`
-	Category    string   `json:"category" binding:"required"`
-	Title       string   `json:"title" binding:"required"`
-	Content     string   `json:"content" binding:"required"`
+	Category    string   `json:"category"`
+	Title       string   `json:"title"`
+	Content     string   `json:"content"`
 	ImageURL    string   `json:"image_url"`
 	VideoURL    string   `json:"video_url"`
 	PollOptions []string `json:"poll_options"`
@@ -56,6 +56,7 @@ type PostResponse struct {
 	CreatedAt    string      `json:"created_at"`
 	UpdatedAt    string      `json:"updated_at"`
 	UserID       uint        `json:"user_id"`
+	User         *UserInfo   `json:"user"`
 	UserName     string      `json:"user_name"`
 	CommunityID  uint        `json:"community_id"`
 	Category     string      `json:"category"`
@@ -92,4 +93,12 @@ type TrendingPostResponse struct {
 	Category     string `json:"category"`
 	Upvotes      int    `json:"upvotes"`
 	CommentCount int    `json:"comment_count"`
+}
+
+type UserInfo struct {
+	ID        uint   `json:"id"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+	Email     string `json:"email"`
+	ImageURL  string `json:"image_url"`
 }

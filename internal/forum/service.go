@@ -202,6 +202,19 @@ func (s *Service) GetForumPosts(category, communityID string, currentUserID uint
 		return nil, errors.New("failed to fetch posts")
 	}
 
+	if currentUserID == 0 {
+		general, err := s.repo.FindCommunityByName("General")
+		if err == nil {
+			filtered := []ForumPost{}
+			for _, p := range posts {
+				if p.CommunityID == general.ID {
+					filtered = append(filtered, p)
+				}
+			}
+			posts = filtered
+		}
+	}
+
 	if currentUserID != 0 {
 		votes, _ := s.repo.GetVotesByUserID(currentUserID)
 		voteMap := make(map[uint]int)
@@ -663,6 +676,13 @@ func mapPostToResponse(post ForumPost) PostResponse {
 
 	if post.User.ID != 0 {
 		resp.UserName = post.User.FirstName + " " + post.User.LastName
+		resp.User = &UserInfo{
+			ID:        post.User.ID,
+			FirstName: post.User.FirstName,
+			LastName:  post.User.LastName,
+			Email:     post.User.Email,
+			ImageURL:  post.User.ImageURL,
+		}
 	}
 
 	return resp
