@@ -5,16 +5,24 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 	"studsphere/backend/internal/messaging/application"
 	"studsphere/backend/internal/messaging/domain"
 )
 
 type ConversationHandler struct {
 	service application.ConversationService
+	db      *gorm.DB
 }
 
-func NewConversationHandler(s application.ConversationService) *ConversationHandler {
-	return &ConversationHandler{service: s}
+func NewConversationHandler(s application.ConversationService, db *gorm.DB) *ConversationHandler {
+	return &ConversationHandler{service: s, db: db}
+}
+
+type ConversationResponse struct {
+	domain.Conversation
+	StudentName     string `json:"student_name"`
+	InstitutionName string `json:"institution_name"`
 }
 
 func (h *ConversationHandler) List(c *gin.Context) {
@@ -44,7 +52,22 @@ func (h *ConversationHandler) List(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"conversations": conversations})
+	var result []ConversationResponse
+	for _, conv := range conversations {
+		cr := ConversationResponse{Conversation: conv}
+
+		var studentName string
+		h.db.Table("users").Where("id = ?", conv.StudentID).Select("first_name || ' ' || last_name").Scan(&studentName)
+		cr.StudentName = studentName
+
+		var instName string
+		h.db.Table("institution_users").Where("id = ?", conv.InstitutionID).Select("institution_name").Scan(&instName)
+		cr.InstitutionName = instName
+
+		result = append(result, cr)
+	}
+
+	c.JSON(http.StatusOK, gin.H{"conversations": result})
 }
 
 func (h *ConversationHandler) GetByID(c *gin.Context) {

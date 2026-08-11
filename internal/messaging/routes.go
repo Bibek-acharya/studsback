@@ -50,7 +50,7 @@ func SetupRoutes(router *gin.RouterGroup, db *gorm.DB, redis *redis.Client, nats
 	}
 
 	// HTTP Handlers
-	conversationHandler := httpHandler.NewConversationHandler(conversationService)
+	conversationHandler := httpHandler.NewConversationHandler(conversationService, db)
 	messageHandler := httpHandler.NewMessageHandler(messageService, readService)
 	uploadHandler := httpHandler.NewUploadHandler(uploadService)
 
