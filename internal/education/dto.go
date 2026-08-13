@@ -1,5 +1,7 @@
 package education
 
+import "errors"
+
 type FilterCounts struct {
 	Levels  []string `json:"levels"`
 	Streams []string `json:"streams"`
@@ -56,79 +58,134 @@ type CourseResponse struct {
 }
 
 type AdminCourseResponse struct {
-	ID              uint        `json:"id"`
-	Title           string      `json:"title"`
-	ShortTitle      string      `json:"shortTitle"`
-	Affiliation     string      `json:"affiliation"`
-	Badges          []string    `json:"badges"`
-	Level           string      `json:"level"`
-	Field           string      `json:"field"`
-	Duration        string      `json:"duration"`
-	EstFee          string      `json:"estFee"`
-	Highlights      []string    `json:"highlights"`
-	CareerPath      string      `json:"careerPath"`
-	Description     string      `json:"description"`
-	Location        string      `json:"location"`
-	GovtFee         string      `json:"govtFee"`
-	PrivateFee      string      `json:"privateFee"`
-	Mode            string      `json:"mode"`
-	DegreeLabel     string      `json:"degreeLabel"`
-	About           []string    `json:"about"`
-	Curriculum      interface{} `json:"curriculum"`
-	Admissions      []string    `json:"admissions"`
-	Careers         interface{} `json:"careers"`
-	IsGlobal        bool        `json:"isGlobal"`
-	Status          string      `json:"status"`
-	CreatedBy       uint        `json:"createdBy"`
-	SourceProgramID *uint       `json:"sourceProgramId,omitempty"`
-	CreatedAt       string      `json:"created_at"`
-	UpdatedAt       string      `json:"updated_at"`
+	ID                       uint              `json:"id"`
+	Title                    string            `json:"title"`
+	ShortTitle               string            `json:"shortTitle"`
+	AffiliationID            *uint             `json:"affiliationId"`
+	AffiliationName          string            `json:"affiliationName"`
+	NonUniversityAffiliation string            `json:"nonUniversityAffiliation"`
+	Badges                   []string          `json:"badges"`
+	Level                    string            `json:"level"`
+	Field                    string            `json:"field"`
+	Duration                 string            `json:"duration"`
+	EstFee                   string            `json:"estFee"`
+	Highlights               []string          `json:"highlights"`
+	CareerPath               string            `json:"careerPath"`
+	Description              string            `json:"description"`
+	Location                 string            `json:"location"`
+	GovtFee                  string            `json:"govtFee"`
+	PrivateFee               string            `json:"privateFee"`
+	Mode                     string            `json:"mode"`
+	DegreeLabel              string            `json:"degreeLabel"`
+	About                    []string          `json:"about"`
+	Curriculum               interface{}       `json:"curriculum"`
+	Admissions               []string          `json:"admissions"`
+	Careers                  []CareerItem      `json:"careers"`
+	BannerURL                string            `json:"bannerUrl"`
+	WhoShouldChoose          []PersonaItem     `json:"whoShouldChoose"`
+	Features                 []FeatureItem     `json:"features"`
+	EligibilityRows          []EligibilityRow  `json:"eligibilityRows"`
+	AdmissionSteps           []AdmissionStep   `json:"admissionSteps"`
+	SubjectGroups            []SubjectGroup    `json:"subjectGroups"`
+	FeeItems                 []FeeItem         `json:"feeItems"`
+	ScholarshipDesc          string            `json:"scholarshipDesc"`
+	ScholarshipNotes         string            `json:"scholarshipNotes"`
+	Scholarships             []ScholarshipItem `json:"scholarships"`
+	FullTimeCourses          []FullTimeCourse  `json:"fullTimeCourses"`
+	FAQs                     []FaqItem         `json:"faqs"`
+	IsGlobal                 bool              `json:"isGlobal"`
+	Status                   string            `json:"status"`
+	CreatedBy                uint              `json:"createdBy"`
+	SourceProgramID          *uint             `json:"sourceProgramId,omitempty"`
+	CreatedAt                string            `json:"created_at"`
+	UpdatedAt                string            `json:"updated_at"`
 }
 
 type CreateCourseRequest struct {
-	Title       string      `json:"title" binding:"required"`
-	ShortTitle  string      `json:"shortTitle"`
-	Affiliation string      `json:"affiliation"`
-	Badges      []string    `json:"badges"`
-	Level       string      `json:"level"`
-	Field       string      `json:"field"`
-	Duration    string      `json:"duration"`
-	EstFee      string      `json:"estFee"`
-	Highlights  []string    `json:"highlights"`
-	CareerPath  string      `json:"careerPath"`
-	Description string      `json:"description"`
-	Location    string      `json:"location"`
-	GovtFee     string      `json:"govtFee"`
-	PrivateFee  string      `json:"privateFee"`
-	Mode        string      `json:"mode"`
-	DegreeLabel string      `json:"degreeLabel"`
-	About       []string    `json:"about"`
-	Curriculum  interface{} `json:"curriculum"`
-	Admissions  []string    `json:"admissions"`
-	Careers     interface{} `json:"careers"`
+	Title                    string           `json:"title" binding:"required"`
+	ShortTitle               string           `json:"shortTitle"`
+	AffiliationID            *uint            `json:"affiliationId"`
+	NonUniversityAffiliation string           `json:"nonUniversityAffiliation"`
+	Badges                   []string         `json:"badges"`
+	Level                    string           `json:"level"`
+	Field                    string           `json:"field"`
+	Duration                 string           `json:"duration"`
+	EstFee                   string           `json:"estFee"`
+	Highlights               []string         `json:"highlights"`
+	CareerPath               string           `json:"careerPath"`
+	Description              string           `json:"description"`
+	Location                 string           `json:"location"`
+	GovtFee                  string           `json:"govtFee"`
+	PrivateFee               string           `json:"privateFee"`
+	Mode                     string           `json:"mode"`
+	DegreeLabel              string           `json:"degreeLabel"`
+	About                    []string         `json:"about"`
+	Curriculum               interface{}      `json:"curriculum"`
+	Admissions               []string         `json:"admissions"`
+	Careers                  []CareerItem     `json:"careers"`
+	BannerURL                string           `json:"bannerUrl"`
+	WhoShouldChoose          []PersonaItem    `json:"whoShouldChoose"`
+	Features                 []FeatureItem    `json:"features"`
+	EligibilityRows          []EligibilityRow  `json:"eligibilityRows"`
+	AdmissionSteps           []AdmissionStep  `json:"admissionSteps"`
+	SubjectGroups            []SubjectGroup   `json:"subjectGroups"`
+	FeeItems                 []FeeItem        `json:"feeItems"`
+	ScholarshipDesc          string           `json:"scholarshipDesc"`
+	ScholarshipNotes         string           `json:"scholarshipNotes"`
+	Scholarships             []ScholarshipItem `json:"scholarships"`
+	FullTimeCourses          []FullTimeCourse  `json:"fullTimeCourses"`
+	FAQs                     []FaqItem        `json:"faqs"`
+}
+
+func (r *CreateCourseRequest) Validate() error {
+	if r.Level == "Bachelor" || r.Level == "Master" {
+		if r.AffiliationID == nil || *r.AffiliationID == 0 {
+			return errors.New("affiliation_id is required for Bachelor and Master level courses")
+		}
+		r.NonUniversityAffiliation = ""
+	} else {
+		if r.NonUniversityAffiliation == "" {
+			return errors.New("non_university_affiliation is required for secondary level courses")
+		}
+		r.AffiliationID = nil
+	}
+	return nil
 }
 
 type UpdateCourseRequest struct {
-	Title       *string     `json:"title"`
-	ShortTitle  *string     `json:"shortTitle"`
-	Affiliation *string     `json:"affiliation"`
-	Badges      []string    `json:"badges"`
-	Level       *string     `json:"level"`
-	Field       *string     `json:"field"`
-	Duration    *string     `json:"duration"`
-	EstFee      *string     `json:"estFee"`
-	Highlights  []string    `json:"highlights"`
-	CareerPath  *string     `json:"careerPath"`
-	Description *string     `json:"description"`
-	Location    *string     `json:"location"`
-	GovtFee     *string     `json:"govtFee"`
-	PrivateFee  *string     `json:"privateFee"`
-	Mode        *string     `json:"mode"`
-	DegreeLabel *string     `json:"degreeLabel"`
-	About       []string    `json:"about"`
-	Curriculum  interface{} `json:"curriculum"`
-	Admissions  []string    `json:"admissions"`
-	Careers     interface{} `json:"careers"`
+	Title                    *string          `json:"title"`
+	ShortTitle               *string          `json:"shortTitle"`
+	AffiliationID            *uint            `json:"affiliationId"`
+	NonUniversityAffiliation *string          `json:"nonUniversityAffiliation"`
+	Badges                   []string         `json:"badges"`
+	Level                    *string          `json:"level"`
+	Field                    *string          `json:"field"`
+	Duration                 *string          `json:"duration"`
+	EstFee                   *string          `json:"estFee"`
+	Highlights               []string         `json:"highlights"`
+	CareerPath               *string          `json:"careerPath"`
+	Description              *string          `json:"description"`
+	Location                 *string          `json:"location"`
+	GovtFee                  *string          `json:"govtFee"`
+	PrivateFee               *string          `json:"privateFee"`
+	Mode                     *string          `json:"mode"`
+	DegreeLabel              *string          `json:"degreeLabel"`
+	About                    []string         `json:"about"`
+	Curriculum               interface{}      `json:"curriculum"`
+	Admissions               []string         `json:"admissions"`
+	Careers                  []CareerItem     `json:"careers"`
+	BannerURL                *string          `json:"bannerUrl"`
+	WhoShouldChoose          []PersonaItem    `json:"whoShouldChoose"`
+	Features                 []FeatureItem    `json:"features"`
+	EligibilityRows          []EligibilityRow  `json:"eligibilityRows"`
+	AdmissionSteps           []AdmissionStep  `json:"admissionSteps"`
+	SubjectGroups            []SubjectGroup   `json:"subjectGroups"`
+	FeeItems                 []FeeItem        `json:"feeItems"`
+	ScholarshipDesc          *string          `json:"scholarshipDesc"`
+	ScholarshipNotes         *string          `json:"scholarshipNotes"`
+	Scholarships             []ScholarshipItem `json:"scholarships"`
+	FullTimeCourses          []FullTimeCourse  `json:"fullTimeCourses"`
+	FAQs                     []FaqItem        `json:"faqs"`
 }
 
 type CourseCurriculumSemester struct {

@@ -729,3 +729,116 @@ func TestCourseNewFieldsJSONKeys(t *testing.T) {
 		}
 	}
 }
+
+func TestCreateCourseRequestValidate_BachelorRequiresAffiliationID(t *testing.T) {
+	affID := uint(1)
+	tests := []struct {
+		name    string
+		req     CreateCourseRequest
+		wantErr bool
+	}{
+		{
+			name: "Bachelor with affiliation ID passes",
+			req: CreateCourseRequest{
+				Title:         "Test",
+				Level:         "Bachelor",
+				AffiliationID: &affID,
+			},
+			wantErr: false,
+		},
+		{
+			name: "Bachelor without affiliation ID fails",
+			req: CreateCourseRequest{
+				Title: "Test",
+				Level: "Bachelor",
+			},
+			wantErr: true,
+		},
+		{
+			name: "Master with affiliation ID passes",
+			req: CreateCourseRequest{
+				Title:         "Test",
+				Level:         "Master",
+				AffiliationID: &affID,
+			},
+			wantErr: false,
+		},
+		{
+			name: "Master without affiliation ID fails",
+			req: CreateCourseRequest{
+				Title: "Test",
+				Level: "Master",
+			},
+			wantErr: true,
+		},
+		{
+			name: "+2 with non_university_affiliation passes",
+			req: CreateCourseRequest{
+				Title:                    "Test",
+				Level:                    "+2",
+				NonUniversityAffiliation: "NEB",
+			},
+			wantErr: false,
+		},
+		{
+			name: "+2 without non_university_affiliation fails",
+			req: CreateCourseRequest{
+				Title: "Test",
+				Level: "+2",
+			},
+			wantErr: true,
+		},
+		{
+			name: "Diploma with non_university_affiliation passes",
+			req: CreateCourseRequest{
+				Title:                    "Test",
+				Level:                    "Diploma",
+				NonUniversityAffiliation: "CTEVT",
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.req.Validate()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Validate() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestCreateCourseRequestValidate_ClearsConflictingFields(t *testing.T) {
+	affID := uint(1)
+
+	t.Run("Bachelor clears NonUniversityAffiliation", func(t *testing.T) {
+		req := CreateCourseRequest{
+			Title:                    "Test",
+			Level:                    "Bachelor",
+			AffiliationID:            &affID,
+			NonUniversityAffiliation: "should be cleared",
+		}
+		if err := req.Validate(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if req.NonUniversityAffiliation != "" {
+			t.Errorf("expected NonUniversityAffiliation to be empty, got %q", req.NonUniversityAffiliation)
+		}
+	})
+
+	t.Run("Secondary clears AffiliationID", func(t *testing.T) {
+		req := CreateCourseRequest{
+			Title:                    "Test",
+			Level:                    "+2",
+			AffiliationID:            &affID,
+			NonUniversityAffiliation: "NEB",
+		}
+		if err := req.Validate(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if req.AffiliationID != nil {
+			t.Errorf("expected AffiliationID to be nil, got %v", req.AffiliationID)
+		}
+	})
+}
