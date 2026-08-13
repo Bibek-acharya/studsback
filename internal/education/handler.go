@@ -705,9 +705,81 @@ func (h *Handler) AdminUploadNewsImage(c *gin.Context) {
 
 // ─── Admin Course CRUD Handlers ──────────────────────────────────────────────
 
+func (h *Handler) GetCoursesByLevel(c *gin.Context) {
+	level := c.Param("level")
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+
+	courses, total, err := h.service.GetCoursesByLevel(level, page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch courses")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Courses retrieved successfully", gin.H{
+		"courses": courses,
+		"meta": gin.H{
+			"total": total,
+			"page":  page,
+			"limit": limit,
+		},
+	})
+}
+
+func (h *Handler) GetCoursesByAffiliation(c *gin.Context) {
+	affiliationID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid affiliation ID")
+		return
+	}
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+
+	courses, total, err := h.service.GetCoursesByAffiliation(uint(affiliationID), page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch courses")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Courses retrieved successfully", gin.H{
+		"courses": courses,
+		"meta": gin.H{
+			"total": total,
+			"page":  page,
+			"limit": limit,
+		},
+	})
+}
+
+func (h *Handler) GetSecondaryCourses(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+
+	courses, total, err := h.service.GetSecondaryCourses(page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch courses")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Courses retrieved successfully", gin.H{
+		"courses": courses,
+		"meta": gin.H{
+			"total": total,
+			"page":  page,
+			"limit": limit,
+		},
+	})
+}
+
 func (h *Handler) AdminCreateCourse(c *gin.Context) {
 	var req CreateCourseRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err := req.Validate(); err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
