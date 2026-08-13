@@ -2433,3 +2433,85 @@ func (h *Handler) GetCourseRequestByID(c *gin.Context) {
 
 	response.Success(c, http.StatusOK, "Course request retrieved successfully", courseReq)
 }
+
+func (h *Handler) AdminGetCourseRequests(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50 {
+		limit = 10
+	}
+
+	requests, total, err := h.service.GetAllCourseRequests(page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch course requests")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Course requests retrieved successfully", gin.H{
+		"requests": requests,
+		"meta": gin.H{
+			"total": total,
+			"page":  page,
+			"limit": limit,
+		},
+	})
+}
+
+func (h *Handler) AdminGetCourseRequestByID(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid request ID")
+		return
+	}
+
+	courseReq, err := h.service.GetCourseRequestByIDAdmin(uint(id))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Course request not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Course request retrieved successfully", courseReq)
+}
+
+func (h *Handler) AdminApproveCourseRequest(c *gin.Context) {
+	adminID, _ := c.Get("user_id")
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid request ID")
+		return
+	}
+
+	if err := h.service.ApproveCourseRequest(uint(id), adminID.(uint)); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Course request approved successfully", nil)
+}
+
+func (h *Handler) AdminRejectCourseRequest(c *gin.Context) {
+	adminID, _ := c.Get("user_id")
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid request ID")
+		return
+	}
+
+	var req struct {
+		Reason string `json:"reason"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err := h.service.RejectCourseRequest(uint(id), adminID.(uint), req.Reason); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Course request rejected successfully", nil)
+}

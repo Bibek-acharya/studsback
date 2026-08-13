@@ -38,6 +38,15 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			adminInst.PUT("/:id/sponsored", h.ToggleInstitutionSponsored)
 		}
 
+		adminCourseRequests := v1.Group("/admin/course-requests")
+		adminCourseRequests.Use(authMW, roleMW)
+		{
+			adminCourseRequests.GET("", h.AdminGetCourseRequests)
+			adminCourseRequests.GET("/:id", h.AdminGetCourseRequestByID)
+			adminCourseRequests.PUT("/:id/approve", h.AdminApproveCourseRequest)
+			adminCourseRequests.PUT("/:id/reject", h.AdminRejectCourseRequest)
+		}
+
 		// Public counselling booking (auth only, no role check)
 		publicBooking := v1.Group("")
 		publicBooking.Use(authMW)

@@ -2568,28 +2568,29 @@ func (s *Service) GetInstitutionFollowers(institutionID uint, search string, pag
 
 func (s *Service) CreateCourseRequest(instID uint, req CreateCourseApprovalRequestInput) (*CourseApprovalRequest, error) {
 	courseReq := &CourseApprovalRequest{
-		InstitutionID:    instID,
-		Title:            req.Title,
-		Description:      req.Description,
-		Duration:         req.Duration,
-		Level:            req.Level,
-		AffiliationID:    req.AffiliationID,
-		BannerURL:        req.BannerURL,
-		Careers:          req.Careers,
-		FAQs:             req.FAQs,
-		EligibilityRows:  req.EligibilityRows,
-		AdmissionSteps:   req.AdmissionSteps,
-		SubjectGroups:    req.SubjectGroups,
-		ScholarshipDesc:  req.ScholarshipDesc,
-		ScholarshipNotes: req.ScholarshipNotes,
-		Scholarships:     req.Scholarships,
-		Fee:              req.Fee,
-		Eligibility:      req.Eligibility,
-		Capacity:         req.Capacity,
-		WhoShouldChoose:  req.WhoShouldChoose,
-		Features:         req.Features,
-		FullTimeCourses:  req.FullTimeCourses,
-		FeeItems:         req.FeeItems,
+		InstitutionID:           instID,
+		Title:                   req.Title,
+		Description:             req.Description,
+		Duration:                req.Duration,
+		Level:                   req.Level,
+		AffiliationID:           req.AffiliationID,
+		NonUniversityAffiliation: req.NonUniversityAffiliation,
+		BannerURL:               req.BannerURL,
+		Careers:                 req.Careers,
+		FAQs:                    req.FAQs,
+		EligibilityRows:         req.EligibilityRows,
+		AdmissionSteps:          req.AdmissionSteps,
+		SubjectGroups:           req.SubjectGroups,
+		ScholarshipDesc:         req.ScholarshipDesc,
+		ScholarshipNotes:        req.ScholarshipNotes,
+		Scholarships:            req.Scholarships,
+		Fee:                     req.Fee,
+		Eligibility:             req.Eligibility,
+		Capacity:                req.Capacity,
+		WhoShouldChoose:         req.WhoShouldChoose,
+		Features:                req.Features,
+		FullTimeCourses:         req.FullTimeCourses,
+		FeeItems:                req.FeeItems,
 	}
 
 	if err := s.repo.CreateCourseRequest(courseReq); err != nil {
@@ -2605,4 +2606,95 @@ func (s *Service) GetCourseRequests(instID uint, page, limit int) ([]CourseAppro
 
 func (s *Service) GetCourseRequestByID(instID, id uint) (*CourseApprovalRequest, error) {
 	return s.repo.FindCourseRequestByID(id, instID)
+}
+
+func (s *Service) GetAllCourseRequests(page, limit int) ([]CourseApprovalRequest, int64, error) {
+	return s.repo.FindAllCourseRequests(page, limit)
+}
+
+func (s *Service) GetCourseRequestByIDAdmin(id uint) (*CourseApprovalRequest, error) {
+	return s.repo.FindCourseRequestByIDAdmin(id)
+}
+
+func (s *Service) ApproveCourseRequest(id, adminID uint) error {
+	req, err := s.repo.FindCourseRequestByIDAdmin(id)
+	if err != nil {
+		return errors.New("course request not found")
+	}
+
+	if req.Status != "pending" {
+		return errors.New("request is not pending")
+	}
+
+	careers, _ := json.Marshal(req.Careers)
+	faqs, _ := json.Marshal(req.FAQs)
+	eligibilityRows, _ := json.Marshal(req.EligibilityRows)
+	admissionSteps, _ := json.Marshal(req.AdmissionSteps)
+	subjectGroups, _ := json.Marshal(req.SubjectGroups)
+	scholarships, _ := json.Marshal(req.Scholarships)
+	whoShouldChoose, _ := json.Marshal(req.WhoShouldChoose)
+	features, _ := json.Marshal(req.Features)
+	fullTimeCourses, _ := json.Marshal(req.FullTimeCourses)
+	feeItems, _ := json.Marshal(req.FeeItems)
+
+	course := &education.Course{
+		Title:                   req.Title,
+		Description:             req.Description,
+		Duration:                req.Duration,
+		Level:                   req.Level,
+		AffiliationID:           req.AffiliationID,
+		NonUniversityAffiliation: req.NonUniversityAffiliation,
+		BannerURL:               req.BannerURL,
+		Careers:                 careers,
+		FAQs:                    faqs,
+		EligibilityRows:         eligibilityRows,
+		AdmissionSteps:          admissionSteps,
+		SubjectGroups:           subjectGroups,
+		ScholarshipDesc:         req.ScholarshipDesc,
+		ScholarshipNotes:        req.ScholarshipNotes,
+		Scholarships:            scholarships,
+		WhoShouldChoose:         whoShouldChoose,
+		Features:                features,
+		FullTimeCourses:         fullTimeCourses,
+		FeeItems:                feeItems,
+		IsGlobal:                true,
+		Status:                  "published",
+		CreatedBy:               req.InstitutionID,
+	}
+
+	if err := s.educationRepo.CreateCourse(course); err != nil {
+		return fmt.Errorf("failed to create global course: %w", err)
+	}
+
+	program := &InstitutionProgram{
+		InstitutionID:   req.InstitutionID,
+		GlobalCourseID:  course.ID,
+		Fee:             req.Fee,
+		Eligibility:     req.Eligibility,
+		Capacity:        req.Capacity,
+		Status:          "active",
+		WhoShouldChoose: whoShouldChoose,
+		Features:        features,
+		FullTimeCourses: fullTimeCourses,
+		FeeItems:        feeItems,
+	}
+
+	if err := s.repo.CreateProgram(program); err != nil {
+		return fmt.Errorf("failed to create institution program: %w", err)
+	}
+
+	return s.repo.UpdateCourseRequestStatus(id, "approved", adminID, "")
+}
+
+func (s *Service) RejectCourseRequest(id, adminID uint, reason string) error {
+	req, err := s.repo.FindCourseRequestByIDAdmin(id)
+	if err != nil {
+		return errors.New("course request not found")
+	}
+
+	if req.Status != "pending" {
+		return errors.New("request is not pending")
+	}
+
+	return s.repo.UpdateCourseRequestStatus(id, "rejected", adminID, reason)
 }

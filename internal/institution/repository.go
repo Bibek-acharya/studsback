@@ -1683,3 +1683,38 @@ func (r *Repository) FindCourseRequestByID(id, instID uint) (*CourseApprovalRequ
 	}
 	return &req, nil
 }
+
+func (r *Repository) FindAllCourseRequests(page, limit int) ([]CourseApprovalRequest, int64, error) {
+	var requests []CourseApprovalRequest
+	var total int64
+
+	if err := r.db.Model(&CourseApprovalRequest{}).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * limit
+	err := r.db.Preload("Institution").
+		Order("created_at desc").Offset(offset).Limit(limit).Find(&requests).Error
+	return requests, total, err
+}
+
+func (r *Repository) FindCourseRequestByIDAdmin(id uint) (*CourseApprovalRequest, error) {
+	var req CourseApprovalRequest
+	err := r.db.Preload("Institution").First(&req, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &req, nil
+}
+
+func (r *Repository) UpdateCourseRequestStatus(id uint, status string, reviewedBy uint, reason string) error {
+	updates := map[string]interface{}{
+		"status":      status,
+		"reviewed_by": reviewedBy,
+		"reviewed_at": time.Now(),
+	}
+	if reason != "" {
+		updates["rejection_reason"] = reason
+	}
+	return r.db.Model(&CourseApprovalRequest{}).Where("id = ?", id).Updates(updates).Error
+}

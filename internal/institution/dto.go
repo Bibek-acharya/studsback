@@ -62,44 +62,48 @@ type ProgramResponse struct {
 }
 
 type CourseApprovalRequest struct {
-	ID                uint                      `gorm:"primarykey" json:"id"`
-	CreatedAt         time.Time                 `json:"createdAt"`
-	UpdatedAt         time.Time                 `json:"updatedAt"`
-	InstitutionID     uint                      `gorm:"index;not null" json:"institutionId"`
-	Title             string                    `json:"title"`
-	Description       string                    `gorm:"type:text" json:"description"`
-	Duration          string                    `json:"duration"`
-	Level             string                    `json:"level"`
-	AffiliationID     *uint                     `json:"affiliationId"`
-	BannerURL         string                    `json:"bannerUrl"`
-	Careers           []education.CareerItem    `gorm:"type:jsonb" json:"careers"`
-	FAQs              []education.FaqItem       `gorm:"type:jsonb" json:"faqs"`
-	EligibilityRows   []education.EligibilityRow `gorm:"type:jsonb" json:"eligibilityRows"`
-	AdmissionSteps    []education.AdmissionStep  `gorm:"type:jsonb" json:"admissionSteps"`
-	SubjectGroups     []education.SubjectGroup   `gorm:"type:jsonb" json:"subjectGroups"`
-	ScholarshipDesc   string                    `json:"scholarshipDesc"`
-	ScholarshipNotes  string                    `json:"scholarshipNotes"`
-	Scholarships      []education.ScholarshipItem `gorm:"type:jsonb" json:"scholarships"`
-	Fee               string                    `json:"fee"`
-	Eligibility       string                    `json:"eligibility"`
-	Capacity          int                       `json:"capacity"`
-	WhoShouldChoose   []education.PersonaItem   `gorm:"type:jsonb" json:"whoShouldChoose"`
-	Features          []education.FeatureItem   `gorm:"type:jsonb" json:"features"`
-	FullTimeCourses   []education.FullTimeCourse `gorm:"type:jsonb" json:"fullTimeCourses"`
-	FeeItems          []education.FeeItem       `gorm:"type:jsonb" json:"feeItems"`
-	Status            string                    `gorm:"default:'pending'" json:"status"`
-	ReviewedBy        *uint                     `json:"reviewedBy"`
-	ReviewedAt        *time.Time                `json:"reviewedAt"`
-	RejectionReason   string                    `json:"rejectionReason"`
+	ID                      uint                      `gorm:"primarykey" json:"id"`
+	CreatedAt               time.Time                 `json:"createdAt"`
+	UpdatedAt               time.Time                 `json:"updatedAt"`
+	InstitutionID           uint                      `gorm:"index;not null" json:"institutionId"`
+	Title                   string                    `json:"title"`
+	Description             string                    `gorm:"type:text" json:"description"`
+	Duration                string                    `json:"duration"`
+	Level                   string                    `json:"level"`
+	AffiliationID           *uint                     `json:"affiliationId"`
+	NonUniversityAffiliation string                   `gorm:"default:''" json:"nonUniversityAffiliation"`
+	BannerURL               string                    `json:"bannerUrl"`
+	Careers                 []education.CareerItem    `gorm:"type:jsonb" json:"careers"`
+	FAQs                    []education.FaqItem       `gorm:"type:jsonb" json:"faqs"`
+	EligibilityRows         []education.EligibilityRow `gorm:"type:jsonb" json:"eligibilityRows"`
+	AdmissionSteps          []education.AdmissionStep  `gorm:"type:jsonb" json:"admissionSteps"`
+	SubjectGroups           []education.SubjectGroup   `gorm:"type:jsonb" json:"subjectGroups"`
+	ScholarshipDesc         string                    `json:"scholarshipDesc"`
+	ScholarshipNotes        string                    `json:"scholarshipNotes"`
+	Scholarships            []education.ScholarshipItem `gorm:"type:jsonb" json:"scholarships"`
+	Fee                     string                    `json:"fee"`
+	Eligibility             string                    `json:"eligibility"`
+	Capacity                int                       `json:"capacity"`
+	WhoShouldChoose         []education.PersonaItem   `gorm:"type:jsonb" json:"whoShouldChoose"`
+	Features                []education.FeatureItem   `gorm:"type:jsonb" json:"features"`
+	FullTimeCourses         []education.FullTimeCourse `gorm:"type:jsonb" json:"fullTimeCourses"`
+	FeeItems                []education.FeeItem       `gorm:"type:jsonb" json:"feeItems"`
+	Status                  string                    `gorm:"default:'pending'" json:"status"`
+	ReviewedBy              *uint                     `json:"reviewedBy"`
+	ReviewedAt              *time.Time                `json:"reviewedAt"`
+	RejectionReason         string                    `json:"rejectionReason"`
+
+	Institution *InstitutionUser `gorm:"foreignKey:InstitutionID" json:"institution,omitempty"`
 }
 
 type CreateCourseApprovalRequestInput struct {
-	Title             string                    `json:"title" binding:"required"`
-	Description       string                    `json:"description"`
-	Duration          string                    `json:"duration"`
-	Level             string                    `json:"level"`
-	AffiliationID     *uint                     `json:"affiliationId"`
-	BannerURL         string                    `json:"bannerUrl"`
+	Title                   string                    `json:"title" binding:"required"`
+	Description             string                    `json:"description"`
+	Duration                string                    `json:"duration"`
+	Level                   string                    `json:"level"`
+	AffiliationID           *uint                     `json:"affiliationId"`
+	NonUniversityAffiliation string                   `json:"nonUniversityAffiliation"`
+	BannerURL               string                    `json:"bannerUrl"`
 	Careers           []education.CareerItem    `json:"careers"`
 	FAQs              []education.FaqItem       `json:"faqs"`
 	EligibilityRows   []education.EligibilityRow `json:"eligibilityRows"`
