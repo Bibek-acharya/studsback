@@ -2120,3 +2120,146 @@ func (s *Service) GetPublicEntranceByID(id string) (*PublicEntranceResponse, err
 
 	return nil, gorm.ErrRecordNotFound
 }
+
+func (s *Service) ResolveCourse(globalCourseID uint, institutionID uint) (*ResolvedCourse, error) {
+	course, affiliation, err := s.repo.FindCourseByIDWithAffiliation(globalCourseID)
+	if err != nil {
+		return nil, err
+	}
+
+	program, err := s.repo.FindProgramByGlobalCourse(institutionID, globalCourseID)
+	if err != nil {
+		return nil, err
+	}
+
+	var whoShouldChoose []PersonaItem
+	json.Unmarshal(course.WhoShouldChoose, &whoShouldChoose)
+
+	var features []FeatureItem
+	json.Unmarshal(course.Features, &features)
+
+	var eligibilityRows []EligibilityRow
+	json.Unmarshal(course.EligibilityRows, &eligibilityRows)
+
+	var admissionSteps []AdmissionStep
+	json.Unmarshal(course.AdmissionSteps, &admissionSteps)
+
+	var subjectGroups []SubjectGroup
+	json.Unmarshal(course.SubjectGroups, &subjectGroups)
+
+	var feeItems []FeeItem
+	json.Unmarshal(course.FeeItems, &feeItems)
+
+	var scholarships []ScholarshipItem
+	json.Unmarshal(course.Scholarships, &scholarships)
+
+	var fullTimeCourses []FullTimeCourse
+	json.Unmarshal(course.FullTimeCourses, &fullTimeCourses)
+
+	var careers []CareerItem
+	json.Unmarshal(course.Careers, &careers)
+
+	var faqs []FaqItem
+	json.Unmarshal(course.FAQs, &faqs)
+
+	var overrides CourseOverrides
+	json.Unmarshal(program.Overrides, &overrides)
+
+	var nullifiedFields []string
+	json.Unmarshal(program.NullifiedFields, &nullifiedFields)
+
+	description := course.Description
+	if contains(nullifiedFields, "description") {
+		description = ""
+	} else if overrides.Description != nil {
+		description = *overrides.Description
+	}
+
+	bannerURL := course.BannerURL
+	if contains(nullifiedFields, "banner_url") {
+		bannerURL = ""
+	} else if overrides.BannerURL != nil {
+		bannerURL = *overrides.BannerURL
+	}
+
+	resolvedCareers := careers
+	if contains(nullifiedFields, "careers") {
+		resolvedCareers = []CareerItem{}
+	} else if overrides.Careers != nil {
+		resolvedCareers = overrides.Careers
+	}
+
+	resolvedFAQs := faqs
+	if contains(nullifiedFields, "faqs") {
+		resolvedFAQs = []FaqItem{}
+	} else if overrides.FAQs != nil {
+		resolvedFAQs = overrides.FAQs
+	}
+
+	var instWhoShouldChoose []PersonaItem
+	json.Unmarshal(program.WhoShouldChoose, &instWhoShouldChoose)
+
+	var instFeatures []FeatureItem
+	json.Unmarshal(program.Features, &instFeatures)
+
+	var instFullTimeCourses []FullTimeCourse
+	json.Unmarshal(program.FullTimeCourses, &instFullTimeCourses)
+
+	var instFeeItems []FeeItem
+	json.Unmarshal(program.FeeItems, &instFeeItems)
+
+	resolved := &ResolvedCourse{
+		ID:              course.ID,
+		Title:           course.Title,
+		Duration:        course.Duration,
+		Level:           course.Level,
+		AffiliationID:   course.AffiliationID,
+		AffiliationName: "",
+		Description:     description,
+		BannerURL:       bannerURL,
+		Careers:         resolvedCareers,
+		FAQs:            resolvedFAQs,
+		EligibilityRows: eligibilityRows,
+		AdmissionSteps:  admissionSteps,
+		SubjectGroups:   subjectGroups,
+		ScholarshipDesc: course.ScholarshipDesc,
+		ScholarshipNotes: course.ScholarshipNotes,
+		Scholarships:    scholarships,
+		InstitutionID:   program.InstitutionID,
+		Fee:             program.Fee,
+		Eligibility:     program.Eligibility,
+		Capacity:        program.Capacity,
+		WhoShouldChoose: instWhoShouldChoose,
+		Features:        instFeatures,
+		FullTimeCourses: instFullTimeCourses,
+		FeeItems:        instFeeItems,
+		Status:          program.Status,
+	}
+
+	if affiliation != nil {
+		resolved.AffiliationName = affiliation.Name
+	}
+
+	return resolved, nil
+}
+
+func contains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *Service) GetCoursesByLevel(level string, page, limit int) ([]Course, int64, error) {
+	return s.repo.FindCoursesByLevel(level, page, limit)
+}
+
+func (s *Service) GetCoursesByAffiliation(affiliationID uint, page, limit int) ([]Course, int64, error) {
+	return s.repo.FindCoursesByAffiliation(affiliationID, page, limit)
+}
+
+func (s *Service) GetSecondaryCourses(page, limit int) ([]Course, int64, error) {
+	return s.repo.FindSecondaryCourses(page, limit)
+}

@@ -101,6 +101,22 @@ func (Affiliation) TableName() string {
 	return "affiliations"
 }
 
+type InstitutionProgramResolved struct {
+	ID              uint   `json:"id"`
+	InstitutionID   uint   `json:"institutionId"`
+	GlobalCourseID  uint   `json:"globalCourseId"`
+	Fee             string `json:"fee"`
+	Eligibility     string `json:"eligibility"`
+	Capacity        int    `json:"capacity"`
+	Status          string `json:"status"`
+	WhoShouldChoose []byte `json:"whoShouldChoose"`
+	Features        []byte `json:"features"`
+	FullTimeCourses []byte `json:"fullTimeCourses"`
+	FeeItems        []byte `json:"feeItems"`
+	Overrides       []byte `json:"overrides"`
+	NullifiedFields []byte `json:"nullifiedFields"`
+}
+
 type PersonaItem struct {
 	Icon      string `json:"icon"`
 	Title     string `json:"title"`
