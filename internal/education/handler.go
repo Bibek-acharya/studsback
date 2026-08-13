@@ -897,6 +897,28 @@ func (h *Handler) GetBlogComments(c *gin.Context) {
 	response.Success(c, http.StatusOK, "Comments retrieved successfully", comments)
 }
 
+func (h *Handler) GetResolvedCourse(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid course ID")
+		return
+	}
+
+	institutionID, err := strconv.ParseUint(c.Query("institutionId"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid institutionId query parameter")
+		return
+	}
+
+	resolved, err := h.service.ResolveCourse(uint(id), uint(institutionID))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Course or program not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Resolved course retrieved successfully", resolved)
+}
+
 func (h *Handler) CreateBlogComment(c *gin.Context) {
 	var input BlogCommentInput
 	if err := c.ShouldBindJSON(&input); err != nil {
