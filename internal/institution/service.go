@@ -499,24 +499,75 @@ func (s *Service) recalculateOverrides(program *InstitutionProgram) {
 	if program.GlobalCourseID == 0 {
 		return
 	}
-	globalCourse, err := s.repo.FindGlobalCourseByID(program.GlobalCourseID)
+
+	globalCourse, err := s.educationRepo.FindCourseByIDOnly(program.GlobalCourseID)
 	if err != nil || globalCourse == nil {
 		return
 	}
 
-	overrides := map[string]interface{}{}
-	gcFee, _ := globalCourse["est_fee"].(string)
-
-	if program.Fee != "" && program.Fee != gcFee {
-		overrides["fee"] = program.Fee
+	var currentOverrides education.CourseOverrides
+	if len(program.Overrides) > 0 {
+		json.Unmarshal(program.Overrides, &currentOverrides)
 	}
 
-	if len(overrides) > 0 {
-		data, _ := json.Marshal(overrides)
+	var globalCareers []education.CareerItem
+	if len(globalCourse.Careers) > 0 {
+		json.Unmarshal(globalCourse.Careers, &globalCareers)
+	}
+
+	var globalFAQs []education.FaqItem
+	if len(globalCourse.FAQs) > 0 {
+		json.Unmarshal(globalCourse.FAQs, &globalFAQs)
+	}
+
+	result := education.CourseOverrides{}
+
+	if currentOverrides.Description != nil && *currentOverrides.Description != globalCourse.Description {
+		result.Description = currentOverrides.Description
+	}
+
+	if currentOverrides.BannerURL != nil && *currentOverrides.BannerURL != globalCourse.BannerURL {
+		result.BannerURL = currentOverrides.BannerURL
+	}
+
+	if currentOverrides.Careers != nil && !careersEqual(currentOverrides.Careers, globalCareers) {
+		result.Careers = currentOverrides.Careers
+	}
+
+	if currentOverrides.FAQs != nil && !faqsEqual(currentOverrides.FAQs, globalFAQs) {
+		result.FAQs = currentOverrides.FAQs
+	}
+
+	if result.Description != nil || result.BannerURL != nil || result.Careers != nil || result.FAQs != nil {
+		data, _ := json.Marshal(result)
 		program.Overrides = data
 	} else {
 		program.Overrides = nil
 	}
+}
+
+func careersEqual(a, b []education.CareerItem) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i].Title != b[i].Title || a[i].Icon != b[i].Icon || a[i].Color != b[i].Color {
+			return false
+		}
+	}
+	return true
+}
+
+func faqsEqual(a, b []education.FaqItem) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i].Question != b[i].Question || a[i].Answer != b[i].Answer {
+			return false
+		}
+	}
+	return true
 }
 
 func (s *Service) DeleteProgram(instID, id uint) error {
