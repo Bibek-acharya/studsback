@@ -32,7 +32,7 @@ ALTER TABLE institution_programs ADD COLUMN IF NOT EXISTS who_should_choose JSON
 ALTER TABLE institution_programs ADD COLUMN IF NOT EXISTS features JSONB DEFAULT '[]';
 ALTER TABLE institution_programs ADD COLUMN IF NOT EXISTS full_time_courses JSONB DEFAULT '[]';
 ALTER TABLE institution_programs ADD COLUMN IF NOT EXISTS fee_items JSONB DEFAULT '[]';
-ALTER TABLE institution_programs ADD COLUMN IF NOT EXISTS course_overrides JSONB DEFAULT '{}';
+ALTER TABLE institution_programs ADD COLUMN IF NOT EXISTS overrides JSONB DEFAULT '{}';
 ALTER TABLE institution_programs ADD COLUMN IF NOT EXISTS nullified_fields JSONB DEFAULT '[]';
 
 -- 5. Create course_approval_requests table
