@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"studsphere/backend/internal/education"
 	"studsphere/backend/internal/shared/response"
 	"studsphere/backend/internal/shared/sanitize"
 	"studsphere/backend/internal/shared/utils"
@@ -1846,7 +1847,11 @@ func (h *Handler) GetPublishedAdmissionByPageID(c *gin.Context) {
 }
 
 func toProgramResponse(p InstitutionProgram) ProgramResponse {
-	var whoShouldChoose, features, fullTimeCourses, feeItems, overrides interface{}
+	var whoShouldChoose []education.PersonaItem
+	var features []education.FeatureItem
+	var fullTimeCourses []education.FullTimeCourse
+	var feeItems []education.FeeItem
+	var overrides education.CourseOverrides
 	json.Unmarshal(p.WhoShouldChoose, &whoShouldChoose)
 	json.Unmarshal(p.Features, &features)
 	json.Unmarshal(p.FullTimeCourses, &fullTimeCourses)

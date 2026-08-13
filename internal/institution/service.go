@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"studsphere/backend/internal/ai"
+	"studsphere/backend/internal/education"
 	"studsphere/backend/internal/shared/utils"
 	"studsphere/backend/internal/system"
 )
@@ -2310,7 +2311,11 @@ func (s *Service) GetPublicInstitution(id uint) (*PublicInstitutionDetailRespons
 	programs, _ := s.repo.FindAllProgramsByInstitution(id)
 	programResponses := make([]ProgramResponse, 0, len(programs))
 	for _, p := range programs {
-		var whoShouldChoose, features, fullTimeCourses, feeItems, overrides interface{}
+		var whoShouldChoose []education.PersonaItem
+		var features []education.FeatureItem
+		var fullTimeCourses []education.FullTimeCourse
+		var feeItems []education.FeeItem
+		var overrides education.CourseOverrides
 		json.Unmarshal(p.WhoShouldChoose, &whoShouldChoose)
 		json.Unmarshal(p.Features, &features)
 		json.Unmarshal(p.FullTimeCourses, &fullTimeCourses)

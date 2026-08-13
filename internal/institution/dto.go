@@ -1,16 +1,27 @@
 package institution
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"time"
+
+	"studsphere/backend/internal/education"
+)
 
 type CreateProgramRequest struct {
-	Fee                 string `json:"fee"`
-	Eligibility         string `json:"eligibility"`
-	Capacity            int    `json:"capacity"`
-	InstitutionName     string `json:"institution_name"`
-	InstitutionLocation string `json:"institution_location"`
-	InstitutionLink     string `json:"institution_link"`
-	Status              string `json:"status"`
-	GlobalCourseID      uint   `json:"globalCourseId"`
+	GlobalCourseID      uint                    `json:"globalCourseId" binding:"required"`
+	Fee                 string                  `json:"fee"`
+	Eligibility         string                  `json:"eligibility"`
+	Capacity            int                     `json:"capacity"`
+	InstitutionName     string                  `json:"institution_name"`
+	InstitutionLocation string                  `json:"institution_location"`
+	InstitutionLink     string                  `json:"institution_link"`
+	Status              string                  `json:"status"`
+	WhoShouldChoose     []education.PersonaItem `json:"whoShouldChoose"`
+	Features            []education.FeatureItem `json:"features"`
+	FullTimeCourses     []education.FullTimeCourse `json:"fullTimeCourses"`
+	FeeItems            []education.FeeItem    `json:"feeItems"`
+	Overrides           education.CourseOverrides `json:"overrides"`
+	NullifiedFields     []string                `json:"nullifiedFields"`
 }
 
 type UpdateProgramRequest struct {
@@ -29,24 +40,57 @@ type UpdateProgramRequest struct {
 }
 
 type ProgramResponse struct {
-	ID                  uint        `json:"id"`
-	CreatedAt           string      `json:"created_at"`
-	UpdatedAt           string      `json:"updated_at"`
-	InstitutionID       uint        `json:"institution_id"`
-	InstitutionName     string      `json:"institution_name"`
-	InstitutionLocation string      `json:"institution_location"`
-	InstitutionLink     string      `json:"institution_link"`
-	GlobalCourseID      uint        `json:"globalCourseId"`
-	Fee                 string      `json:"fee"`
-	Eligibility         string      `json:"eligibility"`
-	Capacity            int         `json:"capacity"`
-	Status              string      `json:"status"`
-	WhoShouldChoose     interface{} `json:"whoShouldChoose"`
-	Features            interface{} `json:"features"`
-	FullTimeCourses     interface{} `json:"fullTimeCourses"`
-	FeeItems            interface{} `json:"feeItems"`
-	Overrides           interface{} `json:"overrides"`
-	NullifiedFields     []string    `json:"nullifiedFields"`
+	ID                  uint                    `json:"id"`
+	CreatedAt           string                  `json:"created_at"`
+	UpdatedAt           string                  `json:"updated_at"`
+	InstitutionID       uint                    `json:"institution_id"`
+	InstitutionName     string                  `json:"institution_name"`
+	InstitutionLocation string                  `json:"institution_location"`
+	InstitutionLink     string                  `json:"institution_link"`
+	GlobalCourseID      uint                    `json:"globalCourseId"`
+	GlobalCourseTitle   string                  `json:"globalCourseTitle"`
+	Fee                 string                  `json:"fee"`
+	Eligibility         string                  `json:"eligibility"`
+	Capacity            int                     `json:"capacity"`
+	Status              string                  `json:"status"`
+	WhoShouldChoose     []education.PersonaItem `json:"whoShouldChoose"`
+	Features            []education.FeatureItem `json:"features"`
+	FullTimeCourses     []education.FullTimeCourse `json:"fullTimeCourses"`
+	FeeItems            []education.FeeItem    `json:"feeItems"`
+	Overrides           education.CourseOverrides `json:"overrides"`
+	NullifiedFields     []string                `json:"nullifiedFields"`
+}
+
+type CourseApprovalRequest struct {
+	ID                uint                      `gorm:"primarykey" json:"id"`
+	CreatedAt         time.Time                 `json:"createdAt"`
+	UpdatedAt         time.Time                 `json:"updatedAt"`
+	InstitutionID     uint                      `gorm:"index;not null" json:"institutionId"`
+	Title             string                    `json:"title"`
+	Description       string                    `gorm:"type:text" json:"description"`
+	Duration          string                    `json:"duration"`
+	Level             string                    `json:"level"`
+	AffiliationID     *uint                     `json:"affiliationId"`
+	BannerURL         string                    `json:"bannerUrl"`
+	Careers           []education.CareerItem    `gorm:"type:jsonb" json:"careers"`
+	FAQs              []education.FaqItem       `gorm:"type:jsonb" json:"faqs"`
+	EligibilityRows   []education.EligibilityRow `gorm:"type:jsonb" json:"eligibilityRows"`
+	AdmissionSteps    []education.AdmissionStep  `gorm:"type:jsonb" json:"admissionSteps"`
+	SubjectGroups     []education.SubjectGroup   `gorm:"type:jsonb" json:"subjectGroups"`
+	ScholarshipDesc   string                    `json:"scholarshipDesc"`
+	ScholarshipNotes  string                    `json:"scholarshipNotes"`
+	Scholarships      []education.ScholarshipItem `gorm:"type:jsonb" json:"scholarships"`
+	Fee               string                    `json:"fee"`
+	Eligibility       string                    `json:"eligibility"`
+	Capacity          int                       `json:"capacity"`
+	WhoShouldChoose   []education.PersonaItem   `gorm:"type:jsonb" json:"whoShouldChoose"`
+	Features          []education.FeatureItem   `gorm:"type:jsonb" json:"features"`
+	FullTimeCourses   []education.FullTimeCourse `gorm:"type:jsonb" json:"fullTimeCourses"`
+	FeeItems          []education.FeeItem       `gorm:"type:jsonb" json:"feeItems"`
+	Status            string                    `gorm:"default:'pending'" json:"status"`
+	ReviewedBy        *uint                     `json:"reviewedBy"`
+	ReviewedAt        *time.Time                `json:"reviewedAt"`
+	RejectionReason   string                    `json:"rejectionReason"`
 }
 
 type CreateMediaRequest struct {
