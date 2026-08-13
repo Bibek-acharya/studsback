@@ -253,3 +253,26 @@ func TestFindCourseByIDWithAffiliation_NotFound(t *testing.T) {
 		t.Errorf("affiliation should be nil, got %+v", aff)
 	}
 }
+
+func TestFindCourseByIDWithAffiliation_DanglingAffiliationID(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewRepository(db)
+
+	bogusID := uint(9999)
+	course := Course{Title: "Orphan Course", Level: "Bachelor", AffiliationID: &bogusID, IsGlobal: true, Status: "published"}
+	db.Create(&course)
+
+	result, aff, err := repo.FindCourseByIDWithAffiliation(course.ID)
+	if err == nil {
+		t.Fatal("expected error for dangling affiliation_id, got nil")
+	}
+	if result == nil {
+		t.Fatal("course should still be returned")
+	}
+	if result.Title != "Orphan Course" {
+		t.Errorf("title = %q, want Orphan Course", result.Title)
+	}
+	if aff != nil {
+		t.Errorf("affiliation should be nil for dangling id, got %+v", aff)
+	}
+}

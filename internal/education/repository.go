@@ -366,7 +366,7 @@ func (r *Repository) FindCourseByIDWithAffiliation(id uint) (*Course, *Affiliati
 	if course.AffiliationID != nil {
 		affiliation = &Affiliation{}
 		if err := r.db.First(affiliation, *course.AffiliationID).Error; err != nil {
-			return &course, nil, nil
+			return &course, nil, err
 		}
 	}
 
