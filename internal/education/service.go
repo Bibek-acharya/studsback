@@ -82,7 +82,7 @@ func buildCourseResponse(course Course, colleges int) CourseResponse {
 		Title:       course.Title,
 		ShortTitle:  course.ShortTitle,
 		Colleges:    colleges,
-		Affiliation: course.Affiliation,
+		Affiliation: "", // TODO: Resolve from AffiliationID in later task
 		Badges:      parseStringArrayField(course.Badges),
 		Level:       course.Level,
 		Field:       course.Field,
@@ -258,7 +258,7 @@ func buildAdminCourseResponse(course Course) AdminCourseResponse {
 		ID:              course.ID,
 		Title:           course.Title,
 		ShortTitle:      course.ShortTitle,
-		Affiliation:     course.Affiliation,
+		Affiliation:     "", // TODO: Resolve from AffiliationID in later task
 		Badges:          parseStringArrayField(course.Badges),
 		Level:           course.Level,
 		Field:           course.Field,
@@ -315,7 +315,6 @@ func (s *Service) CreateCourse(req CreateCourseRequest) (*AdminCourseResponse, e
 	course := &Course{
 		Title:       req.Title,
 		ShortTitle:  req.ShortTitle,
-		Affiliation: req.Affiliation,
 		Badges:      badgesJSON,
 		Level:       req.Level,
 		Field:       req.Field,
@@ -418,9 +417,7 @@ func (s *Service) UpdateCourse(id string, req UpdateCourseRequest) (*AdminCourse
 	if req.ShortTitle != nil {
 		course.ShortTitle = *req.ShortTitle
 	}
-	if req.Affiliation != nil {
-		course.Affiliation = *req.Affiliation
-	}
+	// TODO: Handle AffiliationID in later task
 	if req.Badges != nil {
 		course.Badges, _ = json.Marshal(req.Badges)
 	}
@@ -559,9 +556,7 @@ func (s *Service) GetInstitutionCourses(instID uint) ([]CourseResponse, error) {
 				if resp.Description == "" {
 					resp.Description = globalCourse.Description
 				}
-				if resp.Affiliation == "" {
-					resp.Affiliation = globalCourse.Affiliation
-				}
+				// TODO: Resolve Affiliation from AffiliationID in later task
 				if resp.Level == "" {
 					resp.Level = globalCourse.Level
 				}
@@ -637,9 +632,7 @@ func (s *Service) GetEducationCourseByID(id string) (*CourseResponse, error) {
 					if resp.Level == "" {
 						resp.Level = globalCourse.Level
 					}
-					if resp.Affiliation == "" {
-						resp.Affiliation = globalCourse.Affiliation
-					}
+					// TODO: Resolve Affiliation from AffiliationID in later task
 				}
 			}
 
@@ -705,9 +698,7 @@ func (s *Service) GetEducationCourseDetailsByID(id string) (*CourseDetailsRespon
 					if courseResp.Level == "" {
 						courseResp.Level = globalCourse.Level
 					}
-					if courseResp.Affiliation == "" {
-						courseResp.Affiliation = globalCourse.Affiliation
-					}
+					// TODO: Resolve Affiliation from AffiliationID in later task
 				}
 			}
 
@@ -792,9 +783,7 @@ func (s *Service) GetEducationCourseDetailsByID(id string) (*CourseDetailsRespon
 			universities = append(universities, university.Name)
 		}
 	}
-	if len(universities) == 0 && course.Affiliation != "" {
-		universities = append(universities, course.Affiliation)
-	}
+	// TODO: Resolve Affiliation from AffiliationID in later task
 
 	contact := CourseContactSupport{}
 	if len(collegesList) > 0 {
@@ -870,7 +859,7 @@ func (s *Service) GetEducationCourseDetailsByID(id string) (*CourseDetailsRespon
 		Universities:          universities,
 		Contact:               contact,
 		OtherPrograms:         otherPrograms,
-		HighlightsUniversity:  course.Affiliation,
+		HighlightsUniversity:  "", // TODO: Resolve from AffiliationID in later task
 		HighlightsFaculty:     course.Field,
 		HighlightsDuration:    course.Duration,
 		HighlightsDegreeLevel: course.Level,

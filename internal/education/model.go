@@ -42,39 +42,162 @@ func (Exam) TableName() string {
 }
 
 type Course struct {
-	ID              uint           `gorm:"primarykey" json:"id"`
-	CreatedAt       time.Time      `json:"created_at"`
-	UpdatedAt       time.Time      `json:"updated_at"`
-	DeletedAt       gorm.DeletedAt `gorm:"index" json:"-"`
-	Title           string         `gorm:"not null" json:"title" binding:"required"`
-	ShortTitle      string         `json:"shortTitle"`
-	CollegesCount   int            `json:"collegesCount"`
-	Affiliation     string         `json:"affiliation"`
-	Badges          []byte         `gorm:"type:jsonb" json:"badges"`
-	Level           string         `json:"level"`
-	Field           string         `json:"field"`
-	Duration        string         `json:"duration"`
-	EstFee          string         `json:"estFee"`
-	Highlights      []byte         `gorm:"type:jsonb" json:"highlights"`
-	CareerPath      string         `json:"careerPath"`
-	Description     string         `gorm:"type:text" json:"description"`
-	Location        string         `json:"location"`
-	GovtFee         string         `json:"govtFee"`
-	PrivateFee      string         `json:"privateFee"`
-	Mode            string         `json:"mode"`
-	DegreeLabel     string         `json:"degreeLabel"`
-	About           []byte         `gorm:"type:jsonb" json:"about"`
-	Curriculum      []byte         `gorm:"type:jsonb" json:"curriculum"`
-	Admissions      []byte         `gorm:"type:jsonb" json:"admissions"`
-	Careers         []byte         `gorm:"type:jsonb" json:"careers"`
-	IsGlobal        bool           `gorm:"default:false" json:"isGlobal"`
-	Status          string         `gorm:"default:'draft'" json:"status"`
-	CreatedBy       uint           `gorm:"default:0" json:"createdBy"`
-	SourceProgramID *uint          `gorm:"default:null" json:"sourceProgramId"`
+	ID                       uint           `gorm:"primarykey" json:"id"`
+	CreatedAt                time.Time      `json:"created_at"`
+	UpdatedAt                time.Time      `json:"updated_at"`
+	DeletedAt                gorm.DeletedAt `gorm:"index" json:"-"`
+	Title                    string         `gorm:"not null" json:"title" binding:"required"`
+	ShortTitle               string         `json:"shortTitle"`
+	CollegesCount            int            `json:"collegesCount"`
+	AffiliationID            *uint          `gorm:"index" json:"affiliationId"`
+	NonUniversityAffiliation string         `json:"nonUniversityAffiliation"`
+	Badges                   []byte         `gorm:"type:jsonb" json:"badges"`
+	Level                    string         `json:"level"`
+	Field                    string         `json:"field"`
+	Duration                 string         `json:"duration"`
+	EstFee                   string         `json:"estFee"`
+	Highlights               []byte         `gorm:"type:jsonb" json:"highlights"`
+	CareerPath               string         `json:"careerPath"`
+	Description              string         `gorm:"type:text" json:"description"`
+	Location                 string         `json:"location"`
+	GovtFee                  string         `json:"govtFee"`
+	PrivateFee               string         `json:"privateFee"`
+	Mode                     string         `json:"mode"`
+	DegreeLabel              string         `json:"degreeLabel"`
+	About                    []byte         `gorm:"type:jsonb" json:"about"`
+	Curriculum               []byte         `gorm:"type:jsonb" json:"curriculum"`
+	Admissions               []byte         `gorm:"type:jsonb" json:"admissions"`
+	Careers                  []byte         `gorm:"type:jsonb" json:"careers"`
+	IsGlobal                 bool           `gorm:"default:false" json:"isGlobal"`
+	Status                   string         `gorm:"default:'draft'" json:"status"`
+	CreatedBy                uint           `gorm:"default:0" json:"createdBy"`
+	SourceProgramID          *uint          `gorm:"default:null" json:"sourceProgramId"`
+
+	// New global fields
+	WhoShouldChoose  []byte `gorm:"type:jsonb;default:'[]'" json:"whoShouldChoose"`
+	Features         []byte `gorm:"type:jsonb;default:'[]'" json:"features"`
+	EligibilityRows  []byte `gorm:"type:jsonb;default:'[]'" json:"eligibilityRows"`
+	AdmissionSteps   []byte `gorm:"type:jsonb;default:'[]'" json:"admissionSteps"`
+	SubjectGroups    []byte `gorm:"type:jsonb;default:'[]'" json:"subjectGroups"`
+	FeeItems         []byte `gorm:"type:jsonb;default:'[]'" json:"feeItems"`
+	ScholarshipDesc  string `json:"scholarshipDesc"`
+	ScholarshipNotes string `json:"scholarshipNotes"`
+	Scholarships     []byte `gorm:"type:jsonb;default:'[]'" json:"scholarships"`
+	FullTimeCourses  []byte `gorm:"type:jsonb;default:'[]'" json:"fullTimeCourses"`
+	FAQs             []byte `gorm:"type:jsonb;default:'[]'" json:"faqs"`
+	BannerURL        string `json:"bannerUrl"`
 }
 
 func (Course) TableName() string {
 	return "courses"
+}
+
+type Affiliation struct {
+	ID   uint   `gorm:"primarykey" json:"id"`
+	Name string `gorm:"not null" json:"name"`
+}
+
+func (Affiliation) TableName() string {
+	return "affiliations"
+}
+
+type PersonaItem struct {
+	Icon      string `json:"icon"`
+	Title     string `json:"title"`
+	ShortDesc string `json:"shortDesc"`
+}
+
+type FeatureItem struct {
+	Title     string `json:"title"`
+	ShortDesc string `json:"shortDesc"`
+}
+
+type EligibilityRow struct {
+	Level       string   `json:"level"`
+	Stream      string   `json:"stream"`
+	Eligibility []string `json:"eligibility"`
+	Documents   []string `json:"documents"`
+}
+
+type AdmissionStep struct {
+	Title       string `json:"title"`
+	Description string `json:"description"`
+}
+
+type SubjectGroup struct {
+	GroupName   string   `json:"groupName"`
+	Description string   `json:"description"`
+	Subjects    []string `json:"subjects"`
+	Careers     []string `json:"careers"`
+}
+
+type FeeItem struct {
+	Particular string `json:"particular"`
+	Amount     string `json:"amount"`
+	Frequency  string `json:"frequency"`
+	Notes      string `json:"notes"`
+}
+
+type ScholarshipItem struct {
+	Title       string `json:"title"`
+	Subtitle    string `json:"subtitle"`
+	Coverage    string `json:"coverage"`
+	Requirement string `json:"requirement"`
+}
+
+type FullTimeCourse struct {
+	Course    string `json:"course"`
+	TotalFees string `json:"totalFees"`
+	Seats     string `json:"seats"`
+	StartDate string `json:"startDate"`
+	EndDate   string `json:"endDate"`
+}
+
+type FaqItem struct {
+	Question string `json:"question"`
+	Answer   string `json:"answer"`
+}
+
+type CareerItem struct {
+	Title string `json:"title"`
+	Icon  string `json:"icon,omitempty"`
+	Color string `json:"color,omitempty"`
+}
+
+type CourseOverrides struct {
+	Description *string      `json:"description,omitempty"`
+	BannerURL   *string      `json:"bannerUrl,omitempty"`
+	Careers     []CareerItem `json:"careers,omitempty"`
+	FAQs        []FaqItem    `json:"faqs,omitempty"`
+}
+
+type ResolvedCourse struct {
+	ID                       uint             `json:"id"`
+	Title                    string           `json:"title"`
+	Duration                 string           `json:"duration"`
+	Level                    string           `json:"level"`
+	AffiliationID            *uint            `json:"affiliationId"`
+	AffiliationName          string           `json:"affiliationName"`
+	NonUniversityAffiliation string           `json:"nonUniversityAffiliation"`
+	Description              string           `json:"description"`
+	BannerURL                string           `json:"bannerUrl"`
+	Careers                  []CareerItem     `json:"careers"`
+	FAQs                     []FaqItem        `json:"faqs"`
+	EligibilityRows          []EligibilityRow `json:"eligibilityRows"`
+	AdmissionSteps           []AdmissionStep  `json:"admissionSteps"`
+	SubjectGroups            []SubjectGroup   `json:"subjectGroups"`
+	ScholarshipDesc          string           `json:"scholarshipDesc"`
+	ScholarshipNotes         string           `json:"scholarshipNotes"`
+	Scholarships             []ScholarshipItem `json:"scholarships"`
+	InstitutionID            uint             `json:"institutionId"`
+	Fee                      string           `json:"fee"`
+	Eligibility              string           `json:"eligibility"`
+	Capacity                 int              `json:"capacity"`
+	WhoShouldChoose          []PersonaItem    `json:"whoShouldChoose"`
+	Features                 []FeatureItem    `json:"features"`
+	FullTimeCourses          []FullTimeCourse `json:"fullTimeCourses"`
+	FeeItems                 []FeeItem        `json:"feeItems"`
+	Status                   string           `json:"status"`
 }
 
 type CollegeUniversityCourse struct {

@@ -146,7 +146,7 @@ func (r *Repository) FindGlobalCourseByID(id uint) (map[string]interface{}, erro
 		"level":        course.Level,
 		"field":        course.Field,
 		"est_fee":      course.EstFee,
-		"affiliation":  course.Affiliation,
+		"affiliation":  "", // TODO: Resolve from AffiliationID in later task
 		"location":     course.Location,
 		"mode":         course.Mode,
 		"degree_label": course.DegreeLabel,
