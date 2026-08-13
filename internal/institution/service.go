@@ -78,7 +78,7 @@ func (s *Service) GetAnalytics(instID uint) (*AnalyticsResponse, error) {
 	for i, p := range programs {
 		programStats[i] = ProgramStat{
 			ID:        p.ID,
-			Name:      p.Name,
+			Name:      p.InstitutionName,
 			Status:    p.Status,
 			Entrances: entranceCount,
 		}
@@ -383,56 +383,30 @@ func (s *Service) CreateProgram(instID uint, req CreateProgramRequest) (*Institu
 		InstitutionName:     req.InstitutionName,
 		InstitutionLocation: req.InstitutionLocation,
 		InstitutionLink:     req.InstitutionLink,
-		Name:                req.Name,
-		Description:         req.Description,
-		Duration:            req.Duration,
 		Fee:                 req.Fee,
 		Eligibility:         req.Eligibility,
 		Capacity:            req.Capacity,
-		BannerURL:           req.BannerURL,
 		Status:              status,
-	}
-
-	if req.Data != nil {
-		data, _ := json.Marshal(req.Data)
-		str := string(data)
-		program.Data = &str
+		GlobalCourseID:      req.GlobalCourseID,
 	}
 
 	// If linked to a global course, set the reference
-	if req.GlobalCourseID != nil && *req.GlobalCourseID > 0 {
-		globalCourse, err := s.repo.FindGlobalCourseByID(*req.GlobalCourseID)
+	if req.GlobalCourseID > 0 {
+		globalCourse, err := s.repo.FindGlobalCourseByID(req.GlobalCourseID)
 		if err == nil && globalCourse != nil {
-			program.GlobalCourseID = req.GlobalCourseID
-
 			overrides := map[string]interface{}{}
 
-			if title, ok := globalCourse["title"].(string); ok && title != "" {
-				if program.Name == "" {
-					program.Name = title
-				} else if program.Name != title {
-					overrides["name"] = program.Name
-				}
-			}
-			if desc, ok := globalCourse["description"].(string); ok {
-				if program.Description == "" {
-					program.Description = desc
-				} else if program.Description != desc {
-					overrides["description"] = program.Description
-				}
-			}
-			if dur, ok := globalCourse["duration"].(string); ok {
-				if program.Duration == "" {
-					program.Duration = dur
-				} else if program.Duration != dur {
-					overrides["duration"] = program.Duration
+			if fee, ok := globalCourse["est_fee"].(string); ok {
+				if program.Fee == "" {
+					program.Fee = fee
+				} else if program.Fee != fee {
+					overrides["fee"] = program.Fee
 				}
 			}
 
 			if len(overrides) > 0 {
 				data, _ := json.Marshal(overrides)
-				str := string(data)
-				program.Overrides = &str
+				program.Overrides = data
 			}
 		}
 	}
@@ -442,7 +416,7 @@ func (s *Service) CreateProgram(instID uint, req CreateProgramRequest) (*Institu
 	}
 
 	// If no global course linked, create a draft course for super admin review
-	if req.GlobalCourseID == nil || *req.GlobalCourseID == 0 {
+	if req.GlobalCourseID == 0 {
 		draftID, err := s.repo.CreateCourseFromProgram(program)
 		if err != nil {
 			// Log but don't fail - program was created successfully
@@ -461,15 +435,6 @@ func (s *Service) UpdateProgram(instID, id uint, req UpdateProgramRequest) (*Ins
 		return nil, errors.New("program not found")
 	}
 
-	if req.Name != "" {
-		program.Name = req.Name
-	}
-	if req.Description != "" {
-		program.Description = req.Description
-	}
-	if req.Duration != "" {
-		program.Duration = req.Duration
-	}
 	if req.Fee != "" {
 		program.Fee = req.Fee
 	}
@@ -478,14 +443,6 @@ func (s *Service) UpdateProgram(instID, id uint, req UpdateProgramRequest) (*Ins
 	}
 	if req.Capacity > 0 {
 		program.Capacity = req.Capacity
-	}
-	if req.BannerURL != "" {
-		program.BannerURL = req.BannerURL
-	}
-	if req.Data != nil {
-		data, _ := json.Marshal(req.Data)
-		str := string(data)
-		program.Data = &str
 	}
 	if req.Status != "" {
 		program.Status = req.Status
@@ -499,12 +456,29 @@ func (s *Service) UpdateProgram(instID, id uint, req UpdateProgramRequest) (*Ins
 	if req.InstitutionLink != "" {
 		program.InstitutionLink = req.InstitutionLink
 	}
-	if req.GlobalCourseID != nil {
+	if req.GlobalCourseID > 0 {
 		program.GlobalCourseID = req.GlobalCourseID
 	}
 
+	if req.WhoShouldChoose != nil {
+		data, _ := json.Marshal(req.WhoShouldChoose)
+		program.WhoShouldChoose = data
+	}
+	if req.Features != nil {
+		data, _ := json.Marshal(req.Features)
+		program.Features = data
+	}
+	if req.FullTimeCourses != nil {
+		data, _ := json.Marshal(req.FullTimeCourses)
+		program.FullTimeCourses = data
+	}
+	if req.FeeItems != nil {
+		data, _ := json.Marshal(req.FeeItems)
+		program.FeeItems = data
+	}
+
 	// Recalculate overrides if program is linked to a global course
-	if program.GlobalCourseID != nil && *program.GlobalCourseID > 0 {
+	if program.GlobalCourseID > 0 {
 		s.recalculateOverrides(program)
 	} else {
 		program.Overrides = nil
@@ -523,37 +497,24 @@ func (s *Service) UpdateProgram(instID, id uint, req UpdateProgramRequest) (*Ins
 }
 
 func (s *Service) recalculateOverrides(program *InstitutionProgram) {
-	if program.GlobalCourseID == nil || *program.GlobalCourseID == 0 {
+	if program.GlobalCourseID == 0 {
 		return
 	}
-	globalCourse, err := s.repo.FindGlobalCourseByID(*program.GlobalCourseID)
+	globalCourse, err := s.repo.FindGlobalCourseByID(program.GlobalCourseID)
 	if err != nil || globalCourse == nil {
 		return
 	}
 
 	overrides := map[string]interface{}{}
-	gcName, _ := globalCourse["title"].(string)
-	gcDesc, _ := globalCourse["description"].(string)
-	gcDur, _ := globalCourse["duration"].(string)
 	gcFee, _ := globalCourse["est_fee"].(string)
 
-	if program.Name != "" && program.Name != gcName {
-		overrides["name"] = program.Name
-	}
-	if program.Description != "" && program.Description != gcDesc {
-		overrides["description"] = program.Description
-	}
-	if program.Duration != "" && program.Duration != gcDur {
-		overrides["duration"] = program.Duration
-	}
 	if program.Fee != "" && program.Fee != gcFee {
 		overrides["fee"] = program.Fee
 	}
 
 	if len(overrides) > 0 {
 		data, _ := json.Marshal(overrides)
-		str := string(data)
-		program.Overrides = &str
+		program.Overrides = data
 	} else {
 		program.Overrides = nil
 	}
@@ -2349,10 +2310,13 @@ func (s *Service) GetPublicInstitution(id uint) (*PublicInstitutionDetailRespons
 	programs, _ := s.repo.FindAllProgramsByInstitution(id)
 	programResponses := make([]ProgramResponse, 0, len(programs))
 	for _, p := range programs {
-		var data interface{}
-		if p.Data != nil {
-			json.Unmarshal([]byte(*p.Data), &data)
-		}
+		var whoShouldChoose, features, fullTimeCourses, feeItems, overrides interface{}
+		json.Unmarshal(p.WhoShouldChoose, &whoShouldChoose)
+		json.Unmarshal(p.Features, &features)
+		json.Unmarshal(p.FullTimeCourses, &fullTimeCourses)
+		json.Unmarshal(p.FeeItems, &feeItems)
+		json.Unmarshal(p.Overrides, &overrides)
+
 		programResponses = append(programResponses, ProgramResponse{
 			ID:                  p.ID,
 			CreatedAt:           p.CreatedAt.Format(time.RFC3339),
@@ -2361,15 +2325,17 @@ func (s *Service) GetPublicInstitution(id uint) (*PublicInstitutionDetailRespons
 			InstitutionName:     p.InstitutionName,
 			InstitutionLocation: p.InstitutionLocation,
 			InstitutionLink:     p.InstitutionLink,
-			Name:                p.Name,
-			Description:         p.Description,
-			Duration:            p.Duration,
+			GlobalCourseID:      p.GlobalCourseID,
 			Fee:                 p.Fee,
 			Eligibility:         p.Eligibility,
 			Capacity:            p.Capacity,
-			BannerURL:           p.BannerURL,
-			Data:                data,
 			Status:              p.Status,
+			WhoShouldChoose:     whoShouldChoose,
+			Features:            features,
+			FullTimeCourses:     fullTimeCourses,
+			FeeItems:            feeItems,
+			Overrides:           overrides,
+			NullifiedFields:     p.NullifiedFields,
 		})
 	}
 

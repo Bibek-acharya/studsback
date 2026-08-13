@@ -3,35 +3,29 @@ package institution
 import "encoding/json"
 
 type CreateProgramRequest struct {
-	Name                string      `json:"name" binding:"required"`
-	Description         string      `json:"description"`
-	Duration            string      `json:"duration"`
-	Fee                 string      `json:"fee"`
-	Eligibility         string      `json:"eligibility"`
-	Capacity            int         `json:"capacity"`
-	BannerURL           string      `json:"banner_url"`
-	InstitutionName     string      `json:"institution_name"`
-	InstitutionLocation string      `json:"institution_location"`
-	InstitutionLink     string      `json:"institution_link"`
-	Data                interface{} `json:"data"`
-	Status              string      `json:"status"`
-	GlobalCourseID      *uint       `json:"globalCourseId"`
+	Fee                 string `json:"fee"`
+	Eligibility         string `json:"eligibility"`
+	Capacity            int    `json:"capacity"`
+	InstitutionName     string `json:"institution_name"`
+	InstitutionLocation string `json:"institution_location"`
+	InstitutionLink     string `json:"institution_link"`
+	Status              string `json:"status"`
+	GlobalCourseID      uint   `json:"globalCourseId"`
 }
 
 type UpdateProgramRequest struct {
-	Name                string      `json:"name"`
-	Description         string      `json:"description"`
-	Duration            string      `json:"duration"`
 	Fee                 string      `json:"fee"`
 	Eligibility         string      `json:"eligibility"`
 	Capacity            int         `json:"capacity"`
-	BannerURL           string      `json:"banner_url"`
 	InstitutionName     string      `json:"institution_name"`
 	InstitutionLocation string      `json:"institution_location"`
 	InstitutionLink     string      `json:"institution_link"`
-	Data                interface{} `json:"data"`
 	Status              string      `json:"status"`
-	GlobalCourseID      *uint       `json:"globalCourseId"`
+	GlobalCourseID      uint        `json:"globalCourseId"`
+	WhoShouldChoose     interface{} `json:"whoShouldChoose"`
+	Features            interface{} `json:"features"`
+	FullTimeCourses     interface{} `json:"fullTimeCourses"`
+	FeeItems            interface{} `json:"feeItems"`
 }
 
 type ProgramResponse struct {
@@ -42,17 +36,17 @@ type ProgramResponse struct {
 	InstitutionName     string      `json:"institution_name"`
 	InstitutionLocation string      `json:"institution_location"`
 	InstitutionLink     string      `json:"institution_link"`
-	Name                string      `json:"name"`
-	Description         string      `json:"description"`
-	Duration            string      `json:"duration"`
+	GlobalCourseID      uint        `json:"globalCourseId"`
 	Fee                 string      `json:"fee"`
 	Eligibility         string      `json:"eligibility"`
 	Capacity            int         `json:"capacity"`
-	BannerURL           string      `json:"banner_url"`
-	Data                interface{} `json:"data"`
 	Status              string      `json:"status"`
-	GlobalCourseID      *uint       `json:"globalCourseId,omitempty"`
-	GlobalCourseTitle   string      `json:"globalCourseTitle,omitempty"`
+	WhoShouldChoose     interface{} `json:"whoShouldChoose"`
+	Features            interface{} `json:"features"`
+	FullTimeCourses     interface{} `json:"fullTimeCourses"`
+	FeeItems            interface{} `json:"feeItems"`
+	Overrides           interface{} `json:"overrides"`
+	NullifiedFields     []string    `json:"nullifiedFields"`
 }
 
 type CreateMediaRequest struct {

@@ -18,18 +18,21 @@ type InstitutionProgram struct {
 	InstitutionName     string         `gorm:"default:''" json:"institution_name"`
 	InstitutionLocation string         `gorm:"default:''" json:"institution_location"`
 	InstitutionLink     string         `gorm:"default:''" json:"institution_link"`
-	Name                string         `gorm:"not null" json:"name"`
-	Description         string         `gorm:"type:text" json:"description"`
-	Duration            string         `json:"duration"`
+	GlobalCourseID      uint           `gorm:"not null;index" json:"globalCourseId"`
 	Fee                 string         `json:"fee"`
 	Eligibility         string         `gorm:"type:text" json:"eligibility"`
 	Capacity            int            `json:"capacity"`
-	BannerURL           string         `json:"banner_url"`
-	Data                *string        `gorm:"type:jsonb;default:'{}'" json:"data"`
 	Status              string         `gorm:"default:'active'" json:"status"`
-	GlobalCourseID      *uint          `gorm:"default:null" json:"globalCourseId"`
-	Overrides           *string        `gorm:"type:jsonb;default:'{}'" json:"overrides"`
-	NullifiedFields     *string        `gorm:"type:jsonb;default:'[]'" json:"nullifiedFields"`
+
+	// Institution-specific arrays
+	WhoShouldChoose []byte `gorm:"type:jsonb;default:'[]'" json:"whoShouldChoose"`
+	Features        []byte `gorm:"type:jsonb;default:'[]'" json:"features"`
+	FullTimeCourses []byte `gorm:"type:jsonb;default:'[]'" json:"fullTimeCourses"`
+	FeeItems        []byte `gorm:"type:jsonb;default:'[]'" json:"feeItems"`
+
+	// Overrides for overridable fields
+	Overrides       []byte   `gorm:"type:jsonb;default:'{}'" json:"overrides"`
+	NullifiedFields []string `gorm:"type:jsonb;default:'[]'" json:"nullifiedFields"`
 }
 
 type InstitutionMedia struct {

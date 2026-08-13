@@ -297,19 +297,15 @@ type SuperadminDashboardStats struct {
 
 // Superadmin CRUD request types for programs, entrances, admission pages
 type SuperadminCreateProgramRequest struct {
-	InstitutionID       *uint       `json:"institution_id"`
-	InstitutionName     string      `json:"institution_name"`
-	InstitutionLocation string      `json:"institution_location"`
-	InstitutionLink     string      `json:"institution_link"`
-	Name                string      `json:"name" binding:"required"`
-	Description         string      `json:"description"`
-	Duration            string      `json:"duration"`
-	Fee                 string      `json:"fee"`
-	Eligibility         string      `json:"eligibility"`
-	Capacity            int         `json:"capacity"`
-	BannerURL           string      `json:"banner_url"`
-	Data                interface{} `json:"data"`
-	Status              string      `json:"status"`
+	InstitutionID       *uint  `json:"institution_id"`
+	InstitutionName     string `json:"institution_name"`
+	InstitutionLocation string `json:"institution_location"`
+	InstitutionLink     string `json:"institution_link"`
+	Fee                 string `json:"fee"`
+	Eligibility         string `json:"eligibility"`
+	Capacity            int    `json:"capacity"`
+	Status              string `json:"status"`
+	GlobalCourseID      uint   `json:"globalCourseId"`
 }
 
 type SuperadminUpdateProgramRequest struct {
@@ -317,15 +313,15 @@ type SuperadminUpdateProgramRequest struct {
 	InstitutionName     string      `json:"institution_name"`
 	InstitutionLocation string      `json:"institution_location"`
 	InstitutionLink     string      `json:"institution_link"`
-	Name                string      `json:"name"`
-	Description         string      `json:"description"`
-	Duration            string      `json:"duration"`
 	Fee                 string      `json:"fee"`
 	Eligibility         string      `json:"eligibility"`
 	Capacity            int         `json:"capacity"`
-	BannerURL           string      `json:"banner_url"`
-	Data                interface{} `json:"data"`
 	Status              string      `json:"status"`
+	GlobalCourseID      uint        `json:"globalCourseId"`
+	WhoShouldChoose     interface{} `json:"whoShouldChoose"`
+	Features            interface{} `json:"features"`
+	FullTimeCourses     interface{} `json:"fullTimeCourses"`
+	FeeItems            interface{} `json:"feeItems"`
 }
 
 type SuperadminCreateEntranceRequest struct {

@@ -1746,18 +1746,14 @@ func (h *Handler) CreateProgramForInstitution(c *gin.Context) {
 	}
 
 	progReq := institution.CreateProgramRequest{
-		Name:                req.Name,
-		Description:         req.Description,
-		Duration:            req.Duration,
 		Fee:                 req.Fee,
 		Eligibility:         req.Eligibility,
 		Capacity:            req.Capacity,
-		BannerURL:           req.BannerURL,
 		InstitutionName:     req.InstitutionName,
 		InstitutionLocation: req.InstitutionLocation,
 		InstitutionLink:     req.InstitutionLink,
-		Data:                req.Data,
 		Status:              req.Status,
+		GlobalCourseID:      req.GlobalCourseID,
 	}
 
 	instID := uint(0)
@@ -1792,18 +1788,18 @@ func (h *Handler) UpdateProgramForInstitution(c *gin.Context) {
 	}
 
 	progReq := institution.UpdateProgramRequest{
-		Name:                req.Name,
-		Description:         req.Description,
-		Duration:            req.Duration,
 		Fee:                 req.Fee,
 		Eligibility:         req.Eligibility,
 		Capacity:            req.Capacity,
-		BannerURL:           req.BannerURL,
 		InstitutionName:     req.InstitutionName,
 		InstitutionLocation: req.InstitutionLocation,
 		InstitutionLink:     req.InstitutionLink,
-		Data:                req.Data,
 		Status:              req.Status,
+		GlobalCourseID:      req.GlobalCourseID,
+		WhoShouldChoose:     req.WhoShouldChoose,
+		Features:            req.Features,
+		FullTimeCourses:     req.FullTimeCourses,
+		FeeItems:            req.FeeItems,
 	}
 
 	instID := uint(0)

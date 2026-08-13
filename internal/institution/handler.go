@@ -1846,25 +1846,32 @@ func (h *Handler) GetPublishedAdmissionByPageID(c *gin.Context) {
 }
 
 func toProgramResponse(p InstitutionProgram) ProgramResponse {
-	var data interface{}
-	if p.Data != nil {
-		json.Unmarshal([]byte(*p.Data), &data)
-	}
+	var whoShouldChoose, features, fullTimeCourses, feeItems, overrides interface{}
+	json.Unmarshal(p.WhoShouldChoose, &whoShouldChoose)
+	json.Unmarshal(p.Features, &features)
+	json.Unmarshal(p.FullTimeCourses, &fullTimeCourses)
+	json.Unmarshal(p.FeeItems, &feeItems)
+	json.Unmarshal(p.Overrides, &overrides)
+
 	return ProgramResponse{
-		ID:             p.ID,
-		CreatedAt:      p.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:      p.UpdatedAt.Format(time.RFC3339),
-		InstitutionID:  p.InstitutionID,
-		Name:           p.Name,
-		Description:    p.Description,
-		Duration:       p.Duration,
-		Fee:            p.Fee,
-		Eligibility:    p.Eligibility,
-		Capacity:       p.Capacity,
-		BannerURL:      p.BannerURL,
-		Data:           data,
-		Status:         p.Status,
-		GlobalCourseID: p.GlobalCourseID,
+		ID:                  p.ID,
+		CreatedAt:           p.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:           p.UpdatedAt.Format(time.RFC3339),
+		InstitutionID:       p.InstitutionID,
+		InstitutionName:     p.InstitutionName,
+		InstitutionLocation: p.InstitutionLocation,
+		InstitutionLink:     p.InstitutionLink,
+		GlobalCourseID:      p.GlobalCourseID,
+		Fee:                 p.Fee,
+		Eligibility:         p.Eligibility,
+		Capacity:            p.Capacity,
+		Status:              p.Status,
+		WhoShouldChoose:     whoShouldChoose,
+		Features:            features,
+		FullTimeCourses:     fullTimeCourses,
+		FeeItems:            feeItems,
+		Overrides:           overrides,
+		NullifiedFields:     p.NullifiedFields,
 	}
 }
 

@@ -1,7 +1,6 @@
 package institution
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -178,10 +177,6 @@ func (r *Repository) CreateCourseFromProgram(program *InstitutionProgram) (uint,
 		status = "published"
 	}
 	course := &courseDraft{
-		Title:           program.Name,
-		Description:     program.Description,
-		Duration:        program.Duration,
-		Level:           extractLevelFromData(program.Data),
 		Location:        program.InstitutionLocation,
 		IsGlobal:        isPublished,
 		Status:          status,
@@ -213,28 +208,12 @@ func (r *Repository) SyncCourseStatus(program *InstitutionProgram) error {
 		status = "published"
 	}
 	updates := map[string]interface{}{
-		"is_global":   isPublished,
-		"status":      status,
-		"title":       program.Name,
-		"description": program.Description,
-		"duration":    program.Duration,
+		"is_global": isPublished,
+		"status":    status,
 	}
 	return r.db.Table("courses").
 		Where("source_program_id = ?", program.ID).
 		Updates(updates).Error
-}
-
-func extractLevelFromData(data *string) string {
-	if data == nil || *data == "" {
-		return ""
-	}
-	var parsed struct {
-		Level string `json:"level"`
-	}
-	if err := json.Unmarshal([]byte(*data), &parsed); err != nil {
-		return ""
-	}
-	return parsed.Level
 }
 
 func (r *Repository) FindAllProgramsByInstitution(instID uint) ([]InstitutionProgram, error) {
