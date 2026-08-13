@@ -1043,16 +1043,4 @@ func (r *Repository) GetInstitutionEntranceByID(id string) (*InstitutionEntrance
 	return &entry, nil
 }
 
-func (r *Repository) FindProgramByGlobalCourse(institutionID, globalCourseID uint) (*InstitutionProgramResolved, error) {
-	var program InstitutionProgramResolved
-	err := r.db.Table("institution_programs").
-		Select(`id, institution_id, global_course_id, fee, eligibility, capacity, status,
-			who_should_choose, features, full_time_courses, fee_items, overrides, nullified_fields`).
-		Where("institution_id = ? AND global_course_id = ? AND status = ? AND deleted_at IS NULL",
-			institutionID, globalCourseID, "active").
-		First(&program).Error
-	if err != nil {
-		return nil, err
-	}
-	return &program, nil
-}
+

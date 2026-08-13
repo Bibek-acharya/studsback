@@ -15,13 +15,35 @@ import (
 	"gorm.io/gorm"
 )
 
+// ResolvedProgram holds the fields education needs from an institution program.
+// Avoids importing institution package (cycle).
+type ResolvedProgram struct {
+	InstitutionID   uint
+	Fee             string
+	Eligibility     string
+	Capacity        int
+	Status          string
+	WhoShouldChoose []byte
+	Features        []byte
+	FullTimeCourses []byte
+	FeeItems        []byte
+	Overrides       []byte
+	NullifiedFields []string
+}
+
+// InstitutionProgramRepo abstracts the institution repository to avoid import cycle.
+type InstitutionProgramRepo interface {
+	FindProgramByGlobalCourse(institutionID, globalCourseID uint) (*ResolvedProgram, error)
+}
+
 type Service struct {
 	repo      *Repository
+	instRepo  InstitutionProgramRepo
 	systemSvc *system.Service
 }
 
-func NewService(repo *Repository, systemSvc *system.Service) *Service {
-	return &Service{repo: repo, systemSvc: systemSvc}
+func NewService(repo *Repository, instRepo InstitutionProgramRepo, systemSvc *system.Service) *Service {
+	return &Service{repo: repo, instRepo: instRepo, systemSvc: systemSvc}
 }
 
 func (s *Service) resolveAffiliationName(course *Course) string {
@@ -2209,7 +2231,7 @@ func (s *Service) ResolveCourse(globalCourseID uint, institutionID uint) (*Resol
 		return nil, err
 	}
 
-	program, err := s.repo.FindProgramByGlobalCourse(institutionID, globalCourseID)
+	program, err := s.instRepo.FindProgramByGlobalCourse(institutionID, globalCourseID)
 	if err != nil {
 		return nil, err
 	}
@@ -2247,8 +2269,7 @@ func (s *Service) ResolveCourse(globalCourseID uint, institutionID uint) (*Resol
 	var overrides CourseOverrides
 	json.Unmarshal(program.Overrides, &overrides)
 
-	var nullifiedFields []string
-	json.Unmarshal(program.NullifiedFields, &nullifiedFields)
+	nullifiedFields := program.NullifiedFields
 
 	description := course.Description
 	if contains(nullifiedFields, "description") {

@@ -9,6 +9,51 @@ import (
 	"gorm.io/gorm"
 )
 
+// testInstProgramRepo queries institution_programs table for tests.
+type testInstProgramRepo struct {
+	db *gorm.DB
+}
+
+func (r *testInstProgramRepo) FindProgramByGlobalCourse(institutionID, globalCourseID uint) (*ResolvedProgram, error) {
+	var row struct {
+		InstitutionID   uint
+		Fee             string
+		Eligibility     string
+		Capacity        int
+		Status          string
+		WhoShouldChoose []byte
+		Features        []byte
+		FullTimeCourses []byte
+		FeeItems        []byte
+		Overrides       []byte
+		NullifiedFields []byte
+	}
+	err := r.db.Table("institution_programs").
+		Select(`institution_id, fee, eligibility, capacity, status,
+			who_should_choose, features, full_time_courses, fee_items, overrides, nullified_fields`).
+		Where("institution_id = ? AND global_course_id = ? AND status = ? AND deleted_at IS NULL",
+			institutionID, globalCourseID, "active").
+		First(&row).Error
+	if err != nil {
+		return nil, err
+	}
+	var nf []string
+	json.Unmarshal(row.NullifiedFields, &nf)
+	return &ResolvedProgram{
+		InstitutionID:   row.InstitutionID,
+		Fee:             row.Fee,
+		Eligibility:     row.Eligibility,
+		Capacity:        row.Capacity,
+		Status:          row.Status,
+		WhoShouldChoose: row.WhoShouldChoose,
+		Features:        row.Features,
+		FullTimeCourses: row.FullTimeCourses,
+		FeeItems:        row.FeeItems,
+		Overrides:       row.Overrides,
+		NullifiedFields: nf,
+	}, nil
+}
+
 func setupServiceTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
@@ -89,7 +134,7 @@ func TestResolveCourse_ReturnsMergedData(t *testing.T) {
 	db := setupServiceTestDB(t)
 	seedServiceData(db)
 	repo := NewRepository(db)
-	svc := NewService(repo, nil)
+	svc := NewService(repo, &testInstProgramRepo{db: repo.db}, nil)
 
 	var course Course
 	db.Where("title = ?", "BSc Computer Science").First(&course)
@@ -145,7 +190,7 @@ func TestResolveCourse_AppliesOverrides(t *testing.T) {
 	db := setupServiceTestDB(t)
 	seedServiceData(db)
 	repo := NewRepository(db)
-	svc := NewService(repo, nil)
+	svc := NewService(repo, &testInstProgramRepo{db: repo.db}, nil)
 
 	var course Course
 	db.Where("title = ?", "BSc Computer Science").First(&course)
@@ -173,7 +218,7 @@ func TestResolveCourse_NullifiedFields(t *testing.T) {
 	db := setupServiceTestDB(t)
 	seedServiceData(db)
 	repo := NewRepository(db)
-	svc := NewService(repo, nil)
+	svc := NewService(repo, &testInstProgramRepo{db: repo.db}, nil)
 
 	var course Course
 	db.Where("title = ?", "BSc Computer Science").First(&course)
@@ -203,7 +248,7 @@ func TestResolveCourse_ProgramNotFound(t *testing.T) {
 	db := setupServiceTestDB(t)
 	seedServiceData(db)
 	repo := NewRepository(db)
-	svc := NewService(repo, nil)
+	svc := NewService(repo, &testInstProgramRepo{db: repo.db}, nil)
 
 	var course Course
 	db.Where("title = ?", "BSc Computer Science").First(&course)
@@ -218,7 +263,7 @@ func TestResolveCourse_CourseNotFound(t *testing.T) {
 	db := setupServiceTestDB(t)
 	seedServiceData(db)
 	repo := NewRepository(db)
-	svc := NewService(repo, nil)
+	svc := NewService(repo, &testInstProgramRepo{db: repo.db}, nil)
 
 	_, err := svc.ResolveCourse(999, 10)
 	if err == nil {
@@ -230,7 +275,7 @@ func TestGetCoursesByLevel_Delegates(t *testing.T) {
 	db := setupServiceTestDB(t)
 	seedServiceData(db)
 	repo := NewRepository(db)
-	svc := NewService(repo, nil)
+	svc := NewService(repo, &testInstProgramRepo{db: repo.db}, nil)
 
 	courses, total, err := svc.GetCoursesByLevel("Bachelor", 1, 10)
 	if err != nil {
@@ -248,7 +293,7 @@ func TestGetCoursesByAffiliation_Delegates(t *testing.T) {
 	db := setupServiceTestDB(t)
 	seedServiceData(db)
 	repo := NewRepository(db)
-	svc := NewService(repo, nil)
+	svc := NewService(repo, &testInstProgramRepo{db: repo.db}, nil)
 
 	var aff Affiliation
 	db.Where("name = ?", "Tribhuvan University").First(&aff)
@@ -269,7 +314,7 @@ func TestGetSecondaryCourses_Delegates(t *testing.T) {
 	db := setupServiceTestDB(t)
 	seedServiceData(db)
 	repo := NewRepository(db)
-	svc := NewService(repo, nil)
+	svc := NewService(repo, &testInstProgramRepo{db: repo.db}, nil)
 
 	courses, total, err := svc.GetSecondaryCourses(1, 10)
 	if err != nil {
@@ -331,7 +376,7 @@ func TestResolveAffiliationName_FromAffiliationID(t *testing.T) {
 	db := setupServiceTestDB(t)
 	seedServiceData(db)
 	repo := NewRepository(db)
-	svc := NewService(repo, nil)
+	svc := NewService(repo, &testInstProgramRepo{db: repo.db}, nil)
 
 	var course Course
 	db.Where("title = ?", "BSc Computer Science").First(&course)
@@ -345,7 +390,7 @@ func TestResolveAffiliationName_FromAffiliationID(t *testing.T) {
 func TestResolveAffiliationName_NonUniversityAffiliation(t *testing.T) {
 	db := setupServiceTestDB(t)
 	repo := NewRepository(db)
-	svc := NewService(repo, nil)
+	svc := NewService(repo, &testInstProgramRepo{db: repo.db}, nil)
 
 	course := &Course{
 		Title:                    "+2 Science",
@@ -361,7 +406,7 @@ func TestResolveAffiliationName_NonUniversityAffiliation(t *testing.T) {
 func TestResolveAffiliationName_NilAffiliationID(t *testing.T) {
 	db := setupServiceTestDB(t)
 	repo := NewRepository(db)
-	svc := NewService(repo, nil)
+	svc := NewService(repo, &testInstProgramRepo{db: repo.db}, nil)
 
 	course := &Course{Title: "Test", Level: "+2"}
 	name := svc.resolveAffiliationName(course)
@@ -374,7 +419,7 @@ func TestGetEducationCourses_PopulatesAffiliation(t *testing.T) {
 	db := setupServiceTestDB(t)
 	seedServiceData(db)
 	repo := NewRepository(db)
-	svc := NewService(repo, nil)
+	svc := NewService(repo, &testInstProgramRepo{db: repo.db}, nil)
 
 	courses, err := svc.GetEducationCourses()
 	if err != nil {
@@ -406,7 +451,7 @@ func TestGetEducationCourseByID_PopulatesAffiliation(t *testing.T) {
 	db := setupServiceTestDB(t)
 	seedServiceData(db)
 	repo := NewRepository(db)
-	svc := NewService(repo, nil)
+	svc := NewService(repo, &testInstProgramRepo{db: repo.db}, nil)
 
 	var course Course
 	db.Where("title = ?", "BSc Computer Science").First(&course)
@@ -424,7 +469,7 @@ func TestSearchGlobalCourses_PopulatesAffiliation(t *testing.T) {
 	db := setupServiceTestDB(t)
 	seedServiceData(db)
 	repo := NewRepository(db)
-	svc := NewService(repo, nil)
+	svc := NewService(repo, &testInstProgramRepo{db: repo.db}, nil)
 
 	courses, err := svc.SearchGlobalCourses("")
 	if err != nil {

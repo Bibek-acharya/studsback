@@ -48,7 +48,7 @@ func setupHandlerRouter(h *Handler) *gin.Engine {
 func TestGetCoursesByLevel(t *testing.T) {
 	db := setupHandlerTestDB(t)
 	seedHandlerData(db)
-	service := NewService(NewRepository(db), nil)
+	service := NewService(NewRepository(db), (*testInstProgramRepo)(nil), nil)
 	h := NewHandler(service)
 	router := setupHandlerRouter(h)
 
@@ -81,7 +81,7 @@ func TestGetCoursesByLevel(t *testing.T) {
 func TestGetCoursesByLevelPagination(t *testing.T) {
 	db := setupHandlerTestDB(t)
 	seedHandlerData(db)
-	service := NewService(NewRepository(db), nil)
+	service := NewService(NewRepository(db), (*testInstProgramRepo)(nil), nil)
 	h := NewHandler(service)
 	router := setupHandlerRouter(h)
 
@@ -118,7 +118,7 @@ func TestGetCoursesByLevelPagination(t *testing.T) {
 func TestGetCoursesByAffiliation(t *testing.T) {
 	db := setupHandlerTestDB(t)
 	seedHandlerData(db)
-	service := NewService(NewRepository(db), nil)
+	service := NewService(NewRepository(db), (*testInstProgramRepo)(nil), nil)
 	h := NewHandler(service)
 	router := setupHandlerRouter(h)
 
@@ -155,7 +155,7 @@ func TestGetCoursesByAffiliation(t *testing.T) {
 
 func TestGetCoursesByAffiliationInvalidID(t *testing.T) {
 	db := setupHandlerTestDB(t)
-	service := NewService(NewRepository(db), nil)
+	service := NewService(NewRepository(db), (*testInstProgramRepo)(nil), nil)
 	h := NewHandler(service)
 	router := setupHandlerRouter(h)
 
@@ -171,7 +171,7 @@ func TestGetCoursesByAffiliationInvalidID(t *testing.T) {
 func TestGetSecondaryCourses(t *testing.T) {
 	db := setupHandlerTestDB(t)
 	seedHandlerData(db)
-	service := NewService(NewRepository(db), nil)
+	service := NewService(NewRepository(db), (*testInstProgramRepo)(nil), nil)
 	h := NewHandler(service)
 	router := setupHandlerRouter(h)
 

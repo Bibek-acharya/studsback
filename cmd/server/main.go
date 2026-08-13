@@ -51,6 +51,31 @@ import (
 	"gorm.io/gorm"
 )
 
+// instProgramRepoAdapter wraps institution.Repository to satisfy education.InstitutionProgramRepo.
+type instProgramRepoAdapter struct {
+	repo *institution.Repository
+}
+
+func (a *instProgramRepoAdapter) FindProgramByGlobalCourse(institutionID, globalCourseID uint) (*education.ResolvedProgram, error) {
+	p, err := a.repo.FindProgramByGlobalCourse(institutionID, globalCourseID)
+	if err != nil {
+		return nil, err
+	}
+	return &education.ResolvedProgram{
+		InstitutionID:   p.InstitutionID,
+		Fee:             p.Fee,
+		Eligibility:     p.Eligibility,
+		Capacity:        p.Capacity,
+		Status:          p.Status,
+		WhoShouldChoose: p.WhoShouldChoose,
+		Features:        p.Features,
+		FullTimeCourses: p.FullTimeCourses,
+		FeeItems:        p.FeeItems,
+		Overrides:       p.Overrides,
+		NullifiedFields: p.NullifiedFields,
+	}, nil
+}
+
 func main() {
 	config.Load()
 
@@ -261,7 +286,8 @@ func main() {
 	counsellingHandler := initModule(counselling.NewRepository(db), counselling.NewService, counselling.NewHandler)
 
 	educationRepo := education.NewRepository(db)
-	educationSvc := education.NewService(educationRepo, systemSvc)
+	instProgramAdapter := &instProgramRepoAdapter{repo: institutionRepo}
+	educationSvc := education.NewService(educationRepo, instProgramAdapter, systemSvc)
 	educationHandler := education.NewHandler(educationSvc)
 
 	feedbackHandler := initModule(feedback.NewRepository(db), feedback.NewService, feedback.NewHandler)
