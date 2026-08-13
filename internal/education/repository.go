@@ -326,11 +326,10 @@ func (r *Repository) FindCoursesByLevel(level string, page, limit int) ([]Course
 	var courses []Course
 	var total int64
 
-	query := r.db.Model(&Course{}).Where("is_global = ? AND level = ? AND status = ?", true, level, "published")
-	query.Count(&total)
+	r.db.Model(&Course{}).Where("is_global = ? AND level = ? AND status = ?", true, level, "published").Count(&total)
 
 	offset := (page - 1) * limit
-	err := query.Offset(offset).Limit(limit).Order("title ASC").Find(&courses).Error
+	err := r.db.Model(&Course{}).Where("is_global = ? AND level = ? AND status = ?", true, level, "published").Offset(offset).Limit(limit).Order("title ASC").Find(&courses).Error
 	return courses, total, err
 }
 
@@ -338,11 +337,10 @@ func (r *Repository) FindCoursesByAffiliation(affiliationID uint, page, limit in
 	var courses []Course
 	var total int64
 
-	query := r.db.Model(&Course{}).Where("is_global = ? AND affiliation_id = ? AND status = ?", true, affiliationID, "published")
-	query.Count(&total)
+	r.db.Model(&Course{}).Where("is_global = ? AND affiliation_id = ? AND status = ?", true, affiliationID, "published").Count(&total)
 
 	offset := (page - 1) * limit
-	err := query.Offset(offset).Limit(limit).Order("title ASC").Find(&courses).Error
+	err := r.db.Model(&Course{}).Where("is_global = ? AND affiliation_id = ? AND status = ?", true, affiliationID, "published").Offset(offset).Limit(limit).Order("title ASC").Find(&courses).Error
 	return courses, total, err
 }
 
@@ -350,11 +348,10 @@ func (r *Repository) FindSecondaryCourses(page, limit int) ([]Course, int64, err
 	var courses []Course
 	var total int64
 
-	query := r.db.Model(&Course{}).Where("is_global = ? AND affiliation_id IS NULL AND status = ?", true, "published")
-	query.Count(&total)
+	r.db.Model(&Course{}).Where("is_global = ? AND affiliation_id IS NULL AND status = ?", true, "published").Count(&total)
 
 	offset := (page - 1) * limit
-	err := query.Offset(offset).Limit(limit).Order("title ASC").Find(&courses).Error
+	err := r.db.Model(&Course{}).Where("is_global = ? AND affiliation_id IS NULL AND status = ?", true, "published").Offset(offset).Limit(limit).Order("title ASC").Find(&courses).Error
 	return courses, total, err
 }
 
@@ -368,7 +365,9 @@ func (r *Repository) FindCourseByIDWithAffiliation(id uint) (*Course, *Affiliati
 	var affiliation *Affiliation
 	if course.AffiliationID != nil {
 		affiliation = &Affiliation{}
-		r.db.First(affiliation, *course.AffiliationID)
+		if err := r.db.First(affiliation, *course.AffiliationID).Error; err != nil {
+			return &course, nil, nil
+		}
 	}
 
 	return &course, affiliation, nil
