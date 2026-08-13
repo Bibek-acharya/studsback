@@ -322,6 +322,58 @@ func (r *Repository) FindFallbackCourses(excludeID uint, limit int) ([]Course, e
 	return courses, err
 }
 
+func (r *Repository) FindCoursesByLevel(level string, page, limit int) ([]Course, int64, error) {
+	var courses []Course
+	var total int64
+
+	query := r.db.Model(&Course{}).Where("is_global = ? AND level = ? AND status = ?", true, level, "published")
+	query.Count(&total)
+
+	offset := (page - 1) * limit
+	err := query.Offset(offset).Limit(limit).Order("title ASC").Find(&courses).Error
+	return courses, total, err
+}
+
+func (r *Repository) FindCoursesByAffiliation(affiliationID uint, page, limit int) ([]Course, int64, error) {
+	var courses []Course
+	var total int64
+
+	query := r.db.Model(&Course{}).Where("is_global = ? AND affiliation_id = ? AND status = ?", true, affiliationID, "published")
+	query.Count(&total)
+
+	offset := (page - 1) * limit
+	err := query.Offset(offset).Limit(limit).Order("title ASC").Find(&courses).Error
+	return courses, total, err
+}
+
+func (r *Repository) FindSecondaryCourses(page, limit int) ([]Course, int64, error) {
+	var courses []Course
+	var total int64
+
+	query := r.db.Model(&Course{}).Where("is_global = ? AND affiliation_id IS NULL AND status = ?", true, "published")
+	query.Count(&total)
+
+	offset := (page - 1) * limit
+	err := query.Offset(offset).Limit(limit).Order("title ASC").Find(&courses).Error
+	return courses, total, err
+}
+
+func (r *Repository) FindCourseByIDWithAffiliation(id uint) (*Course, *Affiliation, error) {
+	var course Course
+	err := r.db.First(&course, id).Error
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var affiliation *Affiliation
+	if course.AffiliationID != nil {
+		affiliation = &Affiliation{}
+		r.db.First(affiliation, *course.AffiliationID)
+	}
+
+	return &course, affiliation, nil
+}
+
 func (r *Repository) FindCourseMappings(courseID uint) ([]CollegeUniversityCourse, error) {
 	var mappings []CollegeUniversityCourse
 	err := r.db.
