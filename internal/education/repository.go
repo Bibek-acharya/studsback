@@ -373,6 +373,29 @@ func (r *Repository) FindCourseByIDWithAffiliation(id uint) (*Course, *Affiliati
 	return &course, affiliation, nil
 }
 
+func (r *Repository) FindAffiliationsByIDs(ids []uint) (map[uint]*Affiliation, error) {
+	if len(ids) == 0 {
+		return map[uint]*Affiliation{}, nil
+	}
+	var affiliations []Affiliation
+	if err := r.db.Where("id IN ?", ids).Find(&affiliations).Error; err != nil {
+		return nil, err
+	}
+	result := make(map[uint]*Affiliation, len(affiliations))
+	for i := range affiliations {
+		result[affiliations[i].ID] = &affiliations[i]
+	}
+	return result, nil
+}
+
+func (r *Repository) FindAffiliationByID(id uint) (*Affiliation, error) {
+	var affiliation Affiliation
+	if err := r.db.First(&affiliation, id).Error; err != nil {
+		return nil, err
+	}
+	return &affiliation, nil
+}
+
 func (r *Repository) FindCourseMappings(courseID uint) ([]CollegeUniversityCourse, error) {
 	var mappings []CollegeUniversityCourse
 	err := r.db.

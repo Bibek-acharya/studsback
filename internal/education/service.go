@@ -24,6 +24,39 @@ func NewService(repo *Repository, systemSvc *system.Service) *Service {
 	return &Service{repo: repo, systemSvc: systemSvc}
 }
 
+func (s *Service) resolveAffiliationName(course *Course) string {
+	if course.AffiliationID != nil {
+		affiliation, err := s.repo.FindAffiliationByID(*course.AffiliationID)
+		if err == nil && affiliation != nil {
+			return affiliation.Name
+		}
+	}
+	if course.NonUniversityAffiliation != "" {
+		return course.NonUniversityAffiliation
+	}
+	return ""
+}
+
+func (s *Service) resolveAffiliationNames(courses []Course) map[uint]string {
+	affiliationIDs := make([]uint, 0)
+	for _, c := range courses {
+		if c.AffiliationID != nil {
+			affiliationIDs = append(affiliationIDs, *c.AffiliationID)
+		}
+	}
+
+	result := make(map[uint]string)
+	if len(affiliationIDs) > 0 {
+		affiliations, err := s.repo.FindAffiliationsByIDs(affiliationIDs)
+		if err == nil {
+			for id, aff := range affiliations {
+				result[id] = aff.Name
+			}
+		}
+	}
+	return result
+}
+
 func parseStringArrayField(data []byte) []string {
 	if len(data) == 0 {
 		return []string{}
@@ -76,13 +109,13 @@ func buildExamResponse(exam Exam) ExamResponse {
 	}
 }
 
-func buildCourseResponse(course Course, colleges int) CourseResponse {
+func buildCourseResponse(course Course, colleges int, affiliationName string) CourseResponse {
 	return CourseResponse{
 		ID:          strconv.FormatUint(uint64(course.ID), 10),
 		Title:       course.Title,
 		ShortTitle:  course.ShortTitle,
 		Colleges:    colleges,
-		Affiliation: "", // TODO: Resolve from AffiliationID in later task
+		Affiliation: affiliationName,
 		Badges:      parseStringArrayField(course.Badges),
 		Level:       course.Level,
 		Field:       course.Field,
@@ -194,6 +227,8 @@ func (s *Service) GetEducationCourses() ([]CourseResponse, error) {
 		return nil, err
 	}
 
+	affiliationNames := s.resolveAffiliationNames(courses)
+
 	responses := make([]CourseResponse, 0, len(courses))
 	for _, course := range courses {
 		colleges := course.CollegesCount
@@ -206,7 +241,14 @@ func (s *Service) GetEducationCourses() ([]CourseResponse, error) {
 		if err == nil && instCount > 0 {
 			colleges = int(instCount)
 		}
-		resp := buildCourseResponse(course, colleges)
+		affName := ""
+		if course.AffiliationID != nil {
+			affName = affiliationNames[*course.AffiliationID]
+		}
+		if affName == "" {
+			affName = course.NonUniversityAffiliation
+		}
+		resp := buildCourseResponse(course, colleges, affName)
 		resp.IsGlobal = true
 		resp.Status = "published"
 		responses = append(responses, resp)
@@ -221,6 +263,8 @@ func (s *Service) GetEducationCoursesPaginated(page, limit int, search, level, f
 		return nil, PaginationMeta{}, err
 	}
 
+	affiliationNames := s.resolveAffiliationNames(allCourses)
+
 	allResponses := make([]CourseResponse, 0, len(allCourses))
 	for _, course := range allCourses {
 		colleges := course.CollegesCount
@@ -232,7 +276,14 @@ func (s *Service) GetEducationCoursesPaginated(page, limit int, search, level, f
 		if err == nil && instCount > 0 {
 			colleges = int(instCount)
 		}
-		resp := buildCourseResponse(course, colleges)
+		affName := ""
+		if course.AffiliationID != nil {
+			affName = affiliationNames[*course.AffiliationID]
+		}
+		if affName == "" {
+			affName = course.NonUniversityAffiliation
+		}
+		resp := buildCourseResponse(course, colleges, affName)
 		resp.IsGlobal = true
 		resp.Status = "published"
 		allResponses = append(allResponses, resp)
@@ -706,9 +757,18 @@ func (s *Service) SearchGlobalCourses(query string) ([]CourseResponse, error) {
 		return nil, err
 	}
 
+	affiliationNames := s.resolveAffiliationNames(courses)
+
 	responses := make([]CourseResponse, len(courses))
 	for i, course := range courses {
-		responses[i] = buildCourseResponse(course, 0)
+		affName := ""
+		if course.AffiliationID != nil {
+			affName = affiliationNames[*course.AffiliationID]
+		}
+		if affName == "" {
+			affName = course.NonUniversityAffiliation
+		}
+		responses[i] = buildCourseResponse(course, 0, affName)
 		responses[i].IsGlobal = true
 		responses[i].Status = "published"
 	}
@@ -753,7 +813,14 @@ func (s *Service) GetInstitutionCourses(instID uint) ([]CourseResponse, error) {
 				if resp.Description == "" {
 					resp.Description = globalCourse.Description
 				}
-				// TODO: Resolve Affiliation from AffiliationID in later task
+				if globalCourse.AffiliationID != nil {
+					aff, err := s.repo.FindAffiliationByID(*globalCourse.AffiliationID)
+					if err == nil && aff != nil {
+						resp.Affiliation = aff.Name
+					}
+				} else if globalCourse.NonUniversityAffiliation != "" {
+					resp.Affiliation = globalCourse.NonUniversityAffiliation
+				}
 				if resp.Level == "" {
 					resp.Level = globalCourse.Level
 				}
@@ -829,7 +896,14 @@ func (s *Service) GetEducationCourseByID(id string) (*CourseResponse, error) {
 					if resp.Level == "" {
 						resp.Level = globalCourse.Level
 					}
-					// TODO: Resolve Affiliation from AffiliationID in later task
+					if globalCourse.AffiliationID != nil {
+						aff, err := s.repo.FindAffiliationByID(*globalCourse.AffiliationID)
+						if err == nil && aff != nil {
+							resp.Affiliation = aff.Name
+						}
+					} else if globalCourse.NonUniversityAffiliation != "" {
+						resp.Affiliation = globalCourse.NonUniversityAffiliation
+					}
 				}
 			}
 
@@ -848,7 +922,8 @@ func (s *Service) GetEducationCourseByID(id string) (*CourseResponse, error) {
 		colleges = int(count)
 	}
 
-	resp := buildCourseResponse(*course, colleges)
+	affName := s.resolveAffiliationName(course)
+	resp := buildCourseResponse(*course, colleges, affName)
 	resp.IsGlobal = true
 	resp.Status = "published"
 	return &resp, nil
@@ -895,7 +970,14 @@ func (s *Service) GetEducationCourseDetailsByID(id string) (*CourseDetailsRespon
 					if courseResp.Level == "" {
 						courseResp.Level = globalCourse.Level
 					}
-					// TODO: Resolve Affiliation from AffiliationID in later task
+					if globalCourse.AffiliationID != nil {
+						aff, err := s.repo.FindAffiliationByID(*globalCourse.AffiliationID)
+						if err == nil && aff != nil {
+							courseResp.Affiliation = aff.Name
+						}
+					} else if globalCourse.NonUniversityAffiliation != "" {
+						courseResp.Affiliation = globalCourse.NonUniversityAffiliation
+					}
 				}
 			}
 
@@ -922,7 +1004,8 @@ func (s *Service) GetEducationCourseDetailsByID(id string) (*CourseDetailsRespon
 		colleges = int(count)
 	}
 
-	baseCourse := buildCourseResponse(*course, colleges)
+	affName := s.resolveAffiliationName(course)
+	baseCourse := buildCourseResponse(*course, colleges, affName)
 
 	relatedCourses, err := s.repo.FindRelatedCourses(course.ID, course.Field, course.Level, 3)
 	if err != nil {
@@ -980,7 +1063,6 @@ func (s *Service) GetEducationCourseDetailsByID(id string) (*CourseDetailsRespon
 			universities = append(universities, university.Name)
 		}
 	}
-	// TODO: Resolve Affiliation from AffiliationID in later task
 
 	contact := CourseContactSupport{}
 	if len(collegesList) > 0 {
@@ -1056,7 +1138,7 @@ func (s *Service) GetEducationCourseDetailsByID(id string) (*CourseDetailsRespon
 		Universities:          universities,
 		Contact:               contact,
 		OtherPrograms:         otherPrograms,
-		HighlightsUniversity:  "", // TODO: Resolve from AffiliationID in later task
+		HighlightsUniversity:  affName,
 		HighlightsFaculty:     course.Field,
 		HighlightsDuration:    course.Duration,
 		HighlightsDegreeLevel: course.Level,

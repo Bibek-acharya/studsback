@@ -2,6 +2,7 @@ package education
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/glebarez/sqlite"
@@ -61,12 +62,13 @@ func seedServiceData(db *gorm.DB) {
 			FAQs:            faqsJSON,
 		},
 		{
-			Title:    "+2 Science",
-			Level:    "+2",
-			IsGlobal: true,
-			Status:   "published",
-			Field:    "Science",
-			Duration: "2 years",
+			Title:                    "+2 Science",
+			Level:                    "+2",
+			IsGlobal:                 true,
+			Status:                   "published",
+			Field:                    "Science",
+			Duration:                 "2 years",
+			NonUniversityAffiliation: "NEB",
 		},
 		{
 			Title:         "MBA",
@@ -297,5 +299,180 @@ func TestContains(t *testing.T) {
 		if got != tt.want {
 			t.Errorf("contains(%v, %q) = %v, want %v", tt.slice, tt.item, got, tt.want)
 		}
+	}
+}
+
+func TestBuildCourseResponse_SetsAffiliation(t *testing.T) {
+	course := Course{
+		ID:       1,
+		Title:    "BSc CS",
+		Level:    "Bachelor",
+		Field:    "Science",
+		Duration: "4 years",
+	}
+	resp := buildCourseResponse(course, 5, "Tribhuvan University")
+	if resp.Affiliation != "Tribhuvan University" {
+		t.Errorf("Affiliation = %q, want %q", resp.Affiliation, "Tribhuvan University")
+	}
+	if resp.Colleges != 5 {
+		t.Errorf("Colleges = %d, want 5", resp.Colleges)
+	}
+}
+
+func TestBuildCourseResponse_EmptyAffiliation(t *testing.T) {
+	course := Course{ID: 1, Title: "Test", Level: "+2"}
+	resp := buildCourseResponse(course, 0, "")
+	if resp.Affiliation != "" {
+		t.Errorf("Affiliation = %q, want empty", resp.Affiliation)
+	}
+}
+
+func TestResolveAffiliationName_FromAffiliationID(t *testing.T) {
+	db := setupServiceTestDB(t)
+	seedServiceData(db)
+	repo := NewRepository(db)
+	svc := NewService(repo, nil)
+
+	var course Course
+	db.Where("title = ?", "BSc Computer Science").First(&course)
+
+	name := svc.resolveAffiliationName(&course)
+	if name != "Tribhuvan University" {
+		t.Errorf("resolveAffiliationName() = %q, want %q", name, "Tribhuvan University")
+	}
+}
+
+func TestResolveAffiliationName_NonUniversityAffiliation(t *testing.T) {
+	db := setupServiceTestDB(t)
+	repo := NewRepository(db)
+	svc := NewService(repo, nil)
+
+	course := &Course{
+		Title:                    "+2 Science",
+		Level:                    "+2",
+		NonUniversityAffiliation: "NEB",
+	}
+	name := svc.resolveAffiliationName(course)
+	if name != "NEB" {
+		t.Errorf("resolveAffiliationName() = %q, want %q", name, "NEB")
+	}
+}
+
+func TestResolveAffiliationName_NilAffiliationID(t *testing.T) {
+	db := setupServiceTestDB(t)
+	repo := NewRepository(db)
+	svc := NewService(repo, nil)
+
+	course := &Course{Title: "Test", Level: "+2"}
+	name := svc.resolveAffiliationName(course)
+	if name != "" {
+		t.Errorf("resolveAffiliationName() = %q, want empty", name)
+	}
+}
+
+func TestGetEducationCourses_PopulatesAffiliation(t *testing.T) {
+	db := setupServiceTestDB(t)
+	seedServiceData(db)
+	repo := NewRepository(db)
+	svc := NewService(repo, nil)
+
+	courses, err := svc.GetEducationCourses()
+	if err != nil {
+		t.Fatalf("GetEducationCourses() error = %v", err)
+	}
+
+	foundTU := false
+	foundNEB := false
+	for _, c := range courses {
+		if c.Title == "BSc Computer Science" && c.Affiliation == "Tribhuvan University" {
+			foundTU = true
+		}
+		if c.Title == "+2 Science" && c.Affiliation == "NEB" {
+			foundNEB = true
+		}
+		if c.Affiliation == "" {
+			t.Errorf("course %q has empty affiliation", c.Title)
+		}
+	}
+	if !foundTU {
+		t.Error("BSc Computer Science should have affiliation 'Tribhuvan University'")
+	}
+	if !foundNEB {
+		t.Error("+2 Science should have affiliation 'NEB'")
+	}
+}
+
+func TestGetEducationCourseByID_PopulatesAffiliation(t *testing.T) {
+	db := setupServiceTestDB(t)
+	seedServiceData(db)
+	repo := NewRepository(db)
+	svc := NewService(repo, nil)
+
+	var course Course
+	db.Where("title = ?", "BSc Computer Science").First(&course)
+
+	resp, err := svc.GetEducationCourseByID(fmt.Sprintf("%d", course.ID))
+	if err != nil {
+		t.Fatalf("GetEducationCourseByID() error = %v", err)
+	}
+	if resp.Affiliation != "Tribhuvan University" {
+		t.Errorf("Affiliation = %q, want %q", resp.Affiliation, "Tribhuvan University")
+	}
+}
+
+func TestSearchGlobalCourses_PopulatesAffiliation(t *testing.T) {
+	db := setupServiceTestDB(t)
+	seedServiceData(db)
+	repo := NewRepository(db)
+	svc := NewService(repo, nil)
+
+	courses, err := svc.SearchGlobalCourses("")
+	if err != nil {
+		t.Fatalf("SearchGlobalCourses() error = %v", err)
+	}
+	if len(courses) == 0 {
+		t.Fatal("expected at least one course")
+	}
+	for _, c := range courses {
+		if c.Affiliation == "" {
+			t.Errorf("course %q has empty affiliation", c.Title)
+		}
+	}
+}
+
+func TestFindAffiliationsByIDs_ReturnsMap(t *testing.T) {
+	db := setupTestDB(t)
+	seedCourses(db)
+	repo := NewRepository(db)
+
+	var aff1, aff2 Affiliation
+	db.Where("name = ?", "Tribhuvan University").First(&aff1)
+	db.Where("name = ?", "Kathmandu University").First(&aff2)
+
+	result, err := repo.FindAffiliationsByIDs([]uint{aff1.ID, aff2.ID})
+	if err != nil {
+		t.Fatalf("FindAffiliationsByIDs() error = %v", err)
+	}
+	if len(result) != 2 {
+		t.Errorf("len = %d, want 2", len(result))
+	}
+	if result[aff1.ID].Name != "Tribhuvan University" {
+		t.Errorf("aff1 name = %q, want Tribhuvan University", result[aff1.ID].Name)
+	}
+	if result[aff2.ID].Name != "Kathmandu University" {
+		t.Errorf("aff2 name = %q, want Kathmandu University", result[aff2.ID].Name)
+	}
+}
+
+func TestFindAffiliationsByIDs_EmptyInput(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewRepository(db)
+
+	result, err := repo.FindAffiliationsByIDs([]uint{})
+	if err != nil {
+		t.Fatalf("FindAffiliationsByIDs() error = %v", err)
+	}
+	if len(result) != 0 {
+		t.Errorf("len = %d, want 0", len(result))
 	}
 }
