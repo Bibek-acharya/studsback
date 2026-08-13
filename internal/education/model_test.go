@@ -822,6 +822,7 @@ func TestCreateCourseRequestValidate_ClearsConflictingFields(t *testing.T) {
 		if err := req.Validate(); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
+		req.Normalize()
 		if req.NonUniversityAffiliation != "" {
 			t.Errorf("expected NonUniversityAffiliation to be empty, got %q", req.NonUniversityAffiliation)
 		}
@@ -837,8 +838,35 @@ func TestCreateCourseRequestValidate_ClearsConflictingFields(t *testing.T) {
 		if err := req.Validate(); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
+		req.Normalize()
 		if req.AffiliationID != nil {
 			t.Errorf("expected AffiliationID to be nil, got %v", req.AffiliationID)
 		}
 	})
+}
+
+func TestCreateCourseRequestNormalize_SecondaryLevelClearsAffiliationID(t *testing.T) {
+	affID := uint(42)
+	levels := []string{"+2", "A Level", "CTEVT", "Diploma"}
+
+	for _, level := range levels {
+		t.Run(level, func(t *testing.T) {
+			req := CreateCourseRequest{
+				Title:                    "Test",
+				Level:                    level,
+				AffiliationID:            &affID,
+				NonUniversityAffiliation: "NEB",
+			}
+			if err := req.Validate(); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			req.Normalize()
+			if req.AffiliationID != nil {
+				t.Errorf("expected AffiliationID to be nil for %s, got %v", level, req.AffiliationID)
+			}
+			if req.NonUniversityAffiliation != "NEB" {
+				t.Errorf("expected NonUniversityAffiliation to be preserved for %s", level)
+			}
+		})
+	}
 }

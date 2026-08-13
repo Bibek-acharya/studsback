@@ -142,14 +142,20 @@ func (r *CreateCourseRequest) Validate() error {
 		if r.AffiliationID == nil || *r.AffiliationID == 0 {
 			return errors.New("affiliation_id is required for Bachelor and Master level courses")
 		}
-		r.NonUniversityAffiliation = ""
 	} else {
 		if r.NonUniversityAffiliation == "" {
 			return errors.New("non_university_affiliation is required for secondary level courses")
 		}
-		r.AffiliationID = nil
 	}
 	return nil
+}
+
+func (r *CreateCourseRequest) Normalize() {
+	if r.Level == "Bachelor" || r.Level == "Master" {
+		r.NonUniversityAffiliation = ""
+	} else {
+		r.AffiliationID = nil
+	}
 }
 
 type UpdateCourseRequest struct {

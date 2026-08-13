@@ -276,19 +276,19 @@ func buildAdminCourseResponse(course Course) AdminCourseResponse {
 		About:                    parseStringArrayField(course.About),
 		Curriculum:               parseJSONField(course.Curriculum),
 		Admissions:               parseStringArrayField(course.Admissions),
-		Careers:                  parseCareerItems(course.Careers),
+		Careers:                  parseJSONB[CareerItem](course.Careers),
 		BannerURL:                course.BannerURL,
-		WhoShouldChoose:          parsePersonaItems(course.WhoShouldChoose),
-		Features:                 parseFeatureItems(course.Features),
-		EligibilityRows:          parseEligibilityRows(course.EligibilityRows),
-		AdmissionSteps:           parseAdmissionSteps(course.AdmissionSteps),
-		SubjectGroups:            parseSubjectGroups(course.SubjectGroups),
-		FeeItems:                 parseFeeItems(course.FeeItems),
+		WhoShouldChoose:          parseJSONB[PersonaItem](course.WhoShouldChoose),
+		Features:                 parseJSONB[FeatureItem](course.Features),
+		EligibilityRows:          parseJSONB[EligibilityRow](course.EligibilityRows),
+		AdmissionSteps:           parseJSONB[AdmissionStep](course.AdmissionSteps),
+		SubjectGroups:            parseJSONB[SubjectGroup](course.SubjectGroups),
+		FeeItems:                 parseJSONB[FeeItem](course.FeeItems),
 		ScholarshipDesc:          course.ScholarshipDesc,
 		ScholarshipNotes:         course.ScholarshipNotes,
-		Scholarships:             parseScholarshipItems(course.Scholarships),
-		FullTimeCourses:          parseFullTimeCourses(course.FullTimeCourses),
-		FAQs:                     parseFaqItems(course.FAQs),
+		Scholarships:             parseJSONB[ScholarshipItem](course.Scholarships),
+		FullTimeCourses:          parseJSONB[FullTimeCourse](course.FullTimeCourses),
+		FAQs:                     parseJSONB[FaqItem](course.FAQs),
 		IsGlobal:                 course.IsGlobal,
 		Status:                   course.Status,
 		CreatedBy:                course.CreatedBy,
@@ -309,142 +309,89 @@ func parseJSONField(data []byte) interface{} {
 	return nil
 }
 
-func parseCareerItems(data []byte) []CareerItem {
+func parseJSONB[T any](data []byte) []T {
 	if len(data) == 0 {
 		return nil
 	}
-	var result []CareerItem
-	if err := json.Unmarshal(data, &result); err == nil {
-		return result
-	}
-	return nil
-}
-
-func parsePersonaItems(data []byte) []PersonaItem {
-	if len(data) == 0 {
+	var result []T
+	if err := json.Unmarshal(data, &result); err != nil {
 		return nil
 	}
-	var result []PersonaItem
-	if err := json.Unmarshal(data, &result); err == nil {
-		return result
-	}
-	return nil
+	return result
 }
 
-func parseFeatureItems(data []byte) []FeatureItem {
-	if len(data) == 0 {
-		return nil
-	}
-	var result []FeatureItem
-	if err := json.Unmarshal(data, &result); err == nil {
-		return result
-	}
-	return nil
-}
-
-func parseEligibilityRows(data []byte) []EligibilityRow {
-	if len(data) == 0 {
-		return nil
-	}
-	var result []EligibilityRow
-	if err := json.Unmarshal(data, &result); err == nil {
-		return result
-	}
-	return nil
-}
-
-func parseAdmissionSteps(data []byte) []AdmissionStep {
-	if len(data) == 0 {
-		return nil
-	}
-	var result []AdmissionStep
-	if err := json.Unmarshal(data, &result); err == nil {
-		return result
-	}
-	return nil
-}
-
-func parseSubjectGroups(data []byte) []SubjectGroup {
-	if len(data) == 0 {
-		return nil
-	}
-	var result []SubjectGroup
-	if err := json.Unmarshal(data, &result); err == nil {
-		return result
-	}
-	return nil
-}
-
-func parseFeeItems(data []byte) []FeeItem {
-	if len(data) == 0 {
-		return nil
-	}
-	var result []FeeItem
-	if err := json.Unmarshal(data, &result); err == nil {
-		return result
-	}
-	return nil
-}
-
-func parseScholarshipItems(data []byte) []ScholarshipItem {
-	if len(data) == 0 {
-		return nil
-	}
-	var result []ScholarshipItem
-	if err := json.Unmarshal(data, &result); err == nil {
-		return result
-	}
-	return nil
-}
-
-func parseFullTimeCourses(data []byte) []FullTimeCourse {
-	if len(data) == 0 {
-		return nil
-	}
-	var result []FullTimeCourse
-	if err := json.Unmarshal(data, &result); err == nil {
-		return result
-	}
-	return nil
-}
-
-func parseFaqItems(data []byte) []FaqItem {
-	if len(data) == 0 {
-		return nil
-	}
-	var result []FaqItem
-	if err := json.Unmarshal(data, &result); err == nil {
-		return result
-	}
-	return nil
-}
-
-func marshalJSON(v interface{}) []byte {
+func marshalJSON(v interface{}) ([]byte, error) {
 	if v == nil {
-		return nil
+		return nil, nil
 	}
-	data, _ := json.Marshal(v)
-	return data
+	return json.Marshal(v)
 }
 
 func (s *Service) CreateCourse(req CreateCourseRequest) (*AdminCourseResponse, error) {
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
+	req.Normalize()
 
-	badgesJSON, _ := json.Marshal(req.Badges)
-	highlightsJSON, _ := json.Marshal(req.Highlights)
-	aboutJSON, _ := json.Marshal(req.About)
-	admissionsJSON, _ := json.Marshal(req.Admissions)
-
-	var curriculumJSON []byte
-	if req.Curriculum != nil {
-		curriculumJSON, _ = json.Marshal(req.Curriculum)
+	badgesJSON, err := marshalJSON(req.Badges)
+	if err != nil {
+		return nil, fmt.Errorf("marshal badges: %w", err)
 	}
-
-	var careersJSON []byte
-	if req.Careers != nil {
-		careersJSON, _ = json.Marshal(req.Careers)
+	highlightsJSON, err := marshalJSON(req.Highlights)
+	if err != nil {
+		return nil, fmt.Errorf("marshal highlights: %w", err)
+	}
+	aboutJSON, err := marshalJSON(req.About)
+	if err != nil {
+		return nil, fmt.Errorf("marshal about: %w", err)
+	}
+	admissionsJSON, err := marshalJSON(req.Admissions)
+	if err != nil {
+		return nil, fmt.Errorf("marshal admissions: %w", err)
+	}
+	curriculumJSON, err := marshalJSON(req.Curriculum)
+	if err != nil {
+		return nil, fmt.Errorf("marshal curriculum: %w", err)
+	}
+	careersJSON, err := marshalJSON(req.Careers)
+	if err != nil {
+		return nil, fmt.Errorf("marshal careers: %w", err)
+	}
+	whoShouldChooseJSON, err := marshalJSON(req.WhoShouldChoose)
+	if err != nil {
+		return nil, fmt.Errorf("marshal whoShouldChoose: %w", err)
+	}
+	featuresJSON, err := marshalJSON(req.Features)
+	if err != nil {
+		return nil, fmt.Errorf("marshal features: %w", err)
+	}
+	eligibilityRowsJSON, err := marshalJSON(req.EligibilityRows)
+	if err != nil {
+		return nil, fmt.Errorf("marshal eligibilityRows: %w", err)
+	}
+	admissionStepsJSON, err := marshalJSON(req.AdmissionSteps)
+	if err != nil {
+		return nil, fmt.Errorf("marshal admissionSteps: %w", err)
+	}
+	subjectGroupsJSON, err := marshalJSON(req.SubjectGroups)
+	if err != nil {
+		return nil, fmt.Errorf("marshal subjectGroups: %w", err)
+	}
+	feeItemsJSON, err := marshalJSON(req.FeeItems)
+	if err != nil {
+		return nil, fmt.Errorf("marshal feeItems: %w", err)
+	}
+	scholarshipsJSON, err := marshalJSON(req.Scholarships)
+	if err != nil {
+		return nil, fmt.Errorf("marshal scholarships: %w", err)
+	}
+	fullTimeCoursesJSON, err := marshalJSON(req.FullTimeCourses)
+	if err != nil {
+		return nil, fmt.Errorf("marshal fullTimeCourses: %w", err)
+	}
+	faqsJSON, err := marshalJSON(req.FAQs)
+	if err != nil {
+		return nil, fmt.Errorf("marshal faqs: %w", err)
 	}
 
 	course := &Course{
@@ -470,17 +417,17 @@ func (s *Service) CreateCourse(req CreateCourseRequest) (*AdminCourseResponse, e
 		Admissions:               admissionsJSON,
 		Careers:                  careersJSON,
 		BannerURL:                req.BannerURL,
-		WhoShouldChoose:          marshalJSON(req.WhoShouldChoose),
-		Features:                 marshalJSON(req.Features),
-		EligibilityRows:          marshalJSON(req.EligibilityRows),
-		AdmissionSteps:           marshalJSON(req.AdmissionSteps),
-		SubjectGroups:            marshalJSON(req.SubjectGroups),
-		FeeItems:                 marshalJSON(req.FeeItems),
+		WhoShouldChoose:          whoShouldChooseJSON,
+		Features:                 featuresJSON,
+		EligibilityRows:          eligibilityRowsJSON,
+		AdmissionSteps:           admissionStepsJSON,
+		SubjectGroups:            subjectGroupsJSON,
+		FeeItems:                 feeItemsJSON,
 		ScholarshipDesc:          req.ScholarshipDesc,
 		ScholarshipNotes:         req.ScholarshipNotes,
-		Scholarships:             marshalJSON(req.Scholarships),
-		FullTimeCourses:          marshalJSON(req.FullTimeCourses),
-		FAQs:                     marshalJSON(req.FAQs),
+		Scholarships:             scholarshipsJSON,
+		FullTimeCourses:          fullTimeCoursesJSON,
+		FAQs:                     faqsJSON,
 		IsGlobal:                 true,
 		Status:                   "published",
 	}
@@ -573,7 +520,11 @@ func (s *Service) UpdateCourse(id string, req UpdateCourseRequest) (*AdminCourse
 		course.NonUniversityAffiliation = *req.NonUniversityAffiliation
 	}
 	if req.Badges != nil {
-		course.Badges, _ = json.Marshal(req.Badges)
+		data, err := marshalJSON(req.Badges)
+		if err != nil {
+			return nil, fmt.Errorf("marshal badges: %w", err)
+		}
+		course.Badges = data
 	}
 	if req.Level != nil {
 		course.Level = *req.Level
@@ -588,7 +539,11 @@ func (s *Service) UpdateCourse(id string, req UpdateCourseRequest) (*AdminCourse
 		course.EstFee = *req.EstFee
 	}
 	if req.Highlights != nil {
-		course.Highlights, _ = json.Marshal(req.Highlights)
+		data, err := marshalJSON(req.Highlights)
+		if err != nil {
+			return nil, fmt.Errorf("marshal highlights: %w", err)
+		}
+		course.Highlights = data
 	}
 	if req.CareerPath != nil {
 		course.CareerPath = *req.CareerPath
@@ -612,37 +567,77 @@ func (s *Service) UpdateCourse(id string, req UpdateCourseRequest) (*AdminCourse
 		course.DegreeLabel = *req.DegreeLabel
 	}
 	if req.About != nil {
-		course.About, _ = json.Marshal(req.About)
+		data, err := marshalJSON(req.About)
+		if err != nil {
+			return nil, fmt.Errorf("marshal about: %w", err)
+		}
+		course.About = data
 	}
 	if req.Curriculum != nil {
-		course.Curriculum, _ = json.Marshal(req.Curriculum)
+		data, err := marshalJSON(req.Curriculum)
+		if err != nil {
+			return nil, fmt.Errorf("marshal curriculum: %w", err)
+		}
+		course.Curriculum = data
 	}
 	if req.Admissions != nil {
-		course.Admissions, _ = json.Marshal(req.Admissions)
+		data, err := marshalJSON(req.Admissions)
+		if err != nil {
+			return nil, fmt.Errorf("marshal admissions: %w", err)
+		}
+		course.Admissions = data
 	}
 	if req.Careers != nil {
-		course.Careers, _ = json.Marshal(req.Careers)
+		data, err := marshalJSON(req.Careers)
+		if err != nil {
+			return nil, fmt.Errorf("marshal careers: %w", err)
+		}
+		course.Careers = data
 	}
 	if req.BannerURL != nil {
 		course.BannerURL = *req.BannerURL
 	}
 	if req.WhoShouldChoose != nil {
-		course.WhoShouldChoose, _ = json.Marshal(req.WhoShouldChoose)
+		data, err := marshalJSON(req.WhoShouldChoose)
+		if err != nil {
+			return nil, fmt.Errorf("marshal whoShouldChoose: %w", err)
+		}
+		course.WhoShouldChoose = data
 	}
 	if req.Features != nil {
-		course.Features, _ = json.Marshal(req.Features)
+		data, err := marshalJSON(req.Features)
+		if err != nil {
+			return nil, fmt.Errorf("marshal features: %w", err)
+		}
+		course.Features = data
 	}
 	if req.EligibilityRows != nil {
-		course.EligibilityRows, _ = json.Marshal(req.EligibilityRows)
+		data, err := marshalJSON(req.EligibilityRows)
+		if err != nil {
+			return nil, fmt.Errorf("marshal eligibilityRows: %w", err)
+		}
+		course.EligibilityRows = data
 	}
 	if req.AdmissionSteps != nil {
-		course.AdmissionSteps, _ = json.Marshal(req.AdmissionSteps)
+		data, err := marshalJSON(req.AdmissionSteps)
+		if err != nil {
+			return nil, fmt.Errorf("marshal admissionSteps: %w", err)
+		}
+		course.AdmissionSteps = data
 	}
 	if req.SubjectGroups != nil {
-		course.SubjectGroups, _ = json.Marshal(req.SubjectGroups)
+		data, err := marshalJSON(req.SubjectGroups)
+		if err != nil {
+			return nil, fmt.Errorf("marshal subjectGroups: %w", err)
+		}
+		course.SubjectGroups = data
 	}
 	if req.FeeItems != nil {
-		course.FeeItems, _ = json.Marshal(req.FeeItems)
+		data, err := marshalJSON(req.FeeItems)
+		if err != nil {
+			return nil, fmt.Errorf("marshal feeItems: %w", err)
+		}
+		course.FeeItems = data
 	}
 	if req.ScholarshipDesc != nil {
 		course.ScholarshipDesc = *req.ScholarshipDesc
@@ -651,13 +646,25 @@ func (s *Service) UpdateCourse(id string, req UpdateCourseRequest) (*AdminCourse
 		course.ScholarshipNotes = *req.ScholarshipNotes
 	}
 	if req.Scholarships != nil {
-		course.Scholarships, _ = json.Marshal(req.Scholarships)
+		data, err := marshalJSON(req.Scholarships)
+		if err != nil {
+			return nil, fmt.Errorf("marshal scholarships: %w", err)
+		}
+		course.Scholarships = data
 	}
 	if req.FullTimeCourses != nil {
-		course.FullTimeCourses, _ = json.Marshal(req.FullTimeCourses)
+		data, err := marshalJSON(req.FullTimeCourses)
+		if err != nil {
+			return nil, fmt.Errorf("marshal fullTimeCourses: %w", err)
+		}
+		course.FullTimeCourses = data
 	}
 	if req.FAQs != nil {
-		course.FAQs, _ = json.Marshal(req.FAQs)
+		data, err := marshalJSON(req.FAQs)
+		if err != nil {
+			return nil, fmt.Errorf("marshal faqs: %w", err)
+		}
+		course.FAQs = data
 	}
 
 	if err := s.repo.UpdateCourse(course); err != nil {
