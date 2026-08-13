@@ -132,6 +132,10 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			institution.DELETE("/inquiries/:id", h.DeleteInquiry)
 
 			institution.GET("/followers", h.GetInstitutionFollowers)
+
+			institution.POST("/course-requests", h.CreateCourseRequest)
+			institution.GET("/course-requests", h.GetCourseRequests)
+			institution.GET("/course-requests/:id", h.GetCourseRequestByID)
 		}
 	}
 }

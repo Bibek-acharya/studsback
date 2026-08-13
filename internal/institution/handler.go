@@ -2368,3 +2368,68 @@ func (h *Handler) DeleteInquiry(c *gin.Context) {
 
 	response.Success(c, http.StatusOK, "Inquiry deleted", nil)
 }
+
+// --- Course Approval Request Handlers ---
+
+func (h *Handler) CreateCourseRequest(c *gin.Context) {
+	instID := getInstID(c)
+
+	var req CreateCourseApprovalRequestInput
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	courseReq, err := h.service.CreateCourseRequest(instID, req)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to create course request")
+		return
+	}
+
+	response.Success(c, http.StatusCreated, "Course approval request created successfully", courseReq)
+}
+
+func (h *Handler) GetCourseRequests(c *gin.Context) {
+	instID := getInstID(c)
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50 {
+		limit = 10
+	}
+
+	requests, total, err := h.service.GetCourseRequests(instID, page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch course requests")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Course requests retrieved successfully", gin.H{
+		"requests": requests,
+		"meta": gin.H{
+			"total": total,
+			"page":  page,
+			"limit": limit,
+		},
+	})
+}
+
+func (h *Handler) GetCourseRequestByID(c *gin.Context) {
+	instID := getInstID(c)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid request ID")
+		return
+	}
+
+	courseReq, err := h.service.GetCourseRequestByID(instID, uint(id))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Course request not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Course request retrieved successfully", courseReq)
+}

@@ -93,6 +93,30 @@ type CourseApprovalRequest struct {
 	RejectionReason   string                    `json:"rejectionReason"`
 }
 
+type CreateCourseApprovalRequestInput struct {
+	Title             string                    `json:"title" binding:"required"`
+	Description       string                    `json:"description"`
+	Duration          string                    `json:"duration"`
+	Level             string                    `json:"level"`
+	AffiliationID     *uint                     `json:"affiliationId"`
+	BannerURL         string                    `json:"bannerUrl"`
+	Careers           []education.CareerItem    `json:"careers"`
+	FAQs              []education.FaqItem       `json:"faqs"`
+	EligibilityRows   []education.EligibilityRow `json:"eligibilityRows"`
+	AdmissionSteps    []education.AdmissionStep  `json:"admissionSteps"`
+	SubjectGroups     []education.SubjectGroup   `json:"subjectGroups"`
+	ScholarshipDesc   string                    `json:"scholarshipDesc"`
+	ScholarshipNotes  string                    `json:"scholarshipNotes"`
+	Scholarships      []education.ScholarshipItem `json:"scholarships"`
+	Fee               string                    `json:"fee"`
+	Eligibility       string                    `json:"eligibility"`
+	Capacity          int                       `json:"capacity"`
+	WhoShouldChoose   []education.PersonaItem   `json:"whoShouldChoose"`
+	Features          []education.FeatureItem   `json:"features"`
+	FullTimeCourses   []education.FullTimeCourse `json:"fullTimeCourses"`
+	FeeItems          []education.FeeItem       `json:"feeItems"`
+}
+
 type CreateMediaRequest struct {
 	URL   string `json:"url" binding:"required"`
 	Type  string `json:"type" binding:"required"`

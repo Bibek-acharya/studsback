@@ -2512,3 +2512,46 @@ func (s *Service) GetInstitutionInquiries(institutionID uint, page, limit int, s
 func (s *Service) GetInstitutionFollowers(institutionID uint, search string, page, limit int) ([]FollowerResponse, int64, error) {
 	return s.repo.FindInstitutionFollowers(institutionID, search, page, limit)
 }
+
+// --- Course Approval Request Service ---
+
+func (s *Service) CreateCourseRequest(instID uint, req CreateCourseApprovalRequestInput) (*CourseApprovalRequest, error) {
+	courseReq := &CourseApprovalRequest{
+		InstitutionID:    instID,
+		Title:            req.Title,
+		Description:      req.Description,
+		Duration:         req.Duration,
+		Level:            req.Level,
+		AffiliationID:    req.AffiliationID,
+		BannerURL:        req.BannerURL,
+		Careers:          req.Careers,
+		FAQs:             req.FAQs,
+		EligibilityRows:  req.EligibilityRows,
+		AdmissionSteps:   req.AdmissionSteps,
+		SubjectGroups:    req.SubjectGroups,
+		ScholarshipDesc:  req.ScholarshipDesc,
+		ScholarshipNotes: req.ScholarshipNotes,
+		Scholarships:     req.Scholarships,
+		Fee:              req.Fee,
+		Eligibility:      req.Eligibility,
+		Capacity:         req.Capacity,
+		WhoShouldChoose:  req.WhoShouldChoose,
+		Features:         req.Features,
+		FullTimeCourses:  req.FullTimeCourses,
+		FeeItems:         req.FeeItems,
+	}
+
+	if err := s.repo.CreateCourseRequest(courseReq); err != nil {
+		return nil, err
+	}
+
+	return courseReq, nil
+}
+
+func (s *Service) GetCourseRequests(instID uint, page, limit int) ([]CourseApprovalRequest, int64, error) {
+	return s.repo.FindCourseRequestsByInstitution(instID, page, limit)
+}
+
+func (s *Service) GetCourseRequestByID(instID, id uint) (*CourseApprovalRequest, error) {
+	return s.repo.FindCourseRequestByID(id, instID)
+}

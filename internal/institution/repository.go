@@ -1654,3 +1654,32 @@ func (r *Repository) FindInstitutionFollowers(institutionID uint, search string,
 	}
 	return followers, total, nil
 }
+
+// --- Course Approval Request Repository ---
+
+func (r *Repository) CreateCourseRequest(req *CourseApprovalRequest) error {
+	return r.db.Create(req).Error
+}
+
+func (r *Repository) FindCourseRequestsByInstitution(instID uint, page, limit int) ([]CourseApprovalRequest, int64, error) {
+	var requests []CourseApprovalRequest
+	var total int64
+
+	if err := r.db.Model(&CourseApprovalRequest{}).Where("institution_id = ?", instID).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * limit
+	err := r.db.Where("institution_id = ?", instID).
+		Order("created_at desc").Offset(offset).Limit(limit).Find(&requests).Error
+	return requests, total, err
+}
+
+func (r *Repository) FindCourseRequestByID(id, instID uint) (*CourseApprovalRequest, error) {
+	var req CourseApprovalRequest
+	err := r.db.Where("id = ? AND institution_id = ?", id, instID).First(&req).Error
+	if err != nil {
+		return nil, err
+	}
+	return &req, nil
+}
