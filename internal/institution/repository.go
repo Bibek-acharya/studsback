@@ -222,6 +222,16 @@ func (r *Repository) FindAllProgramsByInstitution(instID uint) ([]InstitutionPro
 	return programs, err
 }
 
+func (r *Repository) FindProgramByGlobalCourse(institutionID, globalCourseID uint) (*InstitutionProgram, error) {
+	var program InstitutionProgram
+	err := r.db.Where("institution_id = ? AND global_course_id = ? AND status = ? AND deleted_at IS NULL",
+		institutionID, globalCourseID, "active").First(&program).Error
+	if err != nil {
+		return nil, err
+	}
+	return &program, nil
+}
+
 func (r *Repository) CountEntrancesByInstitution(instID uint) (int64, error) {
 	var count int64
 	err := r.db.Model(&InstitutionEntrance{}).Where("institution_id = ?", instID).Count(&count).Error

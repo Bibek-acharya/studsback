@@ -21,12 +21,13 @@ func SetNotifyStudentFunc(fn func(userID uint, title, message, notifType, link s
 }
 
 type Service struct {
-	repo      *Repository
-	systemSvc *system.Service
+	repo         *Repository
+	educationRepo *education.Repository
+	systemSvc    *system.Service
 }
 
-func NewService(repo *Repository, systemSvc *system.Service) *Service {
-	return &Service{repo: repo, systemSvc: systemSvc}
+func NewService(repo *Repository, educationRepo *education.Repository, systemSvc *system.Service) *Service {
+	return &Service{repo: repo, educationRepo: educationRepo, systemSvc: systemSvc}
 }
 
 func (s *Service) GetDashboard(instID uint) (*DashboardResponse, error) {
@@ -374,60 +375,57 @@ func (s *Service) GetProgramByIDOnly(id uint) (*InstitutionProgram, error) {
 }
 
 func (s *Service) CreateProgram(instID uint, req CreateProgramRequest) (*InstitutionProgram, error) {
+	// Validate global course exists
+	globalCourse, err := s.educationRepo.FindCourseByIDOnly(req.GlobalCourseID)
+	if err != nil {
+		return nil, errors.New("global course not found")
+	}
+
+	if !globalCourse.IsGlobal {
+		return nil, errors.New("selected course is not a global course")
+	}
+
 	status := "active"
 	if req.Status != "" {
 		status = req.Status
 	}
+
+	// Marshal institution-specific arrays
+	whoShouldChoose, _ := json.Marshal(req.WhoShouldChoose)
+	features, _ := json.Marshal(req.Features)
+	fullTimeCourses, _ := json.Marshal(req.FullTimeCourses)
+	feeItems, _ := json.Marshal(req.FeeItems)
+
+	// Marshal overrides
+	overrides, _ := json.Marshal(req.Overrides)
 
 	program := &InstitutionProgram{
 		InstitutionID:       instID,
 		InstitutionName:     req.InstitutionName,
 		InstitutionLocation: req.InstitutionLocation,
 		InstitutionLink:     req.InstitutionLink,
+		GlobalCourseID:      req.GlobalCourseID,
 		Fee:                 req.Fee,
 		Eligibility:         req.Eligibility,
 		Capacity:            req.Capacity,
 		Status:              status,
-		GlobalCourseID:      req.GlobalCourseID,
-	}
-
-	// If linked to a global course, set the reference
-	if req.GlobalCourseID > 0 {
-		globalCourse, err := s.repo.FindGlobalCourseByID(req.GlobalCourseID)
-		if err == nil && globalCourse != nil {
-			overrides := map[string]interface{}{}
-
-			if fee, ok := globalCourse["est_fee"].(string); ok {
-				if program.Fee == "" {
-					program.Fee = fee
-				} else if program.Fee != fee {
-					overrides["fee"] = program.Fee
-				}
-			}
-
-			if len(overrides) > 0 {
-				data, _ := json.Marshal(overrides)
-				program.Overrides = data
-			}
-		}
+		WhoShouldChoose:     whoShouldChoose,
+		Features:            features,
+		FullTimeCourses:     fullTimeCourses,
+		FeeItems:            feeItems,
+		Overrides:           overrides,
+		NullifiedFields:     req.NullifiedFields,
 	}
 
 	if err := s.repo.CreateProgram(program); err != nil {
 		return nil, err
 	}
 
-	// If no global course linked, create a draft course for super admin review
-	if req.GlobalCourseID == 0 {
-		draftID, err := s.repo.CreateCourseFromProgram(program)
-		if err != nil {
-			// Log but don't fail - program was created successfully
-			fmt.Printf("[WARN] Failed to create draft course from program %d: %v\n", program.ID, err)
-		} else {
-			fmt.Printf("[INFO] Created draft course %d from program %d\n", draftID, program.ID)
-		}
-	}
-
 	return program, nil
+}
+
+func (s *Service) FindProgramByGlobalCourse(institutionID, globalCourseID uint) (*InstitutionProgram, error) {
+	return s.repo.FindProgramByGlobalCourse(institutionID, globalCourseID)
 }
 
 func (s *Service) UpdateProgram(instID, id uint, req UpdateProgramRequest) (*InstitutionProgram, error) {
