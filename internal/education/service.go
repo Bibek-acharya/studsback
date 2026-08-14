@@ -150,6 +150,7 @@ func buildCourseResponse(course Course, colleges int, affiliationName string) Co
 		Location:    course.Location,
 		GovtFee:     course.GovtFee,
 		PrivateFee:  course.PrivateFee,
+		BannerURL:   course.BannerURL,
 	}
 }
 

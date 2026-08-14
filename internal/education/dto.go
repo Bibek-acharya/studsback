@@ -51,6 +51,7 @@ type CourseResponse struct {
 	Location        string   `json:"location"`
 	GovtFee         string   `json:"govtFee"`
 	PrivateFee      string   `json:"privateFee"`
+	BannerURL       string   `json:"bannerUrl"`
 	Source          string   `json:"source,omitempty"`
 	InstitutionName string   `json:"institutionName,omitempty"`
 	Image           string   `json:"image,omitempty"`
