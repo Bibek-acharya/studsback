@@ -54,6 +54,7 @@ type Course struct {
 	Badges                   []byte         `gorm:"type:jsonb" json:"badges"`
 	Level                    string         `json:"level"`
 	Field                    string         `json:"field"`
+	FieldOfStudy             string         `json:"fieldOfStudy"`
 	Duration                 string         `json:"duration"`
 	EstFee                   string         `json:"estFee"`
 	Highlights               []byte         `gorm:"type:jsonb" json:"highlights"`

@@ -141,6 +141,7 @@ func buildCourseResponse(course Course, colleges int, affiliationName string) Co
 		Badges:      parseStringArrayField(course.Badges),
 		Level:       course.Level,
 		Field:       course.Field,
+		FieldOfStudy: course.FieldOfStudy,
 		Duration:    course.Duration,
 		EstFee:      course.EstFee,
 		Highlights:  parseStringArrayField(course.Highlights),
@@ -336,6 +337,7 @@ func buildAdminCourseResponse(course Course) AdminCourseResponse {
 		Badges:                   parseStringArrayField(course.Badges),
 		Level:                    course.Level,
 		Field:                    course.Field,
+		FieldOfStudy:             course.FieldOfStudy,
 		Duration:                 course.Duration,
 		EstFee:                   course.EstFee,
 		Highlights:               parseStringArrayField(course.Highlights),
@@ -475,6 +477,7 @@ func (s *Service) CreateCourse(req CreateCourseRequest) (*AdminCourseResponse, e
 		Badges:                   badgesJSON,
 		Level:                    req.Level,
 		Field:                    req.Field,
+		FieldOfStudy:             req.FieldOfStudy,
 		Duration:                 req.Duration,
 		EstFee:                   req.EstFee,
 		Highlights:               highlightsJSON,
@@ -525,8 +528,12 @@ func (s *Service) GetAllCoursesAdmin(page, limit int) ([]AdminCourseResponse, Pa
 	}
 
 	responses := make([]AdminCourseResponse, len(courses))
+	affiliationNames := s.resolveAffiliationNames(courses)
 	for i, course := range courses {
 		responses[i] = buildAdminCourseResponse(course)
+		if course.AffiliationID != nil {
+			responses[i].AffiliationName = affiliationNames[*course.AffiliationID]
+		}
 	}
 
 	meta := PaginationMeta{
@@ -551,8 +558,12 @@ func (s *Service) GetPendingCourses(page, limit int) ([]AdminCourseResponse, Pag
 	}
 
 	responses := make([]AdminCourseResponse, len(courses))
+	affiliationNames := s.resolveAffiliationNames(courses)
 	for i, course := range courses {
 		responses[i] = buildAdminCourseResponse(course)
+		if course.AffiliationID != nil {
+			responses[i].AffiliationName = affiliationNames[*course.AffiliationID]
+		}
 	}
 
 	meta := PaginationMeta{
@@ -571,6 +582,9 @@ func (s *Service) GetCourseByIDAdmin(id string) (*AdminCourseResponse, error) {
 		return nil, err
 	}
 	resp := buildAdminCourseResponse(*course)
+	if course.AffiliationID != nil {
+		resp.AffiliationName = s.resolveAffiliationName(course)
+	}
 	return &resp, nil
 }
 
@@ -604,6 +618,9 @@ func (s *Service) UpdateCourse(id string, req UpdateCourseRequest) (*AdminCourse
 	}
 	if req.Field != nil {
 		course.Field = *req.Field
+	}
+	if req.FieldOfStudy != nil {
+		course.FieldOfStudy = *req.FieldOfStudy
 	}
 	if req.Duration != nil {
 		course.Duration = *req.Duration

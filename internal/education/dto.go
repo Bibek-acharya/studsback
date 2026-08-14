@@ -42,6 +42,7 @@ type CourseResponse struct {
 	Badges          []string `json:"badges"`
 	Level           string   `json:"level"`
 	Field           string   `json:"field"`
+	FieldOfStudy    string   `json:"fieldOfStudy"`
 	Duration        string   `json:"duration"`
 	EstFee          string   `json:"estFee"`
 	Highlights      []string `json:"highlights"`
@@ -67,6 +68,7 @@ type AdminCourseResponse struct {
 	Badges                   []string          `json:"badges"`
 	Level                    string            `json:"level"`
 	Field                    string            `json:"field"`
+	FieldOfStudy             string            `json:"fieldOfStudy"`
 	Duration                 string            `json:"duration"`
 	EstFee                   string            `json:"estFee"`
 	Highlights               []string          `json:"highlights"`
@@ -109,6 +111,7 @@ type CreateCourseRequest struct {
 	Badges                   []string         `json:"badges"`
 	Level                    string           `json:"level"`
 	Field                    string           `json:"field"`
+	FieldOfStudy             string           `json:"fieldOfStudy"`
 	Duration                 string           `json:"duration"`
 	EstFee                   string           `json:"estFee"`
 	Highlights               []string         `json:"highlights"`
@@ -138,20 +141,30 @@ type CreateCourseRequest struct {
 }
 
 func (r *CreateCourseRequest) Validate() error {
-	if r.Level == "Bachelor" || r.Level == "Master" {
+	universityLevels := map[string]bool{
+		"Bachelor's": true, "Bachelor's (Honours)": true,
+		"Postgraduate Diploma (PGD)": true, "Master's": true,
+		"MPhil": true, "PhD": true,
+	}
+	if universityLevels[r.Level] {
 		if r.AffiliationID == nil || *r.AffiliationID == 0 {
-			return errors.New("affiliation_id is required for Bachelor and Master level courses")
+			return errors.New("affiliation_id is required for university-level courses")
 		}
 	} else {
 		if r.NonUniversityAffiliation == "" {
-			return errors.New("non_university_affiliation is required for secondary level courses")
+			return errors.New("non_university_affiliation is required for non-university level courses")
 		}
 	}
 	return nil
 }
 
 func (r *CreateCourseRequest) Normalize() {
-	if r.Level == "Bachelor" || r.Level == "Master" {
+	universityLevels := map[string]bool{
+		"Bachelor's": true, "Bachelor's (Honours)": true,
+		"Postgraduate Diploma (PGD)": true, "Master's": true,
+		"MPhil": true, "PhD": true,
+	}
+	if universityLevels[r.Level] {
 		r.NonUniversityAffiliation = ""
 	} else {
 		r.AffiliationID = nil
@@ -166,6 +179,7 @@ type UpdateCourseRequest struct {
 	Badges                   []string         `json:"badges"`
 	Level                    *string          `json:"level"`
 	Field                    *string          `json:"field"`
+	FieldOfStudy             *string          `json:"fieldOfStudy"`
 	Duration                 *string          `json:"duration"`
 	EstFee                   *string          `json:"estFee"`
 	Highlights               []string         `json:"highlights"`
