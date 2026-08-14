@@ -784,6 +784,7 @@ func (h *Handler) AdminCreateCourse(c *gin.Context) {
 		return
 	}
 
+	req.Normalize()
 	req.Description = sanitize.HTML(req.Description)
 
 	course, err := h.service.CreateCourse(req)
