@@ -133,26 +133,43 @@ func buildExamResponse(exam Exam) ExamResponse {
 
 func buildCourseResponse(course Course, colleges int, affiliationName string) CourseResponse {
 	return CourseResponse{
-		ID:          strconv.FormatUint(uint64(course.ID), 10),
-		Title:       course.Title,
-		ShortTitle:  course.ShortTitle,
-		Colleges:    colleges,
-		Affiliation: affiliationName,
-		Badges:      parseStringArrayField(course.Badges),
-		Level:       course.Level,
-		Field:       course.Field,
-		FieldOfStudy: course.FieldOfStudy,
-		Duration:    course.Duration,
-		EstFee:      course.EstFee,
-		Highlights:  parseStringArrayField(course.Highlights),
-		CareerPath:  course.CareerPath,
-		Description: course.Description,
-		Location:    course.Location,
-		GovtFee:     course.GovtFee,
-		PrivateFee:  course.PrivateFee,
-		BannerURL:   course.BannerURL,
+		ID:              strconv.FormatUint(uint64(course.ID), 10),
+		Title:           course.Title,
+		ShortTitle:      course.ShortTitle,
+		Colleges:        colleges,
+		Affiliation:     affiliationName,
+		AffiliationName: affiliationName,
+		NonUniversityAffiliation: course.NonUniversityAffiliation,
+		Badges:          parseStringArrayField(course.Badges),
+		Level:           course.Level,
+		Field:           course.Field,
+		FieldOfStudy:    course.FieldOfStudy,
+		Duration:        course.Duration,
+		EstFee:          course.EstFee,
+		GovtFee:         course.GovtFee,
+		PrivateFee:      course.PrivateFee,
+		Highlights:      parseStringArrayField(course.Highlights),
+		CareerPath:      course.CareerPath,
+		Description:     course.Description,
+		Location:        course.Location,
+		Mode:            course.Mode,
+		DegreeLabel:     course.DegreeLabel,
+		BannerURL:       course.BannerURL,
+
+		WhoShouldChoose:  parseJSONB[PersonaItem](course.WhoShouldChoose),
+		Features:         parseJSONB[FeatureItem](course.Features),
+		EligibilityRows:  parseJSONB[EligibilityRow](course.EligibilityRows),
+		AdmissionSteps:   parseJSONB[AdmissionStep](course.AdmissionSteps),
+		SubjectGroups:    parseJSONB[SubjectGroup](course.SubjectGroups),
+		FeeItems:         parseJSONB[FeeItem](course.FeeItems),
+		ScholarshipDesc:  course.ScholarshipDesc,
+		ScholarshipNotes: course.ScholarshipNotes,
+		Scholarships:     parseJSONB[ScholarshipItem](course.Scholarships),
+		FullTimeCourses:  parseJSONB[FullTimeCourse](course.FullTimeCourses),
+		FAQs:             parseJSONB[FaqItem](course.FAQs),
 	}
 }
+
 
 func buildNewsResponse(news News) NewsResponse {
 	date := news.Date
@@ -1120,42 +1137,15 @@ func (s *Service) GetEducationCourseDetailsByID(id string) (*CourseDetailsRespon
 	if len(course.Curriculum) > 0 {
 		_ = json.Unmarshal(course.Curriculum, &curriculum)
 	}
-	if len(curriculum) == 0 {
-		curriculum = []CourseCurriculumSemester{
-			{Semester: 1, Title: "Semester 1", Subtitle: "Core Technical Knowledge", Subjects: []string{"Introduction to Programming", "Applied Mathematics", "Digital Logic"}},
-			{Semester: 2, Title: "Semester 2", Subtitle: "Foundation Building", Subjects: []string{"Object Oriented Programming", "Statistics", "Database Fundamentals"}},
-		}
-	}
 
 	admissionRequirements := parseStringArrayField(course.Admissions)
-	if len(admissionRequirements) == 0 {
-		admissionRequirements = []string{
-			"Mark sheets / Transcripts",
-			"ID / Citizenship Proof",
-			"Passport-size Photos",
-			"Transfer / Character Certificate",
-		}
-	}
 
 	careers := make([]CourseCareerOpportunity, 0)
 	if len(course.Careers) > 0 {
 		_ = json.Unmarshal(course.Careers, &careers)
 	}
-	if len(careers) == 0 {
-		careers = []CourseCareerOpportunity{
-			{Title: "Data Scientist", Icon: "database", Color: "blue"},
-			{Title: "AI Engineer", Icon: "cpu", Color: "emerald"},
-			{Title: "Machine Learning Engineer", Icon: "chart", Color: "purple"},
-		}
-	}
 
 	about := parseStringArrayField(course.About)
-	if len(about) == 0 {
-		about = []string{
-			"The program is designed to bridge the gap between theoretical mathematics and practical engineering.",
-			"Graduates are prepared for modern technology roles through project-based learning and labs.",
-		}
-	}
 
 	mode := "On-Campus"
 	if course.Mode != "" {

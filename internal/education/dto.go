@@ -39,24 +39,41 @@ type CourseResponse struct {
 	ShortTitle      string   `json:"shortTitle"`
 	Colleges        int      `json:"colleges"`
 	Affiliation     string   `json:"affiliation"`
+	AffiliationName string   `json:"affiliationName"`
+	NonUniversityAffiliation string `json:"nonUniversityAffiliation"`
 	Badges          []string `json:"badges"`
 	Level           string   `json:"level"`
 	Field           string   `json:"field"`
 	FieldOfStudy    string   `json:"fieldOfStudy"`
 	Duration        string   `json:"duration"`
 	EstFee          string   `json:"estFee"`
+	GovtFee         string   `json:"govtFee"`
+	PrivateFee      string   `json:"privateFee"`
 	Highlights      []string `json:"highlights"`
 	CareerPath      string   `json:"careerPath"`
 	Description     string   `json:"description"`
 	Location        string   `json:"location"`
-	GovtFee         string   `json:"govtFee"`
-	PrivateFee      string   `json:"privateFee"`
+	Mode            string   `json:"mode"`
+	DegreeLabel     string   `json:"degreeLabel"`
 	BannerURL       string   `json:"bannerUrl"`
 	Source          string   `json:"source,omitempty"`
 	InstitutionName string   `json:"institutionName,omitempty"`
 	Image           string   `json:"image,omitempty"`
 	IsGlobal        bool     `json:"isGlobal"`
 	Status          string   `json:"status"`
+
+	// Detailed fields
+	WhoShouldChoose  []PersonaItem     `json:"whoShouldChoose"`
+	Features         []FeatureItem     `json:"features"`
+	EligibilityRows  []EligibilityRow  `json:"eligibilityRows"`
+	AdmissionSteps   []AdmissionStep   `json:"admissionSteps"`
+	SubjectGroups    []SubjectGroup    `json:"subjectGroups"`
+	FeeItems         []FeeItem         `json:"feeItems"`
+	ScholarshipDesc  string            `json:"scholarshipDesc"`
+	ScholarshipNotes string            `json:"scholarshipNotes"`
+	Scholarships     []ScholarshipItem `json:"scholarships"`
+	FullTimeCourses  []FullTimeCourse  `json:"fullTimeCourses"`
+	FAQs             []FaqItem         `json:"faqs"`
 }
 
 type AdminCourseResponse struct {

@@ -738,36 +738,36 @@ func TestCreateCourseRequestValidate_BachelorRequiresAffiliationID(t *testing.T)
 		wantErr bool
 	}{
 		{
-			name: "Bachelor with affiliation ID passes",
+			name: "Bachelor's with affiliation ID passes",
 			req: CreateCourseRequest{
 				Title:         "Test",
-				Level:         "Bachelor",
+				Level:         "Bachelor's",
 				AffiliationID: &affID,
 			},
 			wantErr: false,
 		},
 		{
-			name: "Bachelor without affiliation ID fails",
+			name: "Bachelor's without affiliation ID fails",
 			req: CreateCourseRequest{
 				Title: "Test",
-				Level: "Bachelor",
+				Level: "Bachelor's",
 			},
 			wantErr: true,
 		},
 		{
-			name: "Master with affiliation ID passes",
+			name: "Master's with affiliation ID passes",
 			req: CreateCourseRequest{
 				Title:         "Test",
-				Level:         "Master",
+				Level:         "Master's",
 				AffiliationID: &affID,
 			},
 			wantErr: false,
 		},
 		{
-			name: "Master without affiliation ID fails",
+			name: "Master's without affiliation ID fails",
 			req: CreateCourseRequest{
 				Title: "Test",
-				Level: "Master",
+				Level: "Master's",
 			},
 			wantErr: true,
 		},
@@ -789,10 +789,10 @@ func TestCreateCourseRequestValidate_BachelorRequiresAffiliationID(t *testing.T)
 			wantErr: true,
 		},
 		{
-			name: "Diploma with non_university_affiliation passes",
+			name: "Diploma (CTEVT) with non_university_affiliation passes",
 			req: CreateCourseRequest{
 				Title:                    "Test",
-				Level:                    "Diploma",
+				Level:                    "Diploma (CTEVT)",
 				NonUniversityAffiliation: "CTEVT",
 			},
 			wantErr: false,
@@ -812,10 +812,10 @@ func TestCreateCourseRequestValidate_BachelorRequiresAffiliationID(t *testing.T)
 func TestCreateCourseRequestValidate_ClearsConflictingFields(t *testing.T) {
 	affID := uint(1)
 
-	t.Run("Bachelor clears NonUniversityAffiliation", func(t *testing.T) {
+	t.Run("Bachelor's clears NonUniversityAffiliation", func(t *testing.T) {
 		req := CreateCourseRequest{
 			Title:                    "Test",
-			Level:                    "Bachelor",
+			Level:                    "Bachelor's",
 			AffiliationID:            &affID,
 			NonUniversityAffiliation: "should be cleared",
 		}
@@ -847,7 +847,7 @@ func TestCreateCourseRequestValidate_ClearsConflictingFields(t *testing.T) {
 
 func TestCreateCourseRequestNormalize_SecondaryLevelClearsAffiliationID(t *testing.T) {
 	affID := uint(42)
-	levels := []string{"+2", "A Level", "CTEVT", "Diploma"}
+	levels := []string{"+2", "A-Level", "TSLC (CTEVT)", "Diploma (CTEVT)", "PCL"}
 
 	for _, level := range levels {
 		t.Run(level, func(t *testing.T) {
