@@ -25,7 +25,6 @@ type CollegeRecommendationBreakdown struct {
 	Activities           int `json:"activities"`
 	Facilities           int `json:"facilities"`
 	Reputation           int `json:"reputation"`
-	DistanceFromHome     int `json:"distanceFromHome,omitempty"`
 	ClassSize            int `json:"classSize,omitempty"`
 	ProfileCompatibility int `json:"profileCompatibility,omitempty"`
 }
@@ -198,7 +197,6 @@ type CollegeRecommenderRequest struct {
 	Province             string `json:"province"`
 	District             string `json:"district"`
 	Setting              string `json:"setting"`
-	DistanceFromHome     string `json:"distance_from_home"`
 	ClassSize            string `json:"class_size"`
 	AcademicsVsCampus    string `json:"academics_vs_campus"`
 	ActivitiesImportance string `json:"activities_importance"`

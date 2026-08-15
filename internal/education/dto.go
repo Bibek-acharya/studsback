@@ -75,6 +75,7 @@ type CourseResponse struct {
 	ScholarshipNotes string            `json:"scholarshipNotes"`
 	Scholarships     []ScholarshipItem `json:"scholarships"`
 	FullTimeCourses  []FullTimeCourse  `json:"fullTimeCourses"`
+	Downloads        []DownloadItem    `json:"downloads"`
 	FAQs             []FaqItem         `json:"faqs"`
 }
 
@@ -116,6 +117,7 @@ type AdminCourseResponse struct {
 	ScholarshipNotes         string            `json:"scholarshipNotes"`
 	Scholarships             []ScholarshipItem `json:"scholarships"`
 	FullTimeCourses          []FullTimeCourse  `json:"fullTimeCourses"`
+	Downloads                []DownloadItem    `json:"downloads"`
 	FAQs                     []FaqItem         `json:"faqs"`
 	IsGlobal                 bool              `json:"isGlobal"`
 	Status                   string            `json:"status"`
@@ -161,6 +163,7 @@ type CreateCourseRequest struct {
 	ScholarshipNotes         string           `json:"scholarshipNotes"`
 	Scholarships             []ScholarshipItem `json:"scholarships"`
 	FullTimeCourses          []FullTimeCourse  `json:"fullTimeCourses"`
+	Downloads                []DownloadItem    `json:"downloads"`
 	FAQs                     []FaqItem        `json:"faqs"`
 }
 
@@ -231,6 +234,7 @@ type UpdateCourseRequest struct {
 	ScholarshipNotes         *string          `json:"scholarshipNotes"`
 	Scholarships             []ScholarshipItem `json:"scholarships"`
 	FullTimeCourses          []FullTimeCourse  `json:"fullTimeCourses"`
+	Downloads                []DownloadItem    `json:"downloads"`
 	FAQs                     []FaqItem        `json:"faqs"`
 }
 

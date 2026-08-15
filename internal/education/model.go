@@ -69,6 +69,7 @@ type Course struct {
 	DegreeLabel              string         `json:"degreeLabel"`
 	About                    []byte         `gorm:"type:jsonb" json:"about"`
 	Curriculum               []byte         `gorm:"type:jsonb" json:"curriculum"`
+	Downloads                []byte         `gorm:"type:jsonb" json:"downloads"`
 	Admissions               []byte         `gorm:"type:jsonb" json:"admissions"`
 	Careers                  []byte         `gorm:"type:jsonb" json:"careers"`
 	IsGlobal                 bool           `gorm:"default:false" json:"isGlobal"`
@@ -165,6 +166,12 @@ type CareerItem struct {
 	Title string `json:"title"`
 	Icon  string `json:"icon,omitempty"`
 	Color string `json:"color,omitempty"`
+}
+
+type DownloadItem struct {
+	Title string `json:"title"`
+	Size  string `json:"size"`
+	File  string `json:"file"`
 }
 
 type CourseOverrides struct {

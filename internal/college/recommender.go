@@ -64,9 +64,17 @@ func (s *Service) RecommendColleges(req CollegeRecommenderRequest, userID *uint)
 		}
 	}
 
+	// Load institution preferences for all colleges
+	collegeIDs := make([]uint, len(colleges))
+	for i, c := range colleges {
+		collegeIDs[i] = c.ID
+	}
+	instPrefsMap, _ := s.repo.FindInstitutionPreferencesByCollegeIDs(collegeIDs)
+
 	scored := make([]scoredCollege, 0, len(colleges))
 	for _, c := range colleges {
-		score, reasons, breakdown := scoreCollege(c, req, profileData)
+		instPrefs := instPrefsMap[c.ID]
+		score, reasons, breakdown := scoreCollege(c, req, profileData, instPrefs)
 		scored = append(scored, scoredCollege{
 			College:   c,
 			Score:     score,
@@ -96,7 +104,7 @@ func (s *Service) RecommendColleges(req CollegeRecommenderRequest, userID *uint)
 	return results, nil
 }
 
-func scoreCollege(c College, req CollegeRecommenderRequest, profile *CollegeProfileData) (int, []string, CollegeRecommendationBreakdown) {
+func scoreCollege(c College, req CollegeRecommenderRequest, profile *CollegeProfileData, instPrefs InstitutionPrefs) (int, []string, CollegeRecommendationBreakdown) {
 	breakdown := CollegeRecommendationBreakdown{}
 	reasons := make([]string, 0, 8)
 
@@ -116,7 +124,7 @@ func scoreCollege(c College, req CollegeRecommenderRequest, profile *CollegeProf
 		{0, nil, &breakdown.Reputation},
 	}
 
-	s, r := scoreStudentTypeFit(c, req.StudentType)
+	s, r := scoreStudentTypeFit(c, req.StudentType, instPrefs)
 	dimValues[0].score = s
 	dimValues[0].reasons = r
 	reasons = append(reasons, r...)
@@ -141,17 +149,17 @@ func scoreCollege(c College, req CollegeRecommenderRequest, profile *CollegeProf
 	dimValues[4].reasons = r
 	reasons = append(reasons, r...)
 
-	s, r = scoreAcademicsVsCampus(c, req.AcademicsVsCampus)
+	s, r = scoreAcademicsVsCampus(c, req.AcademicsVsCampus, instPrefs)
 	dimValues[5].score = s
 	dimValues[5].reasons = r
 	reasons = append(reasons, r...)
 
-	s, r = scoreActivities(c, req.ActivitiesImportance)
+	s, r = scoreActivities(c, req.ActivitiesImportance, instPrefs)
 	dimValues[6].score = s
 	dimValues[6].reasons = r
 	reasons = append(reasons, r...)
 
-	s, r = scoreFacilities(c, req.FacilityChoice)
+	s, r = scoreFacilities(c, req.FacilityChoice, instPrefs)
 	dimValues[7].score = s
 	dimValues[7].reasons = r
 	reasons = append(reasons, r...)
@@ -161,17 +169,13 @@ func scoreCollege(c College, req CollegeRecommenderRequest, profile *CollegeProf
 	dimValues[8].reasons = r
 	reasons = append(reasons, r...)
 
-	raw := make([]float64, 0, 11)
+	raw := make([]float64, 0, 10)
 	for i := range dimValues {
 		raw = append(raw, float64(dimValues[i].score))
 		*dimValues[i].target = dimValues[i].score
 	}
 
-	s, _ = scoreDistanceFromHome(c, req.DistanceFromHome)
-	breakdown.DistanceFromHome = s
-	raw = append(raw, float64(s))
-
-	s, _ = scoreClassSize(c, req.ClassSize)
+	s, _ = scoreClassSize(c, req.ClassSize, instPrefs)
 	breakdown.ClassSize = s
 	raw = append(raw, float64(s))
 
@@ -193,11 +197,110 @@ func scoreCollege(c College, req CollegeRecommenderRequest, profile *CollegeProf
 	return int(math.Round(totalScore * 100)), reasons, breakdown
 }
 
-func scoreStudentTypeFit(c College, studentType string) (int, []string) {
+// --- Institution preference lookup helpers ---
+
+func getInstPref(instPrefs InstitutionPrefs, key string) string {
+	if instPrefs.Preferences == nil {
+		return ""
+	}
+	if val, ok := instPrefs.Preferences[key]; ok {
+		if s, ok := val.(string); ok {
+			return s
+		}
+	}
+	return ""
+}
+
+func getInstPrefArray(instPrefs InstitutionPrefs, key string) []string {
+	if instPrefs.Preferences == nil {
+		return nil
+	}
+	if val, ok := instPrefs.Preferences[key]; ok {
+		if arr, ok := val.([]interface{}); ok {
+			result := make([]string, 0, len(arr))
+			for _, v := range arr {
+				if s, ok := v.(string); ok {
+					result = append(result, s)
+				}
+			}
+			return result
+		}
+	}
+	return nil
+}
+
+func instPrefContains(instPrefs InstitutionPrefs, key, value string) bool {
+	arr := getInstPrefArray(instPrefs, key)
+	for _, v := range arr {
+		if strings.EqualFold(v, value) {
+			return true
+		}
+	}
+	return false
+}
+
+func instPrefEquals(instPrefs InstitutionPrefs, key, value string) bool {
+	return strings.EqualFold(getInstPref(instPrefs, key), value)
+}
+
+// --- Scoring functions ---
+
+func scoreStudentTypeFit(c College, studentType string, instPrefs InstitutionPrefs) (int, []string) {
 	if studentType == "" {
 		return 5, nil
 	}
 
+	// Try institution preference matching first
+	if instPrefs.Preferences != nil {
+		experience := getInstPref(instPrefs, "experience")
+		priority := getInstPref(instPrefs, "priority")
+
+		typeExpMap := map[string][]string{
+			"academic":   {"Academic Excellence"},
+			"campus_life": {"Vibrant Campus Life"},
+			"career":     {"Career & Industry Focused"},
+			"balanced":   {"Holistic & Balanced"},
+		}
+		typePriMap := map[string]string{
+			"academic":   "Academic Excellence",
+			"campus_life": "Vibrant Campus Life",
+			"balanced":   "Balanced Experience",
+		}
+
+		if targets, ok := typeExpMap[studentType]; ok {
+			// Check if experience is a checkbox (array) or single value
+			expArray := getInstPrefArray(instPrefs, "experience")
+			if len(expArray) > 0 {
+				for _, target := range targets {
+					for _, exp := range expArray {
+						if strings.EqualFold(exp, target) {
+							return 30, []string{fmt.Sprintf("Matches %s preference", studentType)}
+						}
+					}
+				}
+			} else if experience != "" {
+				for _, target := range targets {
+					if strings.EqualFold(experience, target) {
+						return 30, []string{fmt.Sprintf("Matches %s preference", studentType)}
+					}
+				}
+			}
+
+			// Check priority field
+			if targetPri, ok := typePriMap[studentType]; ok {
+				if strings.EqualFold(priority, targetPri) {
+					return 25, []string{fmt.Sprintf("Prioritizes %s", studentType)}
+				}
+			}
+
+			// Partial match: institution has "Holistic & Balanced" for balanced student
+			if studentType == "balanced" && instPrefContains(instPrefs, "experience", "Holistic & Balanced") {
+				return 25, []string{"Balanced experience"}
+			}
+		}
+	}
+
+	// Fallback to college fit scores
 	var fitScore int
 	var label string
 	switch studentType {
@@ -383,11 +486,61 @@ func scoreFinancialAid(c College, financialSupport string) (int, []string) {
 	return 0, nil
 }
 
-func scoreAcademicsVsCampus(c College, pref string) (int, []string) {
+func scoreAcademicsVsCampus(c College, pref string, instPrefs InstitutionPrefs) (int, []string) {
 	if pref == "" {
 		return 2, nil
 	}
 
+	// Try institution preference matching
+	if instPrefs.Preferences != nil {
+		priority := getInstPref(instPrefs, "priority")
+		experience := getInstPref(instPrefs, "experience")
+		expArray := getInstPrefArray(instPrefs, "experience")
+
+		switch pref {
+		case "Academics matter more than fun":
+			if strings.EqualFold(priority, "Academic Excellence") {
+				return 5, []string{"Strong academic focus"}
+			}
+			if strings.EqualFold(experience, "Academic Excellence") || instPrefContains(instPrefs, "experience", "Academic Excellence") {
+				return 5, []string{"Strong academic focus"}
+			}
+		case "Campus life matters more":
+			if strings.EqualFold(priority, "Vibrant Campus Life") {
+				return 5, []string{"Vibrant campus life"}
+			}
+			if strings.EqualFold(experience, "Vibrant Campus Life") || instPrefContains(instPrefs, "experience", "Vibrant Campus Life") {
+				return 5, []string{"Vibrant campus life"}
+			}
+		case "Both equally important":
+			if strings.EqualFold(priority, "Balanced Experience") {
+				return 5, []string{"Great balance of academics and life"}
+			}
+			hasAcademic := strings.EqualFold(experience, "Academic Excellence") || instPrefContains(instPrefs, "experience", "Academic Excellence")
+			hasCampus := strings.EqualFold(experience, "Vibrant Campus Life") || instPrefContains(instPrefs, "experience", "Vibrant Campus Life")
+			if hasAcademic && hasCampus {
+				return 5, []string{"Great balance of academics and life"}
+			}
+			// Also check array form for experience
+			if len(expArray) > 0 {
+				hasAcademicArr := false
+				hasCampusArr := false
+				for _, exp := range expArray {
+					if strings.EqualFold(exp, "Academic Excellence") {
+						hasAcademicArr = true
+					}
+					if strings.EqualFold(exp, "Vibrant Campus Life") {
+						hasCampusArr = true
+					}
+				}
+				if hasAcademicArr && hasCampusArr {
+					return 5, []string{"Great balance of academics and life"}
+				}
+			}
+		}
+	}
+
+	// Fallback to college fit scores
 	var score int
 	var reasons []string
 	switch pref {
@@ -415,11 +568,36 @@ func scoreAcademicsVsCampus(c College, pref string) (int, []string) {
 	return score, reasons
 }
 
-func scoreActivities(c College, importance string) (int, []string) {
+func scoreActivities(c College, importance string, instPrefs InstitutionPrefs) (int, []string) {
 	if importance == "" {
 		return 1, nil
 	}
 
+	// Try institution preference matching
+	if instPrefs.Preferences != nil {
+		activities := getInstPref(instPrefs, "activities")
+
+		switch importance {
+		case "Yes":
+			if strings.EqualFold(activities, "Highly Active") {
+				return 3, []string{"Active extracurricular scene"}
+			}
+			if strings.EqualFold(activities, "Moderately Active") {
+				return 2, nil
+			}
+		case "Somewhat":
+			if strings.EqualFold(activities, "Highly Active") || strings.EqualFold(activities, "Moderately Active") {
+				return 2, nil
+			}
+		case "No":
+			if strings.EqualFold(activities, "Academics-Focused") {
+				return 2, nil
+			}
+			return 1, nil
+		}
+	}
+
+	// Fallback to keyword matching
 	combined := strings.ToLower(string(c.Amenities) + " " +
 		c.Description + " " +
 		string(c.About))
@@ -453,7 +631,7 @@ func scoreActivities(c College, importance string) (int, []string) {
 	return score, reasons
 }
 
-func scoreFacilities(c College, facilityChoice string) (int, []string) {
+func scoreFacilities(c College, facilityChoice string, instPrefs InstitutionPrefs) (int, []string) {
 	if facilityChoice == "" {
 		return 1, nil
 	}
@@ -463,6 +641,47 @@ func scoreFacilities(c College, facilityChoice string) (int, []string) {
 		return 1, nil
 	}
 
+	// Try institution preference matching
+	if instPrefs.Preferences != nil {
+		facilities := getInstPref(instPrefs, "facilities")
+
+		matches := 0
+		for _, choice := range choices {
+			choiceLower := strings.ToLower(choice)
+			switch {
+			case strings.Contains(choiceLower, "lab"):
+				if strings.EqualFold(facilities, "Modern Labs") {
+					matches++
+				}
+			case strings.Contains(choiceLower, "hostel"):
+				if strings.EqualFold(facilities, "Hostel") {
+					matches++
+				}
+			case strings.Contains(choiceLower, "library"):
+				if strings.EqualFold(facilities, "Library") {
+					matches++
+				}
+			case strings.Contains(choiceLower, "cafeteria"):
+				if strings.EqualFold(facilities, "Cafeteria") {
+					matches++
+				}
+			}
+		}
+
+		if matches > 0 {
+			score := matches
+			if score > 5 {
+				score = 5
+			}
+			var reasons []string
+			if score >= 3 {
+				reasons = append(reasons, "Has facilities you wanted")
+			}
+			return score, reasons
+		}
+	}
+
+	// Fallback to keyword matching
 	combined := strings.ToLower(string(c.Amenities) + " " +
 		c.Description + " " +
 		string(c.About))
@@ -539,6 +758,49 @@ func scoreReputation(c College, importance string) (int, []string) {
 	return score, reasons
 }
 
+var classSizeScores = map[string]int{
+	"Small class (more teacher attention)": 5,
+	"Medium class":                         4,
+	"Large college with big batches":       2,
+}
+
+func scoreClassSize(c College, classSize string, instPrefs InstitutionPrefs) (int, []string) {
+	if classSize == "" {
+		return 2, nil
+	}
+
+	// Try institution preference matching
+	if instPrefs.Preferences != nil {
+		instClassSize := getInstPref(instPrefs, "class_size")
+		if instClassSize != "" {
+			// Normalize student input to match institution values
+			normalizedMap := map[string]string{
+				"Small class (more teacher attention)": "Small Classes",
+				"Medium class":                         "Medium-Sized",
+				"Large college with big batches":       "Large Batches",
+			}
+			expected := normalizedMap[classSize]
+			if expected != "" && strings.EqualFold(instClassSize, expected) {
+				return 5, []string{"Preferred class size"}
+			}
+			// Partial: medium matches mixed
+			if strings.EqualFold(instClassSize, "Mixed") {
+				return 3, nil
+			}
+		}
+	}
+
+	// Fallback
+	score, ok := classSizeScores[classSize]
+	if !ok {
+		return 2, nil
+	}
+	if score >= 4 {
+		return score, []string{"Preferred class size"}
+	}
+	return score, nil
+}
+
 func toCollegeRecommendation(c College, score int, reasons []string, breakdown CollegeRecommendationBreakdown) CollegeRecommendationResult {
 	if len(reasons) > 4 {
 		reasons = reasons[:4]
@@ -589,52 +851,13 @@ func normalizePercentile(scores []float64) []float64 {
 
 func getCollegeDimensionWeights(hasProfile bool) []float64 {
 	if hasProfile {
-		return []float64{0.15, 0.12, 0.12, 0.10, 0.05, 0.05, 0.05, 0.05, 0.03, 0.03, 0.03, 0.12}
+		// 11 dimensions: StudentType, PreferredField, Location, Budget, FinancialAid,
+		// AcademicsVsCampus, Activities, Facilities, Reputation, ClassSize, ProfileCompatibility
+		return []float64{0.17, 0.12, 0.12, 0.10, 0.05, 0.06, 0.06, 0.06, 0.05, 0.06, 0.15}
 	}
-	return []float64{0.18, 0.14, 0.14, 0.12, 0.06, 0.06, 0.06, 0.06, 0.06, 0.04, 0.04}
-}
-
-var distanceScores = map[string]int{
-	"Less than 10 km":  5,
-	"10–20 km":         4,
-	"20–50 km":         3,
-	"More than 50 km":  2,
-	"No preference":    3,
-}
-
-func scoreDistanceFromHome(c College, distance string) (int, []string) {
-	if distance == "" {
-		return 2, nil
-	}
-	score, ok := distanceScores[distance]
-	if !ok {
-		return 2, nil
-	}
-	if score >= 4 {
-		return score, []string{"Convenient location from home"}
-	}
-	return score, nil
-}
-
-var classSizeScores = map[string]int{
-	"Small classes (< 30)":   5,
-	"Medium classes (30–50)": 4,
-	"Large classes (50+)":    2,
-	"No preference":          3,
-}
-
-func scoreClassSize(c College, classSize string) (int, []string) {
-	if classSize == "" {
-		return 2, nil
-	}
-	score, ok := classSizeScores[classSize]
-	if !ok {
-		return 2, nil
-	}
-	if score >= 4 {
-		return score, []string{"Preferred class size"}
-	}
-	return score, nil
+	// 10 dimensions: StudentType, PreferredField, Location, Budget, FinancialAid,
+	// AcademicsVsCampus, Activities, Facilities, Reputation, ClassSize
+	return []float64{0.20, 0.14, 0.14, 0.12, 0.06, 0.07, 0.07, 0.07, 0.06, 0.07}
 }
 
 func scoreCollegeProfileCompatibility(c College, profile *CollegeProfileData) int {

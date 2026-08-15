@@ -333,6 +333,47 @@ type ReviewAgg struct {
 	Reviews   int
 }
 
+// InstitutionPrefs holds preference data from an institution user
+type InstitutionPrefs struct {
+	CollegeID   uint
+	Preferences map[string]interface{}
+}
+
+// FindInstitutionPreferencesByCollegeIDs returns institution preferences keyed by college_id
+func (r *Repository) FindInstitutionPreferencesByCollegeIDs(collegeIDs []uint) (map[uint]InstitutionPrefs, error) {
+	type row struct {
+		CollegeID   uint   `gorm:"column:college_id"`
+		Preferences string `gorm:"column:preferences"`
+	}
+	var rows []row
+	err := r.db.Table("institution_users").
+		Select("college_id, preferences::text as preferences").
+		Where("college_id IN ?", collegeIDs).
+		Where("college_id > 0").
+		Where("preferences IS NOT NULL").
+		Where("deleted_at IS NULL").
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[uint]InstitutionPrefs, len(rows))
+	for _, r := range rows {
+		var prefs map[string]interface{}
+		if err := json.Unmarshal([]byte(r.Preferences), &prefs); err != nil {
+			continue
+		}
+		// The preferences are nested under "preferences" key in the JSONB
+		if inner, ok := prefs["preferences"].(map[string]interface{}); ok {
+			prefs = inner
+		}
+		result[r.CollegeID] = InstitutionPrefs{
+			CollegeID:   r.CollegeID,
+			Preferences: prefs,
+		}
+	}
+	return result, nil
+}
+
 // FindReviewAggregations returns rating and review count for the given college IDs
 func (r *Repository) FindReviewAggregations(collegeIDs []uint) (map[uint]ReviewAgg, error) {
 	type row struct {

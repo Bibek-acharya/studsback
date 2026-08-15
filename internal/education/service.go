@@ -189,6 +189,7 @@ func buildCourseResponse(course Course, colleges int, affiliationName string) Co
 		ScholarshipNotes: course.ScholarshipNotes,
 		Scholarships:     parseJSONB[ScholarshipItem](course.Scholarships),
 		FullTimeCourses:  parseJSONB[FullTimeCourse](course.FullTimeCourses),
+		Downloads:        parseJSONB[DownloadItem](course.Downloads),
 		FAQs:             parseJSONB[FaqItem](course.FAQs),
 	}
 }
@@ -406,6 +407,7 @@ func buildAdminCourseResponse(course Course) AdminCourseResponse {
 		ScholarshipNotes:         course.ScholarshipNotes,
 		Scholarships:             parseJSONB[ScholarshipItem](course.Scholarships),
 		FullTimeCourses:          parseJSONB[FullTimeCourse](course.FullTimeCourses),
+		Downloads:                parseJSONB[DownloadItem](course.Downloads),
 		FAQs:                     parseJSONB[FaqItem](course.FAQs),
 		IsGlobal:                 course.IsGlobal,
 		Status:                   course.Status,
@@ -511,6 +513,10 @@ func (s *Service) CreateCourse(req CreateCourseRequest) (*AdminCourseResponse, e
 	if err != nil {
 		return nil, fmt.Errorf("marshal faqs: %w", err)
 	}
+	downloadsJSON, err := marshalJSON(req.Downloads)
+	if err != nil {
+		return nil, fmt.Errorf("marshal downloads: %w", err)
+	}
 
 	course := &Course{
 		Title:                    req.Title,
@@ -548,6 +554,7 @@ func (s *Service) CreateCourse(req CreateCourseRequest) (*AdminCourseResponse, e
 		ScholarshipNotes:         req.ScholarshipNotes,
 		Scholarships:             scholarshipsJSON,
 		FullTimeCourses:          fullTimeCoursesJSON,
+		Downloads:                downloadsJSON,
 		FAQs:                     faqsJSON,
 		IsGlobal:                 true,
 		Status:                   "published",
@@ -816,6 +823,13 @@ func (s *Service) UpdateCourse(id string, req UpdateCourseRequest) (*AdminCourse
 			return nil, fmt.Errorf("marshal faqs: %w", err)
 		}
 		course.FAQs = data
+	}
+	if req.Downloads != nil {
+		data, err := marshalJSON(req.Downloads)
+		if err != nil {
+			return nil, fmt.Errorf("marshal downloads: %w", err)
+		}
+		course.Downloads = data
 	}
 
 	if err := s.repo.UpdateCourse(course); err != nil {
