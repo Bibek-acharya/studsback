@@ -511,6 +511,33 @@ func (s *Service) SavePreferences(userID uint, req SavePreferencesRequest) (*Pre
 	}, nil
 }
 
+func (s *Service) SaveInstitutionPreferences(userID uint, req SaveInstitutionPreferencesRequest) (*InstitutionUser, error) {
+	institution, err := s.repo.FindInstitutionUserByID(userID)
+	if err != nil {
+		return nil, errors.New("Institution not found")
+	}
+
+	now := time.Now()
+	institution.Preferences = &Preferences{
+		Role:                "institution",
+		PreferenceFlow:      "onboarding",
+		Preferences:         req.Preferences,
+		CompletedAt:         &now,
+		OnboardingCompleted: true,
+	}
+
+	if err := s.repo.UpdateInstitutionUser(institution); err != nil {
+		return nil, errors.New("Failed to save preferences")
+	}
+
+	institution, err = s.repo.FindInstitutionUserByID(userID)
+	if err != nil {
+		return nil, errors.New("Institution not found")
+	}
+
+	return institution, nil
+}
+
 func (s *Service) InstitutionRegister(req InstitutionRegisterRequest) (*RegisterResponse, error) {
 	if s.emailExistsAcrossTypes(req.Email) {
 		return nil, errors.New("An account with this email already exists")
@@ -579,9 +606,12 @@ func (s *Service) InstitutionLogin(req InstitutionLoginRequest) (*LoginResponse,
 		return nil, errors.New("Failed to generate token")
 	}
 
+	prefsCompleted := institutionUser.Preferences != nil && institutionUser.Preferences.OnboardingCompleted
+
 	return &LoginResponse{
-		User:  institutionUser,
-		Token: token,
+		User:                 institutionUser,
+		Token:                token,
+		PreferencesCompleted: prefsCompleted,
 	}, nil
 }
 

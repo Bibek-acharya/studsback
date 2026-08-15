@@ -106,6 +106,7 @@ type InstitutionUser struct {
 	ProfileData              *string                  `gorm:"type:jsonb;default:'{}'" json:"profile_data"`
 	ProfileStatus            string                   `gorm:"type:varchar(20);default:'draft'" json:"profile_status"`
 	Featured                 bool                     `gorm:"default:false" json:"featured"`
+	Preferences              *Preferences             `gorm:"type:jsonb;serializer:json;default:'null'" json:"preferences,omitempty"`
 	Subscription             *InstitutionSubscription `gorm:"foreignKey:InstitutionID" json:"subscription,omitempty"`
 }
 

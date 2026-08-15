@@ -478,6 +478,28 @@ func (h *Handler) SavePreferences(c *gin.Context) {
 	response.Success(c, 200, "Preferences saved successfully", result)
 }
 
+func (h *Handler) SaveInstitutionPreferences(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		response.Error(c, 401, "Unauthorized")
+		return
+	}
+
+	var req SaveInstitutionPreferencesRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+
+	result, err := h.service.SaveInstitutionPreferences(userID.(uint), req)
+	if err != nil {
+		response.Error(c, 500, err.Error())
+		return
+	}
+
+	response.Success(c, 200, "Institution preferences saved successfully", result)
+}
+
 func (h *Handler) InstitutionRegister(c *gin.Context) {
 	var req InstitutionRegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

@@ -40,6 +40,10 @@ type SavePreferencesRequest struct {
 	Preferences    map[string]interface{} `json:"preferences" binding:"required"`
 }
 
+type SaveInstitutionPreferencesRequest struct {
+	Preferences map[string]interface{} `json:"preferences" binding:"required"`
+}
+
 type ChangePasswordRequest struct {
 	CurrentPassword string `json:"current_password" binding:"required"`
 	NewPassword     string `json:"new_password" binding:"required,min=6"`
@@ -90,10 +94,11 @@ type RegisterResponse struct {
 }
 
 type LoginResponse struct {
-	User         interface{} `json:"user,omitempty"`
-	Token        string      `json:"token,omitempty"`
-	RequiresTOTP bool        `json:"requires_totp,omitempty"`
-	TOTPToken    string      `json:"totp_token,omitempty"`
+	User                 interface{} `json:"user,omitempty"`
+	Token                string      `json:"token,omitempty"`
+	RequiresTOTP         bool        `json:"requires_totp,omitempty"`
+	TOTPToken            string      `json:"totp_token,omitempty"`
+	PreferencesCompleted bool        `json:"preferences_completed"`
 }
 
 type ProfileResponse struct {
