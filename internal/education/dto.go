@@ -226,11 +226,17 @@ type UpdateCourseRequest struct {
 	FAQs                     []FaqItem        `json:"faqs"`
 }
 
+type CourseCurriculumElective struct {
+	Code string `json:"code"`
+	Name string `json:"name"`
+}
+
 type CourseCurriculumSemester struct {
-	Semester int      `json:"semester"`
-	Title    string   `json:"title"`
-	Subtitle string   `json:"subtitle"`
-	Subjects []string `json:"subjects"`
+	Semester  int                        `json:"semester"`
+	Title     string                     `json:"title"`
+	Subtitle  string                     `json:"subtitle"`
+	Subjects  []string                   `json:"subjects"`
+	Electives []CourseCurriculumElective `json:"electives"`
 }
 
 type CourseCareerOpportunity struct {
