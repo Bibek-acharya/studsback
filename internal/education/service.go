@@ -175,6 +175,8 @@ func buildCourseResponse(course Course, colleges int, affiliationName string) Co
 		Location:        course.Location,
 		Mode:            course.Mode,
 		DegreeLabel:     course.DegreeLabel,
+		FeeStructure:    course.FeeStructure,
+		EligibilityText: course.EligibilityText,
 		BannerURL:       course.BannerURL,
 
 		WhoShouldChoose:  parseJSONB[PersonaItem](course.WhoShouldChoose),
@@ -385,6 +387,8 @@ func buildAdminCourseResponse(course Course) AdminCourseResponse {
 		Location:                 course.Location,
 		GovtFee:                  course.GovtFee,
 		PrivateFee:               course.PrivateFee,
+		FeeStructure:             course.FeeStructure,
+		EligibilityText:          course.EligibilityText,
 		Mode:                     course.Mode,
 		DegreeLabel:              course.DegreeLabel,
 		About:                    parseStringArrayField(course.About),
@@ -525,6 +529,8 @@ func (s *Service) CreateCourse(req CreateCourseRequest) (*AdminCourseResponse, e
 		Location:                 req.Location,
 		GovtFee:                  req.GovtFee,
 		PrivateFee:               req.PrivateFee,
+		FeeStructure:             req.FeeStructure,
+		EligibilityText:          req.EligibilityText,
 		Mode:                     req.Mode,
 		DegreeLabel:              req.DegreeLabel,
 		About:                    aboutJSON,
@@ -698,6 +704,12 @@ func (s *Service) UpdateCourse(id string, req UpdateCourseRequest) (*AdminCourse
 	}
 	if req.PrivateFee != nil {
 		course.PrivateFee = *req.PrivateFee
+	}
+	if req.FeeStructure != nil {
+		course.FeeStructure = *req.FeeStructure
+	}
+	if req.EligibilityText != nil {
+		course.EligibilityText = *req.EligibilityText
 	}
 	if req.Mode != nil {
 		course.Mode = *req.Mode

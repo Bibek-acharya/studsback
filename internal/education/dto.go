@@ -55,6 +55,8 @@ type CourseResponse struct {
 	Location        string   `json:"location"`
 	Mode            string   `json:"mode"`
 	DegreeLabel     string   `json:"degreeLabel"`
+	FeeStructure    string   `json:"feeStructure"`
+	EligibilityText string   `json:"eligibilityText"`
 	BannerURL       string   `json:"bannerUrl"`
 	Source          string   `json:"source,omitempty"`
 	InstitutionName string   `json:"institutionName,omitempty"`
@@ -95,6 +97,8 @@ type AdminCourseResponse struct {
 	Location                 string            `json:"location"`
 	GovtFee                  string            `json:"govtFee"`
 	PrivateFee               string            `json:"privateFee"`
+	FeeStructure             string            `json:"feeStructure"`
+	EligibilityText          string            `json:"eligibilityText"`
 	Mode                     string            `json:"mode"`
 	DegreeLabel              string            `json:"degreeLabel"`
 	About                    []string          `json:"about"`
@@ -208,6 +212,8 @@ type UpdateCourseRequest struct {
 	Location                 *string          `json:"location"`
 	GovtFee                  *string          `json:"govtFee"`
 	PrivateFee               *string          `json:"privateFee"`
+	FeeStructure             *string          `json:"feeStructure"`
+	EligibilityText          *string          `json:"eligibilityText"`
 	Mode                     *string          `json:"mode"`
 	DegreeLabel              *string          `json:"degreeLabel"`
 	About                    []string         `json:"about"`
