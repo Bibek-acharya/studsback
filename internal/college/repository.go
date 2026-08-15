@@ -185,8 +185,8 @@ func (r *Repository) FindAll(filters CollegeFilters) ([]College, int64, error) {
 	}
 
 	if filters.CourseID != "" {
-		query = query.Joins("JOIN college_university_courses ON college_university_courses.college_id = colleges.id").
-			Where("college_university_courses.course_id = ?", filters.CourseID)
+		query = query.Joins("LEFT JOIN college_university_courses ON college_university_courses.college_id = colleges.id AND college_university_courses.course_id = ?", filters.CourseID).
+			Select("colleges.*, (college_university_courses.course_id IS NOT NULL) AS offers_course")
 	}
 
 	sort := filters.Sort
@@ -201,7 +201,11 @@ func (r *Repository) FindAll(filters CollegeFilters) ([]College, int64, error) {
 
 	if filters.FeeMax > 0 {
 		var allColleges []College
-		if err := query.Order("colleges.featured DESC, colleges.verified DESC, colleges.claimed DESC, " + sort + " " + order).
+		orderClause := "colleges.featured DESC, colleges.verified DESC, colleges.claimed DESC"
+		if filters.CourseID != "" {
+			orderClause = "offers_course DESC, " + orderClause
+		}
+		if err := query.Order(orderClause + ", " + sort + " " + order).
 			Find(&allColleges).Error; err != nil {
 			return nil, 0, err
 		}
@@ -233,7 +237,12 @@ func (r *Repository) FindAll(filters CollegeFilters) ([]College, int64, error) {
 
 	offset := (filters.Page - 1) * filters.PageSize
 
-	if err := query.Order("colleges.featured DESC, colleges.verified DESC, colleges.claimed DESC, " + sort + " " + order).
+	orderClause := "colleges.featured DESC, colleges.verified DESC, colleges.claimed DESC"
+	if filters.CourseID != "" {
+		orderClause = "offers_course DESC, " + orderClause
+	}
+
+	if err := query.Order(orderClause + ", " + sort + " " + order).
 		Offset(offset).
 		Limit(filters.PageSize).
 		Find(&colleges).Error; err != nil {

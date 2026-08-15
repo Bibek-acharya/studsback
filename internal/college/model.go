@@ -52,4 +52,5 @@ type College struct {
 	Longitude                *float64       `gorm:"index:idx_college_lat_lng,priority:2" json:"longitude,omitempty"`
 	UniversityAffiliations   []byte         `gorm:"type:jsonb;default:'[]'" json:"university_affiliations,omitempty"`
 	NonUniversityAffiliation string         `gorm:"default:''" json:"non_university_affiliation,omitempty"`
+	OffersCourse             bool           `gorm:"column:offers_course" json:"offersCourse,omitempty"`
 }

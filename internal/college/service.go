@@ -475,6 +475,7 @@ func buildCollegeResponse(college College) CollegeResponse {
 		Longitude:                college.Longitude,
 		UniversityAffiliations:   parseJSONField(college.UniversityAffiliations, []uint{}),
 		NonUniversityAffiliation: college.NonUniversityAffiliation,
+		OffersCourse:             college.OffersCourse,
 	}
 }
 

@@ -134,6 +134,7 @@ type CollegeResponse struct {
 	Longitude                *float64    `json:"longitude,omitempty"`
 	UniversityAffiliations   interface{} `json:"university_affiliations,omitempty"`
 	NonUniversityAffiliation string      `json:"non_university_affiliation,omitempty"`
+	OffersCourse             bool        `json:"offersCourse,omitempty"`
 }
 
 type PaginationInfo struct {
