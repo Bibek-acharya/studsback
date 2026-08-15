@@ -141,6 +141,12 @@ type CreateCourseRequest struct {
 	FeeStructure             string           `json:"feeStructure"`
 	EligibilityText          string           `json:"eligibilityText"`
 	Mode                     string           `json:"mode"`
+	DegreeLabel              string           `json:"degreeLabel"`
+	About                    []string         `json:"about"`
+	Curriculum               interface{}      `json:"curriculum"`
+	Admissions               []string         `json:"admissions"`
+	Careers                  []CareerItem     `json:"careers"`
+	BannerURL                string           `json:"bannerUrl"`
 	WhoShouldChoose          []PersonaItem    `json:"whoShouldChoose"`
 	Features                 []FeatureItem    `json:"features"`
 	EligibilityRows          []EligibilityRow  `json:"eligibilityRows"`
