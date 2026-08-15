@@ -63,6 +63,8 @@ type Course struct {
 	Location                 string         `json:"location"`
 	GovtFee                  string         `json:"govtFee"`
 	PrivateFee               string         `json:"privateFee"`
+	FeeStructure             string         `gorm:"type:text" json:"feeStructure"`
+	EligibilityText          string         `gorm:"type:text" json:"eligibilityText"`
 	Mode                     string         `json:"mode"`
 	DegreeLabel              string         `json:"degreeLabel"`
 	About                    []byte         `gorm:"type:jsonb" json:"about"`

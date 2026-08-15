@@ -396,6 +396,29 @@ func (r *Repository) FindAffiliationByID(id uint) (*Affiliation, error) {
 	return &affiliation, nil
 }
 
+func (r *Repository) FindUniversitiesByIDs(ids []uint) (map[uint]*University, error) {
+	if len(ids) == 0 {
+		return map[uint]*University{}, nil
+	}
+	var universities []University
+	if err := r.db.Where("id IN ?", ids).Find(&universities).Error; err != nil {
+		return nil, err
+	}
+	result := make(map[uint]*University, len(universities))
+	for i := range universities {
+		result[universities[i].ID] = &universities[i]
+	}
+	return result, nil
+}
+
+func (r *Repository) FindUniversityByID(id uint) (*University, error) {
+	var university University
+	if err := r.db.First(&university, id).Error; err != nil {
+		return nil, err
+	}
+	return &university, nil
+}
+
 func (r *Repository) FindCourseMappings(courseID uint) ([]CollegeUniversityCourse, error) {
 	var mappings []CollegeUniversityCourse
 	err := r.db.
@@ -415,15 +438,6 @@ func (r *Repository) FindCollegesByIDs(ids []uint) ([]College, error) {
 		Order("rating desc").
 		Find(&colleges).Error
 	return colleges, err
-}
-
-func (r *Repository) FindUniversityByID(id uint) (*University, error) {
-	var university University
-	err := r.db.First(&university, id).Error
-	if err != nil {
-		return nil, err
-	}
-	return &university, nil
 }
 
 func (r *Repository) FindNews(limit int) ([]News, error) {

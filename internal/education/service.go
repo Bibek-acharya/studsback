@@ -49,8 +49,13 @@ func NewService(repo *Repository, instRepo InstitutionProgramRepo, systemSvc *sy
 func (s *Service) resolveAffiliationName(course *Course) string {
 	if course.AffiliationID != nil {
 		affiliation, err := s.repo.FindAffiliationByID(*course.AffiliationID)
-		if err == nil && affiliation != nil {
+		if err == nil && affiliation != nil && affiliation.Name != "" {
 			return affiliation.Name
+		}
+		// Fallback: try universities table
+		uni, err := s.repo.FindUniversityByID(*course.AffiliationID)
+		if err == nil && uni != nil && uni.Name != "" {
+			return uni.Name
 		}
 	}
 	if course.NonUniversityAffiliation != "" {
@@ -69,10 +74,26 @@ func (s *Service) resolveAffiliationNames(courses []Course) map[uint]string {
 
 	result := make(map[uint]string)
 	if len(affiliationIDs) > 0 {
+		// Try affiliations table first
 		affiliations, err := s.repo.FindAffiliationsByIDs(affiliationIDs)
 		if err == nil {
 			for id, aff := range affiliations {
 				result[id] = aff.Name
+			}
+		}
+		// For any IDs not found, try universities table
+		var missing []uint
+		for _, id := range affiliationIDs {
+			if result[id] == "" {
+				missing = append(missing, id)
+			}
+		}
+		if len(missing) > 0 {
+			universities, err := s.repo.FindUniversitiesByIDs(missing)
+			if err == nil {
+				for id, uni := range universities {
+					result[id] = uni.Name
+				}
 			}
 		}
 	}
@@ -549,9 +570,14 @@ func (s *Service) GetAllCoursesAdmin(page, limit int) ([]AdminCourseResponse, Pa
 	affiliationNames := s.resolveAffiliationNames(courses)
 	for i, course := range courses {
 		responses[i] = buildAdminCourseResponse(course)
+		affName := ""
 		if course.AffiliationID != nil {
-			responses[i].AffiliationName = affiliationNames[*course.AffiliationID]
+			affName = affiliationNames[*course.AffiliationID]
 		}
+		if affName == "" {
+			affName = course.NonUniversityAffiliation
+		}
+		responses[i].AffiliationName = affName
 	}
 
 	meta := PaginationMeta{
@@ -579,9 +605,14 @@ func (s *Service) GetPendingCourses(page, limit int) ([]AdminCourseResponse, Pag
 	affiliationNames := s.resolveAffiliationNames(courses)
 	for i, course := range courses {
 		responses[i] = buildAdminCourseResponse(course)
+		affName := ""
 		if course.AffiliationID != nil {
-			responses[i].AffiliationName = affiliationNames[*course.AffiliationID]
+			affName = affiliationNames[*course.AffiliationID]
 		}
+		if affName == "" {
+			affName = course.NonUniversityAffiliation
+		}
+		responses[i].AffiliationName = affName
 	}
 
 	meta := PaginationMeta{
