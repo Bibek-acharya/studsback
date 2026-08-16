@@ -105,6 +105,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 		institutionProtected.Use(authMW)
 		{
 			institutionProtected.GET("/profile-access", h.GetMyProfileAccess)
+			institutionProtected.GET("/preferences", h.GetInstitutionPreferences)
 			institutionProtected.POST("/preferences", h.SaveInstitutionPreferences)
 		}
 

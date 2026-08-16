@@ -538,6 +538,15 @@ func (s *Service) SaveInstitutionPreferences(userID uint, req SaveInstitutionPre
 	return institution, nil
 }
 
+func (s *Service) GetInstitutionPreferences(userID uint) (*Preferences, error) {
+	institution, err := s.repo.FindInstitutionUserByID(userID)
+	if err != nil {
+		return nil, errors.New("Institution not found")
+	}
+
+	return institution.Preferences, nil
+}
+
 func (s *Service) InstitutionRegister(req InstitutionRegisterRequest) (*RegisterResponse, error) {
 	if s.emailExistsAcrossTypes(req.Email) {
 		return nil, errors.New("An account with this email already exists")

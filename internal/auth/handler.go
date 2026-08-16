@@ -500,6 +500,22 @@ func (h *Handler) SaveInstitutionPreferences(c *gin.Context) {
 	response.Success(c, 200, "Institution preferences saved successfully", result)
 }
 
+func (h *Handler) GetInstitutionPreferences(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		response.Error(c, 401, "Unauthorized")
+		return
+	}
+
+	result, err := h.service.GetInstitutionPreferences(userID.(uint))
+	if err != nil {
+		response.Error(c, 500, err.Error())
+		return
+	}
+
+	response.Success(c, 200, "Institution preferences retrieved successfully", result)
+}
+
 func (h *Handler) InstitutionRegister(c *gin.Context) {
 	var req InstitutionRegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
