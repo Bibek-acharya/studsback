@@ -138,7 +138,12 @@ func (h *Handler) GetPrograms(c *gin.Context) {
 
 	var resp []ProgramResponse
 	for _, p := range programs {
-		resp = append(resp, toProgramResponse(p))
+		course, _ := h.service.GetGlobalCourseByID(p.GlobalCourseID)
+		affName := ""
+		if course != nil {
+			affName = h.service.ResolveAffiliationName(course.AffiliationID)
+		}
+		resp = append(resp, toProgramResponse(p, course, affName))
 	}
 
 	response.Success(c, http.StatusOK, "Programs retrieved successfully", gin.H{
@@ -165,7 +170,12 @@ func (h *Handler) GetProgramByID(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, http.StatusOK, "Program retrieved successfully", toProgramResponse(*program))
+	course, _ := h.service.GetGlobalCourseByID(program.GlobalCourseID)
+	affName := ""
+	if course != nil {
+		affName = h.service.ResolveAffiliationName(course.AffiliationID)
+	}
+	response.Success(c, http.StatusOK, "Program retrieved successfully", toProgramResponse(*program, course, affName))
 }
 
 func (h *Handler) CreateProgram(c *gin.Context) {
@@ -183,7 +193,12 @@ func (h *Handler) CreateProgram(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, http.StatusCreated, "Program created successfully", toProgramResponse(*program))
+	course, _ := h.service.GetGlobalCourseByID(program.GlobalCourseID)
+	affName := ""
+	if course != nil {
+		affName = h.service.ResolveAffiliationName(course.AffiliationID)
+	}
+	response.Success(c, http.StatusCreated, "Program created successfully", toProgramResponse(*program, course, affName))
 }
 
 func (h *Handler) UpdateProgram(c *gin.Context) {
@@ -206,7 +221,12 @@ func (h *Handler) UpdateProgram(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, http.StatusOK, "Program updated successfully", toProgramResponse(*program))
+	course, _ := h.service.GetGlobalCourseByID(program.GlobalCourseID)
+	affName := ""
+	if course != nil {
+		affName = h.service.ResolveAffiliationName(course.AffiliationID)
+	}
+	response.Success(c, http.StatusOK, "Program updated successfully", toProgramResponse(*program, course, affName))
 }
 
 func (h *Handler) DeleteProgram(c *gin.Context) {
@@ -1846,7 +1866,7 @@ func (h *Handler) GetPublishedAdmissionByPageID(c *gin.Context) {
 	response.Success(c, http.StatusOK, "Published admission retrieved successfully", result)
 }
 
-func toProgramResponse(p InstitutionProgram) ProgramResponse {
+func toProgramResponse(p InstitutionProgram, course *education.Course, affiliationName string) ProgramResponse {
 	var whoShouldChoose []education.PersonaItem
 	var features []education.FeatureItem
 	var fullTimeCourses []education.FullTimeCourse
@@ -1858,7 +1878,7 @@ func toProgramResponse(p InstitutionProgram) ProgramResponse {
 	json.Unmarshal(p.FeeItems, &feeItems)
 	json.Unmarshal(p.Overrides, &overrides)
 
-	return ProgramResponse{
+	resp := ProgramResponse{
 		ID:                  p.ID,
 		CreatedAt:           p.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:           p.UpdatedAt.Format(time.RFC3339),
@@ -1878,6 +1898,22 @@ func toProgramResponse(p InstitutionProgram) ProgramResponse {
 		Overrides:           overrides,
 		NullifiedFields:     p.NullifiedFields,
 	}
+
+	if course != nil {
+		resp.GlobalCourseTitle = course.Title
+		resp.Duration = course.Duration
+		resp.Level = course.Level
+		resp.Field = course.Field
+		resp.NonUniversityAffiliation = course.NonUniversityAffiliation
+		resp.AffiliationName = affiliationName
+		if overrides.BannerURL != nil && *overrides.BannerURL != "" {
+			resp.BannerUrl = *overrides.BannerURL
+		} else {
+			resp.BannerUrl = course.BannerURL
+		}
+	}
+
+	return resp
 }
 
 func toMediaResponse(m InstitutionMedia) MediaResponse {
@@ -2477,14 +2513,24 @@ func (h *Handler) AdminGetCourseRequestByID(c *gin.Context) {
 }
 
 func (h *Handler) AdminApproveCourseRequest(c *gin.Context) {
-	adminID, _ := c.Get("user_id")
+	adminIDVal, exists := c.Get("user_id")
+	if !exists {
+		response.Error(c, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+	adminID, ok := adminIDVal.(uint)
+	if !ok {
+		response.Error(c, http.StatusInternalServerError, "Invalid user context")
+		return
+	}
+
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "Invalid request ID")
 		return
 	}
 
-	if err := h.service.ApproveCourseRequest(uint(id), adminID.(uint)); err != nil {
+	if err := h.service.ApproveCourseRequest(uint(id), adminID); err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -2493,7 +2539,17 @@ func (h *Handler) AdminApproveCourseRequest(c *gin.Context) {
 }
 
 func (h *Handler) AdminRejectCourseRequest(c *gin.Context) {
-	adminID, _ := c.Get("user_id")
+	adminIDVal, exists := c.Get("user_id")
+	if !exists {
+		response.Error(c, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+	adminID, ok := adminIDVal.(uint)
+	if !ok {
+		response.Error(c, http.StatusInternalServerError, "Invalid user context")
+		return
+	}
+
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "Invalid request ID")
@@ -2508,7 +2564,7 @@ func (h *Handler) AdminRejectCourseRequest(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.RejectCourseRequest(uint(id), adminID.(uint), req.Reason); err != nil {
+	if err := h.service.RejectCourseRequest(uint(id), adminID, req.Reason); err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}

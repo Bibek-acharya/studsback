@@ -40,25 +40,31 @@ type UpdateProgramRequest struct {
 }
 
 type ProgramResponse struct {
-	ID                  uint                    `json:"id"`
-	CreatedAt           string                  `json:"created_at"`
-	UpdatedAt           string                  `json:"updated_at"`
-	InstitutionID       uint                    `json:"institution_id"`
-	InstitutionName     string                  `json:"institution_name"`
-	InstitutionLocation string                  `json:"institution_location"`
-	InstitutionLink     string                  `json:"institution_link"`
-	GlobalCourseID      uint                    `json:"globalCourseId"`
-	GlobalCourseTitle   string                  `json:"globalCourseTitle"`
-	Fee                 string                  `json:"fee"`
-	Eligibility         string                  `json:"eligibility"`
-	Capacity            int                     `json:"capacity"`
-	Status              string                  `json:"status"`
-	WhoShouldChoose     []education.PersonaItem `json:"whoShouldChoose"`
-	Features            []education.FeatureItem `json:"features"`
-	FullTimeCourses     []education.FullTimeCourse `json:"fullTimeCourses"`
-	FeeItems            []education.FeeItem    `json:"feeItems"`
-	Overrides           education.CourseOverrides `json:"overrides"`
-	NullifiedFields     []string                `json:"nullifiedFields"`
+	ID                      uint                    `json:"id"`
+	CreatedAt               string                  `json:"created_at"`
+	UpdatedAt               string                  `json:"updated_at"`
+	InstitutionID           uint                    `json:"institution_id"`
+	InstitutionName         string                  `json:"institution_name"`
+	InstitutionLocation     string                  `json:"institution_location"`
+	InstitutionLink         string                  `json:"institution_link"`
+	GlobalCourseID          uint                    `json:"globalCourseId"`
+	GlobalCourseTitle       string                  `json:"globalCourseTitle"`
+	Duration                string                  `json:"duration"`
+	Level                   string                  `json:"level"`
+	Field                   string                  `json:"field"`
+	AffiliationName         string                  `json:"affiliationName"`
+	NonUniversityAffiliation string                 `json:"nonUniversityAffiliation"`
+	BannerUrl               string                  `json:"bannerUrl"`
+	Fee                     string                  `json:"fee"`
+	Eligibility             string                  `json:"eligibility"`
+	Capacity                int                     `json:"capacity"`
+	Status                  string                  `json:"status"`
+	WhoShouldChoose         []education.PersonaItem `json:"whoShouldChoose"`
+	Features                []education.FeatureItem `json:"features"`
+	FullTimeCourses         []education.FullTimeCourse `json:"fullTimeCourses"`
+	FeeItems                []education.FeeItem    `json:"feeItems"`
+	Overrides               education.CourseOverrides `json:"overrides"`
+	NullifiedFields         []string                `json:"nullifiedFields"`
 }
 
 type CourseApprovalRequest struct {

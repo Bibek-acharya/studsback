@@ -1,6 +1,10 @@
 package institution
 
-import "github.com/gin-gonic/gin"
+import (
+	"studsphere/backend/internal/shared/middleware"
+
+	"github.com/gin-gonic/gin"
+)
 
 func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 	if h == nil {
@@ -33,13 +37,13 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 		v1.GET("/admissions/published/pages/:id", h.GetPublishedAdmissionByPageID)
 
 		adminInst := v1.Group("/admin/institutions")
-		adminInst.Use(authMW, roleMW)
+		adminInst.Use(authMW, middleware.RequireRole("admin", "super_admin"))
 		{
 			adminInst.PUT("/:id/sponsored", h.ToggleInstitutionSponsored)
 		}
 
 		adminCourseRequests := v1.Group("/admin/course-requests")
-		adminCourseRequests.Use(authMW, roleMW)
+		adminCourseRequests.Use(authMW, middleware.RequireRole("admin", "super_admin"))
 		{
 			adminCourseRequests.GET("", h.AdminGetCourseRequests)
 			adminCourseRequests.GET("/:id", h.AdminGetCourseRequestByID)

@@ -375,6 +375,21 @@ func (s *Service) GetProgramByIDOnly(id uint) (*InstitutionProgram, error) {
 	return s.repo.FindProgramByID(id)
 }
 
+func (s *Service) GetGlobalCourseByID(id uint) (*education.Course, error) {
+	return s.educationRepo.FindCourseByIDOnly(id)
+}
+
+func (s *Service) ResolveAffiliationName(affiliationID *uint) string {
+	if affiliationID == nil || *affiliationID == 0 {
+		return ""
+	}
+	aff, err := s.educationRepo.FindAffiliationByID(*affiliationID)
+	if err != nil || aff == nil {
+		return ""
+	}
+	return aff.Name
+}
+
 func (s *Service) CreateProgram(instID uint, req CreateProgramRequest) (*InstitutionProgram, error) {
 	// Validate global course exists
 	globalCourse, err := s.educationRepo.FindCourseByIDOnly(req.GlobalCourseID)

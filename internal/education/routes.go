@@ -1,6 +1,10 @@
 package education
 
-import "github.com/gin-gonic/gin"
+import (
+	"studsphere/backend/internal/shared/middleware"
+
+	"github.com/gin-gonic/gin"
+)
 
 func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 	if h == nil {
@@ -17,13 +21,13 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			education.GET("/courses", h.GetEducationCourses)
 			education.GET("/courses/search", h.SearchGlobalCourses)
 			education.GET("/courses/filter-counts", h.GetCourseFilterCounts)
+			education.GET("/courses/secondary", h.GetSecondaryCourses)
 			education.GET("/courses/by-level/:level", h.GetCoursesByLevel)
 			education.GET("/courses/by-affiliation/:id", h.GetCoursesByAffiliation)
-			education.GET("/courses/secondary", h.GetSecondaryCourses)
 			education.GET("/courses/institution/:id", h.GetInstitutionCourses)
-			education.GET("/courses/:id", h.GetEducationCourseByID)
 			education.GET("/courses/:id/details", h.GetEducationCourseDetailsByID)
-		education.GET("/courses/:id/resolved", h.GetResolvedCourse)
+			education.GET("/courses/:id/resolved", h.GetResolvedCourse)
+			education.GET("/courses/:id", h.GetEducationCourseByID)
 			education.GET("/news", h.GetEducationNews)
 			education.GET("/news/filter-counts", h.GetNewsFilterCounts)
 			education.GET("/news/:id", h.GetEducationNewsByID)
@@ -46,10 +50,10 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			entrances.GET("/:id", h.GetPublicEntranceByID)
 		}
 
-		// Admin course management routes
+		// Admin course management routes — admin and super_admin only
 		adminCourses := v1.Group("/admin/courses")
 		adminCourses.Use(authMW)
-		adminCourses.Use(roleMW)
+		adminCourses.Use(middleware.RequireRole("admin", "super_admin"))
 		{
 			adminCourses.GET("", h.AdminListCourses)
 			adminCourses.GET("/pending", h.AdminListPendingCourses)
