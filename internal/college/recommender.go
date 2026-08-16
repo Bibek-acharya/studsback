@@ -71,6 +71,14 @@ func (s *Service) RecommendColleges(req CollegeRecommenderRequest, userID *uint)
 	}
 	instPrefsMap, _ := s.repo.FindInstitutionPreferencesByCollegeIDs(collegeIDs)
 
+	// If no preferences found by college_id, try by institution_users.id (fallback)
+	if len(instPrefsMap) == 0 {
+		instPrefsByID, _ := s.repo.FindInstitutionPreferencesByIDs(collegeIDs)
+		if len(instPrefsByID) > 0 {
+			instPrefsMap = instPrefsByID
+		}
+	}
+
 	scored := make([]scoredCollege, 0, len(colleges))
 	for _, c := range colleges {
 		instPrefs := instPrefsMap[c.ID]

@@ -348,6 +348,35 @@ type InstitutionPrefs struct {
 	Preferences map[string]interface{}
 }
 
+// FindInstitutionPreferencesByIDs returns institution preferences keyed by institution_users.id
+func (r *Repository) FindInstitutionPreferencesByIDs(userIDs []uint) (map[uint]InstitutionPrefs, error) {
+	type row struct {
+		UserID      uint   `gorm:"column:id"`
+		Preferences string `gorm:"column:preferences"`
+	}
+	var rows []row
+	err := r.db.Table("institution_users").
+		Select("id, preferences::text as preferences").
+		Where("id IN ?", userIDs).
+		Where("preferences IS NOT NULL").
+		Where("deleted_at IS NULL").
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[uint]InstitutionPrefs, len(rows))
+	for _, r := range rows {
+		var prefs map[string]interface{}
+		if err := json.Unmarshal([]byte(r.Preferences), &prefs); err == nil {
+			result[r.UserID] = InstitutionPrefs{
+				CollegeID:   r.UserID,
+				Preferences: prefs,
+			}
+		}
+	}
+	return result, nil
+}
+
 // FindInstitutionPreferencesByCollegeIDs returns institution preferences keyed by college_id
 func (r *Repository) FindInstitutionPreferencesByCollegeIDs(collegeIDs []uint) (map[uint]InstitutionPrefs, error) {
 	type row struct {
@@ -481,7 +510,72 @@ func (r *Repository) FindAllForRecommendation(limit int) ([]College, error) {
 		Order("rating DESC NULLS LAST, reviews DESC").
 		Limit(limit).
 		Find(&colleges).Error
-	return colleges, err
+	if err != nil {
+		return nil, err
+	}
+
+	if len(colleges) > 0 {
+		return colleges, nil
+	}
+
+	// Fallback: build College records from approved institution_users
+	type instRow struct {
+		ID               uint    `gorm:"column:id"`
+		InstitutionName  string  `gorm:"column:institution_name"`
+		District         string  `gorm:"column:district"`
+		Province         string  `gorm:"column:province"`
+		OrganizationType string  `gorm:"column:organization_type"`
+		About            string  `gorm:"column:about"`
+		LogoURL          string  `gorm:"column:logo_url"`
+		ProfileData      *string `gorm:"column:profile_data"`
+		WebsiteURL       string  `gorm:"column:website_url"`
+		Affiliation      string  `gorm:"column:affiliation"`
+		Featured         bool    `gorm:"column:featured"`
+	}
+
+	var rows []instRow
+	err = r.db.Table("institution_users").
+		Select("id, institution_name, district, province, organization_type, about, logo_url, profile_data, website_url, affiliation, featured").
+		Where("status = ?", "approved").
+		Where("deleted_at IS NULL").
+		Order("featured DESC, id DESC").
+		Limit(limit).
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+
+	colleges = make([]College, 0, len(rows))
+	for _, row := range rows {
+		loc := row.District
+		if loc == "" {
+			loc = row.Province
+		}
+		colType := row.OrganizationType
+		if colType == "" {
+			colType = "Private"
+		}
+		c := College{
+			ID:              row.ID,
+			Name:            row.InstitutionName,
+			FullName:        row.InstitutionName,
+			Location:        loc,
+			Affiliation:     row.Affiliation,
+			CollegeType:     colType,
+			Verified:        true,
+			Featured:        row.Featured,
+			Description:     row.About,
+			Website:         row.WebsiteURL,
+			ImageURL:        row.LogoURL,
+			AcademicFitScore: 5,
+			CampusLifeScore: 5,
+			CareerFitScore:  5,
+			BalancedFitScore: 5,
+		}
+		colleges = append(colleges, c)
+	}
+
+	return colleges, nil
 }
 
 func parseTypes(typeStr string) []string {
