@@ -531,11 +531,12 @@ func (r *Repository) FindAllForRecommendation(limit int) ([]College, error) {
 		WebsiteURL       string  `gorm:"column:website_url"`
 		Affiliation      string  `gorm:"column:affiliation"`
 		Featured         bool    `gorm:"column:featured"`
+		Verified         bool    `gorm:"column:verified"`
 	}
 
 	var rows []instRow
 	err = r.db.Table("institution_users").
-		Select("id, institution_name, district, province, organization_type, about, logo_url, profile_data, website_url, affiliation, featured").
+		Select("id, institution_name, district, province, organization_type, about, logo_url, profile_data, website_url, affiliation, featured, verified").
 		Where("status = ?", "approved").
 		Where("deleted_at IS NULL").
 		Order("featured DESC, id DESC").
@@ -562,7 +563,7 @@ func (r *Repository) FindAllForRecommendation(limit int) ([]College, error) {
 			Location:        loc,
 			Affiliation:     row.Affiliation,
 			CollegeType:     colType,
-			Verified:        true,
+			Verified:        row.Verified,
 			Featured:        row.Featured,
 			Description:     row.About,
 			Website:         row.WebsiteURL,
