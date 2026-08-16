@@ -263,6 +263,14 @@ type InstitutionSettings struct {
 	PublicProfile bool      `gorm:"default:true" json:"public_profile"`
 }
 
+type Preferences struct {
+	Role                string                 `json:"role"`
+	PreferenceFlow      string                 `json:"preference_flow"`
+	Preferences         map[string]interface{} `json:"preferences"`
+	CompletedAt         *time.Time             `json:"completed_at"`
+	OnboardingCompleted bool                   `json:"onboarding_completed"`
+}
+
 type InstitutionUser struct {
 	ID                 uint           `gorm:"primarykey" json:"id"`
 	CreatedAt          time.Time      `json:"created_at"`
@@ -304,6 +312,7 @@ type InstitutionUser struct {
 	ProfileStatus      string         `gorm:"type:varchar(20);default:draft" json:"profile_status"`
 	ProfileData        *string        `gorm:"type:jsonb;default:'{}'" json:"profile_data"`
 	Featured           bool           `gorm:"default:false" json:"featured"`
+	Preferences        *Preferences   `gorm:"type:jsonb;serializer:json;default:'null'" json:"preferences,omitempty"`
 }
 
 func (u *InstitutionUser) HashPassword(password string) error {

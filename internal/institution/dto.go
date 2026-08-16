@@ -753,6 +753,7 @@ type ProfileResponse struct {
 	RegistrationNumber   string                 `json:"registration_number"`
 	Role                 string                 `json:"role"`
 	ProfileStatus        string                 `json:"profile_status"`
+	PreferencesCompleted bool                   `json:"preferences_completed"`
 	Location             string                 `json:"location,omitempty"`
 	Website              string                 `json:"website,omitempty"`
 	ContactEmail         string                 `json:"contact_email,omitempty"`

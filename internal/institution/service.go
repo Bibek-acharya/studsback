@@ -171,6 +171,7 @@ func (s *Service) GetProfile(instID uint) (*ProfileResponse, error) {
 		FaqsData:             pd.FaqsData,
 		ContactPersonsData:   pd.ContactPersonsData,
 		BrochureData:         pd.BrochureData,
+		PreferencesCompleted: user.Preferences != nil,
 	}, nil
 }
 
