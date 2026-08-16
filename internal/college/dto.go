@@ -210,6 +210,8 @@ type CollegeRecommendationResult struct {
 	Name       string                         `json:"name"`
 	Location   string                         `json:"location"`
 	Type       string                         `json:"type"`
+	Logo       string                         `json:"logo"`
+	Verified   bool                           `json:"verified"`
 	Tuiton     string                         `json:"tuition"`
 	MatchScore int                            `json:"match_score"`
 	Reasons    []string                       `json:"reasons"`

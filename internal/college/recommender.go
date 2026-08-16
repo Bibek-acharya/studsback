@@ -824,6 +824,8 @@ func toCollegeRecommendation(c College, score int, reasons []string, breakdown C
 		Name:       c.Name,
 		Location:   c.Location,
 		Type:       c.CollegeType,
+		Logo:       c.ImageURL,
+		Verified:   c.Verified,
 		Tuiton:     tuition,
 		MatchScore: score,
 		Reasons:    reasons,
