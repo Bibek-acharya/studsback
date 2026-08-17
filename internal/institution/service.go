@@ -416,6 +416,7 @@ func (s *Service) CreateProgram(instID uint, req CreateProgramRequest) (*Institu
 	overrides, _ := json.Marshal(req.Overrides)
 
 	program := &InstitutionProgram{
+		Name:                globalCourse.Title,
 		InstitutionID:       instID,
 		InstitutionName:     req.InstitutionName,
 		InstitutionLocation: req.InstitutionLocation,
@@ -2683,6 +2684,7 @@ func (s *Service) ApproveCourseRequest(id, adminID uint) error {
 	}
 
 	program := &InstitutionProgram{
+		Name:            course.Title,
 		InstitutionID:   req.InstitutionID,
 		GlobalCourseID:  course.ID,
 		Fee:             req.Fee,

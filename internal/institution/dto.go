@@ -43,6 +43,7 @@ type ProgramResponse struct {
 	ID                      uint                    `json:"id"`
 	CreatedAt               string                  `json:"created_at"`
 	UpdatedAt               string                  `json:"updated_at"`
+	Name                    string                  `json:"name"`
 	InstitutionID           uint                    `json:"institution_id"`
 	InstitutionName         string                  `json:"institution_name"`
 	InstitutionLocation     string                  `json:"institution_location"`

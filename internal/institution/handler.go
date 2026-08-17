@@ -1882,6 +1882,7 @@ func toProgramResponse(p InstitutionProgram, course *education.Course, affiliati
 		ID:                  p.ID,
 		CreatedAt:           p.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:           p.UpdatedAt.Format(time.RFC3339),
+		Name:                p.Name,
 		InstitutionID:       p.InstitutionID,
 		InstitutionName:     p.InstitutionName,
 		InstitutionLocation: p.InstitutionLocation,

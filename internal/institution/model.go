@@ -14,6 +14,7 @@ type InstitutionProgram struct {
 	CreatedAt           time.Time      `json:"created_at"`
 	UpdatedAt           time.Time      `json:"updated_at"`
 	DeletedAt           gorm.DeletedAt `gorm:"index" json:"-"`
+	Name                string         `gorm:"not null" json:"name"`
 	InstitutionID       uint           `gorm:"index;not null;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"institution_id"`
 	InstitutionName     string         `gorm:"default:''" json:"institution_name"`
 	InstitutionLocation string         `gorm:"default:''" json:"institution_location"`
