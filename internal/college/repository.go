@@ -186,7 +186,7 @@ func (r *Repository) FindAll(filters CollegeFilters) ([]College, int64, error) {
 
 	if filters.CourseID != "" {
 		query = query.Joins("LEFT JOIN college_university_courses ON college_university_courses.college_id = colleges.id AND college_university_courses.course_id = ?", filters.CourseID).
-			Select("colleges.*, (college_university_courses.course_id IS NOT NULL) AS offers_course")
+			Select("colleges.*, (college_university_courses.course_id IS NOT NULL) AS course_offers")
 	}
 
 	sort := filters.Sort
@@ -203,7 +203,7 @@ func (r *Repository) FindAll(filters CollegeFilters) ([]College, int64, error) {
 		var allColleges []College
 		orderClause := "colleges.featured DESC, colleges.verified DESC, colleges.claimed DESC"
 		if filters.CourseID != "" {
-			orderClause = "offers_course DESC, " + orderClause
+			orderClause = "course_offers DESC, " + orderClause
 		}
 		if err := query.Order(orderClause + ", " + sort + " " + order).
 			Find(&allColleges).Error; err != nil {
@@ -239,7 +239,7 @@ func (r *Repository) FindAll(filters CollegeFilters) ([]College, int64, error) {
 
 	orderClause := "colleges.featured DESC, colleges.verified DESC, colleges.claimed DESC"
 	if filters.CourseID != "" {
-		orderClause = "offers_course DESC, " + orderClause
+		orderClause = "course_offers DESC, " + orderClause
 	}
 
 	if err := query.Order(orderClause + ", " + sort + " " + order).
