@@ -603,6 +603,8 @@ func fixMissingColumns(db *gorm.DB) error {
 		{"institution_programs", "overrides JSONB DEFAULT '{}'"},
 		{"institution_programs", "nullified_fields JSONB DEFAULT '[]'"},
 		{"admission_pages", "level TEXT DEFAULT ''"},
+		{"news", "featured BOOLEAN DEFAULT FALSE"},
+		{"news", "published BOOLEAN DEFAULT TRUE"},
 	}
 	for _, c := range cols {
 		if err := addColumnIfMissing(db, c.table, c.def); err != nil {

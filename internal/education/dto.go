@@ -294,18 +294,20 @@ type CourseDetailsResponse struct {
 }
 
 type NewsResponse struct {
-	ID       uint     `json:"id"`
-	Slug     string   `json:"slug"`
-	Category string   `json:"category"`
-	Title    string   `json:"title"`
-	Excerpt  string   `json:"excerpt"`
-	Content  string   `json:"content"`
-	Image    string   `json:"image"`
-	Author   string   `json:"author"`
-	Date     string   `json:"date"`
-	ReadTime string   `json:"readTime"`
-	Source   string   `json:"source"`
-	Tags     []string `json:"tags"`
+	ID        uint     `json:"id"`
+	Slug      string   `json:"slug"`
+	Category  string   `json:"category"`
+	Title     string   `json:"title"`
+	Excerpt   string   `json:"excerpt"`
+	Content   string   `json:"content"`
+	Image     string   `json:"image"`
+	Author    string   `json:"author"`
+	Date      string   `json:"date"`
+	ReadTime  string   `json:"readTime"`
+	Source    string   `json:"source"`
+	Tags      []string `json:"tags"`
+	Featured  bool     `json:"featured"`
+	Published bool     `json:"published"`
 }
 
 type EventResponse struct {
@@ -491,44 +493,50 @@ type CreateNewsRequest struct {
 	UniversityID uint     `json:"university_id"`
 	Category     string   `json:"category" binding:"required"`
 	Title        string   `json:"title" binding:"required"`
-	Excerpt  string   `json:"excerpt"`
-	Content  string   `json:"content" binding:"required"`
-	Image    string   `json:"image"`
-	Author   string   `json:"author"`
-	Date     string   `json:"date"`
-	ReadTime string   `json:"readTime"`
-	Source   string   `json:"source"`
-	Tags     []string `json:"tags"`
+	Excerpt      string   `json:"excerpt"`
+	Content      string   `json:"content" binding:"required"`
+	Image        string   `json:"image"`
+	Author       string   `json:"author"`
+	Date         string   `json:"date"`
+	ReadTime     string   `json:"readTime"`
+	Source       string   `json:"source"`
+	Tags         []string `json:"tags"`
+	Featured     bool     `json:"featured"`
+	Published    *bool    `json:"published"`
 }
 
 type UpdateNewsRequest struct {
 	UniversityID uint     `json:"university_id"`
 	Category     string   `json:"category"`
-	Title    string   `json:"title"`
-	Excerpt  string   `json:"excerpt"`
-	Content  string   `json:"content"`
-	Image    string   `json:"image"`
-	Author   string   `json:"author"`
-	Date     string   `json:"date"`
-	ReadTime string   `json:"readTime"`
-	Source   string   `json:"source"`
-	Tags     []string `json:"tags"`
+	Title        string   `json:"title"`
+	Excerpt      string   `json:"excerpt"`
+	Content      string   `json:"content"`
+	Image        string   `json:"image"`
+	Author       string   `json:"author"`
+	Date         string   `json:"date"`
+	ReadTime     string   `json:"readTime"`
+	Source       string   `json:"source"`
+	Tags         []string `json:"tags"`
+	Featured     *bool    `json:"featured"`
+	Published    *bool    `json:"published"`
 }
 
 type AdminNewsResponse struct {
 	ID           uint     `json:"id"`
 	UniversityID uint     `json:"university_id"`
 	Slug         string   `json:"slug"`
-	Category  string   `json:"category"`
-	Title     string   `json:"title"`
-	Excerpt   string   `json:"excerpt"`
-	Content   string   `json:"content"`
-	Image     string   `json:"image"`
-	Author    string   `json:"author"`
-	Date      string   `json:"date"`
-	ReadTime  string   `json:"readTime"`
-	Source    string   `json:"source"`
-	Tags      []string `json:"tags"`
-	CreatedAt string   `json:"created_at"`
-	UpdatedAt string   `json:"updated_at"`
+	Category     string   `json:"category"`
+	Title        string   `json:"title"`
+	Excerpt      string   `json:"excerpt"`
+	Content      string   `json:"content"`
+	Image        string   `json:"image"`
+	Author       string   `json:"author"`
+	Date         string   `json:"date"`
+	ReadTime     string   `json:"readTime"`
+	Source       string   `json:"source"`
+	Tags         []string `json:"tags"`
+	Featured     bool     `json:"featured"`
+	Published    bool     `json:"published"`
+	CreatedAt    string   `json:"created_at"`
+	UpdatedAt    string   `json:"updated_at"`
 }

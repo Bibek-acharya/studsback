@@ -201,18 +201,20 @@ func buildNewsResponse(news News) NewsResponse {
 		date = news.CreatedAt.Format("2006-01-02")
 	}
 	return NewsResponse{
-		ID:       news.ID,
-		Slug:     news.Slug,
-		Category: news.Category,
-		Title:    news.Title,
-		Excerpt:  news.Excerpt,
-		Content:  news.Content,
-		Image:    news.Image,
-		Author:   news.Author,
-		Date:     date,
-		ReadTime: news.ReadTime,
-		Source:   news.Source,
-		Tags:     parseStringArrayField(news.Tags),
+		ID:        news.ID,
+		Slug:      news.Slug,
+		Category:  news.Category,
+		Title:     news.Title,
+		Excerpt:   news.Excerpt,
+		Content:   news.Content,
+		Image:     news.Image,
+		Author:    news.Author,
+		Date:      date,
+		ReadTime:  news.ReadTime,
+		Source:    news.Source,
+		Tags:      parseStringArrayField(news.Tags),
+		Featured:  news.Featured,
+		Published: news.Published,
 	}
 }
 
@@ -1832,6 +1834,8 @@ func buildAdminNewsResponse(news News) AdminNewsResponse {
 		ReadTime:     news.ReadTime,
 		Source:       news.Source,
 		Tags:         parseStringArrayField(news.Tags),
+		Featured:     news.Featured,
+		Published:    news.Published,
 		CreatedAt:    news.CreatedAt.String(),
 		UpdatedAt:    news.UpdatedAt.String(),
 	}
@@ -1871,6 +1875,11 @@ func (s *Service) CreateNewsAdmin(req CreateNewsRequest) (*AdminNewsResponse, er
 		return count > 0
 	})
 
+	published := true
+	if req.Published != nil {
+		published = *req.Published
+	}
+
 	news := News{
 		Slug:         slugStr,
 		UniversityID: req.UniversityID,
@@ -1884,6 +1893,8 @@ func (s *Service) CreateNewsAdmin(req CreateNewsRequest) (*AdminNewsResponse, er
 		ReadTime:     req.ReadTime,
 		Source:       req.Source,
 		Tags:         tagsJSON,
+		Featured:     req.Featured,
+		Published:    published,
 	}
 
 	if err := s.repo.CreateNews(&news); err != nil {
@@ -1952,6 +1963,12 @@ func (s *Service) UpdateNewsAdmin(id string, req UpdateNewsRequest) (*AdminNewsR
 	}
 	if req.UniversityID != 0 {
 		news.UniversityID = req.UniversityID
+	}
+	if req.Featured != nil {
+		news.Featured = *req.Featured
+	}
+	if req.Published != nil {
+		news.Published = *req.Published
 	}
 
 	if err := s.repo.UpdateNews(news); err != nil {

@@ -242,6 +242,8 @@ type News struct {
 	ReadTime     string         `json:"readTime"`
 	Source       string         `json:"source"`
 	Tags         []byte         `gorm:"type:jsonb" json:"tags"`
+	Featured     bool           `gorm:"default:false" json:"featured"`
+	Published    bool           `gorm:"default:true" json:"published"`
 }
 
 func (n *News) BeforeCreate(tx *gorm.DB) error {
