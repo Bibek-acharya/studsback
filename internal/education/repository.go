@@ -428,6 +428,12 @@ func (r *Repository) FindCourseMappings(courseID uint) ([]CollegeUniversityCours
 	return mappings, err
 }
 
+func (r *Repository) UpsertCollegeUniversityCourse(m *CollegeUniversityCourse) error {
+	return r.db.Where("college_id = ? AND university_id = ? AND course_id = ?", m.CollegeID, m.UniversityID, m.CourseID).
+		Assign(m).
+		FirstOrCreate(m).Error
+}
+
 func (r *Repository) FindCollegesByIDs(ids []uint) ([]College, error) {
 	var colleges []College
 	if len(ids) == 0 {

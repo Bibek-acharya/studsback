@@ -438,6 +438,20 @@ func (s *Service) CreateProgram(instID uint, req CreateProgramRequest) (*Institu
 		return nil, err
 	}
 
+	// Create college_university_courses mapping so colleges show up when filtering by courseId
+	if instUser, err := s.repo.FindInstitutionUserByID(instID); err == nil && instUser.CollegeID > 0 && req.GlobalCourseID > 0 {
+		uniID := uint(0)
+		if instUser.UniversityID != nil {
+			uniID = *instUser.UniversityID
+		}
+		mapping := education.CollegeUniversityCourse{
+			CollegeID:    instUser.CollegeID,
+			UniversityID: uniID,
+			CourseID:     req.GlobalCourseID,
+		}
+		s.educationRepo.UpsertCollegeUniversityCourse(&mapping)
+	}
+
 	return program, nil
 }
 
