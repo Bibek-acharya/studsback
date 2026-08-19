@@ -67,6 +67,10 @@ func (r *Repository) CreateInstitutionUser(user *InstitutionUser) error {
 	return r.db.Create(user).Error
 }
 
+func (r *Repository) SaveInstitutionUser(user *InstitutionUser) error {
+	return r.db.Save(user).Error
+}
+
 func (r *Repository) FindInstitutionUserByID(id uint) (*InstitutionUser, error) {
 	var user InstitutionUser
 	err := r.db.First(&user, id).Error

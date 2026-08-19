@@ -59,11 +59,17 @@ type PostResponse struct {
 	TotalVotes   int         `json:"total_votes"`
 }
 
+type CommentUser struct {
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+}
+
 type CommentResponse struct {
 	ID        uint              `json:"id"`
 	CreatedAt string            `json:"created_at"`
 	PostID    uint              `json:"post_id"`
 	UserID    uint              `json:"user_id"`
+	User      CommentUser       `json:"user"`
 	UserName  string            `json:"user_name"`
 	Content   string            `json:"content"`
 	ParentID  *uint             `json:"parent_id"`

@@ -555,6 +555,10 @@ func mapCommentToResponse(comment ForumComment) CommentResponse {
 	}
 
 	if comment.User.ID != 0 {
+		resp.User = CommentUser{
+			FirstName: comment.User.FirstName,
+			LastName:  comment.User.LastName,
+		}
 		resp.UserName = comment.User.FirstName + " " + comment.User.LastName
 	}
 

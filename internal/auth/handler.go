@@ -418,7 +418,7 @@ func (h *Handler) InstitutionRegister(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, 201, "Institution account created successfully", result)
+	response.Success(c, 201, "Verification code sent to your email", result)
 }
 
 func (h *Handler) InstitutionLogin(c *gin.Context) {

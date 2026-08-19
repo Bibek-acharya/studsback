@@ -104,8 +104,9 @@ func (s *Service) SendOTP(email string, otpType string) error {
 
 	if otpType == "password_reset" {
 		_, userErr := s.repo.FindUserByEmail(email)
+		_, institutionErr := s.repo.FindInstitutionUserByEmail(email)
 		_, providerErr := s.repo.FindScholarshipProviderUserByEmail(email)
-		if userErr != nil && providerErr != nil {
+		if userErr != nil && institutionErr != nil && providerErr != nil {
 			return errors.New("No account found with this email address")
 		}
 	}
@@ -154,6 +155,25 @@ func (s *Service) VerifyOTP(email, otp string) (*LoginResponse, error) {
 		return &LoginResponse{
 			User:  providerUser,
 			Token: "",
+		}, nil
+	}
+
+	if institutionUser, ok := data.(InstitutionUser); ok {
+		if s.emailExistsAcrossTypes(institutionUser.Email) {
+			return nil, errors.New("An account with this email already exists")
+		}
+		if err := s.repo.CreateInstitutionUser(&institutionUser); err != nil {
+			return nil, errors.New("Failed to create institution account")
+		}
+
+		token, err := utils.GenerateToken(institutionUser.ID, institutionUser.Email, institutionUser.Role, 0)
+		if err != nil {
+			return nil, errors.New("Failed to generate token")
+		}
+
+		return &LoginResponse{
+			User:  institutionUser,
+			Token: token,
 		}, nil
 	}
 
@@ -319,7 +339,7 @@ func (s *Service) SavePreferences(userID uint, req SavePreferencesRequest) (*Pre
 	}, nil
 }
 
-func (s *Service) InstitutionRegister(req InstitutionRegisterRequest) (*LoginResponse, error) {
+func (s *Service) InstitutionRegister(req InstitutionRegisterRequest) (*RegisterResponse, error) {
 	if s.emailExistsAcrossTypes(req.Email) {
 		return nil, errors.New("An account with this email already exists")
 	}
@@ -340,18 +360,16 @@ func (s *Service) InstitutionRegister(req InstitutionRegisterRequest) (*LoginRes
 		return nil, errors.New("Failed to hash password")
 	}
 
-	if err := s.repo.CreateInstitutionUser(&institutionUser); err != nil {
-		return nil, errors.New("Failed to create institution account")
-	}
-
-	token, err := utils.GenerateToken(institutionUser.ID, institutionUser.Email, institutionUser.Role, 0)
+	otp, err := utils.GenerateOTP()
 	if err != nil {
-		return nil, errors.New("Failed to generate token")
+		return nil, errors.New("Failed to generate OTP")
 	}
 
-	return &LoginResponse{
-		User:  institutionUser,
-		Token: token,
+	utils.StoreOTP(req.Email, otp, institutionUser)
+
+	return &RegisterResponse{
+		Email:       institutionUser.Email,
+		RequiresOTP: true,
 	}, nil
 }
 
@@ -762,7 +780,16 @@ func (s *Service) ResetPassword(email, otp, newPassword string) error {
 
 	providerUser, providerErr := s.repo.FindScholarshipProviderUserByEmail(email)
 	if providerErr != nil {
-		return errors.New("User not found")
+		institutionUser, institutionErr := s.repo.FindInstitutionUserByEmail(email)
+		if institutionErr != nil {
+			return errors.New("User not found")
+		}
+
+		if err := institutionUser.HashPassword(newPassword); err != nil {
+			return errors.New("Failed to hash password")
+		}
+
+		return s.repo.SaveInstitutionUser(institutionUser)
 	}
 
 	if err := providerUser.HashPassword(newPassword); err != nil {
