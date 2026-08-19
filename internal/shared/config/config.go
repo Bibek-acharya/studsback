@@ -45,6 +45,36 @@ type Config struct {
 	EmbeddingModel     string
 	VectorDimension    int
 	EmbeddingBatchSize int
+
+	LLMEnabled bool
+	LLMBaseURL string
+	LLMModel   string
+	LLMAPIKey   string
+	LLMProvider string
+
+	GeminiAPIKey string
+	GeminiModel  string
+
+	MinioEndpoint  string
+	MinioAccessKey string
+	MinioSecretKey string
+	MinioBucket    string
+	MinioUseSSL    bool
+
+	EsewaTestMode     bool
+	EsewaMerchantCode string
+	EsewaSecretKey    string
+	EsewaSuccessURL   string
+	EsewaFailureURL   string
+
+	// Redis
+	RedisAddr     string
+	RedisPassword string
+	RedisDB       int
+
+	// NATS
+	NATSURL    string
+	NATSStream string
 }
 
 var AppConfig *Config
@@ -96,7 +126,48 @@ func Load() {
 		EmbeddingModel:     getEnv("EMBEDDING_MODEL", "text-embedding-3-small"),
 		VectorDimension:    getEnvInt("VECTOR_DIMENSION", 1536),
 		EmbeddingBatchSize: getEnvInt("EMBEDDING_BATCH_SIZE", 20),
+
+		LLMEnabled: getEnv("LLM_ENABLED", "false") == "true",
+		LLMBaseURL: getEnv("LLM_BASE_URL", "http://localhost:11434/v1"),
+		LLMModel:   getEnv("LLM_MODEL", "llama3.1:8b"),
+		LLMAPIKey:   getEnv("LLM_API_KEY", ""),
+		LLMProvider: getEnv("LLM_PROVIDER", "llama"),
+
+		GeminiAPIKey: getEnv("GEMINI_API_KEY", ""),
+		GeminiModel:  getEnv("GEMINI_MODEL", "gemini-2.0-flash-lite"),
+
+		MinioEndpoint:  getEnv("MINIO_ENDPOINT", ""),
+		MinioAccessKey: getEnv("MINIO_ACCESS_KEY", ""),
+		MinioSecretKey: getEnv("MINIO_SECRET_KEY", ""),
+		MinioBucket:    getEnv("MINIO_BUCKET", "studsphere-storage"),
+		MinioUseSSL:    getEnv("MINIO_USE_SSL", "false") == "true",
+
+		EsewaTestMode:     getEnv("ESEWA_TEST_MODE", "true") == "true",
+		EsewaMerchantCode: getEnv("ESEWA_MERCHANT_CODE", "EPAYTEST"),
+		EsewaSecretKey:    getEnv("ESEWA_SECRET_KEY", "8gBm/:&EnhH.1/q"),
+		EsewaSuccessURL:   getEnv("ESEWA_SUCCESS_URL", "http://localhost:3000/scholarship-apply/project-shiksha/success"),
+		EsewaFailureURL:   getEnv("ESEWA_FAILURE_URL", "http://localhost:3000/scholarship-apply/project-shiksha/payment"),
+
+		RedisAddr:     getEnv("REDIS_ADDR", "localhost:6379"),
+		RedisPassword: getEnv("REDIS_PASSWORD", ""),
+		RedisDB:       getEnvInt("REDIS_DB", 0),
+		NATSURL:       getEnv("NATS_URL", "nats://localhost:4222"),
+		NATSStream:    getEnv("NATS_STREAM_NAME", "messaging"),
 	}
+}
+
+func (c *Config) EsewaGatewayURL() string {
+	if c.EsewaTestMode {
+		return "https://rc-epay.esewa.com.np/api/epay/main/v2/form"
+	}
+	return "https://epay.esewa.com.np/api/epay/main/v2/form"
+}
+
+func (c *Config) EsewaStatusAPIURL() string {
+	if c.EsewaTestMode {
+		return "https://rc.esewa.com.np/api/epay/transaction/status/"
+	}
+	return "https://esewa.com.np/api/epay/transaction/status/"
 }
 
 func getEnv(key, defaultValue string) string {

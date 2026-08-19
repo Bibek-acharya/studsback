@@ -25,7 +25,48 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 		education.Use(authMW)
 		{
 			education.GET("/college/:collegeId", h.GetCollegeReviews)
+			education.GET("/university/:universityId", h.GetUniversityReviews)
 			education.POST("/:id/helpful", h.MarkHelpful)
+		}
+
+		university := v1.Group("/user/university-reviews")
+		university.Use(authMW)
+		{
+			university.POST("", h.SubmitUniversityReview)
+			university.GET("/:universityId", h.GetMyUniversityReview)
+			university.PUT("/:universityId", h.UpdateUniversityReview)
+		}
+
+		// Public date report endpoint
+		v1.POST("/reports", h.CreateDateReport)
+
+		// Admin review management routes
+		adminReviews := v1.Group("/admin/university-reviews")
+		adminReviews.Use(authMW)
+		adminReviews.Use(roleMW)
+		{
+			adminReviews.GET("/:universityId", h.AdminGetUniversityReviews)
+			adminReviews.DELETE("/:id", h.AdminDeleteReview)
+		}
+
+		// Institution review management routes
+		instReviews := v1.Group("/institution/reviews")
+		instReviews.Use(authMW)
+		instReviews.Use(roleMW)
+		{
+			instReviews.GET("", h.GetInstitutionReviews)
+			instReviews.GET("/college/:collegeId", h.GetCollegeReviews)
+			instReviews.DELETE("/:id", h.AdminDeleteReview)
+		}
+
+		// Admin date report management routes
+		adminDateReports := v1.Group("/admin/date-reports")
+		adminDateReports.Use(authMW)
+		adminDateReports.Use(roleMW)
+		{
+			adminDateReports.GET("", h.GetAllDateReports)
+			adminDateReports.PUT("/:id", h.UpdateDateReportStatus)
+			adminDateReports.DELETE("/:id", h.DeleteDateReport)
 		}
 	}
 }

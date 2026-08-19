@@ -2,6 +2,8 @@ package counselling
 
 import (
 	"errors"
+	"slices"
+	"sort"
 )
 
 type Service struct {
@@ -43,6 +45,30 @@ func (s *Service) CreateBooking(userID uint, req CreateCounsellingBookingRequest
 	return booking, nil
 }
 
-func (s *Service) GetMyBookings(userID uint) ([]CounsellingBooking, error) {
-	return s.repo.FindByUserID(userID)
+func (s *Service) GetMyBookings(userID uint) ([]CounsellingBookingResponse, error) {
+	regular, err := s.repo.FindByUserID(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	institution, err := s.repo.FindInstitutionBookingsByUserID(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	merged := make([]CounsellingBookingResponse, 0, len(regular)+len(institution))
+	for i := range regular {
+		merged = append(merged, toBookingResponse(&regular[i]))
+	}
+	merged = append(merged, institution...)
+
+	sort.Slice(merged, func(i, j int) bool {
+		return merged[i].CreatedAt > merged[j].CreatedAt
+	})
+
+	merged = slices.CompactFunc(merged, func(a, b CounsellingBookingResponse) bool {
+		return a.ID == b.ID && a.College == b.College && a.CreatedAt == b.CreatedAt
+	})
+
+	return merged, nil
 }

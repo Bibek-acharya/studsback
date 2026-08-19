@@ -1,10 +1,24 @@
 package forum
 
+type CreateCommunityRequest struct {
+	Name        string `json:"name" binding:"required"`
+	Description string `json:"description"`
+	Icon        string `json:"icon"`
+	BgColor     string `json:"bg_color"`
+}
+
+type UpdateCommunityRequest struct {
+	Name        string `json:"name" binding:"required"`
+	Description string `json:"description"`
+	Icon        string `json:"icon"`
+	BgColor     string `json:"bg_color"`
+}
+
 type CreatePostRequest struct {
 	CommunityID uint     `json:"community_id"`
-	Category    string   `json:"category" binding:"required"`
-	Title       string   `json:"title" binding:"required"`
-	Content     string   `json:"content" binding:"required"`
+	Category    string   `json:"category"`
+	Title       string   `json:"title"`
+	Content     string   `json:"content"`
 	ImageURL    string   `json:"image_url"`
 	VideoURL    string   `json:"video_url"`
 	PollOptions []string `json:"poll_options"`
@@ -28,10 +42,12 @@ type VotePollRequest struct {
 type CommunityResponse struct {
 	ID          uint   `json:"id"`
 	Name        string `json:"name"`
-	Emoji       string `json:"emoji"`
+	Description string `json:"description"`
+	Icon        string `json:"icon"`
 	BgColor     string `json:"bg_color"`
 	MemberCount int    `json:"member_count"`
 	IsMember    bool   `json:"is_member"`
+	IsGeneral   bool   `json:"is_general"`
 	PostCount   int    `json:"post_count"`
 }
 
@@ -40,6 +56,7 @@ type PostResponse struct {
 	CreatedAt    string      `json:"created_at"`
 	UpdatedAt    string      `json:"updated_at"`
 	UserID       uint        `json:"user_id"`
+	User         *UserInfo   `json:"user"`
 	UserName     string      `json:"user_name"`
 	CommunityID  uint        `json:"community_id"`
 	Category     string      `json:"category"`
@@ -74,4 +91,20 @@ type CommentResponse struct {
 	Content   string            `json:"content"`
 	ParentID  *uint             `json:"parent_id"`
 	Replies   []CommentResponse `json:"replies"`
+}
+
+type TrendingPostResponse struct {
+	ID           uint   `json:"id"`
+	Title        string `json:"title"`
+	Category     string `json:"category"`
+	Upvotes      int    `json:"upvotes"`
+	CommentCount int    `json:"comment_count"`
+}
+
+type UserInfo struct {
+	ID        uint   `json:"id"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+	Email     string `json:"email"`
+	ImageURL  string `json:"image_url"`
 }

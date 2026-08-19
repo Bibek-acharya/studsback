@@ -1,7 +1,10 @@
 package forum
 
 import (
+	"strings"
+
 	"studsphere/backend/internal/shared/response"
+	"studsphere/backend/internal/shared/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -26,6 +29,22 @@ func (h *Handler) GetForumCommunities(c *gin.Context) {
 	response.Success(c, 200, "Communities retrieved successfully", communities)
 }
 
+func (h *Handler) CreateForumCommunity(c *gin.Context) {
+	var req CreateCommunityRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+
+	community, err := h.service.CreateForumCommunity(req)
+	if err != nil {
+		response.Error(c, 500, err.Error())
+		return
+	}
+
+	response.Success(c, 201, "Community created successfully", community)
+}
+
 func (h *Handler) JoinForumCommunity(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
@@ -48,6 +67,53 @@ func (h *Handler) JoinForumCommunity(c *gin.Context) {
 	response.Success(c, 200, "Community membership updated", community)
 }
 
+func (h *Handler) UpdateForumCommunity(c *gin.Context) {
+	communityID, err := ParseUint(c.Param("id"))
+	if err != nil || communityID <= 0 {
+		response.Error(c, 400, "Invalid community ID")
+		return
+	}
+
+	var req UpdateCommunityRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+
+	community, err := h.service.UpdateForumCommunity(communityID, req)
+	if err != nil {
+		if err.Error() == "community not found" {
+			response.Error(c, 404, err.Error())
+		} else {
+			response.Error(c, 500, err.Error())
+		}
+		return
+	}
+
+	response.Success(c, 200, "Community updated successfully", community)
+}
+
+func (h *Handler) DeleteForumCommunity(c *gin.Context) {
+	communityID, err := ParseUint(c.Param("id"))
+	if err != nil || communityID <= 0 {
+		response.Error(c, 400, "Invalid community ID")
+		return
+	}
+
+	if err := h.service.DeleteForumCommunity(communityID); err != nil {
+		if err.Error() == "community not found" {
+			response.Error(c, 404, err.Error())
+		} else if err.Error() == "the General community cannot be deleted" {
+			response.Error(c, 403, err.Error())
+		} else {
+			response.Error(c, 500, err.Error())
+		}
+		return
+	}
+
+	response.Success(c, 200, "Community deleted successfully", nil)
+}
+
 func (h *Handler) GetForumPosts(c *gin.Context) {
 	category := c.Query("category")
 	communityID := c.Query("community_id")
@@ -67,6 +133,16 @@ func (h *Handler) GetForumPosts(c *gin.Context) {
 	response.Success(c, 200, "Posts retrieved successfully", posts)
 }
 
+func (h *Handler) GetTrendingForumPosts(c *gin.Context) {
+	posts, err := h.service.GetTrendingForumPosts()
+	if err != nil {
+		response.Error(c, 500, err.Error())
+		return
+	}
+
+	response.Success(c, 200, "Trending posts retrieved successfully", posts)
+}
+
 func (h *Handler) CreateForumPost(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
@@ -82,7 +158,15 @@ func (h *Handler) CreateForumPost(c *gin.Context) {
 
 	post, err := h.service.CreateForumPost(req, userID.(uint))
 	if err != nil {
-		response.Error(c, 500, err.Error())
+		msg := err.Error()
+		switch msg {
+		case "you must join this community before posting":
+			response.Error(c, 403, msg)
+		case "community not found", "General community not found":
+			response.Error(c, 404, msg)
+		default:
+			response.Error(c, 500, msg)
+		}
 		return
 	}
 
@@ -139,6 +223,25 @@ func (h *Handler) DeleteForumPost(c *gin.Context) {
 			response.Error(c, 404, err.Error())
 		} else {
 			response.Error(c, 403, err.Error())
+		}
+		return
+	}
+
+	response.Success(c, 200, "Post deleted successfully", nil)
+}
+
+func (h *Handler) AdminDeleteForumPost(c *gin.Context) {
+	postID, err := ParseUint(c.Param("id"))
+	if err != nil {
+		response.Error(c, 400, "Invalid post ID")
+		return
+	}
+
+	if err := h.service.AdminDeleteForumPost(postID); err != nil {
+		if err.Error() == "post not found" {
+			response.Error(c, 404, err.Error())
+		} else {
+			response.Error(c, 500, err.Error())
 		}
 		return
 	}
@@ -321,8 +424,25 @@ func (h *Handler) UploadForumMedia(c *gin.Context) {
 
 func getUserID(c *gin.Context) uint {
 	userID, exists := c.Get("user_id")
-	if !exists {
-		return 0
+	if exists {
+		return userID.(uint)
 	}
-	return userID.(uint)
+
+	authHeader := c.GetHeader("Authorization")
+	if authHeader != "" {
+		parts := strings.Split(authHeader, " ")
+		if len(parts) == 2 && parts[0] == "Bearer" {
+			if claims, err := utils.ValidateToken(parts[1]); err == nil {
+				return claims.UserID
+			}
+		}
+	}
+
+	if cookieToken, err := c.Cookie("token"); err == nil && cookieToken != "" {
+		if claims, err := utils.ValidateToken(cookieToken); err == nil {
+			return claims.UserID
+		}
+	}
+
+	return 0
 }

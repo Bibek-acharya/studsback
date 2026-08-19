@@ -17,101 +17,8 @@ func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
 }
 
-func (h *Handler) GetMessages(c *gin.Context) {
-	userID, _ := c.Get("user_id")
-	id := userID.(uint)
-
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
-
-	messages, total, err := h.service.GetMessages(id, page, limit)
-	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "Failed to retrieve messages")
-		return
-	}
-
-	response.Success(c, http.StatusOK, "Messages retrieved successfully", gin.H{
-		"messages": toMessageResponses(messages),
-		"meta": gin.H{
-			"total": total,
-			"page":  page,
-			"limit": limit,
-		},
-	})
-}
-
-func (h *Handler) GetMessageByID(c *gin.Context) {
-	userID, _ := c.Get("user_id")
-	id := userID.(uint)
-	msgID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		response.Error(c, http.StatusBadRequest, "Invalid message ID")
-		return
-	}
-
-	message, err := h.service.GetMessageByID(uint(msgID), id)
-	if err != nil {
-		response.Error(c, http.StatusNotFound, "Message not found")
-		return
-	}
-
-	response.Success(c, http.StatusOK, "Message retrieved successfully", toMessageResponse(message))
-}
-
-func (h *Handler) CreateMessage(c *gin.Context) {
-	userID, _ := c.Get("user_id")
-	senderID := userID.(uint)
-
-	var req MessageRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	message, err := h.service.CreateMessage(senderID, req.ReceiverID, req.Subject, req.Content)
-	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "Failed to send message")
-		return
-	}
-
-	response.Success(c, http.StatusCreated, "Message sent successfully", toMessageResponse(message))
-}
-
-func (h *Handler) ReplyToMessage(c *gin.Context) {
-	userID, _ := c.Get("user_id")
-	senderID := userID.(uint)
-	msgID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		response.Error(c, http.StatusBadRequest, "Invalid message ID")
-		return
-	}
-
-	var req MessageReplyRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	reply, err := h.service.ReplyToMessage(uint(msgID), senderID, req.Content)
-	if err != nil {
-		response.Error(c, http.StatusNotFound, "Message not found")
-		return
-	}
-
-	response.Success(c, http.StatusCreated, "Reply sent successfully", toMessageResponse(reply))
-}
-
-func (h *Handler) GetMessageContacts(c *gin.Context) {
-	userID, _ := c.Get("user_id")
-	id := userID.(uint)
-
-	contacts, err := h.service.GetMessageContacts(id)
-	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "Failed to retrieve contacts")
-		return
-	}
-
-	response.Success(c, http.StatusOK, "Contacts retrieved successfully", contacts)
+func (h *Handler) GetService() *Service {
+	return h.service
 }
 
 func (h *Handler) GetCalendarEvents(c *gin.Context) {
@@ -495,28 +402,6 @@ func (h *Handler) MarkAllNotificationsRead(c *gin.Context) {
 	}
 
 	response.Success(c, http.StatusOK, "All notifications marked as read", nil)
-}
-
-func toMessageResponse(m *Message) MessageResponse {
-	return MessageResponse{
-		ID:         m.ID,
-		CreatedAt:  m.CreatedAt,
-		UpdatedAt:  m.UpdatedAt,
-		SenderID:   m.SenderID,
-		ReceiverID: m.ReceiverID,
-		Subject:    m.Subject,
-		Content:    m.Content,
-		Read:       m.Read,
-		Direction:  m.Direction,
-	}
-}
-
-func toMessageResponses(messages []Message) []MessageResponse {
-	responses := make([]MessageResponse, len(messages))
-	for i, m := range messages {
-		responses[i] = toMessageResponse(&m)
-	}
-	return responses
 }
 
 func toCalendarEventResponse(e *CalendarEvent) CalendarEventResponse {

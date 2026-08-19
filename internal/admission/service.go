@@ -2,8 +2,16 @@ package admission
 
 import (
 	"errors"
+	"fmt"
+	"strings"
 	"time"
 )
+
+var notifyStudentFunc func(userID uint, title, message, notifType, link string)
+
+func SetNotifyStudentFunc(fn func(userID uint, title, message, notifType, link string)) {
+	notifyStudentFunc = fn
+}
 
 type Service struct {
 	repo *Repository
@@ -149,6 +157,17 @@ func (s *Service) UpdateStatus(id uint, req UpdateAdmissionStatusRequest, userID
 
 	if err := s.repo.Save(admission); err != nil {
 		return nil, errors.New("failed to update admission status")
+	}
+
+	if admission.UserID != nil && notifyStudentFunc != nil {
+		statusDisplay := strings.ReplaceAll(req.Status, "_", " ")
+		notifyStudentFunc(
+			*admission.UserID,
+			"Application Status Updated",
+			fmt.Sprintf("Your application for %s is now: %s", admission.ProgramName, statusDisplay),
+			"application",
+			"/user/dashboard/applications",
+		)
 	}
 
 	return admission, nil

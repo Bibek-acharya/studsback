@@ -16,23 +16,32 @@ type Preferences struct {
 }
 
 type User struct {
-	ID          uint           `gorm:"primarykey" json:"id"`
-	CreatedAt   time.Time      `json:"created_at"`
-	UpdatedAt   time.Time      `json:"updated_at"`
-	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
-	Email       string         `gorm:"uniqueIndex;not null" json:"email" binding:"required,email"`
-	Password    *string        `json:"-"`
-	FirstName   string         `gorm:"not null" json:"first_name" binding:"required"`
-	LastName    string         `gorm:"not null" json:"last_name" binding:"required"`
-	Phone       string         `gorm:"default:''" json:"phone"`
-	DateOfBirth string         `gorm:"default:''" json:"date_of_birth"`
-	Gender      string         `gorm:"default:''" json:"gender"`
-	Nationality string         `gorm:"default:''" json:"nationality"`
-	Address     string         `gorm:"type:text;default:''" json:"address"`
-	Bio         string         `gorm:"type:text;default:''" json:"bio"`
-	GoogleID    *string        `gorm:"uniqueIndex;default:null" json:"google_id"`
-	Role        string         `gorm:"default:'student'" json:"role"`
-	Preferences *Preferences   `gorm:"type:jsonb;serializer:json;default:'null'" json:"preferences,omitempty"`
+	ID                  uint           `gorm:"primarykey" json:"id"`
+	CreatedAt           time.Time      `json:"created_at"`
+	UpdatedAt           time.Time      `json:"updated_at"`
+	DeletedAt           gorm.DeletedAt `gorm:"index" json:"-"`
+	Email               string         `gorm:"uniqueIndex;not null" json:"email" binding:"required,email"`
+	Password            *string        `json:"-"`
+	FirstName           string         `gorm:"not null" json:"first_name" binding:"required"`
+	LastName            string         `gorm:"not null" json:"last_name" binding:"required"`
+	MiddleName          string         `gorm:"default:''" json:"middle_name"`
+	Phone               string         `gorm:"default:''" json:"phone"`
+	AlternatePhone      string         `gorm:"default:''" json:"alternate_phone"`
+	DateOfBirth         string         `gorm:"default:''" json:"date_of_birth"`
+	Gender              string         `gorm:"default:''" json:"gender"`
+	Nationality         string         `gorm:"default:''" json:"nationality"`
+	Address             string         `gorm:"type:text;default:''" json:"address"`
+	Bio                 string         `gorm:"type:text;default:''" json:"bio"`
+	GoogleID            *string        `gorm:"uniqueIndex;default:null" json:"google_id"`
+	ImageURL            string         `gorm:"default:''" json:"image_url"`
+	Role                string         `gorm:"default:'student'" json:"role"`
+	Status              string         `gorm:"default:'active'" json:"status"`
+	LastLoginAt         *time.Time     `json:"last_login_at"`
+	ScheduledDeletionAt *time.Time     `json:"scheduled_deletion_at,omitempty"`
+	TOTPSecret          string         `gorm:"default:''" json:"-"`
+	TOTPEnabled         bool           `gorm:"default:false" json:"totp_enabled"`
+	TOTPVerified        bool           `gorm:"default:false" json:"-"`
+	Preferences         *Preferences   `gorm:"type:jsonb;serializer:json;default:'null'" json:"preferences,omitempty"`
 }
 
 func (u *User) HashPassword(password string) error {
@@ -53,16 +62,65 @@ func (u *User) CheckPassword(password string) error {
 }
 
 type InstitutionUser struct {
-	ID                 uint           `gorm:"primarykey" json:"id"`
-	CreatedAt          time.Time      `json:"created_at"`
-	UpdatedAt          time.Time      `json:"updated_at"`
-	DeletedAt          gorm.DeletedAt `gorm:"index" json:"-"`
-	InstitutionName    string         `gorm:"not null" json:"institution_name" binding:"required"`
-	RegistrationNumber string         `gorm:"uniqueIndex;not null" json:"registration_number" binding:"required"`
-	Email              string         `gorm:"uniqueIndex;not null" json:"email" binding:"required,email"`
-	GoogleID           *string        `gorm:"uniqueIndex;default:null" json:"google_id"`
-	Password           *string        `json:"-"`
-	Role               string         `gorm:"default:'institution'" json:"role"`
+	ID                       uint                     `gorm:"primarykey" json:"id"`
+	CreatedAt                time.Time                `json:"created_at"`
+	UpdatedAt                time.Time                `json:"updated_at"`
+	DeletedAt                gorm.DeletedAt           `gorm:"index" json:"-"`
+	InstitutionName          string                   `gorm:"not null" json:"institution_name" binding:"required"`
+	RegistrationNumber       string                   `gorm:"uniqueIndex;not null" json:"registration_number" binding:"required"`
+	Email                    string                   `gorm:"uniqueIndex;not null" json:"email" binding:"required,email"`
+	GoogleID                 *string                  `gorm:"uniqueIndex;default:null" json:"google_id"`
+	Password                 *string                  `json:"-"`
+	Role                     string                   `gorm:"default:'institution'" json:"role"`
+	Status                   string                   `gorm:"default:'pending'" json:"status"`
+	ContactNumber            string                   `gorm:"default:''" json:"contact_number"`
+	ContactEmail             string                   `gorm:"default:''" json:"contact_email"`
+	ContactPhone             string                   `gorm:"default:''" json:"contact_phone"`
+	Province                 string                   `gorm:"default:''" json:"province"`
+	District                 string                   `gorm:"default:''" json:"district"`
+	LocalBody                string                   `gorm:"default:''" json:"local_body"`
+	OrganizationType         string                   `gorm:"default:''" json:"organization_type"`
+	PANNumber                string                   `gorm:"default:''" json:"pan_number"`
+	WebsiteURL               string                   `gorm:"default:''" json:"website_url"`
+	ContactPerson            string                   `gorm:"default:''" json:"contact_person"`
+	ContactPersonDesignation string                   `gorm:"default:''" json:"contact_person_designation"`
+	ContactPersonPhone       string                   `gorm:"default:''" json:"contact_person_phone"`
+	RejectionReason          string                   `gorm:"default:''" json:"rejection_reason"`
+	ProfileAccess            *string                  `gorm:"type:jsonb;default:'{}'" json:"profile_access"`
+	LogoURL                  string                   `gorm:"default:''" json:"logo_url"`
+	BannerURL                string                   `gorm:"default:''" json:"banner_url"`
+	About                    string                   `gorm:"type:text" json:"about"`
+	Vision                   string                   `gorm:"type:text" json:"vision"`
+	Mission                  string                   `gorm:"type:text" json:"mission"`
+	CollegeID                uint                     `gorm:"default:0" json:"college_id"`
+	Level                    string                   `gorm:"default:''" json:"level"`
+	Affiliation              string                   `gorm:"default:''" json:"affiliation"`
+	UniversityID             *uint                    `gorm:"index" json:"university_id"`
+	IsSponsored              bool                     `gorm:"default:false" json:"is_sponsored"`
+	Claimed                  bool                     `gorm:"default:false" json:"claimed"`
+	Verified                 bool                     `gorm:"default:false" json:"verified"`
+	VerifiedBy               string                   `gorm:"default:''" json:"verified_by"`
+	VerifiedAt               *time.Time               `json:"verified_at"`
+	Latitude                 *float64                 `json:"latitude,omitempty"`
+	Longitude                *float64                 `json:"longitude,omitempty"`
+	ProfileData              *string                  `gorm:"type:jsonb;default:'{}'" json:"profile_data"`
+	ProfileStatus            string                   `gorm:"type:varchar(20);default:'draft'" json:"profile_status"`
+	Featured                 bool                     `gorm:"default:false" json:"featured"`
+	Preferences              *Preferences             `gorm:"type:jsonb;serializer:json;default:'null'" json:"preferences,omitempty"`
+	Subscription             *InstitutionSubscription `gorm:"foreignKey:InstitutionID" json:"subscription,omitempty"`
+}
+
+type InstitutionSubscription struct {
+	ID                uint       `gorm:"primarykey" json:"id"`
+	CreatedAt         time.Time  `json:"created_at"`
+	UpdatedAt         time.Time  `json:"updated_at"`
+	InstitutionID     uint       `gorm:"index;not null" json:"institution_id"`
+	Status            string     `gorm:"default:'pending'" json:"status"`
+	StartDate         *time.Time `json:"start_date"`
+	ExpireDate        *time.Time `json:"expire_date"`
+	LastPaymentDate   *time.Time `json:"last_payment_date"`
+	LastPaymentAmount float64    `gorm:"default:0" json:"last_payment_amount"`
+	Remarks           string     `gorm:"default:''" json:"remarks"`
 }
 
 func (u *InstitutionUser) HashPassword(password string) error {
@@ -112,9 +170,8 @@ type ScholarshipProviderUser struct {
 	LinkedInURL        string         `gorm:"column:linkedin_url;default:''" json:"linkedin_url"`
 	MapURL             string         `gorm:"column:map_url;type:text;default:''" json:"map_url"`
 	BrochureURL        string         `gorm:"column:brochure_url;default:''" json:"brochure_url"`
+	BannerURL          string         `gorm:"column:banner_url;default:''" json:"banner_url"`
 }
-
-
 
 func (u *ScholarshipProviderUser) HashPassword(password string) error {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -134,18 +191,47 @@ func (u *ScholarshipProviderUser) CheckPassword(password string) error {
 }
 
 type EducationEntry struct {
-	ID               uint           `gorm:"primarykey" json:"id"`
-	CreatedAt        time.Time      `json:"created_at"`
-	UpdatedAt        time.Time      `json:"updated_at"`
-	DeletedAt        gorm.DeletedAt `gorm:"index" json:"-"`
-	UserID           uint           `gorm:"index;not null" json:"user_id"`
-	Level            string         `json:"level"`
-	InstitutionName  string         `json:"institution_name"`
-	BoardUniversity  string         `json:"board_university"`
-	Country          string         `json:"country"`
-	Stream           string         `json:"stream"`
-	StartYear        string         `json:"start_year"`
-	EndYear          string         `json:"end_year"`
-	GradingSystem    string         `json:"grading_system"`
-	Grade            string         `json:"grade"`
+	ID              uint           `gorm:"primarykey" json:"id"`
+	CreatedAt       time.Time      `json:"created_at"`
+	UpdatedAt       time.Time      `json:"updated_at"`
+	DeletedAt       gorm.DeletedAt `gorm:"index" json:"-"`
+	UserID          uint           `gorm:"index;not null" json:"user_id"`
+	Level           string         `json:"level"`
+	InstitutionName string         `json:"institution_name"`
+	BoardUniversity string         `json:"board_university"`
+	Country         string         `json:"country"`
+	Stream          string         `json:"stream"`
+	StartYear       string         `json:"start_year"`
+	EndYear         string         `json:"end_year"`
+	GradingSystem   string         `json:"grading_system"`
+	Grade           string         `json:"grade"`
+}
+
+type UserSession struct {
+	ID           uint           `gorm:"primarykey" json:"id"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
+	DeletedAt    gorm.DeletedAt `gorm:"index" json:"-"`
+	UserID       uint           `gorm:"index;not null" json:"user_id"`
+	DeviceName   string         `gorm:"default:''" json:"device_name"`
+	DeviceType   string         `gorm:"default:'web'" json:"device_type"`
+	Browser      string         `gorm:"default:''" json:"browser"`
+	IPAddress    string         `gorm:"default:''" json:"ip_address"`
+	Location     string         `gorm:"default:''" json:"location"`
+	IsCurrent    bool           `gorm:"-" json:"is_current"`
+	LastActiveAt time.Time      `json:"last_active_at"`
+	TokenHash    string         `gorm:"index" json:"-"`
+}
+
+type ProfileDocument struct {
+	ID        uint           `gorm:"primarykey" json:"id"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+	UserID    uint           `gorm:"index;not null" json:"user_id"`
+	FileName  string         `gorm:"not null" json:"file_name"`
+	FileSize  int64          `gorm:"default:0" json:"file_size"`
+	Type      string         `gorm:"default:'document'" json:"type"`
+	MimeType  string         `gorm:"default:''" json:"mime_type"`
+	URL       string         `gorm:"not null" json:"url"`
 }

@@ -138,6 +138,40 @@ func (h *Handler) ProcessPayment(c *gin.Context) {
 	response.Success(c, http.StatusCreated, "Payment processed successfully", toPaymentResponse(payment))
 }
 
+// InitiateEsewaPayment handles eSewa payment initiation
+func (h *Handler) InitiateEsewaPayment(c *gin.Context) {
+	var req EsewaInitiateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	result, err := h.service.InitiateEsewaPayment(req.ApplicationID, req.Amount)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "eSewa payment initiated", result)
+}
+
+// VerifyEsewaPayment handles eSewa payment verification
+func (h *Handler) VerifyEsewaPayment(c *gin.Context) {
+	var req EsewaVerifyRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	payment, err := h.service.VerifyEsewaPayment(req)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "eSewa payment verified successfully", toPaymentResponse(payment))
+}
+
 // VerifyPayment handles payment verification (admin only)
 func (h *Handler) VerifyPayment(c *gin.Context) {
 	var req VerifyPaymentRequest

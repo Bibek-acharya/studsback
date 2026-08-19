@@ -1,6 +1,8 @@
 package education
 
 import (
+	"errors"
+
 	"gorm.io/gorm"
 )
 
@@ -50,7 +52,8 @@ func (r *Repository) FindCoursesFiltered(page, limit int, search, level, field, 
 	}
 	offset := (page - 1) * limit
 
-	query := r.db.Model(&Course{})
+	query := r.db.Model(&Course{}).
+		Where("is_global = ? AND status = ?", true, "published")
 
 	if search != "" {
 		query = query.Where("title ILIKE ? OR field ILIKE ? OR affiliation ILIKE ?", "%"+search+"%", "%"+search+"%", "%"+search+"%")
@@ -75,10 +78,98 @@ func (r *Repository) FindCoursesFiltered(page, limit int, search, level, field, 
 	return courses, total, err
 }
 
+func (r *Repository) FindPublishedGlobalCourses(search string) ([]Course, error) {
+	var courses []Course
+	query := r.db.Model(&Course{}).
+		Where("is_global = ? AND status = ?", true, "published")
+	if search != "" {
+		query = query.Where("title ILIKE ?", "%"+search+"%")
+	}
+	err := query.Order("title asc").Limit(20).Find(&courses).Error
+	return courses, err
+}
+
+func (r *Repository) FindInstitutionProgramsByInstitutionID(instID uint) ([]InstitutionProgramEntry, error) {
+	var entries []InstitutionProgramEntry
+	err := r.db.Table("institution_programs").
+		Select(`institution_programs.id, institution_programs.name as program_name, institution_programs.description,
+			institution_programs.duration, institution_programs.fee, institution_programs.banner_url,
+			institution_programs.data, institution_programs.global_course_id,
+			COALESCE(NULLIF(iu.institution_name, ''), institution_programs.institution_name) as institution_name,
+			iu.logo_url as institution_logo,
+			COALESCE(NULLIF(iu.district, ''), institution_programs.institution_location) as institution_location,
+			institution_programs.institution_link`).
+		Joins("LEFT JOIN institution_users iu ON iu.id = institution_programs.institution_id").
+		Where("institution_programs.institution_id = ? AND institution_programs.status = ? AND institution_programs.deleted_at IS NULL", instID, "active").
+		Order("institution_programs.created_at DESC").
+		Find(&entries).Error
+	return entries, err
+}
+
+type InstitutionProgramEntry struct {
+	ID                  uint    `json:"id"`
+	ProgramName         string  `json:"name"`
+	Description         string  `json:"description"`
+	Duration            string  `json:"duration"`
+	Fee                 string  `json:"fee"`
+	BannerURL           string  `json:"banner_url"`
+	InstitutionName     string  `json:"institution_name"`
+	InstitutionLogo     string  `json:"institution_logo"`
+	InstitutionLocation string  `gorm:"column:institution_location" json:"institution_location"`
+	InstitutionLink     string  `gorm:"column:institution_link" json:"institution_link"`
+	Data                *string `gorm:"column:data" json:"data"`
+	GlobalCourseID      *uint   `gorm:"column:global_course_id" json:"globalCourseId"`
+}
+
+func (r *Repository) FindPublishedInstitutionPrograms(search, level string) ([]InstitutionProgramEntry, error) {
+	var entries []InstitutionProgramEntry
+	query := r.db.Table("institution_programs").
+		Select(`institution_programs.id, institution_programs.name as program_name, institution_programs.description,
+			institution_programs.duration, institution_programs.fee, institution_programs.banner_url,
+			institution_programs.data,
+			COALESCE(NULLIF(iu.institution_name, ''), institution_programs.institution_name) as institution_name,
+			iu.logo_url as institution_logo,
+			COALESCE(NULLIF(iu.district, ''), institution_programs.institution_location) as institution_location,
+			institution_programs.institution_link`).
+		Joins("LEFT JOIN institution_users iu ON iu.id = institution_programs.institution_id").
+		Where("institution_programs.status = ? AND institution_programs.deleted_at IS NULL", "active")
+	if search != "" {
+		query = query.Where("institution_programs.name ILIKE ?", "%"+search+"%")
+	}
+	err := query.Order("institution_programs.created_at DESC").Find(&entries).Error
+	return entries, err
+}
+
+func (r *Repository) FindPublishedInstitutionProgramByID(id uint) (*InstitutionProgramEntry, error) {
+	var entry InstitutionProgramEntry
+	err := r.db.Table("institution_programs").
+		Select(`institution_programs.id, institution_programs.name as program_name, institution_programs.description,
+			institution_programs.duration, institution_programs.fee, institution_programs.banner_url,
+			institution_programs.data, institution_programs.global_course_id,
+			iu.institution_name, iu.logo_url as institution_logo, iu.district as institution_location`).
+		Joins("LEFT JOIN institution_users iu ON iu.id = institution_programs.institution_id").
+		Where("institution_programs.id = ? AND institution_programs.status = ? AND institution_programs.deleted_at IS NULL", id, "active").
+		First(&entry).Error
+	if err != nil {
+		return nil, err
+	}
+	return &entry, nil
+}
+
 func (r *Repository) FindCourses() ([]Course, error) {
 	var courses []Course
-	err := r.db.Find(&courses).Error
+	err := r.db.Where("is_global = ? AND status = ?", true, "published").Find(&courses).Error
 	return courses, err
+}
+
+func (r *Repository) CountInstitutionsOfferingCourse(courseID uint) (int64, error) {
+	var count int64
+	err := r.db.Model(&InstitutionProgramEntry{}).
+		Table("institution_programs").
+		Distinct("institution_id").
+		Where("global_course_id = ? AND status = ? AND deleted_at IS NULL", courseID, "active").
+		Count(&count).Error
+	return count, err
 }
 
 // CourseFilterCounts for filter sidebar
@@ -96,12 +187,14 @@ func (r *Repository) GetCourseFilterCounts() (*CourseFilterCounts, error) {
 		AffiliationCount: make(map[string]int64),
 	}
 
+	baseQuery := r.db.Model(&Course{}).Where("is_global = ? AND status = ?", true, "published")
+
 	// Level counts
 	var levels []struct {
 		Level string
 		Count int64
 	}
-	r.db.Model(&Course{}).Select("level, COUNT(*) as count").Group("level").Find(&levels)
+	baseQuery.Select("level, COUNT(*) as count").Group("level").Find(&levels)
 	for _, l := range levels {
 		counts.LevelCount[l.Level] = l.Count
 	}
@@ -111,7 +204,7 @@ func (r *Repository) GetCourseFilterCounts() (*CourseFilterCounts, error) {
 		Field string
 		Count int64
 	}
-	r.db.Model(&Course{}).Select("field, COUNT(*) as count").Group("field").Find(&fields)
+	baseQuery.Select("field, COUNT(*) as count").Group("field").Find(&fields)
 	for _, f := range fields {
 		counts.FieldCount[f.Field] = f.Count
 	}
@@ -121,15 +214,24 @@ func (r *Repository) GetCourseFilterCounts() (*CourseFilterCounts, error) {
 		Affiliation string
 		Count       int64
 	}
-	r.db.Model(&Course{}).Select("affiliation, COUNT(*) as count").Group("affiliation").Find(&affils)
+	baseQuery.Select("affiliation, COUNT(*) as count").Group("affiliation").Find(&affils)
 	for _, a := range affils {
 		counts.AffiliationCount[a.Affiliation] = a.Count
 	}
 
 	// Total
-	r.db.Model(&Course{}).Count(&counts.Total)
+	baseQuery.Count(&counts.Total)
 
 	return counts, nil
+}
+
+func (r *Repository) FindCourseByIDOnly(id uint) (*Course, error) {
+	var course Course
+	err := r.db.First(&course, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &course, nil
 }
 
 func (r *Repository) FindCourseByID(id string) (*Course, error) {
@@ -139,6 +241,55 @@ func (r *Repository) FindCourseByID(id string) (*Course, error) {
 		return nil, err
 	}
 	return &course, nil
+}
+
+func (r *Repository) CreateCourse(course *Course) error {
+	return r.db.Create(course).Error
+}
+
+func (r *Repository) UpdateCourse(course *Course) error {
+	return r.db.Save(course).Error
+}
+
+func (r *Repository) DeleteCourse(courseID uint) error {
+	result := r.db.Delete(&Course{}, courseID)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *Repository) FindAllCoursesAdmin(page, limit int) ([]Course, int64, error) {
+	var courses []Course
+	var total int64
+	if err := r.db.Model(&Course{}).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	offset := (page - 1) * limit
+	err := r.db.Order("created_at desc").Offset(offset).Limit(limit).Find(&courses).Error
+	return courses, total, err
+}
+
+func (r *Repository) FindPendingCourses(page, limit int) ([]Course, int64, error) {
+	var courses []Course
+	var total int64
+	query := r.db.Model(&Course{}).Where("is_global = ? AND status = ?", false, "draft")
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	offset := (page - 1) * limit
+	err := query.Order("created_at desc").Offset(offset).Limit(limit).Find(&courses).Error
+	return courses, total, err
+}
+
+func (r *Repository) SetCoursePublished(id uint) error {
+	return r.db.Model(&Course{}).Where("id = ?", id).Updates(map[string]interface{}{
+		"is_global": true,
+		"status":    "published",
+	}).Error
 }
 
 func (r *Repository) CountCourseOfferingColleges(courseID uint) (int64, error) {
@@ -171,6 +322,103 @@ func (r *Repository) FindFallbackCourses(excludeID uint, limit int) ([]Course, e
 	return courses, err
 }
 
+func (r *Repository) FindCoursesByLevel(level string, page, limit int) ([]Course, int64, error) {
+	var courses []Course
+	var total int64
+
+	r.db.Model(&Course{}).Where("is_global = ? AND level = ? AND status = ?", true, level, "published").Count(&total)
+
+	offset := (page - 1) * limit
+	err := r.db.Model(&Course{}).Where("is_global = ? AND level = ? AND status = ?", true, level, "published").Offset(offset).Limit(limit).Order("title ASC").Find(&courses).Error
+	return courses, total, err
+}
+
+func (r *Repository) FindCoursesByAffiliation(affiliationID uint, page, limit int) ([]Course, int64, error) {
+	var courses []Course
+	var total int64
+
+	r.db.Model(&Course{}).Where("is_global = ? AND affiliation_id = ? AND status = ?", true, affiliationID, "published").Count(&total)
+
+	offset := (page - 1) * limit
+	err := r.db.Model(&Course{}).Where("is_global = ? AND affiliation_id = ? AND status = ?", true, affiliationID, "published").Offset(offset).Limit(limit).Order("title ASC").Find(&courses).Error
+	return courses, total, err
+}
+
+func (r *Repository) FindSecondaryCourses(page, limit int) ([]Course, int64, error) {
+	var courses []Course
+	var total int64
+
+	r.db.Model(&Course{}).Where("is_global = ? AND affiliation_id IS NULL AND status = ?", true, "published").Count(&total)
+
+	offset := (page - 1) * limit
+	err := r.db.Model(&Course{}).Where("is_global = ? AND affiliation_id IS NULL AND status = ?", true, "published").Offset(offset).Limit(limit).Order("title ASC").Find(&courses).Error
+	return courses, total, err
+}
+
+func (r *Repository) FindCourseByIDWithAffiliation(id uint) (*Course, *Affiliation, error) {
+	var course Course
+	err := r.db.First(&course, id).Error
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var affiliation *Affiliation
+	if course.AffiliationID != nil {
+		affiliation = &Affiliation{}
+		if err := r.db.First(affiliation, *course.AffiliationID).Error; err != nil {
+			return &course, nil, err
+		}
+	}
+
+	return &course, affiliation, nil
+}
+
+func (r *Repository) FindAffiliationsByIDs(ids []uint) (map[uint]*Affiliation, error) {
+	if len(ids) == 0 {
+		return map[uint]*Affiliation{}, nil
+	}
+	var affiliations []Affiliation
+	if err := r.db.Where("id IN ?", ids).Find(&affiliations).Error; err != nil {
+		return nil, err
+	}
+	result := make(map[uint]*Affiliation, len(affiliations))
+	for i := range affiliations {
+		result[affiliations[i].ID] = &affiliations[i]
+	}
+	return result, nil
+}
+
+func (r *Repository) FindAffiliationByID(id uint) (*Affiliation, error) {
+	var affiliation Affiliation
+	if err := r.db.First(&affiliation, id).Error; err != nil {
+		return nil, err
+	}
+	return &affiliation, nil
+}
+
+func (r *Repository) FindUniversitiesByIDs(ids []uint) (map[uint]*University, error) {
+	if len(ids) == 0 {
+		return map[uint]*University{}, nil
+	}
+	var universities []University
+	if err := r.db.Where("id IN ?", ids).Find(&universities).Error; err != nil {
+		return nil, err
+	}
+	result := make(map[uint]*University, len(universities))
+	for i := range universities {
+		result[universities[i].ID] = &universities[i]
+	}
+	return result, nil
+}
+
+func (r *Repository) FindUniversityByID(id uint) (*University, error) {
+	var university University
+	if err := r.db.First(&university, id).Error; err != nil {
+		return nil, err
+	}
+	return &university, nil
+}
+
 func (r *Repository) FindCourseMappings(courseID uint) ([]CollegeUniversityCourse, error) {
 	var mappings []CollegeUniversityCourse
 	err := r.db.
@@ -192,22 +440,13 @@ func (r *Repository) FindCollegesByIDs(ids []uint) ([]College, error) {
 	return colleges, err
 }
 
-func (r *Repository) FindUniversityByID(id uint) (*University, error) {
-	var university University
-	err := r.db.First(&university, id).Error
-	if err != nil {
-		return nil, err
-	}
-	return &university, nil
-}
-
 func (r *Repository) FindNews(limit int) ([]News, error) {
 	var news []News
 	err := r.db.Order("created_at desc").Limit(limit).Find(&news).Error
 	return news, err
 }
 
-func (r *Repository) FindNewsFiltered(page, limit int, category, search, sort string) ([]News, int64, error) {
+func (r *Repository) FindNewsFiltered(page, limit int, category, search, sort string, universityID *uint) ([]News, int64, error) {
 	var err error
 
 	if page < 1 {
@@ -225,6 +464,9 @@ func (r *Repository) FindNewsFiltered(page, limit int, category, search, sort st
 	}
 	if search != "" {
 		query = query.Where("title ILIKE ? OR excerpt ILIKE ?", "%"+search+"%", "%"+search+"%")
+	}
+	if universityID != nil {
+		query = query.Where("university_id = ?", *universityID)
 	}
 
 	var total int64
@@ -282,13 +524,19 @@ func (r *Repository) FindNewsByID(id string) (*News, error) {
 	return &news, nil
 }
 
+func (r *Repository) FindNewsBySlug(slug string) (*News, error) {
+	var news News
+	err := r.db.Where("slug = ?", slug).First(&news).Error
+	return &news, err
+}
+
 func (r *Repository) FindEvents() ([]Event, error) {
 	var events []Event
 	err := r.db.Order("date asc").Find(&events).Error
 	return events, err
 }
 
-func (r *Repository) FindEventsFiltered(page, limit int, category, search, sort string) ([]Event, int64, error) {
+func (r *Repository) FindEventsFiltered(page, limit int, category, search, sort, featuredStr string, universityID *uint) ([]Event, int64, error) {
 	var events []Event
 	var err error
 
@@ -308,6 +556,13 @@ func (r *Repository) FindEventsFiltered(page, limit int, category, search, sort 
 	if search != "" {
 		query = query.Where("title ILIKE ? OR description ILIKE ?", "%"+search+"%", "%"+search+"%")
 	}
+	if featuredStr != "" {
+		featured := featuredStr == "true"
+		query = query.Where("featured = ?", featured)
+	}
+	if universityID != nil {
+		query = query.Where("university_id = ?", *universityID)
+	}
 
 	var total int64
 	if err = query.Count(&total).Error; err != nil {
@@ -323,6 +578,72 @@ func (r *Repository) FindEventsFiltered(page, limit int, category, search, sort 
 
 	err = query.Order(orderClause).Offset(offset).Limit(limit).Find(&events).Error
 	return events, total, err
+}
+
+func (r *Repository) FindAllEvents(page, limit int, universityID *uint, hasUniversity bool) ([]Event, int64, error) {
+	var events []Event
+	var total int64
+
+	query := r.db.Model(&Event{})
+	if hasUniversity {
+		query = query.Where("university_id > 0")
+	}
+	if universityID != nil {
+		query = query.Where("university_id = ?", *universityID)
+	}
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * limit
+	if err := query.Order("created_at desc").Offset(offset).Limit(limit).Find(&events).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return events, total, nil
+}
+
+func (r *Repository) CreateEvent(event *Event) error {
+	return r.db.Create(event).Error
+}
+
+func (r *Repository) UpdateEvent(id string, updates map[string]interface{}) (*Event, error) {
+	var event Event
+	if err := r.db.First(&event, id).Error; err != nil {
+		return nil, err
+	}
+
+	if err := r.db.Model(&event).Updates(updates).Error; err != nil {
+		return nil, err
+	}
+
+	return &event, nil
+}
+
+func (r *Repository) DeleteEvent(id string) error {
+	result := r.db.Delete(&Event{}, id)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *Repository) ToggleEventFeatured(id string) (*Event, error) {
+	var event Event
+	if err := r.db.First(&event, id).Error; err != nil {
+		return nil, err
+	}
+
+	newFeatured := !event.Featured
+	if err := r.db.Model(&event).Update("featured", newFeatured).Error; err != nil {
+		return nil, err
+	}
+
+	event.Featured = newFeatured
+	return &event, nil
 }
 
 type EventFilterCounts struct {
@@ -361,6 +682,12 @@ func (r *Repository) FindEventByID(id string) (*Event, error) {
 		return nil, err
 	}
 	return &event, nil
+}
+
+func (r *Repository) FindEventBySlug(slug string) (*Event, error) {
+	var event Event
+	err := r.db.Where("slug = ?", slug).First(&event).Error
+	return &event, err
 }
 
 func (r *Repository) FindBlogs(page, limit int, category, search, sort, tags string) ([]Blog, int64, error) {
@@ -529,14 +856,110 @@ func (r *Repository) IncrementCommentLikes(id uint) error {
 	return r.db.Model(&BlogComment{}).Where("id = ?", id).Update("likes", gorm.Expr("likes + ?", 1)).Error
 }
 
-func (r *Repository) GetPublicEntrances(page, limit int, search, level, stream, status string) ([]Exam, int64, error) {
-	var exams []Exam
-	var total int64
+// ─── Admin News CRUD ─────────────────────────────────────────────────────────
 
-	query := r.db.Model(&Exam{})
+func (r *Repository) FindAllNewsAdmin(page, limit int, category, search string, universityID *uint, hasUniversity bool) ([]News, int64, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50 {
+		limit = 10
+	}
+	offset := (page - 1) * limit
 
+	query := r.db.Model(&News{})
+
+	if category != "" {
+		query = query.Where("category = ?", category)
+	}
 	if search != "" {
-		query = query.Where("name LIKE ? OR college LIKE ?", "%"+search+"%", "%"+search+"%")
+		query = query.Where("title ILIKE ? OR excerpt ILIKE ?", "%"+search+"%", "%"+search+"%")
+	}
+	if hasUniversity {
+		query = query.Where("university_id > 0")
+	}
+	if universityID != nil {
+		query = query.Where("university_id = ?", *universityID)
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var news []News
+	err := query.Order("created_at desc").Offset(offset).Limit(limit).Find(&news).Error
+	return news, total, err
+}
+
+func (r *Repository) CreateNews(news *News) error {
+	return r.db.Create(news).Error
+}
+
+func (r *Repository) FindNewsByIDAdmin(id string) (*News, error) {
+	var news News
+	err := r.db.First(&news, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &news, nil
+}
+
+func (r *Repository) UpdateNews(news *News) error {
+	return r.db.Save(news).Error
+}
+
+func (r *Repository) DeleteNews(id string) error {
+	result := r.db.Delete(&News{}, id)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+type InstitutionEntranceEntry struct {
+	ID                  uint   `json:"id"`
+	Title               string `json:"title"`
+	Description         string `json:"description"`
+	Date                string `json:"date"`
+	HeroBanner          string `json:"hero_banner"`
+	Status              string `json:"status"`
+	Fee                 string `json:"application_fee"`
+	InstitutionName     string `json:"institution_name"`
+	InstitutionLogo     string `json:"institution_logo"`
+	InstitutionLocation string `gorm:"column:institution_location" json:"institution_location"`
+	InstitutionProvince string `gorm:"column:institution_province" json:"institution_province"`
+	InstitutionWebsite  string `gorm:"column:institution_website" json:"institution_website"`
+	InstitutionEmail    string `json:"institution_email"`
+	InstitutionPhone    string `json:"institution_phone"`
+	Email               string `json:"email"`
+	ContactNumber       string `json:"contact_number"`
+	SocialLinks         []byte `gorm:"column:social_links" json:"social_links"`
+	OverviewDetails     []byte `gorm:"column:overview_details" json:"overview_details"`
+	ExamDateSchedules   []byte `gorm:"column:exam_date_schedules" json:"exam_date_schedules"`
+	ApplicationLink     string `json:"application_link"`
+	NoticeFile          string `json:"notice_file"`
+	EligibilityList     []byte `gorm:"column:eligibility_list" json:"eligibility_list"`
+	ApplicationSteps    []byte `gorm:"column:application_steps" json:"application_steps"`
+	ExamPattern         []byte `gorm:"column:exam_pattern" json:"exam_pattern"`
+	SubjectMarks        []byte `gorm:"column:subject_marks" json:"subject_marks"`
+	ModelSets           []byte `gorm:"column:model_sets" json:"model_sets"`
+	UpcomingDates       []byte `gorm:"column:upcoming_dates" json:"upcoming_dates"`
+	ContactPersons      []byte `gorm:"column:contact_persons" json:"contact_persons"`
+	Faqs                []byte `gorm:"column:faqs" json:"faqs"`
+	InstitutionLink     string `gorm:"column:institution_link" json:"institution_link"`
+	ExaminationSchedule []byte `gorm:"column:examination_schedule" json:"examination_schedule"`
+	ProgramsOffered     []byte `gorm:"column:programs_offered" json:"programs_offered"`
+}
+
+func (r *Repository) GetAllExamEntries(search, level, stream, status string) ([]Exam, error) {
+	var exams []Exam
+	query := r.db.Model(&Exam{})
+	if search != "" {
+		query = query.Where("title ILIKE ? OR university ILIKE ?", "%"+search+"%", "%"+search+"%")
 	}
 	if level != "" {
 		query = query.Where("level = ?", level)
@@ -547,12 +970,35 @@ func (r *Repository) GetPublicEntrances(page, limit int, search, level, stream, 
 	if status != "" {
 		query = query.Where("status = ?", status)
 	}
+	err := query.Order("created_at DESC").Find(&exams).Error
+	return exams, err
+}
 
-	query.Count(&total)
-
-	offset := (page - 1) * limit
-	err := query.Order("created_at DESC").Offset(offset).Limit(limit).Find(&exams).Error
-	return exams, total, err
+func (r *Repository) GetPublishedInstitutionEntrances(search string) ([]InstitutionEntranceEntry, error) {
+	var entries []InstitutionEntranceEntry
+	query := r.db.Table("institution_entrances").
+		Select(`institution_entrances.id, institution_entrances.title, institution_entrances.description, 
+			institution_entrances.date, institution_entrances.hero_banner, institution_entrances.status,
+			institution_entrances.application_fee as fee, institution_entrances.overview_details,
+			institution_entrances.exam_date_schedules, institution_entrances.application_link,
+			institution_entrances.notice_file, institution_entrances.email, institution_entrances.contact_number,
+			institution_entrances.social_links,
+			institution_entrances.eligibility_list, institution_entrances.application_steps,
+			institution_entrances.exam_pattern, institution_entrances.subject_marks,
+			institution_entrances.model_sets, institution_entrances.upcoming_dates,
+			institution_entrances.contact_persons, institution_entrances.faqs,
+			institution_entrances.institution_name, institution_entrances.institution_location,
+			institution_entrances.institution_link,
+			COALESCE(NULLIF(institution_entrances.institution_logo, ''), iu.logo_url) as institution_logo, iu.district as institution_location,
+			iu.province as institution_province, iu.website_url as institution_website,
+			iu.contact_email as institution_phone`).
+		Joins("LEFT JOIN institution_users iu ON iu.id = institution_entrances.institution_id").
+		Where("institution_entrances.status = ? AND institution_entrances.deleted_at IS NULL", "published")
+	if search != "" {
+		query = query.Where("institution_entrances.title ILIKE ?", "%"+search+"%")
+	}
+	err := query.Order("institution_entrances.created_at DESC").Find(&entries).Error
+	return entries, err
 }
 
 func (r *Repository) GetEntranceFilterCounts() (FilterCounts, error) {
@@ -573,9 +1019,42 @@ func (r *Repository) GetEntranceFilterCounts() (FilterCounts, error) {
 
 func (r *Repository) GetPublicEntranceByID(id string) (*Exam, error) {
 	var exam Exam
-	err := r.db.First(&exam, id).Error
+	err := r.db.Where("id = ? OR slug = ?", id, id).First(&exam).Error
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	return &exam, nil
 }
+
+func (r *Repository) GetInstitutionEntranceByID(id string) (*InstitutionEntranceEntry, error) {
+	var entry InstitutionEntranceEntry
+	err := r.db.Table("institution_entrances").
+		Select(`institution_entrances.id, institution_entrances.title, institution_entrances.description, 
+			institution_entrances.date, institution_entrances.hero_banner, institution_entrances.status,
+			institution_entrances.application_fee as fee, institution_entrances.overview_details,
+			institution_entrances.exam_date_schedules, institution_entrances.application_link,
+			institution_entrances.notice_file, institution_entrances.email, institution_entrances.contact_number,
+			institution_entrances.social_links,
+			institution_entrances.eligibility_list, institution_entrances.application_steps,
+			institution_entrances.exam_pattern, institution_entrances.subject_marks,
+			institution_entrances.model_sets, institution_entrances.upcoming_dates,
+			institution_entrances.contact_persons, institution_entrances.faqs,
+			institution_entrances.examination_schedule, institution_entrances.programs_offered,
+			institution_entrances.institution_name, institution_entrances.institution_location,
+			institution_entrances.institution_link,
+			COALESCE(NULLIF(institution_entrances.institution_logo, ''), iu.logo_url) as institution_logo, iu.district as institution_location,
+			iu.province as institution_province, iu.website_url as institution_website,
+			iu.contact_email as institution_email, iu.contact_phone as institution_phone`).
+		Joins("LEFT JOIN institution_users iu ON iu.id = institution_entrances.institution_id").
+		Where("institution_entrances.id = ? AND institution_entrances.status = ? AND institution_entrances.deleted_at IS NULL", id, "published").
+		First(&entry).Error
+	if err != nil {
+		return nil, err
+	}
+	return &entry, nil
+}
+
+

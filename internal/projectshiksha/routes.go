@@ -19,6 +19,8 @@ func RegisterRoutes(router *gin.Engine, authMW gin.HandlerFunc, roleMW gin.Handl
 	payments := router.Group("/api/v1/project-shiksha/payments")
 	{
 		payments.POST("", h.ProcessPayment)
+		payments.POST("/esewa/initiate", h.InitiateEsewaPayment)
+		payments.POST("/esewa/verify", h.VerifyEsewaPayment)
 	}
 
 	// Protected admin routes

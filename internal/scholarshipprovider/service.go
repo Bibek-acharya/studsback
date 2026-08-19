@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -23,7 +25,7 @@ func NewService(repo *Repository) *Service {
 }
 
 func (s *Service) GetDashboard(providerID uint) (*DashboardResponse, error) {
-	totalScholarships, totalApplications, pendingApplications, totalInterviews, unreadMessages, err := s.repo.GetDashboardCounts(providerID)
+	totalScholarships, totalApplications, pendingApplications, approvedApplications, rejectedApplications, totalInterviews, unreadMessages, err := s.repo.GetDashboardCounts(providerID)
 	if err != nil {
 		return nil, err
 	}
@@ -53,12 +55,14 @@ func (s *Service) GetDashboard(providerID uint) (*DashboardResponse, error) {
 	}
 
 	return &DashboardResponse{
-		TotalScholarships:   totalScholarships,
-		TotalApplications:   totalApplications,
-		PendingApplications: pendingApplications,
-		TotalInterviews:     totalInterviews,
-		UnreadMessages:      unreadMessages,
-		ScholarshipStats:    details,
+		TotalScholarships:    totalScholarships,
+		TotalApplications:    totalApplications,
+		PendingApplications:  pendingApplications,
+		ApprovedApplications: approvedApplications,
+		RejectedApplications: rejectedApplications,
+		TotalInterviews:      totalInterviews,
+		UnreadMessages:       unreadMessages,
+		ScholarshipStats:     details,
 	}, nil
 }
 
@@ -101,15 +105,21 @@ func (s *Service) GetDetailedAnalytics(providerID uint, filters DetailedAnalytic
 	}
 
 	res := &DetailedAnalyticsResponse{
-		TotalApplicants: len(apps),
-		Gender:          []MetricCount{},
-		Ethnicity:       []MetricCount{},
-		GPABreakdown:    []MetricCount{},
-		SchoolType:      []MetricCount{},
-		Stream:          []MetricCount{},
-		Province:        []MetricCount{},
-		District:        []MetricCount{},
-		Status:          []MetricCount{},
+		TotalApplicants:      len(apps),
+		Gender:               []MetricCount{},
+		Ethnicity:            []MetricCount{},
+		GPABreakdown:         []MetricCount{},
+		SchoolType:           []MetricCount{},
+		Stream:               []MetricCount{},
+		Province:             []MetricCount{},
+		District:             []MetricCount{},
+		Status:               []MetricCount{},
+		PaymentMethods:       []MetricCount{},
+		GPABySchoolType:      []MetricCount{},
+		GenderByProvince:     []CrossMetric{},
+		StreamByProvince:     []CrossMetric{},
+		SchoolTypeByProvince: []CrossMetric{},
+		ExamCenters:          []ExamCenterMetric{},
 	}
 
 	genderMap := make(map[string]int)
@@ -119,12 +129,24 @@ func (s *Service) GetDetailedAnalytics(providerID uint, filters DetailedAnalytic
 	provinceMap := make(map[string]int)
 	districtMap := make(map[string]int)
 	statusMap := make(map[string]int)
+	districtSet := make(map[string]bool)
+
 	gpaBins := map[string]int{
-		"0.0 - 1.0": 0,
-		"1.1 - 2.0": 0,
-		"2.1 - 3.0": 0,
-		"3.1 - 4.0": 0,
+		"1.6 - 2.0": 0,
+		"2.0 - 2.4": 0,
+		"2.4 - 2.8": 0,
+		"2.8 - 3.2": 0,
+		"3.2 - 3.6": 0,
+		"3.6 - 4.0": 0,
 	}
+
+	gpaBySchoolTypeSum := make(map[string]float64)
+	gpaBySchoolTypeCount := make(map[string]int)
+
+	genderByProvince := make(map[string]map[string]int)
+	streamByProvince := make(map[string]map[string]int)
+	schoolTypeByProvince := make(map[string]map[string]int)
+	examCenterMap := make(map[string]*ExamCenterMetric)
 
 	for _, app := range apps {
 		if app.Gender != "" {
@@ -144,19 +166,82 @@ func (s *Service) GetDetailedAnalytics(providerID uint, filters DetailedAnalytic
 		}
 		if app.District != "" {
 			districtMap[app.District]++
+			districtSet[app.District] = true
 		}
 		if app.Status != "" {
 			statusMap[app.Status]++
 		}
 
-		if app.GPA <= 1.0 {
-			gpaBins["0.0 - 1.0"]++
-		} else if app.GPA <= 2.0 {
-			gpaBins["1.1 - 2.0"]++
-		} else if app.GPA <= 3.0 {
-			gpaBins["2.1 - 3.0"]++
-		} else {
-			gpaBins["3.1 - 4.0"]++
+		if app.GPA > 0 {
+			switch {
+			case app.GPA <= 2.0:
+				gpaBins["1.6 - 2.0"]++
+			case app.GPA <= 2.4:
+				gpaBins["2.0 - 2.4"]++
+			case app.GPA <= 2.8:
+				gpaBins["2.4 - 2.8"]++
+			case app.GPA <= 3.2:
+				gpaBins["2.8 - 3.2"]++
+			case app.GPA <= 3.6:
+				gpaBins["3.2 - 3.6"]++
+			default:
+				gpaBins["3.6 - 4.0"]++
+			}
+		}
+
+		if app.SchoolType != "" {
+			gpaBySchoolTypeSum[app.SchoolType] += app.GPA
+			gpaBySchoolTypeCount[app.SchoolType]++
+		}
+
+		prov := app.Province
+		if prov == "" {
+			prov = "Unknown"
+		}
+
+		if app.Gender != "" {
+			if genderByProvince[prov] == nil {
+				genderByProvince[prov] = make(map[string]int)
+			}
+			genderByProvince[prov][app.Gender]++
+		}
+
+		if app.Stream != "" {
+			if streamByProvince[prov] == nil {
+				streamByProvince[prov] = make(map[string]int)
+			}
+			streamByProvince[prov][app.Stream]++
+		}
+
+		if app.SchoolType != "" {
+			if schoolTypeByProvince[prov] == nil {
+				schoolTypeByProvince[prov] = make(map[string]int)
+			}
+			schoolTypeByProvince[prov][app.SchoolType]++
+		}
+
+		if app.ExamCenter != "" {
+			stream := app.Stream
+			if existing, ok := examCenterMap[app.ExamCenter]; ok {
+				if stream == "Science" || stream == "science" {
+					existing.Science++
+				} else {
+					existing.Management++
+				}
+			} else {
+				m := 0
+				s := 0
+				if stream == "Science" || stream == "science" {
+					s = 1
+				} else {
+					m = 1
+				}
+				examCenterMap[app.ExamCenter] = &ExamCenterMetric{
+					Name:       app.ExamCenter,
+					Management: m,
+					Science:    s,
+				}
+			}
 		}
 	}
 
@@ -167,11 +252,124 @@ func (s *Service) GetDetailedAnalytics(providerID uint, filters DetailedAnalytic
 	res.Province = mapToMetricCount(provinceMap)
 	res.District = mapToMetricCount(districtMap)
 	res.Status = mapToMetricCount(statusMap)
+	res.DistrictCount = len(districtSet)
+
 	res.GPABreakdown = []MetricCount{
-		{Label: "0.0 - 1.0", Count: gpaBins["0.0 - 1.0"]},
-		{Label: "1.1 - 2.0", Count: gpaBins["1.1 - 2.0"]},
-		{Label: "2.1 - 3.0", Count: gpaBins["2.1 - 3.0"]},
-		{Label: "3.1 - 4.0", Count: gpaBins["3.1 - 4.0"]},
+		{Label: "1.6 - 2.0", Count: gpaBins["1.6 - 2.0"]},
+		{Label: "2.0 - 2.4", Count: gpaBins["2.0 - 2.4"]},
+		{Label: "2.4 - 2.8", Count: gpaBins["2.4 - 2.8"]},
+		{Label: "2.8 - 3.2", Count: gpaBins["2.8 - 3.2"]},
+		{Label: "3.2 - 3.6", Count: gpaBins["3.2 - 3.6"]},
+		{Label: "3.6 - 4.0", Count: gpaBins["3.6 - 4.0"]},
+	}
+
+	for schoolType, sum := range gpaBySchoolTypeSum {
+		if count := gpaBySchoolTypeCount[schoolType]; count > 0 {
+			avg := sum / float64(count)
+			res.GPABySchoolType = append(res.GPABySchoolType, MetricCount{
+				Label: schoolType,
+				Count: int(avg * 100),
+			})
+		}
+	}
+	if len(res.GPABySchoolType) == 0 {
+		res.GPABySchoolType = []MetricCount{}
+	}
+
+	for province, genderCounts := range genderByProvince {
+		cm := CrossMetric{Label: province, Values: []MetricCount{}}
+		for gender, count := range genderCounts {
+			cm.Values = append(cm.Values, MetricCount{Label: gender, Count: count})
+		}
+		res.GenderByProvince = append(res.GenderByProvince, cm)
+	}
+	if len(res.GenderByProvince) == 0 {
+		res.GenderByProvince = []CrossMetric{}
+	}
+
+	for province, streamCounts := range streamByProvince {
+		cm := CrossMetric{Label: province, Values: []MetricCount{}}
+		for stream, count := range streamCounts {
+			cm.Values = append(cm.Values, MetricCount{Label: stream, Count: count})
+		}
+		res.StreamByProvince = append(res.StreamByProvince, cm)
+	}
+	if len(res.StreamByProvince) == 0 {
+		res.StreamByProvince = []CrossMetric{}
+	}
+
+	for province, stCounts := range schoolTypeByProvince {
+		cm := CrossMetric{Label: province, Values: []MetricCount{}}
+		for st, count := range stCounts {
+			cm.Values = append(cm.Values, MetricCount{Label: st, Count: count})
+		}
+		res.SchoolTypeByProvince = append(res.SchoolTypeByProvince, cm)
+	}
+	if len(res.SchoolTypeByProvince) == 0 {
+		res.SchoolTypeByProvince = []CrossMetric{}
+	}
+
+	for _, ec := range examCenterMap {
+		res.ExamCenters = append(res.ExamCenters, *ec)
+	}
+	if len(res.ExamCenters) == 0 {
+		res.ExamCenters = []ExamCenterMetric{}
+	}
+
+	// Applications per day
+	dateMap := make(map[string]int)
+	for _, app := range apps {
+		dateKey := app.CreatedAt.Format("2006-01-02")
+		dateMap[dateKey]++
+	}
+	dateKeys := make([]string, 0, len(dateMap))
+	for k := range dateMap {
+		dateKeys = append(dateKeys, k)
+	}
+	sort.Strings(dateKeys)
+	for _, k := range dateKeys {
+		res.ApplicationsPerDay = append(res.ApplicationsPerDay, MetricCount{Label: k, Count: dateMap[k]})
+	}
+
+	// Get payment data for admit cards and payment methods
+	scholarshipAppIDs := make([]uint, 0)
+	for _, app := range apps {
+		if app.ScholarshipApplicationID != nil {
+			scholarshipAppIDs = append(scholarshipAppIDs, *app.ScholarshipApplicationID)
+		}
+	}
+
+	if len(scholarshipAppIDs) > 0 {
+		payments, err := s.repo.GetPaymentsByApplicationIDs(scholarshipAppIDs)
+		if err == nil {
+			paymentMethods := make(map[string]int)
+			appPayments := make(map[uint]struct {
+				method string
+				status string
+			})
+			// Prefer completed > pending_approval > pending per application
+			priority := map[string]int{"completed": 3, "pending_approval": 2, "pending": 1}
+			for _, p := range payments {
+				existing, ok := appPayments[p.ApplicationID]
+				if !ok || priority[p.Status] > priority[existing.status] {
+					appPayments[p.ApplicationID] = struct {
+						method string
+						status string
+					}{p.Method, p.Status}
+				}
+			}
+			for _, ap := range appPayments {
+				if ap.method != "" {
+					paymentMethods[ap.method]++
+				}
+				if ap.status == "completed" {
+					res.AdmitCardsSent++
+				} else {
+					res.AdmitCardsPending++
+				}
+			}
+			res.PaymentMethods = mapToMetricCount(paymentMethods)
+		}
 	}
 
 	return res, nil
@@ -189,7 +387,7 @@ func mapToMetricCount(m map[string]int) []MetricCount {
 }
 
 func parseTime(s string) (time.Time, error) {
-	formats := []string{time.RFC3339Nano, time.RFC3339, "2006-01-02T15:04:05Z", "2006-01-02"}
+	formats := []string{time.RFC3339Nano, time.RFC3339, "2006-01-02T15:04:05Z", "2006-01-02T15:04:05", "2006-01-02"}
 	for _, f := range formats {
 		if t, err := time.Parse(f, s); err == nil {
 			return t, nil
@@ -232,6 +430,15 @@ func (s *Service) CreateScholarship(providerID uint, req CreateScholarshipReques
 		deadlineValue = req.ApplicationEndDate
 	}
 
+	var applicationStartDate time.Time
+	if parsed, ok := parseOptionalTime(req.ApplicationStartDate); ok {
+		applicationStartDate = parsed
+	}
+	var deadlineTime time.Time
+	if parsed, ok := parseOptionalTime(deadlineValue); ok {
+		deadlineTime = parsed
+	}
+
 	scholarship := &ProviderScholarship{
 		ProviderID:               providerID,
 		Title:                    req.Title,
@@ -244,6 +451,9 @@ func (s *Service) CreateScholarship(providerID uint, req CreateScholarshipReques
 		EducationLevelOther:      req.EducationLevelOther,
 		Location:                 req.Location,
 		Value:                    req.Value,
+		Deadline:                 deadlineTime,
+		ApplicationStartDate:     applicationStartDate,
+		ApplicationEndDate:       deadlineTime,
 		DegreeLevel:              req.DegreeLevel,
 		FundingType:              req.FundingType,
 		ScholarshipType:          req.ScholarshipType,
@@ -288,13 +498,15 @@ func (s *Service) CreateScholarship(providerID uint, req CreateScholarshipReques
 		ExamCentersNew:           toJSON(req.ExamCentersNew),
 		Downloads:                toJSON(req.Downloads),
 		PaymentConfig:            toJSON(req.PaymentConfig),
+		ExamDate:                 req.ExamDate,
+		ExamTime:                 req.ExamTime,
 	}
 
 	if err := s.repo.CreateScholarship(scholarship); err != nil {
 		return nil, err
 	}
 
-	if err := s.syncPublicScholarship(providerID, scholarship, status, false); err != nil {
+	if err := s.syncPublicScholarship(scholarship, status, false); err != nil {
 		return nil, err
 	}
 
@@ -309,7 +521,7 @@ func (s *Service) CreateScholarship(providerID uint, req CreateScholarshipReques
 	return scholarship, nil
 }
 
-func (s *Service) syncPublicScholarship(providerID uint, scholarship *ProviderScholarship, status string, isUpdate bool) error {
+func (s *Service) syncPublicScholarship(scholarship *ProviderScholarship, status string, isUpdate bool) error {
 	if normalizeScholarshipStatus(status) != "published" {
 		if isUpdate {
 			return s.repo.DeletePublicScholarshipByProviderScholarshipID(scholarship.ID)
@@ -317,17 +529,13 @@ func (s *Service) syncPublicScholarship(providerID uint, scholarship *ProviderSc
 		return nil
 	}
 
-	provider, err := s.repo.GetProviderProfile(providerID)
-	if err != nil {
-		return err
-	}
-
 	publicScholarship := &publicscholarship.Scholarship{
 		Title:                    scholarship.Title,
-		Provider:                 provider.ProviderName,
+		Provider:                 scholarship.Provider,
 		Location:                 scholarship.Location,
 		Value:                    scholarship.Value,
 		Deadline:                 scholarship.Deadline,
+		ApplicationStartDate:     scholarship.ApplicationStartDate,
 		DegreeLevel:              scholarship.DegreeLevel,
 		FundingType:              scholarship.FundingType,
 		ScholarshipType:          scholarship.ScholarshipType,
@@ -378,6 +586,8 @@ func (s *Service) syncPublicScholarship(providerID uint, scholarship *ProviderSc
 		ExamCenters:              scholarship.ExamCenters,
 		ExamCentersNew:           scholarship.ExamCentersNew,
 		Downloads:                scholarship.Downloads,
+		ExamDate:                 scholarship.ExamDate,
+		ExamTime:                 scholarship.ExamTime,
 	}
 
 	log.Printf("scholarshipprovider: syncPublicScholarship - syncing providerScholarshipID=%d", scholarship.ID)
@@ -390,6 +600,7 @@ func (s *Service) syncPublicScholarship(providerID uint, scholarship *ProviderSc
 			"location":                    publicScholarship.Location,
 			"value":                       publicScholarship.Value,
 			"deadline":                    publicScholarship.Deadline,
+			"application_start_date":      publicScholarship.ApplicationStartDate,
 			"degree_level":                publicScholarship.DegreeLevel,
 			"funding_type":                publicScholarship.FundingType,
 			"scholarship_type":            publicScholarship.ScholarshipType,
@@ -402,44 +613,46 @@ func (s *Service) syncPublicScholarship(providerID uint, scholarship *ProviderSc
 			"payment_config":              publicScholarship.PaymentConfig,
 			"provider_scholarship_id":     scholarship.ID,
 			"provider_name":               publicScholarship.ProviderName,
-			"funding_type_other":         publicScholarship.FundingTypeOther,
-			"scholarship_type_other":     publicScholarship.ScholarshipTypeOther,
-			"education_level":           publicScholarship.EducationLevel,
-			"education_level_other":      publicScholarship.EducationLevelOther,
-			"apply_link":                publicScholarship.ApplyLink,
-			"coverage_area":             publicScholarship.CoverageArea,
-			"contact_email":             publicScholarship.ContactEmail,
-			"primary_phone":             publicScholarship.PrimaryPhone,
-			"secondary_phone":           publicScholarship.SecondaryPhone,
-			"website_url":               publicScholarship.WebsiteUrl,
-			"office_address":            publicScholarship.OfficeAddress,
-			"map_url":                   publicScholarship.MapUrl,
-			"about_paragraph_1":          publicScholarship.AboutParagraph1,
-			"video_tutorials":           publicScholarship.VideoTutorials,
-			"journey_timeline":          publicScholarship.JourneyTimeline,
-			"timeline":                 publicScholarship.Timeline,
-			"scholarship_section_title": publicScholarship.ScholarshipSectionTitle,
-			"scholarship_subtitle":      publicScholarship.ScholarshipSubtitle,
-			"scholarship_description_1": publicScholarship.ScholarshipDescription1,
-			"scholarship_description_2": publicScholarship.ScholarshipDescription2,
-			"scholarship_types":         publicScholarship.ScholarshipTypes,
-			"scholarship_types_new":     publicScholarship.ScholarshipTypesNew,
-			"selection_rubric":          publicScholarship.SelectionRubric,
-			"selection_rubric_new":       publicScholarship.SelectionRubricNew,
-			"eligibility_section_title": publicScholarship.EligibilitySectionTitle,
-			"eligibility_subtitle":      publicScholarship.EligibilitySubtitle,
-			"basic_eligibility_criteria": publicScholarship.BasicEligibilityCriteria,
-			"fully_funded_criteria":      publicScholarship.FullyFundedCriteria,
-			"partially_funded_criteria":  publicScholarship.PartiallyFundedCriteria,
-			"selection_process_steps":    publicScholarship.SelectionProcessSteps,
-			"faqs_new":                  publicScholarship.FAQsNew,
-			"gallery_images":            publicScholarship.GalleryImages,
-			"gallery_images_new":         publicScholarship.GalleryImagesNew,
-			"partner_groups":            publicScholarship.PartnerGroups,
-			"partner_messages":          publicScholarship.PartnerMessages,
-			"exam_centers":              publicScholarship.ExamCenters,
-			"exam_centers_new":           publicScholarship.ExamCentersNew,
-			"downloads":                publicScholarship.Downloads,
+			"funding_type_other":          publicScholarship.FundingTypeOther,
+			"scholarship_type_other":      publicScholarship.ScholarshipTypeOther,
+			"education_level":             publicScholarship.EducationLevel,
+			"education_level_other":       publicScholarship.EducationLevelOther,
+			"apply_link":                  publicScholarship.ApplyLink,
+			"coverage_area":               publicScholarship.CoverageArea,
+			"contact_email":               publicScholarship.ContactEmail,
+			"primary_phone":               publicScholarship.PrimaryPhone,
+			"secondary_phone":             publicScholarship.SecondaryPhone,
+			"website_url":                 publicScholarship.WebsiteUrl,
+			"office_address":              publicScholarship.OfficeAddress,
+			"map_url":                     publicScholarship.MapUrl,
+			"about_paragraph_1":           publicScholarship.AboutParagraph1,
+			"video_tutorials":             publicScholarship.VideoTutorials,
+			"journey_timeline":            publicScholarship.JourneyTimeline,
+			"timeline":                    publicScholarship.Timeline,
+			"scholarship_section_title":   publicScholarship.ScholarshipSectionTitle,
+			"scholarship_subtitle":        publicScholarship.ScholarshipSubtitle,
+			"scholarship_description_1":   publicScholarship.ScholarshipDescription1,
+			"scholarship_description_2":   publicScholarship.ScholarshipDescription2,
+			"scholarship_types":           publicScholarship.ScholarshipTypes,
+			"scholarship_types_new":       publicScholarship.ScholarshipTypesNew,
+			"selection_rubric":            publicScholarship.SelectionRubric,
+			"selection_rubric_new":        publicScholarship.SelectionRubricNew,
+			"eligibility_section_title":   publicScholarship.EligibilitySectionTitle,
+			"eligibility_subtitle":        publicScholarship.EligibilitySubtitle,
+			"basic_eligibility_criteria":  publicScholarship.BasicEligibilityCriteria,
+			"fully_funded_criteria":       publicScholarship.FullyFundedCriteria,
+			"partially_funded_criteria":   publicScholarship.PartiallyFundedCriteria,
+			"selection_process_steps":     publicScholarship.SelectionProcessSteps,
+			"faqs_new":                    publicScholarship.FAQsNew,
+			"gallery_images":              publicScholarship.GalleryImages,
+			"gallery_images_new":          publicScholarship.GalleryImagesNew,
+			"partner_groups":              publicScholarship.PartnerGroups,
+			"partner_messages":            publicScholarship.PartnerMessages,
+			"exam_centers":                publicScholarship.ExamCenters,
+			"exam_centers_new":            publicScholarship.ExamCentersNew,
+			"downloads":                   publicScholarship.Downloads,
+			"exam_date":                   publicScholarship.ExamDate,
+			"exam_time":                   publicScholarship.ExamTime,
 		}
 		return s.repo.UpdatePublicScholarship(existing.ID, updates)
 	}
@@ -531,6 +744,8 @@ func (s *Service) UpdateScholarship(providerID, id uint, req CreateScholarshipRe
 	updates["exam_centers_new"] = toJSON(req.ExamCentersNew)
 	updates["downloads"] = toJSON(req.Downloads)
 	updates["payment_config"] = toJSON(req.PaymentConfig)
+	updates["exam_date"] = req.ExamDate
+	updates["exam_time"] = req.ExamTime
 
 	if req.ApplicationStartDate != "" {
 		if parsed, ok := parseOptionalTime(req.ApplicationStartDate); ok {
@@ -543,9 +758,15 @@ func (s *Service) UpdateScholarship(providerID, id uint, req CreateScholarshipRe
 	}
 
 	if deadlineValue != "" {
-		if parsed, ok := parseOptionalTime(deadlineValue); ok {
-			updates["deadline"] = parsed
-			updates["application_end_date"] = parsed
+		parsed, ok := parseOptionalTime(deadlineValue)
+		if ok {
+			if !parsed.IsZero() {
+				updates["deadline"] = parsed
+				updates["application_end_date"] = parsed
+			} else {
+				updates["deadline"] = time.Time{}
+				updates["application_end_date"] = time.Time{}
+			}
 		} else {
 			return nil, errors.New("invalid application end date")
 		}
@@ -581,6 +802,7 @@ func (s *Service) UpdateScholarship(providerID, id uint, req CreateScholarshipRe
 	resolved.Status = normalizeScholarshipStatus(req.Status)
 	resolved.ApplyLink = req.ApplyLink
 	resolved.BannerBackgroundImageURL = req.BannerBackgroundImageURL
+	resolved.ImageURL = req.BannerBackgroundImageURL
 	resolved.CoverageArea = req.CoverageArea
 	resolved.ContactEmail = req.ContactEmail
 	resolved.PrimaryPhone = req.PrimaryPhone
@@ -617,6 +839,8 @@ func (s *Service) UpdateScholarship(providerID, id uint, req CreateScholarshipRe
 	resolved.ExamCentersNew = toJSON(req.ExamCentersNew)
 	resolved.Downloads = toJSON(req.Downloads)
 	resolved.PaymentConfig = toJSON(req.PaymentConfig)
+	resolved.ExamDate = req.ExamDate
+	resolved.ExamTime = req.ExamTime
 	if req.ApplicationStartDate != "" {
 		if parsed, ok := parseOptionalTime(req.ApplicationStartDate); ok {
 			resolved.ApplicationStartDate = parsed
@@ -627,9 +851,15 @@ func (s *Service) UpdateScholarship(providerID, id uint, req CreateScholarshipRe
 		resolved.ApplicationStartDate = time.Time{}
 	}
 	if deadlineValue != "" {
-		if parsed, ok := parseOptionalTime(deadlineValue); ok {
-			resolved.Deadline = parsed
-			resolved.ApplicationEndDate = parsed
+		parsed, ok := parseOptionalTime(deadlineValue)
+		if ok {
+			if !parsed.IsZero() {
+				resolved.Deadline = parsed
+				resolved.ApplicationEndDate = parsed
+			} else {
+				resolved.Deadline = time.Time{}
+				resolved.ApplicationEndDate = time.Time{}
+			}
 		} else {
 			return nil, errors.New("invalid application end date")
 		}
@@ -642,7 +872,7 @@ func (s *Service) UpdateScholarship(providerID, id uint, req CreateScholarshipRe
 	if req.Status != "" {
 		statusToSync = normalizeScholarshipStatus(req.Status)
 	}
-	if err := s.syncPublicScholarship(providerID, &resolved, statusToSync, true); err != nil {
+	if err := s.syncPublicScholarship(&resolved, statusToSync, true); err != nil {
 		log.Printf("scholarshipprovider: UpdateScholarship syncPublicScholarship error: %v", err)
 	}
 
@@ -661,7 +891,7 @@ func (s *Service) UpdateScholarship(providerID, id uint, req CreateScholarshipRe
 		Link:       "manage-scholarships",
 	})
 
-	return scholarship, nil
+	return &resolved, nil
 }
 
 func (s *Service) DeleteScholarship(providerID, id uint) error {
@@ -674,19 +904,50 @@ func (s *Service) DeleteScholarship(providerID, id uint) error {
 	return s.repo.DeleteScholarship(id, providerID)
 }
 
-func (s *Service) GetApplications(providerID uint, page, limit int, status, scholarshipID string) ([]ProviderApplication, int64, error) {
+func (s *Service) GetPendingPaymentApplications(providerID uint, page, limit int, search string) ([]ProviderApplication, int64, error) {
 	if page < 1 {
 		page = 1
 	}
 	if limit < 1 || limit > 50 {
 		limit = 10
 	}
+	return s.repo.GetPendingPaymentApplications(providerID, page, limit, search)
+}
 
-	return s.repo.GetApplicationsByProvider(providerID, page, limit, status, scholarshipID)
+func (s *Service) GetApplications(providerID uint, page, limit int, status, scholarshipID, search, gender, ethnicity, province, district, schoolType, stream, examCenter, paymentStatus string) ([]ProviderApplication, int64, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 {
+		limit = 10
+	}
+	if limit > 100000 {
+		limit = 100000
+	}
+
+	applications, total, err := s.repo.GetApplicationsByProvider(providerID, page, limit, status, scholarshipID, search, gender, ethnicity, province, district, schoolType, stream, examCenter, paymentStatus)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return applications, total, nil
+}
+
+func (s *Service) ExportFilteredApplications(providerID uint, status, scholarshipID, search, gender, ethnicity, province, district, schoolType, stream, examCenter, paymentStatus string) ([]ProviderApplication, error) {
+	applications, _, err := s.repo.GetApplicationsByProvider(providerID, 1, 10000, status, scholarshipID, search, gender, ethnicity, province, district, schoolType, stream, examCenter, paymentStatus)
+	if err != nil {
+		return nil, err
+	}
+	return applications, nil
 }
 
 func (s *Service) GetApplicationByID(providerID, id uint) (*ProviderApplication, error) {
-	return s.repo.GetApplicationByIDAndProvider(id, providerID)
+	app, err := s.repo.GetApplicationByIDAndProvider(id, providerID)
+	if err != nil {
+		return nil, err
+	}
+
+	return app, nil
 }
 
 func (s *Service) EvaluateApplication(providerID, id uint, req EvaluateApplicationRequest) (*ProviderApplication, error) {
@@ -741,9 +1002,54 @@ func (s *Service) ApproveApplicationPayment(providerID uint, applicationID uint,
 		if err := s.repo.UpdatePayment(payment); err != nil {
 			return nil, errors.New("failed to update payment")
 		}
+
+		application.Status = "rejected"
+		if _, err := s.repo.UpdateApplicationStatusOnly(application.ID, "rejected"); err != nil {
+			return nil, errors.New("failed to update application status")
+		}
+
+		if application.Email != "" {
+			reasonText := reason
+			if reasonText == "" {
+				reasonText = "No specific reason provided."
+			}
+			subject := "Payment Status Update - StudSphere"
+			html := fmt.Sprintf(`
+<p>Dear %s,</p>
+<p>Your payment for the application has been <strong>rejected</strong>.</p>
+<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:16px;margin:16px 0;">
+    <p style="margin:0 0 4px 0;font-weight:600;color:#991b1b;">Reason:</p>
+    <p style="margin:0;color:#b91c1c;">%s</p>
+</div>
+<p>Please contact support if you have any questions.</p>
+<div class="signature">
+    <p>Best Regards,</p>
+    <p>Team Studsphere</p>
+</div>`, application.FullName, reasonText)
+			go emailqueue.EnqueueGenericEmail(application.Email, subject, html)
+		}
 	}
 
 	return application, nil
+}
+
+func (s *Service) UpdateDisputeStatus(providerID uint, applicationID uint, status string) error {
+	application, err := s.repo.GetApplicationByIDAndProvider(applicationID, providerID)
+	if err != nil {
+		return fmt.Errorf("application not found: %w", err)
+	}
+
+	if application.ScholarshipApplicationID == nil {
+		return errors.New("no linked scholarship application")
+	}
+
+	payment, err := s.repo.FindPaymentByApplicationID(*application.ScholarshipApplicationID)
+	if err != nil {
+		return fmt.Errorf("payment not found: %w", err)
+	}
+
+	payment.DisputeStatus = status
+	return s.repo.UpdatePayment(payment)
 }
 
 func (s *Service) sendAdmitCard(application *ProviderApplication, payment *publicscholarship.Payment) {
@@ -760,25 +1066,93 @@ func (s *Service) sendAdmitCard(application *ProviderApplication, payment *publi
 		dobStr = application.DateOfBirthBS
 	}
 
-	cardData := publicscholarship.AdmitCardData{
+	if application.RollNumber == "" {
+		if seq, err := s.repo.GetNextRollNumber(); err == nil {
+			rn := fmt.Sprintf("PS-%05d", seq)
+			s.repo.UpdateRollNumber(application.ID, rn)
+			application.RollNumber = rn
+		}
+	}
+
+	payload := emailqueue.AdmitCardPayload{
+		Email:            application.Email,
 		CandidateName:    application.FullName,
 		DateOfBirth:      dobStr,
 		Gender:           application.Gender,
-		ApplicationNo:    fmt.Sprintf("RD2083S%d", application.ID),
+		RollNumber:       application.RollNumber,
 		ExamCentre:       application.ExamCenter,
 		Stream:           application.Stream,
-		PhotoURL:         publicscholarship.PhotoToBase64(application.PhotoURL),
+		PhotoURL:         application.PhotoURL,
 		ScholarshipTitle: scholarship.Title,
 		Provider:         scholarship.Provider,
+		ExamDate:         scholarship.ExamDate,
+		ExamTime:         scholarship.ExamTime,
+		Shift:            "",
+		SubjectName:      application.Stream,
 	}
 
-	pdfBytes, err := publicscholarship.GenerateAdmitCardPDF(cardData)
+	if err := emailqueue.EnqueueSendAdmitCard(payload); err != nil {
+		log.Printf("sendAdmitCard: failed to enqueue: %v", err)
+	}
+}
+
+func (s *Service) ResendAdmitCard(providerID, applicationID uint) error {
+	application, err := s.repo.GetApplicationByIDAndProvider(applicationID, providerID)
 	if err != nil {
-		_ = emailqueue.SendAdmitCardEmail(application.Email, application.FullName, scholarship.Title, nil)
-		return
+		return fmt.Errorf("application not found: %w", err)
 	}
 
-	_ = emailqueue.SendAdmitCardEmail(application.Email, application.FullName, scholarship.Title, pdfBytes)
+	if application.RollNumber == "" {
+		return errors.New("application has no roll number assigned")
+	}
+
+	if application.ScholarshipApplicationID == nil {
+		return errors.New("no linked scholarship application")
+	}
+
+	payment, err := s.repo.FindPaymentByApplicationID(*application.ScholarshipApplicationID)
+	if err != nil {
+		return errors.New("payment not found")
+	}
+
+	if payment.Status != "completed" {
+		return errors.New("payment is not completed")
+	}
+
+	scholarship, err := s.repo.FindScholarshipByID(payment.ScholarshipID)
+	if err != nil {
+		return fmt.Errorf("scholarship not found: %w", err)
+	}
+
+	dobStr := ""
+	if !application.DateOfBirthAD.IsZero() {
+		dobStr = application.DateOfBirthAD.Format("02-Jan-2006")
+	} else if application.DateOfBirthBS != "" {
+		dobStr = application.DateOfBirthBS
+	}
+
+	payload := emailqueue.AdmitCardPayload{
+		Email:            application.Email,
+		CandidateName:    application.FullName,
+		DateOfBirth:      dobStr,
+		Gender:           application.Gender,
+		RollNumber:       application.RollNumber,
+		ExamCentre:       application.ExamCenter,
+		Stream:           application.Stream,
+		PhotoURL:         application.PhotoURL,
+		ScholarshipTitle: scholarship.Title,
+		Provider:         scholarship.Provider,
+		ExamDate:         scholarship.ExamDate,
+		ExamTime:         scholarship.ExamTime,
+		Shift:            "",
+		SubjectName:      application.Stream,
+	}
+
+	if err := emailqueue.EnqueueSendAdmitCard(payload); err != nil {
+		log.Printf("ResendAdmitCard: failed to enqueue: %v", err)
+	}
+
+	return nil
 }
 
 func (s *Service) UpdateApplicationStatus(providerID, id uint, req UpdateApplicationStatusRequest) (*ProviderApplication, error) {
@@ -793,6 +1167,14 @@ func (s *Service) UpdateApplicationStatus(providerID, id uint, req UpdateApplica
 	}
 	if !validStatuses[req.Status] {
 		return nil, errors.New("invalid status")
+	}
+
+	if req.Status == "rejected" {
+		reason := req.Reason
+		if len(reason) > 250 {
+			reason = reason[:250]
+		}
+		application.RejectionReason = reason
 	}
 
 	if err := s.repo.UpdateApplicationStatus(application, req.Status); err != nil {
@@ -814,6 +1196,27 @@ func (s *Service) UpdateApplicationStatus(providerID, id uint, req UpdateApplica
 		Type:       "application",
 		Link:       "applications",
 	})
+
+	if req.Status == "rejected" && application.Email != "" {
+		reason := application.RejectionReason
+		if reason == "" {
+			reason = "No specific reason provided."
+		}
+		subject := "Application Status Update - StudSphere"
+		html := fmt.Sprintf(`
+<p>Dear %s,</p>
+<p>We regret to inform you that your application has been <strong>rejected</strong>.</p>
+<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:16px;margin:16px 0;">
+    <p style="margin:0 0 4px 0;font-weight:600;color:#991b1b;">Reason:</p>
+    <p style="margin:0;color:#b91c1c;">%s</p>
+</div>
+<p>We appreciate your interest and encourage you to apply for future opportunities.</p>
+<div class="signature">
+    <p>Best Regards,</p>
+    <p>Team Studsphere</p>
+</div>`, application.FullName, reason)
+		go emailqueue.EnqueueGenericEmail(application.Email, subject, html)
+	}
 
 	return application, nil
 }
@@ -897,11 +1300,46 @@ func (s *Service) GetMessages(providerID uint, page, limit int) ([]ProviderMessa
 	if page < 1 {
 		page = 1
 	}
-	if limit < 1 || limit > 50 {
-		limit = 20
+	if limit < 1 || limit > 500 {
+		limit = 50
 	}
 
-	return s.repo.GetMessagesByProvider(providerID, page, limit)
+	messages, total, err := s.repo.GetMessagesByProvider(providerID, page, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	userIDs := make([]uint, 0, len(messages))
+	userIDSet := make(map[uint]bool)
+	for _, m := range messages {
+		if m.UserID > 0 && !userIDSet[m.UserID] {
+			userIDs = append(userIDs, m.UserID)
+			userIDSet[m.UserID] = true
+		}
+	}
+
+	if len(userIDs) > 0 {
+		type userInfo struct {
+			ID        uint
+			FirstName string
+			LastName  string
+			Email     string
+		}
+		var users []userInfo
+		s.repo.GetDB().Table("users").Select("id, first_name, last_name, email").Where("id IN ?", userIDs).Find(&users)
+		userMap := make(map[uint]userInfo)
+		for _, u := range users {
+			userMap[u.ID] = u
+		}
+		for i, m := range messages {
+			if u, ok := userMap[m.UserID]; ok {
+				messages[i].UserName = u.FirstName + " " + u.LastName
+				messages[i].UserEmail = u.Email
+			}
+		}
+	}
+
+	return messages, total, nil
 }
 
 func (s *Service) CreateMessage(providerID uint, req CreateMessageRequest) (*ProviderMessage, error) {
@@ -911,6 +1349,22 @@ func (s *Service) CreateMessage(providerID uint, req CreateMessageRequest) (*Pro
 		Subject:    req.Subject,
 		Content:    req.Content,
 		Direction:  "outbound",
+	}
+
+	if err := s.repo.CreateMessage(message); err != nil {
+		return nil, err
+	}
+
+	return message, nil
+}
+
+func (s *Service) CreateMessageFromUser(userID uint, req CreateMessageFromUserRequest) (*ProviderMessage, error) {
+	message := &ProviderMessage{
+		ProviderID: req.ProviderID,
+		UserID:     userID,
+		Subject:    req.Subject,
+		Content:    req.Content,
+		Direction:  "incoming",
 	}
 
 	if err := s.repo.CreateMessage(message); err != nil {
@@ -933,6 +1387,22 @@ func (s *Service) GetMessageByID(providerID, id uint) (*ProviderMessage, error) 
 	}
 
 	return message, nil
+}
+
+func (s *Service) MarkMessageRead(providerID, id uint) error {
+	message, err := s.repo.GetMessageByIDAndProvider(id, providerID)
+	if err != nil {
+		return err
+	}
+	return s.repo.MarkMessageRead(message)
+}
+
+func (s *Service) GetProviderName(providerID uint) string {
+	var provider ScholarshipProviderUser
+	if err := s.repo.db.First(&provider, providerID).Error; err != nil {
+		return "Organization"
+	}
+	return provider.ProviderName
 }
 
 func (s *Service) GetProviderProfile(providerID uint) (*ScholarshipProviderUser, error) {
@@ -1006,10 +1476,16 @@ func (s *Service) UpdateProviderProfile(providerID uint, req UpdateProfileReques
 	if req.BrochureURL != "" {
 		updates["brochure_url"] = req.BrochureURL
 	}
-
-
+	if req.BannerURL != "" {
+		updates["banner_url"] = req.BannerURL
+	}
 
 	if err := s.repo.UpdateProviderProfile(provider, updates); err != nil {
+		return nil, err
+	}
+
+	provider, err = s.repo.GetProviderProfile(providerID)
+	if err != nil {
 		return nil, err
 	}
 
@@ -1596,6 +2072,274 @@ func (s *Service) DeleteCalendarEvent(providerID, id uint) error {
 	return s.repo.DeleteCalendarEvent(id, providerID)
 }
 
+func (s *Service) CreateWrittenExam(providerID uint, req CreateWrittenExamRequest) (*WrittenExam, error) {
+	status := "draft"
+	if req.Status != "" {
+		status = req.Status
+	}
+	exam := &WrittenExam{
+		ProviderID:    providerID,
+		ScholarshipID: req.ScholarshipID,
+		Title:         req.Title,
+		ExamDate:      req.ExamDate,
+		Duration:      req.Duration,
+		Location:      req.Location,
+		TotalMarks:    req.TotalMarks,
+		PassingMarks:  req.PassingMarks,
+		Status:        status,
+	}
+	if err := s.repo.CreateWrittenExam(exam); err != nil {
+		return nil, err
+	}
+	return exam, nil
+}
+
+func (s *Service) GetWrittenExams(providerID uint, page, limit int) ([]WrittenExam, int64, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50 {
+		limit = 10
+	}
+	return s.repo.GetWrittenExamsByProvider(providerID, page, limit)
+}
+
+func (s *Service) GetWrittenExamsByScholarship(providerID, scholarshipID uint) ([]WrittenExam, error) {
+	return s.repo.GetWrittenExamsByScholarship(providerID, scholarshipID)
+}
+
+func (s *Service) GetWrittenExamByID(providerID, id uint) (*WrittenExam, error) {
+	exam, err := s.repo.GetWrittenExamByIDAndProvider(id, providerID)
+	if err != nil {
+		return nil, err
+	}
+	results, err := s.repo.GetWrittenExamResults(exam.ID)
+	if err == nil {
+		exam.Results = results
+	}
+	return exam, nil
+}
+
+func (s *Service) GetWrittenExamResultsFiltered(examID, providerID uint, filters map[string]interface{}, page, limit int, sortBy, sortOrder string) ([]WrittenExamResultWithApp, int64, error) {
+	if _, err := s.repo.GetWrittenExamByIDAndProvider(examID, providerID); err != nil {
+		return nil, 0, err
+	}
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 20
+	}
+	if sortBy == "" {
+		sortBy = "id"
+	}
+	if sortOrder == "" {
+		sortOrder = "asc"
+	}
+	return s.repo.GetWrittenExamResultsFiltered(examID, filters, page, limit, sortBy, sortOrder)
+}
+
+func (s *Service) ExportWrittenExamResultsFiltered(examID, providerID uint, filters map[string]interface{}, sortBy, sortOrder string) ([]WrittenExamResultWithApp, error) {
+	if _, err := s.repo.GetWrittenExamByIDAndProvider(examID, providerID); err != nil {
+		return nil, err
+	}
+	if sortBy == "" {
+		sortBy = "id"
+	}
+	if sortOrder == "" {
+		sortOrder = "asc"
+	}
+	return s.repo.GetWrittenExamResultsFilteredAll(examID, filters, sortBy, sortOrder)
+}
+
+func (s *Service) GetWrittenExamFilterOptions(examID, providerID uint) (*WrittenExamFilterOptions, error) {
+	if _, err := s.repo.GetWrittenExamByIDAndProvider(examID, providerID); err != nil {
+		return nil, err
+	}
+	return s.repo.GetWrittenExamFilterOptions(examID)
+}
+
+func (s *Service) UpdateWrittenExam(providerID, id uint, req UpdateWrittenExamRequest) (*WrittenExam, error) {
+	exam, err := s.repo.GetWrittenExamByIDAndProvider(id, providerID)
+	if err != nil {
+		return nil, err
+	}
+	updates := map[string]interface{}{}
+	if req.Title != "" {
+		updates["title"] = req.Title
+	}
+	if req.ExamDate != "" {
+		updates["exam_date"] = req.ExamDate
+	}
+	if req.Duration > 0 {
+		updates["duration"] = req.Duration
+	}
+	if req.Location != "" {
+		updates["location"] = req.Location
+	}
+	if req.TotalMarks > 0 {
+		updates["total_marks"] = req.TotalMarks
+	}
+	if req.PassingMarks > 0 {
+		updates["passing_marks"] = req.PassingMarks
+	}
+	if req.Status != "" {
+		updates["status"] = req.Status
+	}
+	if len(updates) > 0 {
+		if err := s.repo.UpdateWrittenExam(exam, updates); err != nil {
+			return nil, err
+		}
+	}
+	return exam, nil
+}
+
+func (s *Service) DeleteWrittenExam(providerID, id uint) error {
+	return s.repo.DeleteWrittenExam(id, providerID)
+}
+
+func (s *Service) AddWrittenExamResult(examID, providerID uint, req AddWrittenExamResultRequest) (*WrittenExam, error) {
+	exam, err := s.repo.GetWrittenExamByIDAndProvider(examID, providerID)
+	if err != nil {
+		return nil, err
+	}
+	result := &WrittenExamResult{
+		WrittenExamID: examID,
+		ApplicationID: req.ApplicationID,
+		MarksObtained: req.MarksObtained,
+		Remarks:       req.Remarks,
+	}
+	if err := s.repo.CreateWrittenExamResult(result); err != nil {
+		return nil, err
+	}
+	results, _ := s.repo.GetWrittenExamResults(examID)
+	exam.Results = results
+	return exam, nil
+}
+
+func (s *Service) UpdateWrittenExamResult(examID, resultID, providerID uint, req UpdateWrittenExamResultRequest) (*WrittenExam, error) {
+	if _, err := s.repo.GetWrittenExamByIDAndProvider(examID, providerID); err != nil {
+		return nil, err
+	}
+	result, err := s.repo.GetWrittenExamResultByID(resultID, examID)
+	if err != nil {
+		return nil, err
+	}
+	updates := map[string]interface{}{}
+	updates["marks_obtained"] = req.MarksObtained
+	if req.Remarks != "" {
+		updates["remarks"] = req.Remarks
+	}
+	if err := s.repo.UpdateWrittenExamResult(result, updates); err != nil {
+		return nil, err
+	}
+	exam, _ := s.repo.GetWrittenExamByIDAndProvider(examID, providerID)
+	results, _ := s.repo.GetWrittenExamResults(examID)
+	exam.Results = results
+	return exam, nil
+}
+
+func (s *Service) DeleteWrittenExamResult(examID, resultID, providerID uint) error {
+	if _, err := s.repo.GetWrittenExamByIDAndProvider(examID, providerID); err != nil {
+		return err
+	}
+	return s.repo.DeleteWrittenExamResult(resultID, examID)
+}
+
+func normalizeRollNumber(roll string) string {
+	roll = strings.TrimSpace(roll)
+	parts := strings.Split(roll, "-")
+	last := parts[len(parts)-1]
+	// strip leading zeros for numeric comparison
+	last = strings.TrimLeft(last, "0")
+	if last == "" {
+		return "0"
+	}
+	return last
+}
+
+func (s *Service) BatchImportWrittenExamResults(examID, providerID uint, req BatchImportWrittenExamResultsRequest) (*BatchImportResponse, error) {
+	exam, err := s.repo.GetWrittenExamByIDAndProvider(examID, providerID)
+	if err != nil {
+		return nil, errors.New("exam not found")
+	}
+
+	apps, err := s.repo.GetApplicationsByScholarship(exam.ScholarshipID)
+	if err != nil {
+		return nil, err
+	}
+
+	appsByRoll := make(map[string]uint)
+	for _, app := range apps {
+		normalized := normalizeRollNumber(app.RollNumber)
+		if normalized != "" {
+			appsByRoll[normalized] = app.ID
+		}
+	}
+
+	// Build set of existing app IDs for this exam (for counting only, upsert handles the write)
+	existingResults, err := s.repo.GetWrittenExamResults(examID)
+	if err != nil {
+		return nil, err
+	}
+	existingAppIDs := make(map[uint]bool)
+	for _, r := range existingResults {
+		existingAppIDs[r.ApplicationID] = true
+	}
+
+	var toUpsert []WrittenExamResult
+	failed := make([]FailedRow, 0)
+	summary := BatchImportSummary{}
+
+	for _, item := range req.Results {
+		normalized := normalizeRollNumber(item.RollNumber)
+		appID, found := appsByRoll[normalized]
+		if !found {
+			failed = append(failed, FailedRow{
+				RollNumber: item.RollNumber,
+				Reason:     "Applicant not found",
+			})
+			summary.Skipped++
+			continue
+		}
+
+		docsJSON, _ := json.Marshal(item.RequiredDocuments)
+		toUpsert = append(toUpsert, WrittenExamResult{
+			WrittenExamID:     examID,
+			ApplicationID:     appID,
+			MarksObtained:     item.Marks,
+			InterviewLocation: item.InterviewLocation,
+			InterviewDate:     item.InterviewDate,
+			ReportingTime:     item.ReportingTime,
+			RequiredDocuments: docsJSON,
+		})
+
+		if existingAppIDs[appID] {
+			summary.Overwritten++
+		} else {
+			summary.Imported++
+		}
+	}
+
+	if len(toUpsert) > 0 {
+		// First clean up any soft-deleted ghost records for this exam
+		if err := s.repo.CleanupSoftDeletedResults(examID); err != nil {
+			log.Printf("Cleanup failed: %v", err)
+		}
+		if err := s.repo.BulkUpsertWrittenExamResults(toUpsert); err != nil {
+			log.Printf("BulkUpsert failed: %v", err)
+			return nil, err
+		}
+	}
+
+	log.Printf("BatchImport: exam=%d upserted=%d skipped=%d", examID, len(toUpsert), summary.Skipped)
+
+	return &BatchImportResponse{
+		Summary:    summary,
+		FailedRows: failed,
+	}, nil
+}
+
 func (s *Service) CreateResult(providerID uint, req CreateResultRequest) (*ProviderResult, error) {
 	status := "draft"
 	if req.Status != "" {
@@ -1622,7 +2366,7 @@ func (s *Service) CreateResult(providerID uint, req CreateResultRequest) (*Provi
 	return result, nil
 }
 
-func (s *Service) GetResults(providerID uint, page, limit int) ([]ProviderResult, int64, error) {
+func (s *Service) GetResults(providerID uint, page, limit int, scholarshipID ...uint) ([]ProviderResult, int64, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -1630,7 +2374,7 @@ func (s *Service) GetResults(providerID uint, page, limit int) ([]ProviderResult
 		limit = 10
 	}
 
-	return s.repo.GetResultsByProvider(providerID, page, limit)
+	return s.repo.GetResultsByProvider(providerID, page, limit, scholarshipID...)
 }
 
 func (s *Service) GetResultByID(providerID, id uint) (*ProviderResult, error) {
@@ -1666,6 +2410,14 @@ func (s *Service) UpdateResult(providerID, id uint, req CreateResultRequest) (*P
 
 func (s *Service) DeleteResult(providerID, id uint) error {
 	return s.repo.DeleteResult(id, providerID)
+}
+
+func (s *Service) GetPublishedResultScholarships() ([]ProviderScholarship, error) {
+	return s.repo.GetScholarshipsWithPublishedResults()
+}
+
+func (s *Service) CheckStudentResult(scholarshipID uint, rollNumber string) (map[string]interface{}, error) {
+	return s.repo.CheckStudentResult(scholarshipID, rollNumber)
 }
 
 func (s *Service) CreateAccess(providerID uint, req CreateAccessRequest) (*ProviderAccess, error) {
@@ -1770,6 +2522,18 @@ func (s *Service) GetPublishedBlogByID(id uint) (*ProviderBlog, error) {
 	return s.repo.GetPublishedBlogByID(id)
 }
 
+func (s *Service) GetPublicNewsBySlug(slug string) (*ProviderNews, error) {
+	return s.repo.FindProviderNewsBySlug(slug)
+}
+
+func (s *Service) GetPublicEventBySlug(slug string) (*ProviderEvent, error) {
+	return s.repo.FindProviderEventBySlug(slug)
+}
+
+func (s *Service) GetPublicBlogBySlug(slug string) (*ProviderBlog, error) {
+	return s.repo.FindProviderBlogBySlug(slug)
+}
+
 // ─── Public Provider Profile ────────────────────────────────────
 func (s *Service) GetPublicProviderProfile(id uint) (*PublicProviderProfileResponse, error) {
 	provider, err := s.repo.GetProviderByID(id)
@@ -1847,27 +2611,27 @@ func (s *Service) GetPublicProviderProfile(id uint) (*PublicProviderProfileRespo
 	}
 
 	return &PublicProviderProfileResponse{
-		ID:               provider.ID,
-		ProviderName:     provider.ProviderName,
-		Email:            provider.Email,
-		ContactNumber:    provider.ContactNumber,
-		WebsiteURL:       provider.WebsiteURL,
-		LogoURL:          logoURL,
-		Address:          provider.Address,
-		AboutText:        provider.AboutText,
-		Mission:          provider.Mission,
-		Values:           provider.Values,
-		FounderName:      provider.FounderName,
-		FounderRole:      provider.FounderRole,
-		FounderMessage:   provider.FounderMessage,
-		FounderImageURL:  provider.FounderImageURL,
-		FacebookURL:      provider.FacebookURL,
-		InstagramURL:     provider.InstagramURL,
-		YoutubeURL:       provider.YoutubeURL,
-		LinkedInURL:      provider.LinkedInURL,
-		MapURL:           provider.MapURL,
-		BrochureURL:      provider.BrochureURL,
-
+		ID:              provider.ID,
+		ProviderName:    provider.ProviderName,
+		Email:           provider.Email,
+		ContactNumber:   provider.ContactNumber,
+		WebsiteURL:      provider.WebsiteURL,
+		LogoURL:         logoURL,
+		Address:         provider.Address,
+		AboutText:       provider.AboutText,
+		Mission:         provider.Mission,
+		Values:          provider.Values,
+		FounderName:     provider.FounderName,
+		FounderRole:     provider.FounderRole,
+		FounderMessage:  provider.FounderMessage,
+		FounderImageURL: provider.FounderImageURL,
+		FacebookURL:     provider.FacebookURL,
+		InstagramURL:    provider.InstagramURL,
+		YoutubeURL:      provider.YoutubeURL,
+		LinkedInURL:     provider.LinkedInURL,
+		MapURL:          provider.MapURL,
+		BrochureURL:     provider.BrochureURL,
+		BannerURL:       provider.BannerURL,
 
 		Services:         serviceResponses,
 		Sectors:          sectorResponses,
@@ -1886,8 +2650,8 @@ func (s *Service) GetPublicProviderProfile(id uint) (*PublicProviderProfileRespo
 // ─── Services CRUD ────────────────────────────────────────────
 func (s *Service) CreateService(providerID uint, req CreateServiceRequest) (*ProviderService, error) {
 	item := &ProviderService{
-		ProviderID:  providerID,
-		Icon:        req.Icon,
+		ProviderID:   providerID,
+		Icon:         req.Icon,
 		Title:        req.Title,
 		Description:  req.Description,
 		ExternalLink: req.ExternalLink,
@@ -1931,10 +2695,10 @@ func (s *Service) DeleteService(providerID, id uint) error {
 func (s *Service) CreateSector(providerID uint, req CreateSectorRequest) (*ProviderSector, error) {
 	date := time.Time{}
 	item := &ProviderSector{
-		ProviderID:  providerID,
-		Name:        req.Name,
-		Description: req.Description,
-		Color:       req.Color,
+		ProviderID:   providerID,
+		Name:         req.Name,
+		Description:  req.Description,
+		Color:        req.Color,
 		ImageURL:     req.ImageURL,
 		Icon:         req.Icon,
 		ExternalLink: req.ExternalLink,
@@ -1985,9 +2749,9 @@ func (s *Service) CreateProject(providerID uint, req CreateProjectRequest) (*Pro
 		}
 	}
 	item := &ProviderProject{
-		ProviderID:  providerID,
-		Title:       req.Title,
-		Description: req.Description,
+		ProviderID:   providerID,
+		Title:        req.Title,
+		Description:  req.Description,
 		ImageURL:     req.ImageURL,
 		Category:     req.Category,
 		ExternalLink: req.ExternalLink,
@@ -2017,7 +2781,7 @@ func (s *Service) UpdateProject(providerID, id uint, req CreateProjectRequest) (
 		"title": req.Title, "description": req.Description,
 		"image_url": req.ImageURL, "category": req.Category,
 		"external_link": req.ExternalLink,
-		"sort_order": req.SortOrder,
+		"sort_order":    req.SortOrder,
 	}
 	if req.Date != "" {
 		if t, err := time.Parse("2006-01-02", req.Date); err == nil {
@@ -2334,10 +3098,362 @@ func (s *Service) LoginAccessUser(email, password string, providerID uint) (*Acc
 	return toAccessUserResponse(user), nil
 }
 
+func (s *Service) GetUserByID(userID uint) (*UserResponse, error) {
+	user, err := s.repo.GetUserByID(userID)
+	if err != nil {
+		return nil, err
+	}
+	return &UserResponse{
+		ID:        user.ID,
+		FirstName: user.FirstName,
+		LastName:  user.LastName,
+		Email:     user.Email,
+		Phone:     user.Phone,
+		Gender:    user.Gender,
+		Address:   user.Address,
+		Bio:       user.Bio,
+		Role:      user.Role,
+	}, nil
+}
+
 func (s *Service) ResetAccessUserPassword(userID uint, newPassword string) error {
 	hashed, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
 	if err != nil {
 		return err
 	}
 	return s.repo.UpdateAccessUserField(userID, "password", string(hashed))
+}
+
+// ─── Volunteer Service ──────────────────────────────────────────────
+
+func (s *Service) CreateVolunteer(providerID uint, req *CreateVolunteerRequest) (*ProviderVolunteer, error) {
+	specificDates, _ := json.Marshal(req.SpecificDates)
+	districts, _ := json.Marshal(req.Districts)
+
+	v := &ProviderVolunteer{
+		ProviderID:          providerID,
+		Title:               req.Title,
+		BannerImage:         req.BannerImage,
+		Description:         req.Description,
+		VolunteerType:       req.VolunteerType,
+		VolunteerPayment:    req.VolunteerPayment,
+		DateMode:            req.DateMode,
+		RangeStart:          req.RangeStart,
+		RangeEnd:            req.RangeEnd,
+		SpecificDates:       specificDates,
+		ApplicationDeadline: req.ApplicationDeadline,
+		Districts:           districts,
+		Active:              req.Active,
+		Location:            req.Location,
+	}
+	if err := s.repo.CreateVolunteer(v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+func (s *Service) GetProviderVolunteers(providerID uint, page, limit int) (*VolunteerListResponse, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 20
+	}
+	volunteers, total, err := s.repo.GetVolunteersByProvider(providerID, page, limit)
+	if err != nil {
+		return nil, err
+	}
+	return &VolunteerListResponse{
+		Volunteers: toVolunteerResponses(volunteers, ""),
+		Meta:       PaginationMeta{Total: total, Page: page, Limit: limit},
+	}, nil
+}
+
+func (s *Service) GetProviderVolunteerByID(id, providerID uint) (*VolunteerResponse, error) {
+	_, err := s.repo.GetVolunteerByIDAndProvider(id, providerID)
+	if err != nil {
+		return nil, err
+	}
+	full, err := s.repo.GetVolunteerByID(id)
+	if err != nil {
+		return nil, err
+	}
+	resp := toVolunteerResponse(full, "")
+	return &resp, nil
+}
+
+func (s *Service) UpdateVolunteer(id, providerID uint, req *CreateVolunteerRequest) (*ProviderVolunteer, error) {
+	existing, err := s.repo.GetVolunteerByIDAndProvider(id, providerID)
+	if err != nil {
+		return nil, err
+	}
+	updates := map[string]interface{}{}
+	updates["title"] = req.Title
+	updates["banner_image"] = req.BannerImage
+	updates["description"] = req.Description
+	updates["volunteer_type"] = req.VolunteerType
+	updates["volunteer_payment"] = req.VolunteerPayment
+	updates["location"] = req.Location
+	updates["date_mode"] = req.DateMode
+	updates["range_start"] = req.RangeStart
+	updates["range_end"] = req.RangeEnd
+	updates["application_deadline"] = req.ApplicationDeadline
+	if req.SpecificDates != nil {
+		d, _ := json.Marshal(req.SpecificDates)
+		updates["specific_dates"] = d
+	}
+	if req.Districts != nil {
+		d, _ := json.Marshal(req.Districts)
+		updates["districts"] = d
+	}
+
+	if err := s.repo.UpdateVolunteer(existing, updates); err != nil {
+		return nil, err
+	}
+	return existing, nil
+}
+
+func (s *Service) DeleteVolunteer(id, providerID uint) error {
+	return s.repo.DeleteVolunteer(id, providerID)
+}
+
+func (s *Service) ToggleVolunteerActive(id, providerID uint) (*ProviderVolunteer, error) {
+	return s.repo.ToggleVolunteerActive(id, providerID)
+}
+
+func (s *Service) GetPublicVolunteers(page, limit int, search, volunteerType string) (*VolunteerListResponse, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 20
+	}
+	volunteers, total, err := s.repo.GetPublicVolunteers(page, limit, search, volunteerType)
+	if err != nil {
+		return nil, err
+	}
+	return &VolunteerListResponse{
+		Volunteers: toVolunteerResponses(volunteers, ""),
+		Meta:       PaginationMeta{Total: total, Page: page, Limit: limit},
+	}, nil
+}
+
+func (s *Service) GetPublicVolunteerByID(id uint) (*VolunteerResponse, error) {
+	v, err := s.repo.GetVolunteerByID(id)
+	if err != nil {
+		return nil, err
+	}
+	resp := toVolunteerResponse(v, "")
+	return &resp, nil
+}
+
+func (s *Service) GetPublicVolunteerBySlug(slugStr string) (*VolunteerResponse, error) {
+	v, err := s.repo.GetVolunteerBySlug(slugStr)
+	if err != nil {
+		return nil, err
+	}
+	resp := toVolunteerResponse(v, "")
+	return &resp, nil
+}
+
+func (s *Service) ApplyVolunteer(volunteerID uint, req *ApplyVolunteerRequest, cvPath string) (*VolunteerApplication, error) {
+	v, err := s.repo.GetVolunteerByID(volunteerID)
+	if err != nil {
+		return nil, errors.New("volunteer opportunity not found")
+	}
+	if !v.Active {
+		return nil, errors.New("volunteer opportunity is not currently active")
+	}
+	if v.ApplicationDeadline != "" {
+		deadline, err := time.Parse("2006-01-02", v.ApplicationDeadline)
+		if err == nil && deadline.Before(time.Now().Truncate(24*time.Hour)) {
+			return nil, errors.New("volunteer opportunity deadline has passed")
+		}
+	}
+
+	availableDays, _ := json.Marshal(req.AvailableDays)
+	app := &VolunteerApplication{
+		VolunteerID:         volunteerID,
+		FullName:            req.FullName,
+		Gender:              req.Gender,
+		Phone:               req.Phone,
+		Email:               req.Email,
+		Designation:         req.Designation,
+		OtherDesignation:    req.OtherDesignation,
+		Province:            req.Province,
+		District:            req.District,
+		Municipality:        req.Municipality,
+		Ward:                req.Ward,
+		Tole:                req.Tole,
+		ParticipateDistrict: req.ParticipateDistrict,
+		AvailableDays:       availableDays,
+		VolunteeredBefore:   req.VolunteeredBefore,
+		VolunteerDetails:    req.VolunteerDetails,
+		CVPath:              cvPath,
+		Status:              "pending",
+	}
+	if err := s.repo.CreateVolunteerApplication(app); err != nil {
+		return nil, err
+	}
+	return app, nil
+}
+
+func (s *Service) GetVolunteerApplications(providerID uint, volunteerID *uint, page, limit int, status *string, search, province, district, gender, day string) (*VolunteerApplicationListResponse, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 {
+		limit = 20
+	}
+	if limit > 10000 {
+		limit = 10000
+	}
+	apps, total, err := s.repo.GetVolunteerApplicationsByProvider(providerID, volunteerID, page, limit, status, search, province, district, gender, day)
+	if err != nil {
+		return nil, err
+	}
+	return &VolunteerApplicationListResponse{
+		Applications: toVolunteerApplicationResponses(apps),
+		Meta:         PaginationMeta{Total: total, Page: page, Limit: limit},
+	}, nil
+}
+
+func (s *Service) ShortlistVolunteerApplication(id, providerID uint) error {
+	app, err := s.repo.GetVolunteerApplicationByID(id)
+	if err != nil {
+		return err
+	}
+	_, err = s.repo.GetVolunteerByIDAndProvider(app.VolunteerID, providerID)
+	if err != nil {
+		return errors.New("application not found or access denied")
+	}
+	if app.Status != "pending" {
+		return errors.New("can only shortlist pending applications")
+	}
+	return s.repo.UpdateVolunteerApplicationStatus(id, "shortlisted")
+}
+
+func (s *Service) UnshortlistVolunteerApplication(id, providerID uint) error {
+	app, err := s.repo.GetVolunteerApplicationByID(id)
+	if err != nil {
+		return err
+	}
+	_, err = s.repo.GetVolunteerByIDAndProvider(app.VolunteerID, providerID)
+	if err != nil {
+		return errors.New("application not found or access denied")
+	}
+	if app.Status != "shortlisted" {
+		return errors.New("can only unshortlist shortlisted applications")
+	}
+	return s.repo.UpdateVolunteerApplicationStatus(id, "pending")
+}
+
+func (s *Service) RejectVolunteerApplication(id, providerID uint) error {
+	app, err := s.repo.GetVolunteerApplicationByID(id)
+	if err != nil {
+		return err
+	}
+	_, err = s.repo.GetVolunteerByIDAndProvider(app.VolunteerID, providerID)
+	if err != nil {
+		return errors.New("application not found or access denied")
+	}
+	if app.Status != "pending" && app.Status != "shortlisted" {
+		return errors.New("can only reject pending or shortlisted applications")
+	}
+	return s.repo.UpdateVolunteerApplicationStatus(id, "rejected")
+}
+
+// ─── Volunteer Helpers ──────────────────────────────────────────────
+
+func volunteerSlug(v *ProviderVolunteer) string {
+	if v.Slug != "" {
+		return v.Slug
+	}
+	generated := strings.ToLower(strings.TrimSpace(v.Title))
+	re := regexp.MustCompile(`[^a-z0-9\s-]`)
+	generated = re.ReplaceAllString(generated, "")
+	re = regexp.MustCompile(`\s+`)
+	generated = re.ReplaceAllString(generated, "-")
+	return strings.Trim(generated, "-")
+}
+
+func toVolunteerResponse(v *ProviderVolunteer, organizer string) VolunteerResponse {
+	var specificDates, districts []string
+	json.Unmarshal(v.SpecificDates, &specificDates)
+	json.Unmarshal(v.Districts, &districts)
+
+	loc := v.Location
+	if loc == "" && len(districts) > 0 {
+		loc = districts[0]
+		if len(districts) > 1 {
+			loc += " +" + fmt.Sprintf("%d", len(districts)-1)
+		}
+	}
+
+	return VolunteerResponse{
+		ID:                  v.ID,
+		Slug:                volunteerSlug(v),
+		CreatedAt:           v.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:           v.UpdatedAt.Format(time.RFC3339),
+		ProviderID:          v.ProviderID,
+		Title:               v.Title,
+		BannerImage:         v.BannerImage,
+		Description:         v.Description,
+		VolunteerType:       v.VolunteerType,
+		VolunteerPayment:    v.VolunteerPayment,
+		DateMode:            v.DateMode,
+		RangeStart:          v.RangeStart,
+		RangeEnd:            v.RangeEnd,
+		SpecificDates:       specificDates,
+		ApplicationDeadline: v.ApplicationDeadline,
+		Districts:           districts,
+		Active:              v.Active,
+		ApplicantCount:      v.ApplicantCount,
+		Organizer:           organizer,
+		Location:            loc,
+	}
+}
+
+func toVolunteerResponses(volunteers []ProviderVolunteer, organizer string) []VolunteerResponse {
+	res := make([]VolunteerResponse, len(volunteers))
+	for i, v := range volunteers {
+		res[i] = toVolunteerResponse(&v, organizer)
+	}
+	return res
+}
+
+func toVolunteerApplicationResponse(a *VolunteerApplication) VolunteerApplicationResponse {
+	var availableDays []string
+	json.Unmarshal(a.AvailableDays, &availableDays)
+
+	return VolunteerApplicationResponse{
+		ID:                  a.ID,
+		CreatedAt:           a.CreatedAt.Format(time.RFC3339),
+		VolunteerID:         a.VolunteerID,
+		FullName:            a.FullName,
+		Gender:              a.Gender,
+		Phone:               a.Phone,
+		Email:               a.Email,
+		Designation:         a.Designation,
+		OtherDesignation:    a.OtherDesignation,
+		Province:            a.Province,
+		District:            a.District,
+		Municipality:        a.Municipality,
+		Ward:                a.Ward,
+		Tole:                a.Tole,
+		ParticipateDistrict: a.ParticipateDistrict,
+		AvailableDays:       availableDays,
+		VolunteeredBefore:   a.VolunteeredBefore,
+		VolunteerDetails:    a.VolunteerDetails,
+		CVPath:              a.CVPath,
+		Status:              a.Status,
+	}
+}
+
+func toVolunteerApplicationResponses(apps []VolunteerApplication) []VolunteerApplicationResponse {
+	res := make([]VolunteerApplicationResponse, len(apps))
+	for i, a := range apps {
+		res[i] = toVolunteerApplicationResponse(&a)
+	}
+	return res
 }

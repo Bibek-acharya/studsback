@@ -1,6 +1,10 @@
 package university
 
 import (
+	"fmt"
+	"strconv"
+	"strings"
+
 	"gorm.io/gorm"
 )
 
@@ -12,7 +16,7 @@ func NewRepository(db *gorm.DB) *Repository {
 	return &Repository{db: db}
 }
 
-func (r *Repository) FindAll(search, uniType string, popular bool) ([]University, error) {
+func (r *Repository) FindAll(search, uniType, status string, popular bool, isNepali string) ([]University, error) {
 	var universities []University
 	query := r.db.Model(&University{})
 
@@ -24,8 +28,18 @@ func (r *Repository) FindAll(search, uniType string, popular bool) ([]University
 		query = query.Where("type = ?", uniType)
 	}
 
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
+
 	if popular {
 		query = query.Where("popular = ?", true)
+	}
+
+	if isNepali == "true" {
+		query = query.Where("is_nepali = ?", true)
+	} else if isNepali == "false" {
+		query = query.Where("is_nepali = ?", false)
 	}
 
 	err := query.Order("rank ASC").Find(&universities).Error
@@ -34,7 +48,7 @@ func (r *Repository) FindAll(search, uniType string, popular bool) ([]University
 
 func (r *Repository) FindByID(id uint) (*University, error) {
 	var uni University
-	err := r.db.Select("id, name, logo, location, type, rank, rating, review_count, verified, popular, description, established, students, chancellor, vice_chancellor, founder, website, cover").First(&uni, id).Error
+	err := r.db.Select("id, name, logo, location, type, is_nepali, rank, rating, review_count, verified, popular, description, established, students, chancellor, vice_chancellor, founder, website, cover, about, contact, quick, overview, leadership, courses, programs, scholarships, events, news, downloads, gallery, faculties, admissions, official_notices, latest_news, reviews").First(&uni, id).Error
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +80,7 @@ func (r *Repository) FindCollegesByUniversityID(universityID uint) ([]College, e
 	if len(mappingCollegeIDs) > 0 {
 		query = query.Where("id IN ?", mappingCollegeIDs)
 	} else {
-		query = query.Where("university_id = ?", universityID)
+		query = query.Where("university_affiliations @> ?::jsonb", fmt.Sprintf("[%d]", universityID))
 	}
 
 	err = query.Find(&colleges).Error
@@ -81,8 +95,184 @@ func (r *Repository) Update(uni *University) error {
 	return r.db.Save(uni).Error
 }
 
+func (r *Repository) FindDeletedByName(name string) (*University, error) {
+	var uni University
+	err := r.db.Unscoped().Where("name = ? AND deleted_at IS NOT NULL", name).First(&uni).Error
+	if err != nil {
+		return nil, err
+	}
+	return &uni, nil
+}
+
+func (r *Repository) FindAffiliatedColleges(universityID uint) ([]AffiliatedCollege, error) {
+	var results []AffiliatedCollege
+	jsonbValue := fmt.Sprintf("[%d]", universityID)
+
+	// First get institutions that have claimed a college
+	err := r.db.Raw(`
+		SELECT
+			c.id,
+			'college' AS source,
+			c.name,
+			c.id AS college_id,
+			COALESCE(c.image_url, '') AS image_url,
+			COALESCE(c.card_image_url, '') AS card_image_url,
+			COALESCE(c.banner_url, '') AS banner_url,
+			COALESCE(c.location, '') AS location,
+			COALESCE(c.college_type, '') AS type,
+			COALESCE(c.rating, 0) AS rating,
+			COALESCE(c.reviews, 0) AS reviews,
+			COALESCE(c.programs, 0) AS programs,
+			COALESCE(c.verified, false) AS verified,
+			COALESCE(c.claimed, false) AS claimed,
+			COALESCE(c.featured, false) AS featured,
+			COALESCE(c.affiliation, '') AS affiliation,
+			COALESCE(c.website, '') AS website
+		FROM colleges c
+		WHERE c.university_affiliations @> ?::jsonb
+		  AND c.deleted_at IS NULL
+		ORDER BY c.featured DESC, c.rating DESC, c.name ASC
+	`, jsonbValue).Scan(&results).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Also get institutions with university affiliation
+	var instResults []AffiliatedCollege
+	err = r.db.Raw(`
+		SELECT
+			iu.id,
+			'institution' AS source,
+			iu.institution_name AS name,
+			COALESCE(iu.college_id, 0) AS college_id,
+			COALESCE(iu.logo_url, '') AS image_url,
+			COALESCE(iu.card_image_url, '') AS card_image_url,
+			COALESCE(iu.banner_url, '') AS banner_url,
+			COALESCE(iu.district, '') AS location,
+			'Institution' AS type,
+			0 AS rating,
+			0 AS reviews,
+			0 AS programs,
+			COALESCE(iu.verified, false) AS verified,
+			COALESCE(iu.claimed, false) AS claimed,
+			COALESCE(iu.featured, false) AS featured,
+			COALESCE(iu.affiliation, '') AS affiliation,
+			COALESCE(iu.website_url, '') AS website
+		FROM institution_users iu
+		WHERE iu.university_affiliations @> ?::jsonb
+		  AND iu.status = 'approved'
+		  AND iu.deleted_at IS NULL
+		ORDER BY iu.featured DESC, iu.institution_name ASC
+	`, jsonbValue).Scan(&instResults).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	results = append(results, instResults...)
+	return results, nil
+}
+
+func (r *Repository) Restore(id uint) error {
+	return r.db.Unscoped().Model(&University{}).Where("id = ?", id).Update("deleted_at", nil).Error
+}
+
 func (r *Repository) Delete(id uint) error {
 	return r.db.Unscoped().Delete(&University{}, id).Error
+}
+
+func (r *Repository) GetFilterCounts(isNepali string) (*UniversityFilterCountsResponse, error) {
+	resp := &UniversityFilterCountsResponse{
+		TypeCounts:     make(map[string]int64),
+		TypeCountsByID: make(map[string]int64),
+		RatingCounts:   make(map[string]int64),
+		AcademicCounts: make(map[string]int64),
+	}
+
+	typeToID := map[string]string{
+		"private":     "ut_private",
+		"public":      "ut_public",
+		"community":   "ut_community",
+		"constituent": "ut_constituent",
+	}
+
+	base := r.db.Model(&University{})
+
+	if isNepali == "true" {
+		base = base.Where("is_nepali = ?", true)
+	} else if isNepali == "false" {
+		base = base.Where("is_nepali = ?", false)
+	}
+
+	if err := base.Count(&resp.Total).Error; err != nil {
+		return nil, err
+	}
+
+	type typeCountRow struct {
+		Type  string
+		Count int64
+	}
+
+	var typeRows []typeCountRow
+	if err := base.Select("type, COUNT(*) as count").Group("type").Scan(&typeRows).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range typeRows {
+		key := row.Type
+		resp.TypeCounts[key] = row.Count
+		if mappedID, ok := typeToID[toLower(key)]; ok {
+			resp.TypeCountsByID[mappedID] = row.Count
+		}
+	}
+
+	ratingThresholds := []float64{4.5, 4.0, 3.5, 3.0}
+	for _, t := range ratingThresholds {
+		var count int64
+		thresholdStr := strconv.FormatFloat(t, 'f', 1, 64)
+		rater := r.db.Model(&University{})
+		if isNepali == "true" {
+			rater = rater.Where("is_nepali = ?", true)
+		} else if isNepali == "false" {
+			rater = rater.Where("is_nepali = ?", false)
+		}
+		if err := rater.Where("rating >= ?", t).Count(&count).Error; err != nil {
+			return nil, err
+		}
+		resp.RatingCounts[thresholdStr] = count
+	}
+
+	academicKeywords := map[string][]string{
+		"bachelors": {"bachelor", "bsc", "bba", "bbs", "bim", "mbbs", "bds", "bca", "bit", "b.ed", "bhm", "bachelor's", "undergraduate"},
+		"masters":   {"master", "msc", "mba", "mbs", "mca", "mit", "m.ed", "mhm", "master's", "postgraduate", "graduate"},
+	}
+
+	searchField := "COALESCE(description, '') || ' ' || CAST(COALESCE(programs, '[]'::jsonb) AS TEXT) || ' ' || CAST(COALESCE(courses, '[]'::jsonb) AS TEXT)"
+	for levelID, keywords := range academicKeywords {
+		var count int64
+		likeClauses := make([]string, 0, len(keywords))
+		args := make([]interface{}, 0, len(keywords))
+		for _, kw := range keywords {
+			likeClauses = append(likeClauses, searchField+" ILIKE ?")
+			args = append(args, "%"+kw+"%")
+		}
+		query := r.db.Model(&University{}).Where(strings.Join(likeClauses, " OR "), args...)
+		if isNepali == "true" {
+			query = query.Where("is_nepali = ?", true)
+		} else if isNepali == "false" {
+			query = query.Where("is_nepali = ?", false)
+		}
+		if err := query.Count(&count).Error; err != nil {
+			return nil, err
+		}
+		resp.AcademicCounts[levelID] = count
+	}
+
+	return resp, nil
+}
+
+func toLower(s string) string {
+	return strings.ToLower(strings.TrimSpace(s))
 }
 
 func (r *Repository) GetTabData(id uint, tab string) ([]byte, error) {

@@ -1,6 +1,8 @@
 package forum
 
 import (
+	"time"
+
 	"gorm.io/gorm"
 )
 
@@ -54,6 +56,10 @@ func (r *Repository) CreateMembership(member *ForumCommunityMember) error {
 
 func (r *Repository) DeleteMembership(member *ForumCommunityMember) error {
 	return r.db.Delete(member).Error
+}
+
+func (r *Repository) CreateCommunity(community *ForumCommunity) error {
+	return r.db.Create(community).Error
 }
 
 func (r *Repository) GetAllPosts(category, communityID string, currentUserID uint) ([]ForumPost, error) {
@@ -214,4 +220,57 @@ func (r *Repository) GetCommentByID(id uint) (*ForumComment, error) {
 
 func (r *Repository) IncrementCommentCount(postID uint) error {
 	return r.db.Model(&ForumPost{}).Where("id = ?", postID).Update("comment_count", gorm.Expr("comment_count + 1")).Error
+}
+
+func (r *Repository) UpdateCommunity(community *ForumCommunity) error {
+	return r.db.Save(community).Error
+}
+
+func (r *Repository) DeleteCommunity(community *ForumCommunity) error {
+	return r.db.Delete(community).Error
+}
+
+func (r *Repository) FindCommunityByName(name string) (*ForumCommunity, error) {
+	var community ForumCommunity
+	err := r.db.Where("name = ?", name).First(&community).Error
+	return &community, err
+}
+
+func (r *Repository) GetPostsByCommunityID(communityID uint) ([]ForumPost, error) {
+	var posts []ForumPost
+	err := r.db.Where("community_id = ?", communityID).Find(&posts).Error
+	return posts, err
+}
+
+func (r *Repository) DeleteCommentsByPostID(postID uint) error {
+	return r.db.Where("post_id = ?", postID).Delete(&ForumComment{}).Error
+}
+
+func (r *Repository) DeleteVotesByPostID(postID uint) error {
+	return r.db.Where("post_id = ?", postID).Delete(&ForumVote{}).Error
+}
+
+func (r *Repository) DeleteSavesByPostID(postID uint) error {
+	return r.db.Where("post_id = ?", postID).Delete(&ForumSave{}).Error
+}
+
+func (r *Repository) DeletePollVotesByPostID(postID uint) error {
+	return r.db.Where("post_id = ?", postID).Delete(&ForumPollVote{}).Error
+}
+
+func (r *Repository) DeleteMembersByCommunityID(communityID uint) error {
+	return r.db.Where("community_id = ?", communityID).Delete(&ForumCommunityMember{}).Error
+}
+
+func (r *Repository) HardDeletePost(postID uint) error {
+	return r.db.Unscoped().Where("id = ?", postID).Delete(&ForumPost{}).Error
+}
+
+func (r *Repository) GetTrendingPosts(limit int) ([]ForumPost, error) {
+	var posts []ForumPost
+	err := r.db.Where("created_at >= ?", time.Now().Add(-24*time.Hour)).
+		Order("(upvotes + comment_count) DESC").
+		Limit(limit).
+		Find(&posts).Error
+	return posts, err
 }

@@ -2,21 +2,28 @@ package institution
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
+	"studsphere/backend/internal/education"
 	"studsphere/backend/internal/shared/response"
+	"studsphere/backend/internal/shared/sanitize"
+	"studsphere/backend/internal/shared/utils"
+	"studsphere/backend/internal/system"
 
 	"github.com/gin-gonic/gin"
 )
 
 type Handler struct {
-	service *Service
+	service   *Service
+	systemSvc *system.Service
 }
 
-func NewHandler(service *Service) *Handler {
-	return &Handler{service: service}
+func NewHandler(service *Service, systemSvc *system.Service) *Handler {
+	return &Handler{service: service, systemSvc: systemSvc}
 }
 
 func getInstID(c *gin.Context) uint {
@@ -67,6 +74,16 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	if req.About != "" {
+		req.About = sanitize.HTML(req.About)
+	}
+	if req.Vision != "" {
+		req.Vision = sanitize.HTML(req.Vision)
+	}
+	if req.Mission != "" {
+		req.Mission = sanitize.HTML(req.Mission)
 	}
 
 	data, err := h.service.UpdateProfile(instID, req)
@@ -121,7 +138,12 @@ func (h *Handler) GetPrograms(c *gin.Context) {
 
 	var resp []ProgramResponse
 	for _, p := range programs {
-		resp = append(resp, toProgramResponse(p))
+		course, _ := h.service.GetGlobalCourseByID(p.GlobalCourseID)
+		affName := ""
+		if course != nil {
+			affName = h.service.ResolveAffiliationName(course.AffiliationID)
+		}
+		resp = append(resp, toProgramResponse(p, course, affName))
 	}
 
 	response.Success(c, http.StatusOK, "Programs retrieved successfully", gin.H{
@@ -148,7 +170,12 @@ func (h *Handler) GetProgramByID(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, http.StatusOK, "Program retrieved successfully", toProgramResponse(*program))
+	course, _ := h.service.GetGlobalCourseByID(program.GlobalCourseID)
+	affName := ""
+	if course != nil {
+		affName = h.service.ResolveAffiliationName(course.AffiliationID)
+	}
+	response.Success(c, http.StatusOK, "Program retrieved successfully", toProgramResponse(*program, course, affName))
 }
 
 func (h *Handler) CreateProgram(c *gin.Context) {
@@ -166,7 +193,12 @@ func (h *Handler) CreateProgram(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, http.StatusCreated, "Program created successfully", toProgramResponse(*program))
+	course, _ := h.service.GetGlobalCourseByID(program.GlobalCourseID)
+	affName := ""
+	if course != nil {
+		affName = h.service.ResolveAffiliationName(course.AffiliationID)
+	}
+	response.Success(c, http.StatusCreated, "Program created successfully", toProgramResponse(*program, course, affName))
 }
 
 func (h *Handler) UpdateProgram(c *gin.Context) {
@@ -189,7 +221,12 @@ func (h *Handler) UpdateProgram(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, http.StatusOK, "Program updated successfully", toProgramResponse(*program))
+	course, _ := h.service.GetGlobalCourseByID(program.GlobalCourseID)
+	affName := ""
+	if course != nil {
+		affName = h.service.ResolveAffiliationName(course.AffiliationID)
+	}
+	response.Success(c, http.StatusOK, "Program updated successfully", toProgramResponse(*program, course, affName))
 }
 
 func (h *Handler) DeleteProgram(c *gin.Context) {
@@ -270,7 +307,16 @@ func (h *Handler) DeleteMedia(c *gin.Context) {
 func (h *Handler) GetCounsellingSessions(c *gin.Context) {
 	instID := getInstID(c)
 
-	sessions, err := h.service.GetCounsellingSessions(instID)
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 50
+	}
+
+	sessions, total, err := h.service.GetCounsellingSessionsPaginated(instID, page, limit)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "Failed to fetch sessions")
 		return
@@ -281,13 +327,86 @@ func (h *Handler) GetCounsellingSessions(c *gin.Context) {
 		resp = append(resp, toCounsellingSessionResponse(s))
 	}
 
-	response.Success(c, http.StatusOK, "Counselling sessions retrieved successfully", resp)
+	response.Success(c, http.StatusOK, "Counselling sessions retrieved successfully", gin.H{
+		"sessions": resp,
+		"meta": gin.H{
+			"total": total,
+			"page":  page,
+			"limit": limit,
+		},
+	})
+}
+
+func (h *Handler) CreateCounsellingSession(c *gin.Context) {
+	instID := getInstID(c)
+
+	var req CreateCounsellingSessionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	session, err := h.service.CreateCounsellingSession(instID, req)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to create session")
+		return
+	}
+
+	response.Success(c, http.StatusCreated, "Session created successfully", toCounsellingSessionResponse(*session))
+}
+
+func (h *Handler) DeleteCounsellingSession(c *gin.Context) {
+	instID := getInstID(c)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid session ID")
+		return
+	}
+
+	if err := h.service.DeleteCounsellingSession(instID, uint(id)); err != nil {
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Session deleted successfully", nil)
+}
+
+func (h *Handler) UpdateCounsellingSession(c *gin.Context) {
+	instID := getInstID(c)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid session ID")
+		return
+	}
+
+	var req UpdateCounsellingSessionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	session, err := h.service.UpdateCounsellingSession(instID, uint(id), req)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Session updated successfully", toCounsellingSessionResponse(*session))
 }
 
 func (h *Handler) GetCounsellingBookings(c *gin.Context) {
 	instID := getInstID(c)
 
-	bookings, err := h.service.GetCounsellingBookings(instID)
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 20
+	}
+
+	bookings, total, err := h.service.GetCounsellingBookingsPaginated(instID, page, limit)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "Failed to fetch bookings")
 		return
@@ -298,7 +417,14 @@ func (h *Handler) GetCounsellingBookings(c *gin.Context) {
 		resp = append(resp, toCounsellingBookingResponse(b))
 	}
 
-	response.Success(c, http.StatusOK, "Counselling bookings retrieved successfully", resp)
+	response.Success(c, http.StatusOK, "Counselling bookings retrieved successfully", gin.H{
+		"bookings": resp,
+		"meta": gin.H{
+			"total": total,
+			"page":  page,
+			"limit": limit,
+		},
+	})
 }
 
 func (h *Handler) UpdateBookingStatus(c *gin.Context) {
@@ -315,7 +441,7 @@ func (h *Handler) UpdateBookingStatus(c *gin.Context) {
 		return
 	}
 
-	booking, err := h.service.UpdateBookingStatus(instID, uint(id), req.Status)
+	booking, err := h.service.UpdateBookingStatus(instID, uint(id), req.Status, req.MeetingLink, req.MeetingPlatform)
 	if err != nil {
 		if err.Error() == "booking not found" {
 			response.Error(c, http.StatusNotFound, err.Error())
@@ -340,7 +466,8 @@ func (h *Handler) GetEntrances(c *gin.Context) {
 		limit = 10
 	}
 
-	entrances, total, err := h.service.GetEntrances(instID, page, limit)
+	statusFilter := c.Query("status")
+	entrances, total, err := h.service.GetEntrances(instID, statusFilter, page, limit)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "Failed to fetch entrances")
 		return
@@ -348,7 +475,7 @@ func (h *Handler) GetEntrances(c *gin.Context) {
 
 	var resp []EntranceResponse
 	for _, e := range entrances {
-		resp = append(resp, toEntranceResponse(e))
+		resp = append(resp, ToEntranceResponse(e))
 	}
 
 	response.Success(c, http.StatusOK, "Entrances retrieved successfully", gin.H{
@@ -375,7 +502,7 @@ func (h *Handler) GetEntranceByID(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, http.StatusOK, "Entrance retrieved successfully", toEntranceResponse(*entrance))
+	response.Success(c, http.StatusOK, "Entrance retrieved successfully", ToEntranceResponse(*entrance))
 }
 
 func (h *Handler) CreateEntrance(c *gin.Context) {
@@ -393,7 +520,7 @@ func (h *Handler) CreateEntrance(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, http.StatusCreated, "Entrance created successfully", toEntranceResponse(*entrance))
+	response.Success(c, http.StatusCreated, "Entrance created successfully", ToEntranceResponse(*entrance))
 }
 
 func (h *Handler) UpdateEntrance(c *gin.Context) {
@@ -416,7 +543,7 @@ func (h *Handler) UpdateEntrance(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, http.StatusOK, "Entrance updated successfully", toEntranceResponse(*entrance))
+	response.Success(c, http.StatusOK, "Entrance updated successfully", ToEntranceResponse(*entrance))
 }
 
 func (h *Handler) DeleteEntrance(c *gin.Context) {
@@ -520,6 +647,9 @@ func (h *Handler) CreateEvent(c *gin.Context) {
 		return
 	}
 
+	req.ShortDesc = sanitize.HTML(req.ShortDesc)
+	req.Description = sanitize.HTML(req.Description)
+
 	event, err := h.service.CreateEvent(instID, req)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
@@ -541,6 +671,13 @@ func (h *Handler) UpdateEvent(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	if req.ShortDesc != "" {
+		req.ShortDesc = sanitize.HTML(req.ShortDesc)
+	}
+	if req.Description != "" {
+		req.Description = sanitize.HTML(req.Description)
 	}
 
 	event, err := h.service.UpdateEvent(instID, uint(id), req)
@@ -622,6 +759,152 @@ func (h *Handler) GetNewsByID(c *gin.Context) {
 	response.Success(c, http.StatusOK, "News retrieved successfully", toNewsResponse(*news))
 }
 
+func (h *Handler) ListPublicNews(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50 {
+		limit = 10
+	}
+
+	news, total, err := h.service.ListPublicNews(page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch news")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "News retrieved successfully", gin.H{
+		"news": news,
+		"meta": gin.H{"total": total, "page": page, "limit": limit},
+	})
+}
+
+func (h *Handler) ListPublicEvents(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50 {
+		limit = 10
+	}
+
+	events, total, err := h.service.ListPublicEvents(page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch events")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Events retrieved successfully", gin.H{
+		"events": events,
+		"meta":   gin.H{"total": total, "page": page, "limit": limit},
+	})
+}
+
+func (h *Handler) GetPublicEventByID(c *gin.Context) {
+	idParam := c.Param("id")
+	id, err := strconv.ParseUint(idParam, 10, 64)
+	if err != nil {
+		event, slugErr := h.service.GetPublicEventBySlug(idParam)
+		if slugErr != nil {
+			response.Error(c, http.StatusNotFound, "Event not found")
+			return
+		}
+		response.Success(c, http.StatusOK, "Event retrieved successfully", toEventResponse(*event))
+		return
+	}
+
+	event, err := h.service.GetPublicEventByID(uint(id))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Event not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Event retrieved successfully", toEventResponse(*event))
+}
+
+func (h *Handler) GetPublicEventBySlug(c *gin.Context) {
+	slug := c.Param("slug")
+	event, err := h.service.GetPublicEventBySlug(slug)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Event not found")
+		return
+	}
+	response.Success(c, http.StatusOK, "Event retrieved successfully", toEventResponse(*event))
+}
+
+func (h *Handler) ListPublicScholarships(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50 {
+		limit = 10
+	}
+
+	scholarships, total, err := h.service.ListPublicScholarships(page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch scholarships")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Scholarships retrieved successfully", gin.H{
+		"scholarships": scholarships,
+		"meta":         gin.H{"total": total, "page": page, "limit": limit},
+	})
+}
+
+func (h *Handler) GetPublicScholarshipByID(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid scholarship ID")
+		return
+	}
+
+	scholarship, err := h.service.GetPublicScholarshipByID(uint(id))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Scholarship not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Scholarship retrieved successfully", toScholarshipResponse(*scholarship))
+}
+
+func (h *Handler) GetPublicNewsByID(c *gin.Context) {
+	idParam := c.Param("id")
+	id, err := strconv.ParseUint(idParam, 10, 64)
+	if err != nil {
+		news, slugErr := h.service.GetPublicNewsBySlug(idParam)
+		if slugErr != nil {
+			response.Error(c, http.StatusNotFound, "News not found")
+			return
+		}
+		response.Success(c, http.StatusOK, "News retrieved successfully", toNewsResponse(*news))
+		return
+	}
+
+	news, err := h.service.GetPublicNewsByID(uint(id))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "News not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "News retrieved successfully", toNewsResponse(*news))
+}
+
+func (h *Handler) GetPublicNewsBySlug(c *gin.Context) {
+	slug := c.Param("slug")
+	news, err := h.service.GetPublicNewsBySlug(slug)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "News not found")
+		return
+	}
+	response.Success(c, http.StatusOK, "News retrieved successfully", toNewsResponse(*news))
+}
+
 func (h *Handler) CreateNews(c *gin.Context) {
 	instID := getInstID(c)
 
@@ -630,6 +913,9 @@ func (h *Handler) CreateNews(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
+
+	req.ShortDesc = sanitize.HTML(req.ShortDesc)
+	req.Content = sanitize.HTML(req.Content)
 
 	news, err := h.service.CreateNews(instID, req)
 	if err != nil {
@@ -652,6 +938,13 @@ func (h *Handler) UpdateNews(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	if req.ShortDesc != "" {
+		req.ShortDesc = sanitize.HTML(req.ShortDesc)
+	}
+	if req.Content != "" {
+		req.Content = sanitize.HTML(req.Content)
 	}
 
 	news, err := h.service.UpdateNews(instID, uint(id), req)
@@ -681,6 +974,168 @@ func (h *Handler) DeleteNews(c *gin.Context) {
 	}
 
 	response.Success(c, http.StatusOK, "News deleted successfully", nil)
+}
+
+func (h *Handler) GetBlogs(c *gin.Context) {
+	instID := getInstID(c)
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50 {
+		limit = 10
+	}
+
+	blogs, total, err := h.service.GetBlogs(instID, page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch blogs")
+		return
+	}
+
+	var resp []BlogResponse
+	for _, b := range blogs {
+		resp = append(resp, toBlogResponse(b))
+	}
+
+	response.Success(c, http.StatusOK, "Blogs retrieved successfully", gin.H{
+		"blogs": resp,
+		"meta": gin.H{
+			"total": total,
+			"page":  page,
+			"limit": limit,
+		},
+	})
+}
+
+func (h *Handler) GetBlogByID(c *gin.Context) {
+	instID := getInstID(c)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid blog ID")
+		return
+	}
+
+	blog, err := h.service.GetBlogByID(instID, uint(id))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Blog not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Blog retrieved successfully", toBlogResponse(*blog))
+}
+
+func (h *Handler) CreateBlog(c *gin.Context) {
+	instID := getInstID(c)
+
+	var req CreateBlogRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	req.Content = sanitize.HTML(req.Content)
+	req.Excerpt = sanitize.HTML(req.Excerpt)
+
+	blog, err := h.service.CreateBlog(instID, req)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to create blog")
+		return
+	}
+
+	response.Success(c, http.StatusCreated, "Blog created successfully", toBlogResponse(*blog))
+}
+
+func (h *Handler) UpdateBlog(c *gin.Context) {
+	instID := getInstID(c)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid blog ID")
+		return
+	}
+
+	var req UpdateBlogRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if req.Content != "" {
+		req.Content = sanitize.HTML(req.Content)
+	}
+	if req.Excerpt != "" {
+		req.Excerpt = sanitize.HTML(req.Excerpt)
+	}
+
+	blog, err := h.service.UpdateBlog(instID, uint(id), req)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Blog updated successfully", toBlogResponse(*blog))
+}
+
+func (h *Handler) DeleteBlog(c *gin.Context) {
+	instID := getInstID(c)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid blog ID")
+		return
+	}
+
+	if err := h.service.DeleteBlog(instID, uint(id)); err != nil {
+		if err.Error() == "record not found" {
+			response.Error(c, http.StatusNotFound, "Blog not found")
+		} else {
+			response.Error(c, http.StatusInternalServerError, "Failed to delete blog")
+		}
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Blog deleted successfully", nil)
+}
+
+func (h *Handler) ListPublicBlogs(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
+
+	blogs, total, err := h.service.ListPublicBlogs(page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch blogs")
+		return
+	}
+
+	totalPages := (int(total) + limit - 1) / limit
+	if totalPages < 1 {
+		totalPages = 1
+	}
+
+	var blogResponses []BlogResponse
+	for _, b := range blogs {
+		blogResponses = append(blogResponses, toBlogResponse(b))
+	}
+
+	response.Success(c, http.StatusOK, "Blogs retrieved successfully", gin.H{
+		"blogs": blogResponses,
+		"meta": gin.H{
+			"total":      total,
+			"page":       page,
+			"limit":      limit,
+			"totalPages": totalPages,
+		},
+	})
+}
+
+func (h *Handler) GetPublicBlogBySlug(c *gin.Context) {
+	slug := c.Param("slug")
+	blog, err := h.service.GetPublicBlogBySlug(slug)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Blog not found")
+		return
+	}
+	response.Success(c, http.StatusOK, "Blog retrieved successfully", toBlogResponse(*blog))
 }
 
 func (h *Handler) GetQMS(c *gin.Context) {
@@ -794,84 +1249,27 @@ func (h *Handler) DeleteQMS(c *gin.Context) {
 	response.Success(c, http.StatusOK, "QMS record deleted successfully", nil)
 }
 
-func (h *Handler) GetMessages(c *gin.Context) {
-	instID := getInstID(c)
-
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
-	if page < 1 {
-		page = 1
-	}
-	if limit < 1 || limit > 50 {
-		limit = 20
-	}
-
-	messages, total, err := h.service.GetMessages(instID, page, limit)
+func (h *Handler) UploadFile(c *gin.Context) {
+	file, err := c.FormFile("file")
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "Failed to fetch messages")
+		response.Error(c, http.StatusBadRequest, "File is required")
 		return
 	}
 
-	var resp []MessageResponse
-	for _, m := range messages {
-		resp = append(resp, toMessageResponse(m))
+	folder := c.DefaultQuery("folder", "institution")
+
+	url, err := utils.SaveUploadedImage(file, folder)
+	if err != nil {
+		url, err = utils.SaveUploadedDocument(file, folder)
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, "Failed to upload file: "+err.Error())
+			return
+		}
 	}
 
-	response.Success(c, http.StatusOK, "Messages retrieved successfully", gin.H{
-		"messages": resp,
-		"meta": gin.H{
-			"total": total,
-			"page":  page,
-			"limit": limit,
-		},
+	response.Success(c, http.StatusOK, "File uploaded successfully", gin.H{
+		"url": url,
 	})
-}
-
-func (h *Handler) GetMessageByID(c *gin.Context) {
-	instID := getInstID(c)
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		response.Error(c, http.StatusBadRequest, "Invalid message ID")
-		return
-	}
-
-	message, err := h.service.GetMessageByID(instID, uint(id))
-	if err != nil {
-		response.Error(c, http.StatusNotFound, "Message not found")
-		return
-	}
-
-	response.Success(c, http.StatusOK, "Message retrieved successfully", toMessageResponse(*message))
-}
-
-func (h *Handler) CreateMessage(c *gin.Context) {
-	instID := getInstID(c)
-
-	var req CreateMessageRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	message, err := h.service.CreateMessage(instID, req)
-	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "Failed to send message")
-		return
-	}
-
-	response.Success(c, http.StatusCreated, "Message sent successfully", toMessageResponse(*message))
-}
-
-func (h *Handler) GetMessageStudents(c *gin.Context) {
-	instID := getInstID(c)
-
-	contacts, err := h.service.GetMessageStudents(instID)
-	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "Failed to fetch student contacts")
-		return
-	}
-
-	response.Success(c, http.StatusOK, "Student contacts retrieved successfully", contacts)
 }
 
 func (h *Handler) GetSettings(c *gin.Context) {
@@ -902,6 +1300,195 @@ func (h *Handler) UpdateSettings(c *gin.Context) {
 	}
 
 	response.Success(c, http.StatusOK, "Settings updated successfully", settings)
+}
+
+func (h *Handler) ListPublicInstitutions(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "18"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50 {
+		limit = 18
+	}
+
+	search := c.Query("search")
+	location := c.Query("location")
+	instType := c.Query("type")
+	academic := c.QueryArray("academic")
+	courseDuration := c.QueryArray("courseDuration")
+	facilities := c.QueryArray("facilities")
+	program := c.QueryArray("program")
+	course := c.QueryArray("course")
+
+	results, total, err := h.service.ListPublicInstitutions(page, limit, search, location, instType, academic, courseDuration, facilities, program, course)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch institutions")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Institutions retrieved successfully", gin.H{
+		"institutions": results,
+		"meta": gin.H{
+			"total": total,
+			"page":  page,
+			"limit": limit,
+		},
+	})
+}
+
+func (h *Handler) GetSponsoredInstitutions(c *gin.Context) {
+	universityID, err := strconv.ParseUint(c.Param("universityId"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid university ID")
+		return
+	}
+
+	results, err := h.service.GetSponsoredInstitutions(uint(universityID))
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch sponsored institutions")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Sponsored institutions retrieved successfully", gin.H{
+		"institutions": results,
+	})
+}
+
+func (h *Handler) GetInstitutionsByUniversity(c *gin.Context) {
+	universityID, err := strconv.ParseUint(c.Param("universityId"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid university ID")
+		return
+	}
+
+	results, err := h.service.GetInstitutionsByUniversity(uint(universityID))
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch institutions")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Institutions retrieved successfully", gin.H{
+		"institutions": results,
+	})
+}
+
+func (h *Handler) GetInstitutionsByUniversities(c *gin.Context) {
+	idsParam := c.Query("ids")
+	if idsParam == "" {
+		response.Error(c, http.StatusBadRequest, "Missing ids parameter")
+		return
+	}
+
+	var universityIDs []uint
+	for _, idStr := range strings.Split(idsParam, ",") {
+		id, err := strconv.ParseUint(strings.TrimSpace(idStr), 10, 64)
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, "Invalid university ID in list")
+			return
+		}
+		universityIDs = append(universityIDs, uint(id))
+	}
+
+	results, err := h.service.GetInstitutionsByUniversities(universityIDs)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch institutions")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Institutions retrieved successfully", gin.H{
+		"institutions": results,
+	})
+}
+
+func (h *Handler) ToggleInstitutionSponsored(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid institution ID")
+		return
+	}
+
+	var req struct {
+		IsSponsored bool `json:"is_sponsored"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err := h.service.ToggleSponsored(uint(id), req.IsSponsored); err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to update sponsored status")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Sponsored status updated", nil)
+}
+
+func (h *Handler) GetPublicInstitution(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid institution ID")
+		return
+	}
+
+	result, err := h.service.GetPublicInstitution(uint(id))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Institution not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Institution retrieved successfully", result)
+}
+
+func (h *Handler) GetPublicCounsellingSessions(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid institution ID")
+		return
+	}
+
+	sessions, err := h.service.GetPublicCounsellingSessions(uint(id))
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch counselling sessions")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Counselling sessions retrieved successfully", sessions)
+}
+
+func (h *Handler) CreatePublicCounsellingBooking(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		response.Error(c, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	var req PublicCounsellingBookingRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	booking, err := h.service.CreatePublicBooking(userID.(uint), req)
+	if err != nil {
+		status := http.StatusInternalServerError
+		switch err.Error() {
+		case "session_mode must be 'online' or 'in_person'":
+			status = http.StatusBadRequest
+		case "session not found":
+			status = http.StatusNotFound
+		case "session is not available for booking":
+			status = http.StatusConflict
+		case "no available seats in this session":
+			status = http.StatusConflict
+		case "you have already booked this session":
+			status = http.StatusConflict
+		}
+		response.Error(c, status, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusCreated, "Counselling session booked successfully", toCounsellingBookingResponse(*booking))
 }
 
 func (h *Handler) GetScholarships(c *gin.Context) {
@@ -1060,20 +1647,274 @@ func (h *Handler) UpdateScholarshipApplicationStatus(c *gin.Context) {
 	response.Success(c, http.StatusOK, "Application status updated successfully", toScholarshipApplicationResponse(*application))
 }
 
-func toProgramResponse(p InstitutionProgram) ProgramResponse {
-	return ProgramResponse{
-		ID:            p.ID,
-		CreatedAt:     p.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:     p.UpdatedAt.Format(time.RFC3339),
-		InstitutionID: p.InstitutionID,
-		Name:          p.Name,
-		Description:   p.Description,
-		Duration:      p.Duration,
-		Fee:           p.Fee,
-		Eligibility:   p.Eligibility,
-		Capacity:      p.Capacity,
-		Status:        p.Status,
+// --- Admission Page Handlers ---
+
+func (h *Handler) CreateAdmissionPage(c *gin.Context) {
+	instID := getInstID(c)
+
+	var req CreateAdmissionPageRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
 	}
+
+	page, err := h.service.CreateAdmissionPage(instID, req)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to create admission")
+		return
+	}
+
+	response.Success(c, http.StatusCreated, "Admission created successfully", page)
+}
+
+func (h *Handler) GetAdmissionPages(c *gin.Context) {
+	instID := getInstID(c)
+	status := c.Query("status")
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50 {
+		limit = 20
+	}
+
+	pages, total, err := h.service.GetAdmissionPages(instID, status, page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch admissions")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Admissions retrieved successfully", gin.H{
+		"admissions": pages,
+		"meta": gin.H{
+			"total": total,
+			"page":  page,
+			"limit": limit,
+		},
+	})
+}
+
+func (h *Handler) GetAdmissionPage(c *gin.Context) {
+	instID := getInstID(c)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid admission ID")
+		return
+	}
+
+	page, err := h.service.GetAdmissionPage(instID, uint(id))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Admission not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Admission retrieved successfully", page)
+}
+
+func (h *Handler) UpdateAdmissionPage(c *gin.Context) {
+	instID := getInstID(c)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid admission ID")
+		return
+	}
+
+	var req UpdateAdmissionPageRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	page, err := h.service.UpdateAdmissionPage(instID, uint(id), req)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Admission updated successfully", page)
+}
+
+func (h *Handler) GenerateWhatsNew(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid admission page ID")
+		return
+	}
+
+	var req struct {
+		Data map[string]interface{} `json:"data" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	updatedData, err := h.service.GenerateWhatsNew(uint(id), req.Data)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "What's New summary generated successfully", updatedData)
+}
+
+func (h *Handler) DeleteAdmissionPage(c *gin.Context) {
+	instID := getInstID(c)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid admission ID")
+		return
+	}
+
+	if err := h.service.DeleteAdmissionPage(instID, uint(id)); err != nil {
+		if err.Error() == "record not found" {
+			response.Error(c, http.StatusNotFound, "Admission not found")
+		} else {
+			response.Error(c, http.StatusInternalServerError, "Failed to delete admission")
+		}
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Admission deleted successfully", nil)
+}
+
+func (h *Handler) GetPublishedAdmissionPages(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50 {
+		limit = 20
+	}
+
+	pages, total, err := h.service.GetPublishedAdmissionPages(page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch published admissions")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Published admissions retrieved successfully", gin.H{
+		"admissions": pages,
+		"meta": gin.H{
+			"total": total,
+			"page":  page,
+			"limit": limit,
+		},
+	})
+}
+
+func (h *Handler) GetPublishedAdmissionInstitutions(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "18"))
+	level := c.Query("level")
+	search := c.Query("search")
+	sortBy := c.Query("sortBy")
+	provinces := c.QueryArray("province")
+	districts := c.QueryArray("district")
+	locals := c.QueryArray("local")
+	types := c.QueryArray("type")
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 18
+	}
+
+	result, err := h.service.GetPublishedAdmissionInstitutions(page, limit, level, search, provinces, districts, locals, types, sortBy)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch published admission institutions")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Published admission institutions retrieved successfully", result)
+}
+
+func (h *Handler) GetPublishedAdmissionInstitutionByID(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid institution ID")
+		return
+	}
+
+	level := c.Query("level")
+
+	result, err := h.service.GetPublishedAdmissionInstitutionByID(uint(id), level)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Published admission institution not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Published admission institution retrieved successfully", result)
+}
+
+func (h *Handler) GetPublishedAdmissionByPageID(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid admission page ID")
+		return
+	}
+
+	result, err := h.service.GetPublishedAdmissionByPageID(uint(id))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Published admission not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Published admission retrieved successfully", result)
+}
+
+func toProgramResponse(p InstitutionProgram, course *education.Course, affiliationName string) ProgramResponse {
+	var whoShouldChoose []education.PersonaItem
+	var features []education.FeatureItem
+	var fullTimeCourses []education.FullTimeCourse
+	var feeItems []education.FeeItem
+	var overrides education.CourseOverrides
+	json.Unmarshal(p.WhoShouldChoose, &whoShouldChoose)
+	json.Unmarshal(p.Features, &features)
+	json.Unmarshal(p.FullTimeCourses, &fullTimeCourses)
+	json.Unmarshal(p.FeeItems, &feeItems)
+	json.Unmarshal(p.Overrides, &overrides)
+
+	resp := ProgramResponse{
+		ID:                  p.ID,
+		CreatedAt:           p.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:           p.UpdatedAt.Format(time.RFC3339),
+		Name:                p.Name,
+		InstitutionID:       p.InstitutionID,
+		InstitutionName:     p.InstitutionName,
+		InstitutionLocation: p.InstitutionLocation,
+		InstitutionLink:     p.InstitutionLink,
+		GlobalCourseID:      p.GlobalCourseID,
+		Fee:                 p.Fee,
+		Eligibility:         p.Eligibility,
+		Capacity:            p.Capacity,
+		Status:              p.Status,
+		WhoShouldChoose:     whoShouldChoose,
+		Features:            features,
+		FullTimeCourses:     fullTimeCourses,
+		FeeItems:            feeItems,
+		Overrides:           overrides,
+		NullifiedFields:     p.NullifiedFields,
+	}
+
+	if course != nil {
+		resp.GlobalCourseTitle = course.Title
+		resp.Duration = course.Duration
+		resp.Level = course.Level
+		resp.Field = course.Field
+		resp.NonUniversityAffiliation = course.NonUniversityAffiliation
+		resp.AffiliationName = affiliationName
+		if overrides.BannerURL != nil && *overrides.BannerURL != "" {
+			resp.BannerUrl = *overrides.BannerURL
+		} else {
+			resp.BannerUrl = course.BannerURL
+		}
+	}
+
+	return resp
 }
 
 func toMediaResponse(m InstitutionMedia) MediaResponse {
@@ -1085,6 +1926,24 @@ func toMediaResponse(m InstitutionMedia) MediaResponse {
 		Type:          m.Type,
 		Title:         m.Title,
 	}
+}
+
+func computeSessionActualStatus(s InstitutionCounsellingSession) string {
+	if s.Status == "cancelled" {
+		return "cancelled"
+	}
+	if s.Status == "completed" {
+		return "completed"
+	}
+	now := time.Now()
+	end := s.ScheduledAt.Add(time.Duration(s.Duration) * time.Minute)
+	if now.After(end) {
+		return "completed"
+	}
+	if now.After(s.ScheduledAt) {
+		return "ongoing"
+	}
+	return "upcoming"
 }
 
 func toCounsellingSessionResponse(s InstitutionCounsellingSession) CounsellingSessionResponse {
@@ -1100,18 +1959,32 @@ func toCounsellingSessionResponse(s InstitutionCounsellingSession) CounsellingSe
 		MaxSeats:      s.MaxSeats,
 		BookedSeats:   s.BookedSeats,
 		Status:        s.Status,
+		ActualStatus:  computeSessionActualStatus(s),
 	}
 }
 
 func toCounsellingBookingResponse(b InstitutionCounsellingBooking) CounsellingBookingResponse {
+	studentName := b.StudentName
+	if studentName == "" {
+		studentName = fmt.Sprintf("User #%d", b.UserID)
+	}
+
 	resp := CounsellingBookingResponse{
-		ID:        b.ID,
-		CreatedAt: b.CreatedAt.Format(time.RFC3339),
-		UpdatedAt: b.UpdatedAt.Format(time.RFC3339),
-		SessionID: b.SessionID,
-		UserID:    b.UserID,
-		Status:    b.Status,
-		Notes:     b.Notes,
+		ID:               b.ID,
+		CreatedAt:        b.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:        b.UpdatedAt.Format(time.RFC3339),
+		SessionID:        b.SessionID,
+		UserID:           b.UserID,
+		Status:           b.Status,
+		Notes:            b.Notes,
+		StudentName:      studentName,
+		StudentPhone:     b.StudentPhone,
+		StudentEmail:     b.StudentEmail,
+		ProgramLevel:     b.ProgramLevel,
+		InterestedCourse: b.InterestedCourse,
+		SessionMode:      b.SessionMode,
+		MeetingLink:      b.MeetingLink,
+		MeetingPlatform:  b.MeetingPlatform,
 	}
 
 	if b.Session.ID != 0 {
@@ -1122,19 +1995,55 @@ func toCounsellingBookingResponse(b InstitutionCounsellingBooking) CounsellingBo
 	return resp
 }
 
-func toEntranceResponse(e InstitutionEntrance) EntranceResponse {
+func ToEntranceResponse(e InstitutionEntrance) EntranceResponse {
+	var questions interface{}
+	if e.Questions != nil {
+		json.Unmarshal([]byte(*e.Questions), &questions)
+	}
 	return EntranceResponse{
-		ID:            e.ID,
-		CreatedAt:     e.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:     e.UpdatedAt.Format(time.RFC3339),
-		InstitutionID: e.InstitutionID,
-		Title:         e.Title,
-		Description:   e.Description,
-		Date:          e.Date.Format(time.RFC3339),
-		Duration:      e.Duration,
-		TotalSeats:    e.TotalSeats,
-		FilledSeats:   e.FilledSeats,
-		Status:        e.Status,
+		ID:                     e.ID,
+		CreatedAt:              e.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:              e.UpdatedAt.Format(time.RFC3339),
+		InstitutionID:          e.InstitutionID,
+		InstitutionName:        e.InstitutionName,
+		InstitutionLocation:    e.InstitutionLocation,
+		InstitutionLink:        e.InstitutionLink,
+		InstitutionAffiliation: e.InstitutionAffiliation,
+		Title:                  e.Title,
+		Description:            e.Description,
+		Program:                e.Program,
+		Date:                   e.Date.Format("2006-01-02"),
+		StartTime:              e.StartTime,
+		EndTime:                e.EndTime,
+		Duration:               e.Duration,
+		TotalMarks:             e.TotalMarks,
+		PassingMarks:           e.PassingMarks,
+		TotalSeats:             e.TotalSeats,
+		FilledSeats:            e.FilledSeats,
+		Instructions:           e.Instructions,
+		HeroBanner:             e.HeroBanner,
+		Questions:              questions,
+		Status:                 e.Status,
+		ApplicationFee:         e.ApplicationFee,
+		OverviewDetails:        json.RawMessage(e.OverviewDetails),
+		ExamDateSchedules:      json.RawMessage(e.ExamDateSchedules),
+		EligibilityList:        json.RawMessage(e.EligibilityList),
+		ApplicationSteps:       json.RawMessage(e.ApplicationSteps),
+		ExamPattern:            json.RawMessage(e.ExamPattern),
+		SubjectMarks:           json.RawMessage(e.SubjectMarks),
+		ModelSets:              json.RawMessage(e.ModelSets),
+		UpcomingDates:          json.RawMessage(e.UpcomingDates),
+		ContactPersons:         json.RawMessage(e.ContactPersons),
+		Faqs:                   json.RawMessage(e.Faqs),
+		Email:                  e.Email,
+		ContactNumber:          e.ContactNumber,
+		SocialLinks:            json.RawMessage(e.SocialLinks),
+		ApplicationLink:        e.ApplicationLink,
+		NoticeFile:             e.NoticeFile,
+		EmbeddedMap:            e.EmbeddedMap,
+		RequiredDocuments:      json.RawMessage(e.RequiredDocuments),
+		ExaminationSchedule:    json.RawMessage(e.ExaminationSchedule),
+		ProgramsOffered:        json.RawMessage(e.ProgramsOffered),
 	}
 }
 
@@ -1152,32 +2061,103 @@ func toEntranceApplicantResponse(a InstitutionEntranceApplicant) EntranceApplica
 }
 
 func toEventResponse(e InstitutionEvent) EventResponse {
+	var tags []string
+	if e.Tags != nil && *e.Tags != "" {
+		json.Unmarshal([]byte(*e.Tags), &tags)
+	}
+	var startDate *string
+	if e.StartDate != nil {
+		t := e.StartDate.Format(time.RFC3339)
+		startDate = &t
+	}
+	var endDate *string
+	if e.EndDate != nil {
+		t := e.EndDate.Format(time.RFC3339)
+		endDate = &t
+	}
 	return EventResponse{
-		ID:            e.ID,
-		CreatedAt:     e.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:     e.UpdatedAt.Format(time.RFC3339),
-		InstitutionID: e.InstitutionID,
-		Title:         e.Title,
-		Description:   e.Description,
-		Date:          e.Date.Format(time.RFC3339),
-		Location:      e.Location,
-		Image:         e.Image,
-		Status:        e.Status,
+		ID:                 e.ID,
+		Slug:               e.Slug,
+		CreatedAt:          e.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:          e.UpdatedAt.Format(time.RFC3339),
+		InstitutionID:      e.InstitutionID,
+		Name:               e.Name,
+		ShortDesc:          e.ShortDesc,
+		Description:        e.Description,
+		ImageURL:           e.ImageURL,
+		EventType:          e.EventType,
+		Category:           e.Category,
+		MaxParticipants:    e.MaxParticipants,
+		OnlineLink:         e.OnlineLink,
+		OrganizedBy:        e.OrganizedBy,
+		ContactPerson:      e.ContactPerson,
+		ContactEmail:       e.ContactEmail,
+		StartDate:          startDate,
+		EndDate:            endDate,
+		Location:           e.Location,
+		Tags:               tags,
+		EnableRegistration: e.EnableRegistration,
+		Status:             e.Status,
 	}
 }
 
 func toNewsResponse(n InstitutionNews) NewsResponse {
+	var tags []string
+	if n.Tags != nil && *n.Tags != "" {
+		json.Unmarshal([]byte(*n.Tags), &tags)
+	}
+	var publishedAt *string
+	if n.PublishedAt != nil {
+		t := n.PublishedAt.Format(time.RFC3339)
+		publishedAt = &t
+	}
+	var publishDate *string
+	if n.PublishDate != nil {
+		pd := *n.PublishDate
+		publishDate = &pd
+	}
 	return NewsResponse{
 		ID:            n.ID,
+		Slug:          n.Slug,
 		CreatedAt:     n.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:     n.UpdatedAt.Format(time.RFC3339),
 		InstitutionID: n.InstitutionID,
 		Title:         n.Title,
+		ShortDesc:     n.ShortDesc,
 		Content:       n.Content,
-		Excerpt:       n.Excerpt,
-		Image:         n.Image,
-		Category:      n.Category,
-		Published:     n.Published,
+		ImageURL:      n.ImageURL,
+		NewsType:      n.NewsType,
+		PublishedBy:   n.PublishedBy,
+		PublishDate:   publishDate,
+		Tags:          tags,
+		AllowComments: n.AllowComments,
+		Status:        n.Status,
+		PublishedAt:   publishedAt,
+	}
+}
+
+func toBlogResponse(b InstitutionBlog) BlogResponse {
+	var publishedAt *string
+	if b.PublishedAt != nil {
+		s := b.PublishedAt.Format(time.RFC3339)
+		publishedAt = &s
+	}
+	return BlogResponse{
+		ID:            b.ID,
+		Slug:          b.Slug,
+		CreatedAt:     b.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:     b.UpdatedAt.Format(time.RFC3339),
+		InstitutionID: b.InstitutionID,
+		Title:         b.Title,
+		Content:       b.Content,
+		Excerpt:       b.Excerpt,
+		Image:         b.Image,
+		Category:      b.Category,
+		BlogCategory:  b.BlogCategory,
+		ReadTime:      b.ReadTime,
+		Tags:          b.Tags,
+		Status:        b.Status,
+		PublishedAt:   publishedAt,
 	}
 }
 
@@ -1196,20 +2176,6 @@ func toQMSResponse(q InstitutionQMS) QMSResponse {
 	}
 }
 
-func toMessageResponse(m InstitutionMessage) MessageResponse {
-	return MessageResponse{
-		ID:            m.ID,
-		CreatedAt:     m.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:     m.UpdatedAt.Format(time.RFC3339),
-		InstitutionID: m.InstitutionID,
-		UserID:        m.UserID,
-		Subject:       m.Subject,
-		Content:       m.Content,
-		Read:          m.Read,
-		Direction:     m.Direction,
-	}
-}
-
 func toScholarshipResponse(s Scholarship) ScholarshipResponse {
 	var fieldOfStudy []string
 	if len(s.FieldOfStudy) > 0 {
@@ -1220,7 +2186,9 @@ func toScholarshipResponse(s Scholarship) ScholarshipResponse {
 		ID:              s.ID,
 		CreatedAt:       s.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:       s.UpdatedAt.Format(time.RFC3339),
+		InstitutionID:   s.InstitutionID,
 		Title:           s.Title,
+		ShortDesc:       s.ShortDesc,
 		Provider:        s.Provider,
 		Location:        s.Location,
 		Value:           s.Value,
@@ -1231,6 +2199,7 @@ func toScholarshipResponse(s Scholarship) ScholarshipResponse {
 		Description:     s.Description,
 		ImageURL:        s.ImageURL,
 		FieldOfStudy:    fieldOfStudy,
+		Status:          s.Status,
 	}
 }
 
@@ -1313,4 +2282,293 @@ func toScholarshipApplicationResponse(a ScholarshipApplication) ScholarshipAppli
 		Scholarship:   scholarshipResp,
 		User:          userResp,
 	}
+}
+
+func (h *Handler) GetPublicInstitutionFilterCounts(c *gin.Context) {
+	result, err := h.service.GetPublicInstitutionFilterCounts()
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch institution filter counts")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Institution filter counts retrieved successfully", result)
+}
+
+func (h *Handler) GetStudentProfile(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "invalid student id")
+		return
+	}
+
+	profile, err := h.service.GetStudentProfile(uint(id))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "student not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "student profile retrieved", profile)
+}
+
+func (h *Handler) GetInstitutionInquiries(c *gin.Context) {
+	instID := getInstID(c)
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	status := c.Query("status")
+	inquiryType := c.Query("type")
+	search := c.Query("search")
+
+	inquiries, total, err := h.service.GetInstitutionInquiries(instID, page, limit, status, inquiryType, search)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to retrieve inquiries")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Inquiries retrieved", gin.H{
+		"inquiries": inquiries,
+		"pagination": gin.H{
+			"total": total,
+			"page":  page,
+			"limit": limit,
+		},
+	})
+}
+
+func (h *Handler) GetInstitutionFollowers(c *gin.Context) {
+	instID := getInstID(c)
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	search := c.Query("search")
+
+	followers, total, err := h.service.GetInstitutionFollowers(instID, search, page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to retrieve followers")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Followers retrieved", gin.H{
+		"followers": followers,
+		"pagination": gin.H{
+			"total": total,
+			"page":  page,
+			"limit": limit,
+		},
+	})
+}
+
+func (h *Handler) UpdateInquiryStatus(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid ID")
+		return
+	}
+
+	var req struct {
+		Status string `json:"status" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if h.systemSvc == nil {
+		response.Error(c, http.StatusInternalServerError, "System service not available")
+		return
+	}
+
+	inquiry, err := h.systemSvc.UpdateContactInquiryStatus(uint(id), req.Status)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Status updated", inquiry)
+}
+
+func (h *Handler) DeleteInquiry(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid ID")
+		return
+	}
+
+	if h.systemSvc == nil {
+		response.Error(c, http.StatusInternalServerError, "System service not available")
+		return
+	}
+
+	if err := h.systemSvc.DeleteContactInquiry(uint(id)); err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to delete inquiry")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Inquiry deleted", nil)
+}
+
+// --- Course Approval Request Handlers ---
+
+func (h *Handler) CreateCourseRequest(c *gin.Context) {
+	instID := getInstID(c)
+
+	var req CreateCourseApprovalRequestInput
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	courseReq, err := h.service.CreateCourseRequest(instID, req)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to create course request")
+		return
+	}
+
+	response.Success(c, http.StatusCreated, "Course approval request created successfully", courseReq)
+}
+
+func (h *Handler) GetCourseRequests(c *gin.Context) {
+	instID := getInstID(c)
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50 {
+		limit = 10
+	}
+
+	requests, total, err := h.service.GetCourseRequests(instID, page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch course requests")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Course requests retrieved successfully", gin.H{
+		"requests": requests,
+		"meta": gin.H{
+			"total": total,
+			"page":  page,
+			"limit": limit,
+		},
+	})
+}
+
+func (h *Handler) GetCourseRequestByID(c *gin.Context) {
+	instID := getInstID(c)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid request ID")
+		return
+	}
+
+	courseReq, err := h.service.GetCourseRequestByID(instID, uint(id))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Course request not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Course request retrieved successfully", courseReq)
+}
+
+func (h *Handler) AdminGetCourseRequests(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50 {
+		limit = 10
+	}
+
+	requests, total, err := h.service.GetAllCourseRequests(page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch course requests")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Course requests retrieved successfully", gin.H{
+		"requests": requests,
+		"meta": gin.H{
+			"total": total,
+			"page":  page,
+			"limit": limit,
+		},
+	})
+}
+
+func (h *Handler) AdminGetCourseRequestByID(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid request ID")
+		return
+	}
+
+	courseReq, err := h.service.GetCourseRequestByIDAdmin(uint(id))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Course request not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Course request retrieved successfully", courseReq)
+}
+
+func (h *Handler) AdminApproveCourseRequest(c *gin.Context) {
+	adminIDVal, exists := c.Get("user_id")
+	if !exists {
+		response.Error(c, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+	adminID, ok := adminIDVal.(uint)
+	if !ok {
+		response.Error(c, http.StatusInternalServerError, "Invalid user context")
+		return
+	}
+
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid request ID")
+		return
+	}
+
+	if err := h.service.ApproveCourseRequest(uint(id), adminID); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Course request approved successfully", nil)
+}
+
+func (h *Handler) AdminRejectCourseRequest(c *gin.Context) {
+	adminIDVal, exists := c.Get("user_id")
+	if !exists {
+		response.Error(c, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+	adminID, ok := adminIDVal.(uint)
+	if !ok {
+		response.Error(c, http.StatusInternalServerError, "Invalid user context")
+		return
+	}
+
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid request ID")
+		return
+	}
+
+	var req struct {
+		Reason string `json:"reason"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err := h.service.RejectCourseRequest(uint(id), adminID, req.Reason); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Course request rejected successfully", nil)
 }

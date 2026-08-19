@@ -15,6 +15,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			colleges.GET("/filter-counts", h.GetCollegeFilterCounts)
 			colleges.GET("/featured", h.GetFeaturedColleges)
 			colleges.GET("/:id", h.GetCollegeByID)
+			colleges.POST("/recommend", h.RecommendColleges)
 		}
 
 		admissions := v1.Group("/admissions")
@@ -25,10 +26,15 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 				admissionColleges.GET("/filter-counts", h.GetCollegeFilterCounts)
 				admissionColleges.GET("/featured", h.GetFeaturedColleges)
 				admissionColleges.GET("/:id", h.GetCollegeByID)
+				admissionColleges.POST("/recommend", h.RecommendColleges)
 			}
 			admissions.GET("/direct", h.GetColleges)
 		}
 
+		// Public map routes
+		v1.GET("/map/colleges", h.GetMapColleges)
+
+		// Super admin college location
 		admin := v1.Group("/admin/colleges")
 		admin.Use(authMW)
 		admin.Use(roleMW)
@@ -41,6 +47,14 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			admin.DELETE("/:id", h.DeleteCollege)
 			admin.PUT("/:id/approve", h.ApproveCollege)
 			admin.PUT("/:id/featured", h.ToggleCollegeFeatured)
+			admin.PUT("/:id/location", h.UpdateCollegeLocation)
+		}
+
+		// Institution college location
+		inst := v1.Group("/institution")
+		inst.Use(authMW)
+		{
+			inst.PUT("/college/location", h.UpdateInstitutionCollegeLocation)
 		}
 	}
 }

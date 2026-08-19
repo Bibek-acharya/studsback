@@ -4,6 +4,8 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+
+	"studsphere/backend/internal/shared/slug"
 )
 
 type Scholarship struct {
@@ -11,6 +13,7 @@ type Scholarship struct {
 	CreatedAt                time.Time        `json:"created_at"`
 	UpdatedAt                time.Time        `json:"updated_at"`
 	DeletedAt                gorm.DeletedAt   `gorm:"index" json:"-"`
+	Slug                     string           `gorm:"uniqueIndex" json:"slug"`
 	Title                    string           `gorm:"not null" json:"title"`
 	Provider                 string           `gorm:"not null" json:"provider"`
 	Location                 string           `json:"location"`
@@ -84,6 +87,8 @@ type Scholarship struct {
 	ExamCentersNew           []byte `gorm:"type:jsonb;column:exam_centers_new" json:"exam_centers_new"`
 	Downloads                []byte `gorm:"type:jsonb;column:downloads" json:"downloads"`
 
+	ExamDate  string `gorm:"column:exam_date;default:''" json:"exam_date"`
+	ExamTime  string `gorm:"column:exam_time;default:''" json:"exam_time"`
 }
 
 type ScholarshipApplication struct {
@@ -143,6 +148,7 @@ type ScholarshipApplication struct {
 	ExamCenter string `json:"exam_center"`
 
 	PersonalStatement string `gorm:"type:text" json:"personal_statement"`
+	RollNumber        string `gorm:"size:20;default:''" json:"roll_number"`
 	Status string `gorm:"default:'pending'" json:"status"`
 	Payment *Payment `gorm:"-"`
 }
@@ -152,4 +158,15 @@ type User struct {
 	Email     string `json:"email"`
 	FirstName string `json:"first_name"`
 	LastName  string `json:"last_name"`
+}
+
+func (s *Scholarship) BeforeCreate(tx *gorm.DB) error {
+	if s.Slug == "" {
+		s.Slug = slug.GenerateUnique(s.Title, func(slugStr string) bool {
+			var count int64
+			tx.Model(&Scholarship{}).Where("slug = ?", slugStr).Count(&count)
+			return count > 0
+		})
+	}
+	return nil
 }

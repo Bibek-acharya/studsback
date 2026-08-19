@@ -1,22 +1,122 @@
-version: '3.8'
-
 services:
-  postgres:
-    image: pgvector/pgvector:pg16
-    container_name: studsphere_db
-    environment:
-      POSTGRES_USER: studsphere_user
-      POSTGRES_PASSWORD: studsphere_pass
-      POSTGRES_DB: studsphere
+  ollama:
+    image: ollama/ollama:latest
+    container_name: studsphere_ollama
     ports:
-      - "5432:5432"
+      - "11434:11434"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - ollama_data:/root/.ollama
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        ollama serve &
+        # Wait for ollama server to be ready
+        until ollama list > /dev/null 2>&1; do
+          echo "Waiting for ollama server..."
+          sleep 2
+        done
+        echo "Server ready, pulling nomic-embed-text..."
+        until ollama pull nomic-embed-text; do
+          echo "Pull failed, retrying in 5s..."
+          sleep 5
+        done
+        echo "Model pulled successfully"
+        wait
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U studsphere_user"]
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 180s
+    restart: unless-stopped
+
+  ollama-llm:
+    image: ollama/ollama:latest
+    container_name: studsphere_ollama_llm
+    ports:
+      - "11435:11434"
+    volumes:
+      - ollama_llm_data:/root/.ollama
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        ollama serve &
+        until ollama list > /dev/null 2>&1; do
+          echo "Waiting for ollama-llm server..."
+          sleep 2
+        done
+        echo "Server ready, pulling llama3.1:8b..."
+        until ollama pull llama3.1:8b; do
+          echo "Pull failed, retrying in 5s..."
+          sleep 5
+        done
+        echo "Model pulled successfully"
+        wait
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 600s
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: studsphere_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 3
+    restart: unless-stopped
+
+  nats:
+    image: nats:2-alpine
+    container_name: studsphere_nats
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    command: ["--jetstream", "--store_dir", "/data", "-m", "8222"]
+    volumes:
+      - nats_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8222/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: studsphere_backend
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      EMBEDDING_BASE_URL: http://ollama:11434/v1
+      LLM_BASE_URL: http://ollama-llm:11434/v1
+    volumes:
+      - ./uploads:/app/uploads
+    depends_on:
+      ollama:
+        condition: service_healthy
+      ollama-llm:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
-  postgres_data:
+  ollama_data:
+  ollama_llm_data:
+  redis_data:
+  nats_data:

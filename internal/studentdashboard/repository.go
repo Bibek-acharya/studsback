@@ -2,8 +2,9 @@ package studentdashboard
 
 import (
 	"studsphere/backend/internal/admission"
-	"studsphere/backend/internal/scholarship"
 	"studsphere/backend/internal/auth"
+	"studsphere/backend/internal/scholarship"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -14,89 +15,6 @@ type Repository struct {
 
 func NewRepository(db *gorm.DB) *Repository {
 	return &Repository{db: db}
-}
-
-func (r *Repository) GetMessages(userID uint, page, limit int) ([]Message, int64, error) {
-	var total int64
-	if err := r.db.Model(&Message{}).Where("sender_id = ? OR receiver_id = ?", userID, userID).Count(&total).Error; err != nil {
-		return nil, 0, err
-	}
-
-	var messages []Message
-	offset := (page - 1) * limit
-	if err := r.db.Where("sender_id = ? OR receiver_id = ?", userID, userID).
-		Order("created_at desc").Offset(offset).Limit(limit).Find(&messages).Error; err != nil {
-		return nil, 0, err
-	}
-
-	return messages, total, nil
-}
-
-func (r *Repository) GetMessageByID(msgID uint, userID uint) (*Message, error) {
-	var message Message
-	if err := r.db.Where("id = ? AND (sender_id = ? OR receiver_id = ?)", msgID, userID, userID).
-		First(&message).Error; err != nil {
-		return nil, err
-	}
-	return &message, nil
-}
-
-func (r *Repository) CreateMessage(message *Message) error {
-	return r.db.Create(message).Error
-}
-
-func (r *Repository) GetMessageForReply(msgID uint) (*Message, error) {
-	var message Message
-	if err := r.db.Where("id = ?", msgID).First(&message).Error; err != nil {
-		return nil, err
-	}
-	return &message, nil
-}
-
-func (r *Repository) GetContacts(userID uint) ([]Contact, error) {
-	var messages []Message
-	if err := r.db.Where("sender_id = ? OR receiver_id = ?", userID, userID).
-		Order("created_at desc").Find(&messages).Error; err != nil {
-		return nil, err
-	}
-
-	contactMap := map[uint]*Contact{}
-	for _, msg := range messages {
-		var contactID uint
-		if msg.SenderID == userID {
-			contactID = msg.ReceiverID
-		} else {
-			contactID = msg.SenderID
-		}
-
-		if _, exists := contactMap[contactID]; !exists {
-			var user struct {
-				FirstName string
-				LastName  string
-			}
-			r.db.Model(&User{}).Where("id = ?", contactID).First(&user)
-			contactMap[contactID] = &Contact{
-				UserID:      contactID,
-				Name:        user.FirstName + " " + user.LastName,
-				LastMessage: msg.Content,
-			}
-		}
-
-		if msg.ReceiverID == userID && !msg.Read {
-			contactMap[contactID].Unread++
-		}
-	}
-
-	contacts := make([]Contact, 0, len(contactMap))
-	for _, c := range contactMap {
-		contacts = append(contacts, *c)
-	}
-
-	return contacts, nil
-}
-
-func (r *Repository) MarkMessageRead(msgID uint) error {
-	return r.db.Model(&Message{}).Where("id = ?", msgID).Update("read", true).Error
 }
 
 func (r *Repository) GetCalendarEvents(userID uint) ([]CalendarEvent, error) {
@@ -245,6 +163,10 @@ func (r *Repository) MarkAllNotificationsRead(userID uint) error {
 	return r.db.Model(&Notification{}).Where("user_id = ? AND read = ?", userID, false).Update("read", true).Error
 }
 
+func (r *Repository) CreateNotification(notification *Notification) error {
+	return r.db.Create(notification).Error
+}
+
 func (r *Repository) CountAdmissions(userID uint) (int64, error) {
 	var count int64
 	err := r.db.Model(&admission.Admission{}).Where("user_id = ?", userID).Count(&count).Error
@@ -282,6 +204,38 @@ func (r *Repository) GetRecentAdmissions(userID uint, limit int) ([]admission.Ad
 	return admissions, nil
 }
 
+func (r *Repository) CountBookmarksByType(userID uint, itemType string) (int64, error) {
+	var count int64
+	err := r.db.Model(&Bookmark{}).Where("user_id = ? AND item_type = ?", userID, itemType).Count(&count).Error
+	return count, err
+}
+
+func (r *Repository) CountActiveInvites(userID uint) (int64, error) {
+	var count int64
+	err := r.db.Model(&SphereInvite{}).Where("user_id = ? AND status = ?", userID, "pending").Count(&count).Error
+	return count, err
+}
+
+func (r *Repository) CountUnreadMessages(userID uint) (int64, error) {
+	var count int64
+	err := r.db.Table("conversation_participants").
+		Where("participant_type = ? AND participant_id = ?", "student", userID).
+		Select("COALESCE(SUM(unread_count), 0)").Scan(&count).Error
+	return count, err
+}
+
+func (r *Repository) CountUpcomingEvents(userID uint) (int64, error) {
+	var count int64
+	err := r.db.Model(&CalendarEvent{}).Where("user_id = ? AND start_date > ?", userID, time.Now()).Count(&count).Error
+	return count, err
+}
+
+func (r *Repository) CountEducationEntries(userID uint) (int64, error) {
+	var count int64
+	err := r.db.Table("education_entries").Where("user_id = ?", userID).Count(&count).Error
+	return count, err
+}
+
 func (r *Repository) GetUserAdmissions(userID uint, page, limit int) ([]admission.Admission, int64, error) {
 	var total int64
 	if err := r.db.Model(&admission.Admission{}).Where("user_id = ?", userID).Count(&total).Error; err != nil {
@@ -297,13 +251,6 @@ func (r *Repository) GetUserAdmissions(userID uint, page, limit int) ([]admissio
 	}
 
 	return admissions, total, nil
-}
-
-type Contact struct {
-	UserID      uint   `json:"user_id"`
-	Name        string `json:"name"`
-	LastMessage string `json:"last_message"`
-	Unread      int    `json:"unread"`
 }
 
 type User struct {

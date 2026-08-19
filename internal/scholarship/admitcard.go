@@ -5,20 +5,29 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"io"
+	"log"
 	"os"
+	"strings"
 	"text/template"
 	"time"
+
+	"studsphere/backend/internal/shared/logger"
+	"studsphere/backend/internal/shared/storage"
 
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/chromedp"
 )
+
+// chromeSem limits concurrent Chrome/Chromium processes to prevent
+// resource exhaustion under high load.
+var chromeSem = make(chan struct{}, 3)
 
 // AdmitCardData holds all the information needed to render the admit card.
 type AdmitCardData struct {
 	CandidateName    string
 	DateOfBirth      string
 	Gender           string
-	ApplicationNo    string
 	RollNumber       string
 	ExamCentre       string
 	Stream           string
@@ -28,7 +37,6 @@ type AdmitCardData struct {
 	ExamDate         string
 	ExamTime         string
 	Shift            string
-	SubjectCode      string
 	SubjectName      string
 }
 
@@ -74,7 +82,7 @@ const admitCardHTMLTemplate = `<!DOCTYPE html>
             </div>
             <div class="w-32 shrink-0 flex items-center justify-end">
                 <div class="w-20 h-20 border border-gray-400 p-1 bg-white">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/d/d0/QR_code_for_mobile_English_Wikipedia.svg" alt="QR" class="w-full h-full object-contain">
+                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://studsphere.com/" alt="QR" class="w-full h-full object-contain" onerror="this.src='https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=https://studsphere.com/'">
                 </div>
             </div>
         </div>
@@ -84,7 +92,6 @@ const admitCardHTMLTemplate = `<!DOCTYPE html>
                 <div class="font-semibold">Candidate's Name</div><div>:</div><div class="font-semibold text-black text-[14px]">{{.CandidateName}}</div>
                 <div class="font-semibold">Date of Birth</div><div>:</div><div class="font-semibold text-black">{{.DateOfBirth}}</div>
                 <div class="font-semibold">Gender</div><div>:</div><div class="font-semibold text-black">{{.Gender}}</div>
-                <div class="font-semibold">Application No.</div><div>:</div><div class="font-semibold text-black">{{.ApplicationNo}}</div>
                 <div class="font-semibold">Roll Number</div><div>:</div><div class="font-semibold text-black">{{.RollNumber}}</div>
                 <div class="font-semibold">Exam Centre Name</div><div>:</div><div class="font-semibold text-black">{{.ExamCentre}}</div>
                 <div class="font-semibold">Stream</div><div>:</div><div class="font-semibold text-black">{{.Stream}}</div>
@@ -105,7 +112,6 @@ const admitCardHTMLTemplate = `<!DOCTYPE html>
             <table class="w-full border-collapse border border-gray-400 text-[11.5px] text-center">
                 <thead class="bg-tableHeader text-gray-800">
                     <tr>
-                        <th class="border border-gray-400 py-1.5 px-2 font-semibold">Subject Code</th>
                         <th class="border border-gray-400 py-1.5 px-2 font-semibold">Subject Name</th>
                         <th class="border border-gray-400 py-1.5 px-2 font-semibold">Exam Date</th>
                         <th class="border border-gray-400 py-1.5 px-2 font-semibold">Shift</th>
@@ -114,14 +120,12 @@ const admitCardHTMLTemplate = `<!DOCTYPE html>
                 </thead>
                 <tbody class="text-black font-medium">
                     <tr>
-                        <td class="border border-gray-400 py-3 px-2">{{.SubjectCode}}</td>
                         <td class="border border-gray-400 py-3 px-2 text-left pl-4 font-bold">{{.SubjectName}}</td>
                         <td class="border border-gray-400 py-3 px-2">{{.ExamDate}}</td>
                         <td class="border border-gray-400 py-3 px-2">{{.Shift}}</td>
                         <td class="border border-gray-400 py-3 px-2">{{.ExamTime}}</td>
                     </tr>
                     <tr>
-                        <td class="border border-gray-400 py-3 px-2"></td>
                         <td class="border border-gray-400 py-3 px-2"></td>
                         <td class="border border-gray-400 py-3 px-2"></td>
                         <td class="border border-gray-400 py-3 px-2"></td>
@@ -163,56 +167,114 @@ const admitCardHTMLTemplate = `<!DOCTYPE html>
 </body>
 </html>`
 
-// PhotoToBase64 reads an uploaded photo from the local filesystem and returns a base64 data URL.
-// The path should be a relative upload path like "/uploads/scholarship/photos/12345.jpg".
+var placeholderPhotoBase64 string
+
+func init() {
+	svg := `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="140" viewBox="0 0 120 140">
+		<rect width="120" height="140" fill="#e5e7eb" rx="4"/>
+		<circle cx="60" cy="48" r="18" fill="#9ca3af"/>
+		<ellipse cx="60" cy="105" rx="34" ry="28" fill="#9ca3af"/>
+	</svg>`
+	placeholderPhotoBase64 = base64.StdEncoding.EncodeToString([]byte(svg))
+}
+
+func defaultPhotoPlaceholder() string {
+	return "data:image/svg+xml;base64," + placeholderPhotoBase64
+}
+
+// PhotoToBase64 reads an uploaded photo from MinIO (or local filesystem as fallback) and returns a base64 data URL.
+// The path should be like "/uploads/scholarship/photos/12345.jpg".
+// Guaranteed to never return empty — falls back to a person silhouette placeholder.
 func PhotoToBase64(photoPath string) string {
 	if photoPath == "" {
-		return ""
+		log.Printf("PhotoToBase64: empty photo path, using placeholder")
+		return defaultPhotoPlaceholder()
 	}
-	// Strip leading slash and use local path
-	localPath := photoPath
-	if localPath[0] == '/' {
-		localPath = "." + localPath
-	}
-	data, err := os.ReadFile(localPath)
-	if err != nil {
-		return ""
-	}
-	mimeType := "image/jpeg"
-	if len(data) > 4 {
-		if data[0] == 0x89 && data[1] == 'P' && data[2] == 'N' && data[3] == 'G' {
-			mimeType = "image/png"
-		} else if data[0] == 'G' && data[1] == 'I' && data[2] == 'F' {
-			mimeType = "image/gif"
-		} else if data[0] == 0x52 && data[1] == 0x49 && data[2] == 0x46 && data[3] == 0x46 {
-			mimeType = "image/webp"
+
+	objectPath := strings.TrimPrefix(photoPath, "/uploads/")
+	objectPath = strings.TrimPrefix(objectPath, "/")
+
+	// Try MinIO with one retry for transient failures (connection pool exhaustion, etc.)
+	for attempt := 0; attempt < 2; attempt++ {
+		if data, mime := readPhotoFromMinIO(objectPath); data != nil {
+			return fmt.Sprintf("data:%s;base64,%s", mime, base64.StdEncoding.EncodeToString(data))
+		}
+		if attempt == 0 {
+			time.Sleep(200 * time.Millisecond)
 		}
 	}
-	return fmt.Sprintf("data:%s;base64,%s", mimeType, base64.StdEncoding.EncodeToString(data))
+
+	// Fallback to local filesystem
+	data, err := os.ReadFile(photoPath)
+	if err != nil && len(photoPath) > 0 && photoPath[0] == '/' {
+		data, err = os.ReadFile("." + photoPath)
+	}
+	if err == nil {
+		return fmt.Sprintf("data:%s;base64,%s", detectMimeType(data), base64.StdEncoding.EncodeToString(data))
+	}
+
+	log.Printf("PhotoToBase64: all fallbacks exhausted for %q, using placeholder", photoPath)
+	return defaultPhotoPlaceholder()
+}
+
+// readPhotoFromMinIO attempts to fetch a photo from MinIO with a 10s timeout.
+// Returns nil on any failure.
+func readPhotoFromMinIO(objectPath string) ([]byte, string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	reader, info, err := storage.GetWithContext(ctx, objectPath)
+	if err != nil {
+		log.Printf("PhotoToBase64: failed to get %q from MinIO: %v", objectPath, err)
+		return nil, ""
+	}
+	if closer, ok := reader.(io.Closer); ok {
+		defer closer.Close()
+	}
+
+	data, readErr := io.ReadAll(io.LimitReader(reader, 5 << 20))
+	if readErr != nil {
+		log.Printf("PhotoToBase64: failed to read %q from MinIO: %v", objectPath, readErr)
+		return nil, ""
+	}
+
+	mimeType := info.ContentType
+	if mimeType == "" {
+		mimeType = detectMimeType(data)
+	}
+	return data, mimeType
+}
+
+func detectMimeType(data []byte) string {
+	if len(data) < 4 {
+		return "image/jpeg"
+	}
+	if data[0] == 0x89 && data[1] == 'P' && data[2] == 'N' && data[3] == 'G' {
+		return "image/png"
+	}
+	if data[0] == 'G' && data[1] == 'I' && data[2] == 'F' {
+		return "image/gif"
+	}
+	if data[0] == 0x52 && data[1] == 0x49 && data[2] == 0x46 && data[3] == 0x46 {
+		return "image/webp"
+	}
+	if data[0] == '<' {
+		return "image/svg+xml"
+	}
+	return "image/jpeg"
 }
 
 // GenerateAdmitCardPDF renders the admit card HTML with the given data and returns a PDF as bytes.
-func GenerateAdmitCardPDF(data AdmitCardData) ([]byte, error) {
-	if data.SubjectCode == "" {
-		data.SubjectCode = "101"
-	}
+// nextRollNumber is called to generate a roll number if data.RollNumber is empty.
+func GenerateAdmitCardPDF(data AdmitCardData, nextRollNumber func() string) ([]byte, error) {
 	if data.SubjectName == "" {
-		data.SubjectName = fmt.Sprintf("%s Entrance Test", data.Stream)
-		if data.Stream == "" {
-			data.SubjectName = "Entrance Test"
-		}
-	}
-	if data.ExamDate == "" {
-		data.ExamDate = "25.01.2083"
-	}
-	if data.ExamTime == "" {
-		data.ExamTime = "09:00 A.M. To 11:30 A.M."
+		data.SubjectName = data.Stream
 	}
 	if data.Shift == "" {
 		data.Shift = "1st"
 	}
-	if data.RollNumber == "" {
-		data.RollNumber = fmt.Sprintf("PS-%d", time.Now().UnixNano()%1000000000)
+	if data.RollNumber == "" && nextRollNumber != nil {
+		data.RollNumber = nextRollNumber()
 	}
 
 	tmpl, err := template.New("admitcard").Parse(admitCardHTMLTemplate)
@@ -228,6 +290,14 @@ func GenerateAdmitCardPDF(data AdmitCardData) ([]byte, error) {
 	// Embed HTML as a base64 data URL so chromedp can navigate to it without temp files
 	encoded := base64.StdEncoding.EncodeToString(buf.Bytes())
 	dataURL := "data:text/html;base64," + encoded
+
+	// Acquire semaphore to limit concurrent Chrome processes
+	log.Printf("GenerateAdmitCardPDF: waiting for Chrome semaphore (roll=%s)", data.RollNumber)
+	chromeSem <- struct{}{}
+	defer func() {
+		<-chromeSem
+		log.Printf("GenerateAdmitCardPDF: released Chrome semaphore (roll=%s)", data.RollNumber)
+	}()
 
 	// Find the chromium/chrome executable
 	chromiumPath := ""
@@ -253,6 +323,8 @@ func GenerateAdmitCardPDF(data AdmitCardData) ([]byte, error) {
 				chromedp.Flag("no-sandbox", true),
 				chromedp.Flag("disable-gpu", true),
 				chromedp.Flag("headless", true),
+				chromedp.Flag("disable-web-security", true),
+				chromedp.Flag("allow-file-access-from-files", true),
 			)...,
 		)
 	} else {
@@ -262,6 +334,8 @@ func GenerateAdmitCardPDF(data AdmitCardData) ([]byte, error) {
 				chromedp.Flag("no-sandbox", true),
 				chromedp.Flag("disable-gpu", true),
 				chromedp.Flag("headless", true),
+				chromedp.Flag("disable-web-security", true),
+				chromedp.Flag("allow-file-access-from-files", true),
 			)...,
 		)
 	}
@@ -276,8 +350,18 @@ func GenerateAdmitCardPDF(data AdmitCardData) ([]byte, error) {
 	if err := chromedp.Run(ctx,
 		chromedp.Navigate(dataURL),
 		chromedp.WaitReady("body"),
-		// Wait for Tailwind CDN to render
-		chromedp.Sleep(3*time.Second),
+		// Wait for Google Fonts to finish loading (async from the stylesheet)
+		// Uses document.fonts.ready which returns a promise — chromedp waits
+		// for the promise to resolve before proceeding.
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			err := chromedp.Evaluate(`document.fonts.ready`, nil).Do(ctx)
+			if err != nil {
+				logger.Warn("GenerateAdmitCardPDF: font loading wait failed (non-fatal)",
+					"roll", data.RollNumber, "error", err)
+			}
+			return nil
+		}),
+		chromedp.Sleep(500*time.Millisecond),
 		chromedp.ActionFunc(func(ctx context.Context) error {
 			result, _, err := page.PrintToPDF().
 				WithPrintBackground(true).
@@ -289,7 +373,7 @@ func GenerateAdmitCardPDF(data AdmitCardData) ([]byte, error) {
 				WithMarginRight(0).
 				Do(ctx)
 			if err != nil {
-				return err
+				return fmt.Errorf("printToPDF failed: %w", err)
 			}
 			pdfBuf = result
 			return nil
@@ -298,5 +382,7 @@ func GenerateAdmitCardPDF(data AdmitCardData) ([]byte, error) {
 		return nil, fmt.Errorf("failed to generate PDF: %w", err)
 	}
 
+	logger.Info("GenerateAdmitCardPDF: PDF generated successfully",
+		"roll", data.RollNumber, "size", len(pdfBuf))
 	return pdfBuf, nil
 }

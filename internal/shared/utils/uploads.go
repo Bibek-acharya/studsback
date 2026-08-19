@@ -1,23 +1,25 @@
 package utils
 
 import (
+	"encoding/base64"
 	"fmt"
 	"io"
 	"mime"
 	"mime/multipart"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"studsphere/backend/internal/shared/storage"
 )
 
 var allowedDocumentTypes = map[string]bool{
-	"application/pdf":                       true,
-	"application/msword":                     true,
+	"application/pdf":           true,
+	"application/msword":        true,
 	"application/vnd.openxmlformats-officedocument.wordprocessingml.document": true,
-	"application/vnd.ms-excel":              true,
-	"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":   true,
+	"application/vnd.ms-excel":  true,
+	"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": true,
 }
 
 func sanitizeUploadFolder(folder string) (string, error) {
@@ -96,24 +98,20 @@ func SaveUploadedDocument(header *multipart.FileHeader, folder string) (string, 
 	}
 	defer src.Close()
 
-	uploadDir := filepath.Join("uploads", cleanFolder)
-	if err := os.MkdirAll(uploadDir, 0755); err != nil {
-		return "", fmt.Errorf("failed to create upload directory: %w", err)
+	data, err := io.ReadAll(src)
+	if err != nil {
+		return "", fmt.Errorf("failed to read uploaded file: %w", err)
 	}
 
 	ext := getFileExtension(header)
 	filename := fmt.Sprintf("%d%s", time.Now().UnixNano(), ext)
-	savePath := filepath.Join(uploadDir, filename)
 
-	dst, err := os.Create(savePath)
-	if err != nil {
-		return "", fmt.Errorf("failed to create uploaded file: %w", err)
+	if contentType == "" {
+		contentType = getContentTypeForFile(header.Filename, data)
 	}
-	defer dst.Close()
 
-	_, err = io.Copy(dst, src)
-	if err != nil {
-		return "", fmt.Errorf("failed to save uploaded file: %w", err)
+	if err := storage.UploadBytes(cleanFolder+"/"+filename, data, contentType); err != nil {
+		return "", fmt.Errorf("failed to upload file: %w", err)
 	}
 
 	return "/uploads/" + cleanFolder + "/" + filename, nil
@@ -143,23 +141,20 @@ func SaveUploadedImage(header *multipart.FileHeader, folder string) (string, err
 	}
 	defer src.Close()
 
-	uploadDir := filepath.Join("uploads", cleanFolder)
-	if err := os.MkdirAll(uploadDir, 0755); err != nil {
-		return "", fmt.Errorf("failed to create upload directory: %w", err)
+	data, err := io.ReadAll(src)
+	if err != nil {
+		return "", fmt.Errorf("failed to read uploaded file: %w", err)
 	}
 
 	ext := getFileExtension(header)
 	filename := fmt.Sprintf("%d%s", time.Now().UnixNano(), ext)
-	savePath := filepath.Join(uploadDir, filename)
 
-	dst, err := os.Create(savePath)
-	if err != nil {
-		return "", fmt.Errorf("failed to create uploaded file: %w", err)
+	if contentType == "" {
+		contentType = getContentTypeForFile(header.Filename, data)
 	}
-	defer dst.Close()
 
-	if _, err := io.Copy(dst, src); err != nil {
-		return "", fmt.Errorf("failed to save uploaded file: %w", err)
+	if err := storage.UploadBytes(cleanFolder+"/"+filename, data, contentType); err != nil {
+		return "", fmt.Errorf("failed to upload file: %w", err)
 	}
 
 	return "/" + filepath.ToSlash(filepath.Join("uploads", cleanFolder, filename)), nil
@@ -171,36 +166,83 @@ func ReadLatestUploadedImage(folder string) ([]byte, string, error) {
 		return nil, "", err
 	}
 
-	uploadDir := filepath.Join("uploads", cleanFolder)
-	entries, err := os.ReadDir(uploadDir)
+	reader, info, err := storage.GetLatest(cleanFolder + "/")
 	if err != nil {
-		return nil, "", fmt.Errorf("upload directory not found")
+		return nil, "", err
 	}
 
-	var latestPath string
-	var latestModTime time.Time
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		info, err := entry.Info()
-		if err != nil {
-			continue
-		}
-		if latestPath == "" || info.ModTime().After(latestModTime) {
-			latestPath = filepath.Join(uploadDir, entry.Name())
-			latestModTime = info.ModTime()
-		}
-	}
-
-	if latestPath == "" {
-		return nil, "", fmt.Errorf("no uploaded image found")
-	}
-
-	data, err := os.ReadFile(latestPath)
+	data, err := io.ReadAll(reader)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to read uploaded image: %w", err)
+		return nil, "", fmt.Errorf("failed to read image: %w", err)
 	}
 
-	return data, getContentTypeForFile(latestPath, data), nil
+	ct := info.ContentType
+	if ct == "" {
+		ct = getContentTypeForFile(info.Key, data)
+	}
+
+	return data, ct, nil
+}
+
+func IsDataURI(s string) bool {
+	return strings.HasPrefix(s, "data:")
+}
+
+func SaveDataURI(dataURI string, folder string) (string, error) {
+	if !IsDataURI(dataURI) {
+		return "", fmt.Errorf("not a data URI")
+	}
+
+	cleanFolder, err := sanitizeUploadFolder(folder)
+	if err != nil {
+		return "", err
+	}
+
+	parts := strings.SplitN(dataURI, ",", 2)
+	if len(parts) != 2 {
+		return "", fmt.Errorf("invalid data URI format")
+	}
+
+	header := parts[0]
+	data := parts[1]
+
+	var contentType string
+	if strings.Contains(header, ";") {
+		headerParts := strings.SplitN(header, ";", 2)
+		contentType = strings.TrimPrefix(headerParts[0], "data:")
+	} else {
+		contentType = strings.TrimPrefix(header, "data:")
+	}
+	if contentType == "" {
+		contentType = "image/png"
+	}
+
+	raw, err := base64.StdEncoding.DecodeString(data)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode base64 data: %w", err)
+	}
+
+	ext := ""
+	switch contentType {
+	case "image/png":
+		ext = ".png"
+	case "image/jpeg":
+		ext = ".jpg"
+	case "image/gif":
+		ext = ".gif"
+	case "image/webp":
+		ext = ".webp"
+	case "image/svg+xml":
+		ext = ".svg"
+	default:
+		ext = ".png"
+	}
+
+	filename := fmt.Sprintf("%d%s", time.Now().UnixNano(), ext)
+
+	if err := storage.UploadBytes(cleanFolder+"/"+filename, raw, contentType); err != nil {
+		return "", fmt.Errorf("failed to upload data URI to MinIO: %w", err)
+	}
+
+	return "/uploads/" + cleanFolder + "/" + filename, nil
 }

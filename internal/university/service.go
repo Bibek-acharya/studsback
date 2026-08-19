@@ -9,15 +9,12 @@ import (
 var ErrNameRequired = errors.New("name is required")
 
 func toUniversityResponse(uni University, colleges []College) UniversityResponse {
-	programsCount := 0
-	collegesCount := len(colleges)
 	ratingTotal := 0.0
 	ratedCount := 0
 	popularPrograms := make([]string, 0)
 	seenPrograms := map[string]bool{}
 
 	for _, college := range colleges {
-		programsCount += college.Programs
 		if college.Rating > 0 {
 			ratingTotal += college.Rating
 			ratedCount++
@@ -52,11 +49,13 @@ func toUniversityResponse(uni University, colleges []College) UniversityResponse
 		Rating:          rating,
 		ReviewCount:     uni.ReviewCount,
 		Type:            uni.Type,
+		IsNepali:        uni.IsNepali,
 		Rank:            uni.Rank,
 		Verified:        uni.Verified,
 		IsPopular:       uni.Popular,
-		ProgramsCount:   programsCount,
-		CollegesCount:   collegesCount,
+		Status:          uni.Status,
+		ProgramsCount:   uni.ProgramsCount,
+		CollegesCount:   uni.CollegesCount,
 		PopularPrograms: popularPrograms,
 		Description:     uni.Description,
 		Established:     uni.Established,
@@ -66,21 +65,23 @@ func toUniversityResponse(uni University, colleges []College) UniversityResponse
 		Founder:         uni.Founder,
 		Website:         uni.Website,
 		Cover:           uni.Cover,
-		About:           uni.About,
-		Contact:         uni.Contact,
-		Quick:           uni.Quick,
-		Overview:        uni.Overview,
-		Leadership:      uni.Leadership,
-		Courses:         uni.Courses,
-		Programs:        uni.Programs,
-		Scholarships:    uni.Scholarships,
-		Events:          uni.Events,
-		News:            uni.News,
-		Downloads:       uni.Downloads,
-		Gallery:         uni.Gallery,
-		Faculties:       uni.Faculties,
-		Admissions:      uni.Admissions,
-		Reviews:         uni.Reviews,
+		About:           json.RawMessage(uni.About),
+		Contact:         json.RawMessage(uni.Contact),
+		Quick:           json.RawMessage(uni.Quick),
+		Overview:        json.RawMessage(uni.Overview),
+		Leadership:      json.RawMessage(uni.Leadership),
+		Courses:         json.RawMessage(uni.Courses),
+		Programs:        json.RawMessage(uni.Programs),
+		Scholarships:    json.RawMessage(uni.Scholarships),
+		Events:          json.RawMessage(uni.Events),
+		News:            json.RawMessage(uni.News),
+		Downloads:       json.RawMessage(uni.Downloads),
+		Gallery:         json.RawMessage(uni.Gallery),
+		Faculties:       json.RawMessage(uni.Faculties),
+		Admissions:      json.RawMessage(uni.Admissions),
+		OfficialNotices: json.RawMessage(uni.OfficialNotices),
+		LatestNews:      json.RawMessage(uni.LatestNews),
+		Reviews:         json.RawMessage(uni.Reviews),
 	}
 }
 
@@ -92,8 +93,8 @@ func NewService(repo *Repository) *Service {
 	return &Service{repo: repo}
 }
 
-func (s *Service) GetUniversities(search, uniType string, popular bool) ([]UniversityResponse, error) {
-	universities, err := s.repo.FindAll(search, uniType, popular)
+func (s *Service) GetUniversities(search, uniType, status string, popular bool, isNepali string) ([]UniversityResponse, error) {
+	universities, err := s.repo.FindAll(search, uniType, status, popular, isNepali)
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +126,7 @@ func (s *Service) GetUniversityByID(id uint) (*UniversityResponse, []UniversityC
 	for _, college := range colleges {
 		collegeResponses = append(collegeResponses, UniversityCollegeResponse{
 			ID:           college.ID,
-			UniversityID: college.UniversityID,
+			UniversityID: uni.ID,
 			Name:         college.Name,
 			Logo:         college.ImageURL,
 			Rating:       college.Rating,
@@ -139,8 +140,121 @@ func (s *Service) GetUniversityByID(id uint) (*UniversityResponse, []UniversityC
 	return &response, collegeResponses, nil
 }
 
+func (s *Service) AdminGetUniversityByID(id uint) (*UniversityResponse, []UniversityCollegeResponse, error) {
+	uni, err := s.repo.FindByIDFull(id)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	colleges, err := s.repo.FindCollegesByUniversityID(uni.ID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	collegeResponses := make([]UniversityCollegeResponse, 0, len(colleges))
+	for _, college := range colleges {
+		collegeResponses = append(collegeResponses, UniversityCollegeResponse{
+			ID:           college.ID,
+			UniversityID: uni.ID,
+			Name:         college.Name,
+			Logo:         college.ImageURL,
+			Rating:       college.Rating,
+			Reviews:      college.Reviews,
+			Affiliation:  uni.Name,
+			Type:         college.CollegeType,
+		})
+	}
+
+	response := toUniversityResponse(*uni, colleges)
+	return &response, collegeResponses, nil
+}
+
+func (s *Service) GetUniversityFilterCounts(isNepali string) (*UniversityFilterCountsResponse, error) {
+	return s.repo.GetFilterCounts(isNepali)
+}
+
 func (s *Service) GetUniversityTab(id uint, tab string) ([]byte, error) {
 	return s.repo.GetTabData(id, tab)
+}
+
+func (s *Service) GetUniversityCourses(id uint, page, limit int, level string) ([]map[string]interface{}, int, error) {
+	data, err := s.repo.GetTabData(id, "courses")
+	if err != nil {
+		return nil, 0, err
+	}
+
+	if len(data) == 0 {
+		return []map[string]interface{}{}, 0, nil
+	}
+
+	var courses []map[string]interface{}
+	if err := json.Unmarshal(data, &courses); err != nil {
+		return nil, 0, err
+	}
+
+	// Filter by level if specified
+	if level != "" && level != "all" {
+		var filtered []map[string]interface{}
+		for _, course := range courses {
+			if courseLevel, ok := course["level"].(string); ok && courseLevel == level {
+				filtered = append(filtered, course)
+			}
+		}
+		courses = filtered
+	}
+
+	total := len(courses)
+	start := (page - 1) * limit
+	end := start + limit
+
+	if start >= total {
+		return []map[string]interface{}{}, total, nil
+	}
+	if end > total {
+		end = total
+	}
+
+	return courses[start:end], total, nil
+}
+
+func (s *Service) GetUniversityScholarships(id uint, page, limit int, level string) ([]map[string]interface{}, int, error) {
+	data, err := s.repo.GetTabData(id, "scholarships")
+	if err != nil {
+		return nil, 0, err
+	}
+
+	if len(data) == 0 {
+		return []map[string]interface{}{}, 0, nil
+	}
+
+	var scholarships []map[string]interface{}
+	if err := json.Unmarshal(data, &scholarships); err != nil {
+		return nil, 0, err
+	}
+
+	// Filter by level if specified
+	if level != "" && level != "all" {
+		var filtered []map[string]interface{}
+		for _, scholarship := range scholarships {
+			if scholarshipLevel, ok := scholarship["level"].(string); ok && scholarshipLevel == level {
+				filtered = append(filtered, scholarship)
+			}
+		}
+		scholarships = filtered
+	}
+
+	total := len(scholarships)
+	start := (page - 1) * limit
+	end := start + limit
+
+	if start >= total {
+		return []map[string]interface{}{}, total, nil
+	}
+	if end > total {
+		end = total
+	}
+
+	return scholarships[start:end], total, nil
 }
 
 func (s *Service) CreateUniversity(req CreateUniversityRequest) (*University, error) {
@@ -149,16 +263,44 @@ func (s *Service) CreateUniversity(req CreateUniversityRequest) (*University, er
 		return nil, ErrNameRequired
 	}
 
+	// Restore soft-deleted university with same name if exists
+	if existing, err := s.repo.FindDeletedByName(req.Name); err == nil && existing != nil {
+		if err := s.repo.Restore(existing.ID); err != nil {
+			return nil, err
+		}
+		existing.Name = req.Name
+		existing.Logo = strings.TrimSpace(req.Logo)
+		existing.Location = strings.TrimSpace(req.Location)
+		existing.Type = strings.TrimSpace(req.Type)
+		existing.IsNepali = req.IsNepali
+		existing.Rank = req.Rank
+		existing.Verified = req.Verified
+		existing.Popular = req.Popular
+		existing.Status = req.Status
+		existing.Description = strings.TrimSpace(req.Description)
+		existing.Established = strings.TrimSpace(req.Established)
+		existing.Website = strings.TrimSpace(req.Website)
+		existing.Cover = strings.TrimSpace(req.Cover)
+		if err := s.repo.Update(existing); err != nil {
+			return nil, err
+		}
+		return existing, nil
+	}
+
 	uni := &University{
 		Name:           req.Name,
 		Logo:           strings.TrimSpace(req.Logo),
 		Location:       strings.TrimSpace(req.Location),
 		Type:           strings.TrimSpace(req.Type),
+		IsNepali:       req.IsNepali,
 		Rank:           req.Rank,
 		Rating:         req.Rating,
 		ReviewCount:    req.ReviewCount,
 		Verified:       req.Verified,
 		Popular:        req.Popular,
+		Status:         req.Status,
+		ProgramsCount:  req.ProgramsCount,
+		CollegesCount:  req.CollegesCount,
 		Description:    strings.TrimSpace(req.Description),
 		Established:    strings.TrimSpace(req.Established),
 		Students:       strings.TrimSpace(req.Students),
@@ -239,6 +381,16 @@ func (s *Service) CreateUniversity(req CreateUniversityRequest) (*University, er
 			uni.Admissions = b
 		}
 	}
+	if req.OfficialNotices != nil {
+		if b, err := json.Marshal(req.OfficialNotices); err == nil {
+			uni.OfficialNotices = b
+		}
+	}
+	if req.LatestNews != nil {
+		if b, err := json.Marshal(req.LatestNews); err == nil {
+			uni.LatestNews = b
+		}
+	}
 	if req.Reviews != nil {
 		if b, err := json.Marshal(req.Reviews); err == nil {
 			uni.Reviews = b
@@ -271,6 +423,9 @@ func (s *Service) UpdateUniversity(id uint, req UpdateUniversityRequest) (*Unive
 	if req.Type != nil {
 		uni.Type = strings.TrimSpace(*req.Type)
 	}
+	if req.IsNepali != nil {
+		uni.IsNepali = *req.IsNepali
+	}
 	if req.Rank != nil {
 		uni.Rank = *req.Rank
 	}
@@ -285,6 +440,9 @@ func (s *Service) UpdateUniversity(id uint, req UpdateUniversityRequest) (*Unive
 	}
 	if req.Popular != nil {
 		uni.Popular = *req.Popular
+	}
+	if req.Status != nil {
+		uni.Status = *req.Status
 	}
 	if req.Description != nil {
 		uni.Description = strings.TrimSpace(*req.Description)
@@ -309,6 +467,12 @@ func (s *Service) UpdateUniversity(id uint, req UpdateUniversityRequest) (*Unive
 	}
 	if req.Cover != nil {
 		uni.Cover = strings.TrimSpace(*req.Cover)
+	}
+	if req.ProgramsCount != nil {
+		uni.ProgramsCount = *req.ProgramsCount
+	}
+	if req.CollegesCount != nil {
+		uni.CollegesCount = *req.CollegesCount
 	}
 
 	if req.About != nil {
@@ -381,6 +545,16 @@ func (s *Service) UpdateUniversity(id uint, req UpdateUniversityRequest) (*Unive
 			uni.Admissions = b
 		}
 	}
+	if req.OfficialNotices != nil {
+		if b, err := json.Marshal(req.OfficialNotices); err == nil {
+			uni.OfficialNotices = b
+		}
+	}
+	if req.LatestNews != nil {
+		if b, err := json.Marshal(req.LatestNews); err == nil {
+			uni.LatestNews = b
+		}
+	}
 	if req.Reviews != nil {
 		if b, err := json.Marshal(req.Reviews); err == nil {
 			uni.Reviews = b
@@ -405,4 +579,26 @@ func (s *Service) DeleteUniversity(id uint) error {
 		return err
 	}
 	return s.repo.Delete(id)
+}
+
+func (s *Service) GetAffiliatedColleges(universityID uint) (*AffiliatedCollegesResponse, error) {
+	var uni University
+	err := s.repo.db.Select("id, name").First(&uni, universityID).Error
+	if err != nil {
+		return nil, err
+	}
+
+	colleges, err := s.repo.FindAffiliatedColleges(universityID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &AffiliatedCollegesResponse{
+		University: &UniversityResponse{
+			ID:   uni.ID,
+			Name: uni.Name,
+		},
+		AffiliatedColleges: colleges,
+		Total:              len(colleges),
+	}, nil
 }

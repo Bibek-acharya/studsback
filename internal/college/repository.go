@@ -1,6 +1,8 @@
 package college
 
 import (
+	"encoding/json"
+	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
@@ -107,16 +109,16 @@ func (r *Repository) FindAll(filters CollegeFilters) ([]College, int64, error) {
 
 	query := r.db.Model(&College{})
 
-	if filters.UniversityID != "" {
-		query = query.Where("university_id = ?", filters.UniversityID)
-	}
-
 	if filters.Location != "" {
 		query = applyMultiILIKEFilter(query, "location", parseCSV(filters.Location))
 	}
 
 	if filters.Affiliation != "" {
 		query = applyMultiILIKEFilter(query, "affiliation", parseCSV(filters.Affiliation))
+	}
+
+	if filters.UniversityID != "" {
+		query = query.Where("university_affiliations @> ?::jsonb", fmt.Sprintf("[%s]", filters.UniversityID))
 	}
 
 	if len(filters.Academic) > 0 {
@@ -183,8 +185,8 @@ func (r *Repository) FindAll(filters CollegeFilters) ([]College, int64, error) {
 	}
 
 	if filters.CourseID != "" {
-		query = query.Joins("JOIN college_university_courses ON college_university_courses.college_id = colleges.id").
-			Where("college_university_courses.course_id = ?", filters.CourseID)
+		query = query.Joins("LEFT JOIN college_university_courses ON college_university_courses.college_id = colleges.id AND college_university_courses.course_id = ?", filters.CourseID).
+			Select("colleges.*, (college_university_courses.course_id IS NOT NULL) AS course_offers")
 	}
 
 	sort := filters.Sort
@@ -199,8 +201,11 @@ func (r *Repository) FindAll(filters CollegeFilters) ([]College, int64, error) {
 
 	if filters.FeeMax > 0 {
 		var allColleges []College
-		if err := query.Order(sort + " " + order).
-			Preload("University").
+		orderClause := "colleges.featured DESC, colleges.verified DESC, colleges.claimed DESC"
+		if filters.CourseID != "" {
+			orderClause = "course_offers DESC, " + orderClause
+		}
+		if err := query.Order(orderClause + ", " + sort + " " + order).
 			Find(&allColleges).Error; err != nil {
 			return nil, 0, err
 		}
@@ -232,10 +237,14 @@ func (r *Repository) FindAll(filters CollegeFilters) ([]College, int64, error) {
 
 	offset := (filters.Page - 1) * filters.PageSize
 
-	if err := query.Order(sort + " " + order).
+	orderClause := "colleges.featured DESC, colleges.verified DESC, colleges.claimed DESC"
+	if filters.CourseID != "" {
+		orderClause = "course_offers DESC, " + orderClause
+	}
+
+	if err := query.Order(orderClause + ", " + sort + " " + order).
 		Offset(offset).
 		Limit(filters.PageSize).
-		Preload("University").
 		Find(&colleges).Error; err != nil {
 		return nil, 0, err
 	}
@@ -245,7 +254,7 @@ func (r *Repository) FindAll(filters CollegeFilters) ([]College, int64, error) {
 
 func (r *Repository) FindByID(id uint) (*College, error) {
 	var college College
-	err := r.db.Preload("University").First(&college, id).Error
+	err := r.db.First(&college, id).Error
 	if err != nil {
 		return nil, err
 	}
@@ -276,6 +285,209 @@ func (r *Repository) ToggleFeatured(id uint) error {
 	return r.db.Model(&college).Update("featured", !college.Featured).Error
 }
 
+func (r *Repository) FindWithinBounds(north, south, east, west float64) ([]College, error) {
+	var colleges []College
+	err := r.db.Where("latitude IS NOT NULL AND longitude IS NOT NULL").
+		Where("latitude BETWEEN ? AND ? AND longitude BETWEEN ? AND ?", south, north, west, east).
+		Find(&colleges).Error
+	return colleges, err
+}
+
+func (r *Repository) FindAllWithCoords() ([]College, error) {
+	var colleges []College
+	err := r.db.Where("latitude IS NOT NULL AND longitude IS NOT NULL").
+		Find(&colleges).Error
+	return colleges, err
+}
+
+// InstitutionBasic holds minimal institution data for map enrichment
+type InstitutionBasic struct {
+	CollegeID   uint
+	LogoURL     string
+	ProfileData *string
+}
+
+// FindInstitutionsByCollegeIDs returns institution data keyed by college_id
+func (r *Repository) FindInstitutionsByCollegeIDs(collegeIDs []uint) (map[uint]InstitutionBasic, error) {
+	type row struct {
+		CollegeID   uint   `gorm:"column:college_id"`
+		LogoURL     string `gorm:"column:logo_url"`
+		ProfileData string `gorm:"column:profile_data"`
+	}
+	var rows []row
+	err := r.db.Table("institution_users").
+		Select("college_id, logo_url, profile_data").
+		Where("college_id IN ?", collegeIDs).
+		Where("college_id > 0").
+		Where("deleted_at IS NULL").
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[uint]InstitutionBasic, len(rows))
+	for _, r := range rows {
+		result[r.CollegeID] = InstitutionBasic{
+			CollegeID:   r.CollegeID,
+			LogoURL:     r.LogoURL,
+			ProfileData: &r.ProfileData,
+		}
+	}
+	return result, nil
+}
+
+// ReviewAgg holds aggregated review data for a college
+type ReviewAgg struct {
+	CollegeID uint
+	Rating    float64
+	Reviews   int
+}
+
+// InstitutionPrefs holds preference data from an institution user
+type InstitutionPrefs struct {
+	CollegeID   uint
+	Preferences map[string]interface{}
+}
+
+// FindInstitutionPreferencesByIDs returns institution preferences keyed by institution_users.id
+func (r *Repository) FindInstitutionPreferencesByIDs(userIDs []uint) (map[uint]InstitutionPrefs, error) {
+	type row struct {
+		UserID      uint   `gorm:"column:id"`
+		Preferences string `gorm:"column:preferences"`
+	}
+	var rows []row
+	err := r.db.Table("institution_users").
+		Select("id, preferences::text as preferences").
+		Where("id IN ?", userIDs).
+		Where("preferences IS NOT NULL").
+		Where("deleted_at IS NULL").
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[uint]InstitutionPrefs, len(rows))
+	for _, r := range rows {
+		var prefs map[string]interface{}
+		if err := json.Unmarshal([]byte(r.Preferences), &prefs); err == nil {
+			result[r.UserID] = InstitutionPrefs{
+				CollegeID:   r.UserID,
+				Preferences: prefs,
+			}
+		}
+	}
+	return result, nil
+}
+
+// FindInstitutionPreferencesByCollegeIDs returns institution preferences keyed by college_id
+func (r *Repository) FindInstitutionPreferencesByCollegeIDs(collegeIDs []uint) (map[uint]InstitutionPrefs, error) {
+	type row struct {
+		CollegeID   uint   `gorm:"column:college_id"`
+		Preferences string `gorm:"column:preferences"`
+	}
+	var rows []row
+	err := r.db.Table("institution_users").
+		Select("college_id, preferences::text as preferences").
+		Where("college_id IN ?", collegeIDs).
+		Where("college_id > 0").
+		Where("preferences IS NOT NULL").
+		Where("deleted_at IS NULL").
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[uint]InstitutionPrefs, len(rows))
+	for _, r := range rows {
+		var prefs map[string]interface{}
+		if err := json.Unmarshal([]byte(r.Preferences), &prefs); err != nil {
+			continue
+		}
+		// The preferences are nested under "preferences" key in the JSONB
+		if inner, ok := prefs["preferences"].(map[string]interface{}); ok {
+			prefs = inner
+		}
+		result[r.CollegeID] = InstitutionPrefs{
+			CollegeID:   r.CollegeID,
+			Preferences: prefs,
+		}
+	}
+	return result, nil
+}
+
+// FindReviewAggregations returns rating and review count for the given college IDs
+func (r *Repository) FindReviewAggregations(collegeIDs []uint) (map[uint]ReviewAgg, error) {
+	type row struct {
+		CollegeID   uint    `gorm:"column:college_id"`
+		ReviewCount int     `gorm:"column:review_count"`
+		AvgRating   float64 `gorm:"column:avg_rating"`
+	}
+	var rows []row
+	err := r.db.Table("reviews").
+		Select("college_id, COUNT(*) as review_count, COALESCE(ROUND(AVG(COALESCE((ratings->>'academics')::numeric,0) + COALESCE((ratings->>'campus_life')::numeric,0) + COALESCE((ratings->>'career_support')::numeric,0) + COALESCE((ratings->>'value_for_money')::numeric,0)) / 4.0, 1), 0) as avg_rating").
+		Where("college_id IN ?", collegeIDs).
+		Where("college_id > 0").
+		Where("deleted_at IS NULL").
+		Group("college_id").
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[uint]ReviewAgg, len(rows))
+	for _, r := range rows {
+		result[r.CollegeID] = ReviewAgg{
+			CollegeID: r.CollegeID,
+			Rating:    r.AvgRating,
+			Reviews:   r.ReviewCount,
+		}
+	}
+	return result, nil
+}
+
+func (r *Repository) UpdateCollegeRating(collegeID uint) error {
+	var result struct {
+		AvgRating  float64
+		TotalCount int64
+	}
+	err := r.db.Table("reviews").
+		Select("COALESCE(AVG(ratings->>'Overall Experience')::numeric, 0) as avg_rating, COUNT(*) as total_count").
+		Where("college_id = ? AND is_published = ?", collegeID, true).
+		Scan(&result).Error
+	if err != nil {
+		return err
+	}
+	return r.db.Table("colleges").
+		Where("id = ?", collegeID).
+		Updates(map[string]interface{}{
+			"rating":  result.AvgRating,
+			"reviews": result.TotalCount,
+		}).Error
+}
+
+type InstitutionMapDTO struct {
+	ID        uint    `json:"id"`
+	Name      string  `json:"name"`
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+	District  string  `json:"district,omitempty"`
+	Province  string  `json:"province,omitempty"`
+	Type      string  `json:"type,omitempty"`
+}
+
+func (r *Repository) FindInstitutionsWithCoords() ([]InstitutionMapDTO, error) {
+	var institutions []InstitutionMapDTO
+	err := r.db.Table("institution_users").
+		Select("id, institution_name as name, latitude, longitude, COALESCE(district,'') as district, COALESCE(province,'') as province, COALESCE(organization_type,'') as type").
+		Where("latitude IS NOT NULL AND longitude IS NOT NULL").
+		Find(&institutions).Error
+	return institutions, err
+}
+
+func (r *Repository) UpdateLocation(id uint, lat, lng float64) error {
+	return r.db.Model(&College{}).Where("id = ?", id).
+		Updates(map[string]interface{}{
+			"latitude":  lat,
+			"longitude": lng,
+		}).Error
+}
+
 func (r *Repository) Count() (int64, error) {
 	var total int64
 	err := r.db.Model(&College{}).Count(&total).Error
@@ -291,22 +503,80 @@ func (r *Repository) FindFeatured(limit int) ([]College, error) {
 	return colleges, err
 }
 
-func (r *Repository) UniversityExists(id uint) bool {
-	var count int64
-	r.db.Model(&University{}).Where("id = ?", id).Count(&count)
-	return count > 0
-}
+func (r *Repository) FindAllForRecommendation(limit int) ([]College, error) {
+	var colleges []College
+	err := r.db.Model(&College{}).
+		Where("deleted_at IS NULL").
+		Order("rating DESC NULLS LAST, reviews DESC").
+		Limit(limit).
+		Find(&colleges).Error
+	if err != nil {
+		return nil, err
+	}
 
-func (r *Repository) FindUniversityByName(name string) (*University, error) {
-	var university University
-	err := r.db.Where("LOWER(name) = LOWER(?)", name).First(&university).Error
-	return &university, err
-}
+	if len(colleges) > 0 {
+		return colleges, nil
+	}
 
-func (r *Repository) FindUniversityByID(id uint) (*University, error) {
-	var university University
-	err := r.db.First(&university, id).Error
-	return &university, err
+	// Fallback: build College records from approved institution_users
+	type instRow struct {
+		ID               uint    `gorm:"column:id"`
+		InstitutionName  string  `gorm:"column:institution_name"`
+		District         string  `gorm:"column:district"`
+		Province         string  `gorm:"column:province"`
+		OrganizationType string  `gorm:"column:organization_type"`
+		About            string  `gorm:"column:about"`
+		LogoURL          string  `gorm:"column:logo_url"`
+		ProfileData      *string `gorm:"column:profile_data"`
+		WebsiteURL       string  `gorm:"column:website_url"`
+		Affiliation      string  `gorm:"column:affiliation"`
+		Featured         bool    `gorm:"column:featured"`
+		Verified         bool    `gorm:"column:verified"`
+	}
+
+	var rows []instRow
+	err = r.db.Table("institution_users").
+		Select("id, institution_name, district, province, organization_type, about, logo_url, profile_data, website_url, affiliation, featured, verified").
+		Where("status = ?", "approved").
+		Where("deleted_at IS NULL").
+		Order("featured DESC, id DESC").
+		Limit(limit).
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+
+	colleges = make([]College, 0, len(rows))
+	for _, row := range rows {
+		loc := row.District
+		if loc == "" {
+			loc = row.Province
+		}
+		colType := row.OrganizationType
+		if colType == "" {
+			colType = "Private"
+		}
+		c := College{
+			ID:              row.ID,
+			Name:            row.InstitutionName,
+			FullName:        row.InstitutionName,
+			Location:        loc,
+			Affiliation:     row.Affiliation,
+			CollegeType:     colType,
+			Verified:        row.Verified,
+			Featured:        row.Featured,
+			Description:     row.About,
+			Website:         row.WebsiteURL,
+			ImageURL:        row.LogoURL,
+			AcademicFitScore: 5,
+			CampusLifeScore: 5,
+			CareerFitScore:  5,
+			BalancedFitScore: 5,
+		}
+		colleges = append(colleges, c)
+	}
+
+	return colleges, nil
 }
 
 func parseTypes(typeStr string) []string {
@@ -424,7 +694,87 @@ func parseFloat(s string) (float64, error) {
 	return strconv.ParseFloat(s, 64)
 }
 
-func (r *Repository) GetFilterCounts() (*CollegeFilterCountsResponse, error) {
+func (r *Repository) GetCollegeProfileForRecommendation(userID uint) (*CollegeProfileData, error) {
+	type rawEntry struct {
+		Level  string
+		Stream string
+		Grade  string
+	}
+	var entries []rawEntry
+	if err := r.db.Table("education_entries").
+		Where("user_id = ?", userID).
+		Select("level, stream, grade").
+		Find(&entries).Error; err != nil {
+		return nil, err
+	}
+
+	type rawUser struct {
+		Preferences []byte
+	}
+	var user rawUser
+	if err := r.db.Table("users").
+		Select("preferences").
+		Where("id = ?", userID).
+		First(&user).Error; err != nil {
+		return nil, err
+	}
+
+	type bookmarkRow struct {
+		Field string
+	}
+	var bookmarks []bookmarkRow
+	r.db.Table("bookmarks").
+		Select("DISTINCT field").
+		Where("user_id = ? AND entity_type = 'college'", userID).
+		Scan(&bookmarks)
+
+	eduEntries := make([]CollegeEducationEntry, 0, len(entries))
+	for _, e := range entries {
+		eduEntries = append(eduEntries, CollegeEducationEntry{
+			Level:  e.Level,
+			Stream: e.Stream,
+			Grade:  e.Grade,
+		})
+	}
+
+	var prefs *CollegePreferences
+	if len(user.Preferences) > 0 {
+		var p CollegePreferences
+		if err := json.Unmarshal(user.Preferences, &p); err == nil {
+			prefs = &p
+		}
+	}
+
+	fields := make([]string, 0, len(bookmarks))
+	for _, b := range bookmarks {
+		if b.Field != "" {
+			fields = append(fields, b.Field)
+		}
+	}
+
+	return &CollegeProfileData{
+		EducationEntries: eduEntries,
+		Preferences:      prefs,
+		BookmarkedFields: fields,
+	}, nil
+}
+
+func mapAdmissionLevel(level string) string {
+	mapping := map[string]string{
+		"high-school": "+2",
+		"a-level":     "A-Level",
+		"diploma":     "Diploma/CTEVT",
+		"ctevt":       "Diploma/CTEVT",
+		"bachelor":    "Bachelor",
+		"master":      "Master",
+	}
+	if mapped, ok := mapping[level]; ok {
+		return mapped
+	}
+	return level
+}
+
+func (r *Repository) GetFilterCounts(level string) (*CollegeFilterCountsResponse, error) {
 	resp := &CollegeFilterCountsResponse{
 		TypeCounts:      map[string]int64{},
 		TypeCountsByID:  map[string]int64{},
@@ -537,19 +887,32 @@ func (r *Repository) GetFilterCounts() (*CollegeFilterCountsResponse, error) {
 		"5+ Years":       {"5 years", "5+ years", "five years"},
 	}
 
-	if err := r.db.Model(&College{}).Count(&resp.Total).Error; err != nil {
+	totalQuery := r.db.Model(&College{})
+	featuredQuery := r.db.Model(&College{}).Where("colleges.featured = ?", true)
+	verifiedQuery := r.db.Model(&College{}).Where("colleges.verified = ?", true)
+	popularQuery := r.db.Model(&College{}).Where("colleges.popular = ?", true)
+	if level != "" {
+		mappedLevel := mapAdmissionLevel(level)
+		joinClause := "JOIN institution_users iu ON iu.college_id = colleges.id AND iu.deleted_at IS NULL JOIN admission_pages ap ON ap.institution_id = iu.id AND ap.status = 'published' AND ap.deleted_at IS NULL AND ap.data->'overview_data'->>'level' = ?"
+		totalQuery = totalQuery.Joins(joinClause, mappedLevel)
+		featuredQuery = featuredQuery.Joins(joinClause, mappedLevel)
+		verifiedQuery = verifiedQuery.Joins(joinClause, mappedLevel)
+		popularQuery = popularQuery.Joins(joinClause, mappedLevel)
+	}
+
+	if err := totalQuery.Count(&resp.Total).Error; err != nil {
 		return nil, err
 	}
 
-	if err := r.db.Model(&College{}).Where("featured = ?", true).Count(&resp.Featured).Error; err != nil {
+	if err := featuredQuery.Count(&resp.Featured).Error; err != nil {
 		return nil, err
 	}
 
-	if err := r.db.Model(&College{}).Where("verified = ?", true).Count(&resp.Verified).Error; err != nil {
+	if err := verifiedQuery.Count(&resp.Verified).Error; err != nil {
 		return nil, err
 	}
 
-	if err := r.db.Model(&College{}).Where("popular = ?", true).Count(&resp.Popular).Error; err != nil {
+	if err := popularQuery.Count(&resp.Popular).Error; err != nil {
 		return nil, err
 	}
 
@@ -559,10 +922,14 @@ func (r *Repository) GetFilterCounts() (*CollegeFilterCountsResponse, error) {
 	}
 
 	var rows []typeCountRow
-	if err := r.db.Model(&College{}).
-		Select("college_type, COUNT(*) as count").
-		Group("college_type").
-		Scan(&rows).Error; err != nil {
+	typeQuery := r.db.Model(&College{}).
+		Select("colleges.college_type, COUNT(*) as count").
+		Group("colleges.college_type")
+	if level != "" {
+		mappedLevel := mapAdmissionLevel(level)
+		typeQuery = typeQuery.Joins("JOIN institution_users iu ON iu.college_id = colleges.id AND iu.deleted_at IS NULL JOIN admission_pages ap ON ap.institution_id = iu.id AND ap.status = 'published' AND ap.deleted_at IS NULL AND ap.data->'overview_data'->>'level' = ?", mappedLevel)
+	}
+	if err := typeQuery.Scan(&rows).Error; err != nil {
 		return nil, err
 	}
 
@@ -585,16 +952,45 @@ func (r *Repository) GetFilterCounts() (*CollegeFilterCountsResponse, error) {
 		FeaturedPrograms []byte
 		Courses          []byte
 		ProgramsList     []byte
+		ProgramsData     string
 	}
 
 	var facetRows []collegeFacetRow
-	if err := r.db.Model(&College{}).
-		Select("location, affiliation, college_type, featured_programs, courses, programs_list").
-		Scan(&facetRows).Error; err != nil {
-		return nil, err
+	if level != "" {
+		mappedLevel := mapAdmissionLevel(level)
+		if err := r.db.Raw(`SELECT 
+			c.location, c.affiliation, c.college_type, c.featured_programs, c.courses, c.programs_list,
+			COALESCE(ap.data->>'programs_data', '[]') AS programs_data
+			FROM admission_pages ap
+			JOIN institution_users iu ON iu.id = ap.institution_id AND iu.deleted_at IS NULL
+			JOIN colleges c ON c.id = iu.college_id AND c.deleted_at IS NULL
+			WHERE ap.status = 'published' AND ap.deleted_at IS NULL
+			AND ap.data->'overview_data'->>'level' = ?`, mappedLevel).Scan(&facetRows).Error; err != nil {
+			return nil, err
+		}
+	} else {
+		if err := r.db.Model(&College{}).
+			Select("location, affiliation, college_type, featured_programs, courses, programs_list, '[]' AS programs_data").
+			Scan(&facetRows).Error; err != nil {
+			return nil, err
+		}
 	}
 
 	for _, row := range facetRows {
+		programTitles := ""
+		var progData []struct {
+			Title string `json:"title"`
+		}
+		if err := json.Unmarshal([]byte(row.ProgramsData), &progData); err == nil {
+			parts := make([]string, 0, len(progData))
+			for _, p := range progData {
+				if p.Title != "" {
+					parts = append(parts, p.Title)
+				}
+			}
+			programTitles = strings.Join(parts, " ")
+		}
+
 		searchText := strings.ToLower(strings.Join([]string{
 			row.Location,
 			row.Affiliation,
@@ -602,6 +998,7 @@ func (r *Repository) GetFilterCounts() (*CollegeFilterCountsResponse, error) {
 			string(row.FeaturedPrograms),
 			string(row.Courses),
 			string(row.ProgramsList),
+			programTitles,
 		}, " "))
 
 		for facetID, keywords := range facetKeywordsByID {

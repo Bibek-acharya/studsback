@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"studsphere/backend/internal/shared/response"
+	"studsphere/backend/internal/shared/slug"
 	"studsphere/backend/internal/shared/utils"
 
 	"github.com/gin-gonic/gin"
@@ -53,13 +54,18 @@ func (h *Handler) GetScholarships(c *gin.Context) {
 }
 
 func (h *Handler) GetScholarshipByID(c *gin.Context) {
-	id, err := parseID(c.Param("id"))
-	if err != nil {
-		response.Error(c, 400, "Invalid scholarship ID")
-		return
+	param := c.Param("id")
+
+	if id, err := parseID(param); err == nil {
+		scholarship, err := h.service.GetScholarshipByID(id)
+		if err == nil {
+			resp := toScholarshipDetailResponse(*scholarship)
+			response.Success(c, 200, "Scholarship details retrieved successfully", resp)
+			return
+		}
 	}
 
-	scholarship, err := h.service.GetScholarshipByID(id)
+	scholarship, err := h.service.GetScholarshipBySlug(param)
 	if err != nil {
 		response.Error(c, 404, "Scholarship not found")
 		return
@@ -69,14 +75,48 @@ func (h *Handler) GetScholarshipByID(c *gin.Context) {
 	response.Success(c, 200, "Scholarship details retrieved successfully", resp)
 }
 
-func (h *Handler) GetSimilarScholarships(c *gin.Context) {
-	id, err := parseID(c.Param("id"))
-	if err != nil {
-		response.Error(c, 400, "Invalid scholarship ID")
+func (h *Handler) RecommendScholarships(c *gin.Context) {
+	var req ScholarshipRecommendRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, "Invalid request: "+err.Error())
 		return
 	}
 
-	scholarships, err := h.service.GetSimilarScholarships(id)
+	var userID *uint
+	if uid, exists := c.Get("user_id"); exists && uid != nil {
+		if id, ok := uid.(uint); ok && id > 0 {
+			userID = &id
+		}
+	}
+
+	results, err := h.service.RecommendScholarships(req, userID)
+	if err != nil {
+		response.Error(c, 500, "Failed to get recommendations")
+		return
+	}
+
+	response.Success(c, 200, "Recommendations retrieved successfully", ScholarshipRecommendResponse{
+		Scholarships: results,
+	})
+}
+
+func (h *Handler) GetSimilarScholarships(c *gin.Context) {
+	param := c.Param("id")
+
+	var s *Scholarship
+	var err error
+
+	if id, e := parseID(param); e == nil {
+		s, err = h.service.GetScholarshipByID(id)
+	} else {
+		s, err = h.service.GetScholarshipBySlug(param)
+	}
+	if err != nil {
+		response.Error(c, 404, "Scholarship not found")
+		return
+	}
+
+	scholarships, err := h.service.GetSimilarScholarships(s.ID)
 	if err != nil {
 		response.Error(c, 404, "Scholarship not found")
 		return
@@ -92,11 +132,53 @@ func (h *Handler) GetSimilarScholarships(c *gin.Context) {
 	})
 }
 
-func (h *Handler) ApplyScholarship(c *gin.Context) {
-	scholarshipID, err := parseID(c.Param("id"))
+func (h *Handler) GetAvailableExamCenters(c *gin.Context) {
+	param := c.Param("id")
+
+	var scholarshipID uint
+	var err error
+
+	if id, e := parseID(param); e == nil {
+		scholarshipID = id
+	} else {
+		s, e := h.service.GetScholarshipBySlug(param)
+		if e != nil {
+			response.Error(c, 404, "Scholarship not found")
+			return
+		}
+		scholarshipID = s.ID
+	}
+
+	centers, err := h.service.GetAvailableExamCenters(scholarshipID)
 	if err != nil {
-		response.Error(c, 400, "Invalid scholarship ID")
+		response.Error(c, 500, "Failed to fetch exam centers")
 		return
+	}
+
+	if centers == nil {
+		centers = []string{}
+	}
+
+	response.Success(c, 200, "Exam centers retrieved successfully", gin.H{
+		"exam_centers": centers,
+	})
+}
+
+func (h *Handler) ApplyScholarship(c *gin.Context) {
+	param := c.Param("id")
+
+	var scholarshipID uint
+	var err error
+
+	if id, e := parseID(param); e == nil {
+		scholarshipID = id
+	} else {
+		s, e := h.service.GetScholarshipBySlug(param)
+		if e != nil {
+			response.Error(c, 404, "Scholarship not found")
+			return
+		}
+		scholarshipID = s.ID
 	}
 
 	var req ScholarshipApplicationRequest
@@ -322,16 +404,50 @@ func (h *Handler) AdminDeleteScholarship(c *gin.Context) {
 	response.Success(c, 200, "Scholarship deleted successfully", nil)
 }
 
+func (h *Handler) AdminListScholarships(c *gin.Context) {
+	scholarships, err := h.service.AdminListScholarships()
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to list scholarships")
+		return
+	}
+
+	type listItem struct {
+		ID    uint   `json:"id"`
+		Slug  string `json:"slug"`
+		Title string `json:"title"`
+	}
+	items := make([]listItem, 0, len(scholarships))
+	for _, s := range scholarships {
+		items = append(items, listItem{
+			ID:    s.ID,
+			Slug:  scholarshipSlug(s),
+			Title: s.Title,
+		})
+	}
+
+	response.Success(c, http.StatusOK, "Scholarships retrieved successfully", items)
+}
+
+func scholarshipSlug(s Scholarship) string {
+	if s.Slug != "" {
+		return s.Slug
+	}
+	return slug.Generate(s.Title)
+}
+
 func toScholarshipResponse(s Scholarship) ScholarshipResponse {
 	return ScholarshipResponse{
-		ID:              s.ID,
-		Title:           s.Title,
-		Provider:        s.Provider,
-		Location:        s.Location,
-		Type:            s.FundingType,
-		Amount:          s.Value,
-		Deadline:        formatDeadline(s.Deadline),
-		Status:          deriveScholarshipStatus(s.Deadline),
+		ID:                   s.ID,
+		Slug:                 scholarshipSlug(s),
+		Title:                s.Title,
+		Provider:             s.Provider,
+		Location:             s.Location,
+		Type:                 s.FundingType,
+		Amount:               s.Value,
+		Deadline:             formatDeadline(s.Deadline),
+		ApplicationStartDate: formatDeadline(s.ApplicationStartDate),
+		ApplicationEndDate:   formatDeadline(s.Deadline),
+		Status:               deriveScholarshipStatus(s.Deadline),
 		Category:        toScholarshipCategory(s),
 		Description:     s.Description,
 		Image:           s.ImageURL,
@@ -346,6 +462,7 @@ func toScholarshipResponse(s Scholarship) ScholarshipResponse {
 func toScholarshipDetailResponse(s Scholarship) gin.H {
 	return gin.H{
 		"id":                   s.ID,
+		"slug":                 scholarshipSlug(s),
 		"title":                s.Title,
 		"provider":             s.Provider,
 		"provider_id":          s.ProviderID,
@@ -357,7 +474,9 @@ func toScholarshipDetailResponse(s Scholarship) gin.H {
 		"scholarship_type":     s.ScholarshipType,
 		"description":          s.Description,
 		"image_url":            s.ImageURL,
-		"status":               deriveScholarshipStatus(s.Deadline),
+		"application_start_date": formatDeadline(s.ApplicationStartDate),
+		"application_end_date":   formatDeadline(s.Deadline),
+		"status":                 deriveScholarshipStatus(s.Deadline),
 		"field_of_study":       parseStringArray(s.FieldOfStudy),
 		"selection_process":    parseDetailFieldArray(s.SelectionProcess),
 		"eligibility_criteria": parseDetailFieldArray(s.EligibilityCriteria),
@@ -399,7 +518,7 @@ func toScholarshipDetailResponse(s Scholarship) gin.H {
 		"faqs_new":                  parseDetailFieldArray(s.FAQsNew),
 		"gallery_images":            parseDetailFieldArray(s.GalleryImages),
 		"gallery_images_new":         parseDetailFieldArray(s.GalleryImagesNew),
-		"partner_groups":            parseDetailFieldArray(s.PartnerGroups),
+		"partner_groups":            parsePartnerGroups(s.PartnerGroups),
 		"partner_messages":          parseDetailFieldArray(s.PartnerMessages),
 		"exam_centers":              parseDetailFieldArray(s.ExamCenters),
 		"exam_centers_new":           parseDetailFieldArray(s.ExamCentersNew),
@@ -410,11 +529,14 @@ func toScholarshipDetailResponse(s Scholarship) gin.H {
 
 func toScholarshipSummary(s Scholarship) ScholarshipSummary {
 	return ScholarshipSummary{
-		ID:          s.ID,
-		Title:       s.Title,
-		Provider:    s.Provider,
-		Deadline:    formatDeadline(s.Deadline),
-		Status:      deriveScholarshipStatus(s.Deadline),
+		ID:                   s.ID,
+		Slug:                 scholarshipSlug(s),
+		Title:                s.Title,
+		Provider:             s.Provider,
+		Deadline:             formatDeadline(s.Deadline),
+		Status:               deriveScholarshipStatus(s.Deadline),
+		ApplicationStartDate: formatDeadline(s.ApplicationStartDate),
+		ApplicationEndDate:   formatDeadline(s.Deadline),
 		Location:    s.Location,
 		FundingType: s.FundingType,
 		DegreeLevel: s.DegreeLevel,
@@ -502,15 +624,17 @@ func toApplicationResponse(a ScholarshipApplication) ScholarshipApplicationRespo
 
 	if a.Scholarship.ID != 0 {
 		resp.Scholarship = &ScholarshipSummary{
-			ID:          a.Scholarship.ID,
-			Title:       a.Scholarship.Title,
-			Provider:    a.Scholarship.Provider,
-			Deadline:    formatDeadline(a.Scholarship.Deadline),
-			Status:      deriveScholarshipStatus(a.Scholarship.Deadline),
-			Location:    a.Scholarship.Location,
-			FundingType: a.Scholarship.FundingType,
-			DegreeLevel: a.Scholarship.DegreeLevel,
-			ImageURL:    a.Scholarship.ImageURL,
+			ID:                   a.Scholarship.ID,
+			Title:                a.Scholarship.Title,
+			Provider:             a.Scholarship.Provider,
+			Deadline:             formatDeadline(a.Scholarship.Deadline),
+			Status:               deriveScholarshipStatus(a.Scholarship.Deadline),
+			ApplicationStartDate: formatDeadline(a.Scholarship.ApplicationStartDate),
+			ApplicationEndDate:   formatDeadline(a.Scholarship.Deadline),
+			Location:             a.Scholarship.Location,
+			FundingType:          a.Scholarship.FundingType,
+			DegreeLevel:          a.Scholarship.DegreeLevel,
+			ImageURL:             a.Scholarship.ImageURL,
 			Category:    toScholarshipCategory(a.Scholarship),
 			Description: a.Scholarship.Description,
 		}
@@ -568,6 +692,17 @@ func parseDetailFieldArray(data []byte) []DetailField {
 	out := []DetailField{}
 	if err := json.Unmarshal(data, &out); err != nil {
 		return []DetailField{}
+	}
+	return out
+}
+
+func parsePartnerGroups(data []byte) []PartnerGroupResponse {
+	if len(data) == 0 {
+		return []PartnerGroupResponse{}
+	}
+	out := []PartnerGroupResponse{}
+	if err := json.Unmarshal(data, &out); err != nil {
+		return []PartnerGroupResponse{}
 	}
 	return out
 }
@@ -685,15 +820,88 @@ type categoryMeta struct {
 	Color string
 }
 
+func toPaymentResponse(p *Payment) PaymentResponse {
+	paidAt := ""
+	if p.PaidAt != nil {
+		paidAt = p.PaidAt.Format(time.RFC3339)
+	}
+	return PaymentResponse{
+		ID:            p.ID,
+		ApplicationID: p.ApplicationID,
+		ScholarshipID: p.ScholarshipID,
+		Method:        p.Method,
+		Amount:        p.Amount,
+		Status:        p.Status,
+		ReceiptURL:    p.ReceiptURL,
+		TransactionID: p.TransactionID,
+		PaidAt:        paidAt,
+	}
+}
+
 func countString(count int) string {
 	return strconv.Itoa(count) + " Scholarships Open"
 }
 
-func (h *Handler) ProcessPayment(c *gin.Context) {
-	scholarshipID, err := parseID(c.Param("id"))
-	if err != nil {
-		response.Error(c, 400, "Invalid scholarship ID")
+func (h *Handler) InitiateEsewaPayment(c *gin.Context) {
+	var req EsewaInitiateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	result, err := h.paymentService.InitiateEsewaPayment(req.ApplicationID, req.Amount)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "eSewa payment initiated", result)
+}
+
+func (h *Handler) VerifyEsewaPayment(c *gin.Context) {
+	var req EsewaVerifyRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	payment, err := h.paymentService.VerifyEsewaPayment(req)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "eSewa payment verified successfully", toPaymentResponse(payment))
+}
+
+func (h *Handler) VerifyPendingEsewaPayments(c *gin.Context) {
+	summary := h.paymentService.VerifyPendingEsewaPayments()
+	if summary.Error != "" {
+		response.Error(c, http.StatusInternalServerError, summary.Error)
+		return
+	}
+	response.Success(c, http.StatusOK, "eSewa payment verification complete", summary)
+}
+
+func (h *Handler) SendAdmitCards(c *gin.Context) {
+	summary := h.paymentService.SendAdmitCards()
+	response.Success(c, http.StatusOK, "Admit cards sent", summary)
+}
+
+func (h *Handler) ProcessPayment(c *gin.Context) {
+	param := c.Param("id")
+
+	var scholarshipID uint
+	var err error
+	if id, e := parseID(param); e == nil {
+		scholarshipID = id
+	} else {
+		s, e := h.service.GetScholarshipBySlug(param)
+		if e != nil {
+			response.Error(c, 404, "Scholarship not found")
+			return
+		}
+		scholarshipID = s.ID
 	}
 
 	var req PaymentRequest

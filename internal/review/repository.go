@@ -18,7 +18,7 @@ func (r *Repository) Create(review *Review) error {
 
 func (r *Repository) FindByID(id uint) (*Review, error) {
 	var review Review
-	err := r.db.First(&review, id).Error
+	err := r.db.Preload("User").First(&review, id).Error
 	if err != nil {
 		return nil, err
 	}
@@ -27,7 +27,7 @@ func (r *Repository) FindByID(id uint) (*Review, error) {
 
 func (r *Repository) FindByIDAndUser(id, userID uint) (*Review, error) {
 	var review Review
-	err := r.db.Where("id = ? AND user_id = ?", id, userID).First(&review).Error
+	err := r.db.Preload("User").Where("id = ? AND user_id = ?", id, userID).First(&review).Error
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func (r *Repository) FindByUser(userID uint, page, limit int) ([]Review, int64, 
 	}
 
 	offset := (page - 1) * limit
-	err := r.db.Where("user_id = ?", userID).
+	err := r.db.Preload("User").Where("user_id = ?", userID).
 		Order("created_at desc").
 		Offset(offset).
 		Limit(limit).
@@ -55,6 +55,43 @@ func (r *Repository) FindByUser(userID uint, page, limit int) ([]Review, int64, 
 	return reviews, total, nil
 }
 
+func (r *Repository) FindByUniversity(universityID uint, page, limit int) ([]Review, int64, error) {
+	var reviews []Review
+	var total int64
+
+	if err := r.db.Model(&Review{}).Where("university_id = ? AND is_published = ?", universityID, true).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * limit
+	err := r.db.Preload("User").Where("university_id = ? AND is_published = ?", universityID, true).
+		Order("created_at desc").
+		Offset(offset).
+		Limit(limit).
+		Find(&reviews).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return reviews, total, nil
+}
+
+func (r *Repository) FindAllByUniversity(universityID uint) ([]Review, error) {
+	var reviews []Review
+	err := r.db.Preload("User").Where("university_id = ? AND is_published = ?", universityID, true).
+		Find(&reviews).Error
+	return reviews, err
+}
+
+func (r *Repository) FindByUserAndUniversity(userID, universityID uint) (*Review, error) {
+	var review Review
+	err := r.db.Preload("User").Where("user_id = ? AND university_id = ?", userID, universityID).First(&review).Error
+	if err != nil {
+		return nil, err
+	}
+	return &review, nil
+}
+
 func (r *Repository) FindByCollege(collegeID uint, page, limit int) ([]Review, int64, error) {
 	var reviews []Review
 	var total int64
@@ -64,7 +101,28 @@ func (r *Repository) FindByCollege(collegeID uint, page, limit int) ([]Review, i
 	}
 
 	offset := (page - 1) * limit
-	err := r.db.Where("college_id = ? AND is_published = ?", collegeID, true).
+	err := r.db.Preload("User").Where("college_id = ? AND is_published = ?", collegeID, true).
+		Order("created_at desc").
+		Offset(offset).
+		Limit(limit).
+		Find(&reviews).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return reviews, total, nil
+}
+
+func (r *Repository) FindByInstitution(instID uint, page, limit int) ([]Review, int64, error) {
+	var reviews []Review
+	var total int64
+
+	if err := r.db.Model(&Review{}).Where("institution_id = ? AND is_published = ?", instID, true).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * limit
+	err := r.db.Preload("User").Where("institution_id = ? AND is_published = ?", instID, true).
 		Order("created_at desc").
 		Offset(offset).
 		Limit(limit).
@@ -83,8 +141,28 @@ func (r *Repository) FindAllByCollege(collegeID uint) ([]Review, error) {
 	return reviews, err
 }
 
+func (r *Repository) FindAllByInstitution(instID uint) ([]Review, error) {
+	var reviews []Review
+	err := r.db.Where("institution_id = ? AND is_published = ?", instID, true).
+		Find(&reviews).Error
+	return reviews, err
+}
+
 func (r *Repository) Save(review *Review) error {
 	return r.db.Save(review).Error
+}
+
+func (r *Repository) UpdateUniversityFields(review *Review, updates map[string]interface{}) error {
+	result := r.db.Model(&Review{}).
+		Where("id = ? AND user_id = ? AND university_id = ?", review.ID, review.UserID, review.UniversityID).
+		Updates(updates)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
 }
 
 func (r *Repository) Delete(id, userID uint) error {
@@ -121,4 +199,131 @@ func (r *Repository) IncrementHelpfulCount(reviewID uint) error {
 
 func (r *Repository) CreateReport(report *ReviewReport) error {
 	return r.db.Create(report).Error
+}
+
+func (r *Repository) UpdateUniversityRating(universityID uint, avgRating float64, reviewCount int) error {
+	return r.db.Table("universities").
+		Where("id = ?", universityID).
+		Updates(map[string]interface{}{
+			"rating":       avgRating,
+			"review_count": reviewCount,
+		}).Error
+}
+
+// Admin methods for managing reviews
+func (r *Repository) AdminDeleteReview(id uint) error {
+	result := r.db.Delete(&Review{}, id)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *Repository) AdminGetAllReviews(page, limit int) ([]Review, int64, error) {
+	var reviews []Review
+	var total int64
+
+	if err := r.db.Model(&Review{}).Where("university_id > 0").Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * limit
+	err := r.db.Preload("User").Where("university_id > 0").
+		Order("created_at desc").
+		Offset(offset).
+		Limit(limit).
+		Find(&reviews).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return reviews, total, nil
+}
+
+// Date report methods
+func (r *Repository) CreateDateReport(report *DateReport) error {
+	return r.db.Create(report).Error
+}
+
+func (r *Repository) FindDateReportByID(id uint) (*DateReport, error) {
+	var report DateReport
+	err := r.db.First(&report, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &report, nil
+}
+
+func (r *Repository) GetAllDateReports(page, limit int) ([]DateReport, int64, error) {
+	var reports []DateReport
+	var total int64
+
+	if err := r.db.Model(&DateReport{}).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * limit
+	err := r.db.Order("created_at desc").
+		Offset(offset).
+		Limit(limit).
+		Find(&reports).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return reports, total, nil
+}
+
+func (r *Repository) UpdateDateReportStatus(id uint, status string) error {
+	result := r.db.Model(&DateReport{}).Where("id = ?", id).Update("status", status)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *Repository) DeleteDateReport(id uint) error {
+	result := r.db.Delete(&DateReport{}, id)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *Repository) GetUniversityByID(id uint) (string, error) {
+	var name string
+	err := r.db.Table("universities").Where("id = ?", id).Pluck("name", &name).Error
+	return name, err
+}
+
+func (r *Repository) UpdateCollegeRating(collegeID uint) error {
+	if collegeID == 0 {
+		return nil
+	}
+	var result struct {
+		AvgRating  float64
+		TotalCount int64
+	}
+	err := r.db.Table("reviews").
+		Select("COALESCE(AVG((ratings->>'Overall Experience')::numeric), 0) as avg_rating, COUNT(*) as total_count").
+		Where("college_id = ? AND is_published = ?", collegeID, true).
+		Scan(&result).Error
+	if err != nil {
+		return err
+	}
+	return r.db.Table("colleges").
+		Where("id = ?", collegeID).
+		Updates(map[string]interface{}{
+			"rating":  result.AvgRating,
+			"reviews": result.TotalCount,
+		}).Error
 }

@@ -46,6 +46,15 @@ func (r *PaymentRepository) Update(payment *Payment) error {
 	return nil
 }
 
+func (r *PaymentRepository) FindByTransactionID(txnID string) (*Payment, error) {
+	var payment Payment
+	err := r.db.Where("transaction_id = ?", txnID).First(&payment).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to find payment by transaction id %s: %w", txnID, err)
+	}
+	return &payment, nil
+}
+
 func (r *PaymentRepository) FindByScholarshipID(scholarshipID uint) ([]Payment, error) {
 	var payments []Payment
 	err := r.db.Where("scholarship_id = ?", scholarshipID).Find(&payments).Error
@@ -53,4 +62,34 @@ func (r *PaymentRepository) FindByScholarshipID(scholarshipID uint) ([]Payment, 
 		return nil, fmt.Errorf("failed to find payments by scholarship id %d: %w", scholarshipID, err)
 	}
 	return payments, nil
+}
+
+func (r *PaymentRepository) FindPendingEsewa() ([]Payment, error) {
+	var payments []Payment
+	err := r.db.Where("method = ? AND status = ?", "esewa", "pending").Find(&payments).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to find pending eSewa payments: %w", err)
+	}
+	return payments, nil
+}
+
+func (r *PaymentRepository) FindCompletedEsewa() ([]Payment, error) {
+	var payments []Payment
+	err := r.db.Where("method = ? AND status = ?", "esewa", "completed").
+		Find(&payments).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to find completed eSewa payments: %w", err)
+	}
+	return payments, nil
+}
+
+func (r *PaymentRepository) FindPendingApplicationsWithRollNumber() ([]ScholarshipApplication, error) {
+	var apps []ScholarshipApplication
+	err := r.db.Where("status = ?", "pending").
+		Where("roll_number IS NOT NULL AND roll_number != ''").
+		Find(&apps).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to find pending applications: %w", err)
+	}
+	return apps, nil
 }

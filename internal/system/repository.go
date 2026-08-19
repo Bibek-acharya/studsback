@@ -73,13 +73,43 @@ func (r *Repository) DeleteContactInquiry(id uint) error {
 	return nil
 }
 
-func (r *Repository) FindAds(page, limit int, pageFilter string, active *bool) ([]Ad, int64, error) {
+func (r *Repository) FindInstitutionInquiries(institutionID uint, page, limit int, status, inquiryType, search string) ([]ContactInquiry, int64, error) {
+	var inquiries []ContactInquiry
+	var total int64
+
+	query := r.db.Model(&ContactInquiry{}).Where("institution_id = ?", institutionID)
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
+	if inquiryType != "" {
+		query = query.Where("type = ?", inquiryType)
+	}
+	if search != "" {
+		query = query.Where("name ILIKE ?", "%"+search+"%")
+	}
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * limit
+	if err := query.Order("created_at desc").Offset(offset).Limit(limit).Find(&inquiries).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return inquiries, total, nil
+}
+
+func (r *Repository) FindAds(page, limit int, pageFilter, positionFilter string, active *bool) ([]Ad, int64, error) {
 	var ads []Ad
 	var total int64
 
 	query := r.db.Model(&Ad{})
 	if pageFilter != "" {
 		query = query.Where("page = ?", pageFilter)
+	}
+	if positionFilter != "" {
+		query = query.Where("position = ?", positionFilter)
 	}
 	if active != nil {
 		query = query.Where("active = ?", *active)
@@ -97,15 +127,21 @@ func (r *Repository) FindAds(page, limit int, pageFilter string, active *bool) (
 	return ads, total, nil
 }
 
-func (r *Repository) FindActiveAds(page string) ([]Ad, error) {
+func (r *Repository) FindActiveAds(page, position string) ([]Ad, error) {
 	var ads []Ad
 	now := time.Now()
+	var zeroTime time.Time
 
 	query := r.db.Model(&Ad{}).
-		Where("active = ? AND start_date <= ? AND (end_date IS NULL OR end_date >= ?)", true, now, now)
+		Where("active = ?", true).
+		Where("(start_date <= ? OR start_date = ?)", now, zeroTime).
+		Where("(end_date >= ? OR end_date = ?)", now, zeroTime)
 
 	if page != "" {
 		query = query.Where("page = ?", page)
+	}
+	if position != "" {
+		query = query.Where("position = ?", position)
 	}
 
 	if err := query.Order("priority desc, created_at desc").Find(&ads).Error; err != nil {
@@ -181,7 +217,7 @@ func (r *Repository) FindCarouselSlides(page string, active *bool) ([]CarouselSl
 		query = query.Where("active = ?", *active)
 	}
 
-	if err := query.Order("order asc, created_at desc").Find(&slides).Error; err != nil {
+	if err := query.Order(`"order" asc, created_at desc`).Find(&slides).Error; err != nil {
 		return nil, err
 	}
 
@@ -245,4 +281,8 @@ func (r *Repository) FindActivePublicNotifications() ([]PublicNotification, erro
 		return nil, err
 	}
 	return notifications, nil
+}
+
+func (r *Repository) CreatePublicNotification(n *PublicNotification) error {
+	return r.db.Create(n).Error
 }

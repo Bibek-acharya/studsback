@@ -1,19 +1,23 @@
 package college
 
 import (
+	"net/http"
 	"strconv"
 
+	"studsphere/backend/internal/institution"
 	"studsphere/backend/internal/shared/response"
+	"studsphere/backend/internal/shared/sanitize"
 
 	"github.com/gin-gonic/gin"
 )
 
 type Handler struct {
-	service *Service
+	service         *Service
+	institutionRepo *institution.Repository
 }
 
-func NewHandler(service *Service) *Handler {
-	return &Handler{service: service}
+func NewHandler(service *Service, institutionRepo *institution.Repository) *Handler {
+	return &Handler{service: service, institutionRepo: institutionRepo}
 }
 
 func (h *Handler) GetColleges(c *gin.Context) {
@@ -88,6 +92,8 @@ func (h *Handler) CreateCollege(c *gin.Context) {
 		return
 	}
 
+	req.Description = sanitize.HTML(req.Description)
+
 	result, err := h.service.CreateCollege(req)
 	if err != nil {
 		response.Error(c, 400, err.Error())
@@ -125,6 +131,10 @@ func (h *Handler) UpdateCollege(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, 400, err.Error())
 		return
+	}
+
+	if req.Description != "" {
+		req.Description = sanitize.HTML(req.Description)
 	}
 
 	result, err := h.service.UpdateCollege(uint(parsedID), req)
@@ -199,11 +209,127 @@ func (h *Handler) GetFeaturedColleges(c *gin.Context) {
 }
 
 func (h *Handler) GetCollegeFilterCounts(c *gin.Context) {
-	result, err := h.service.GetCollegeFilterCounts()
+	level := c.Query("level")
+	result, err := h.service.GetCollegeFilterCounts(level)
 	if err != nil {
 		response.Error(c, 500, err.Error())
 		return
 	}
 
 	response.Success(c, 200, "College filter counts retrieved successfully", result)
+}
+
+func (h *Handler) RecommendColleges(c *gin.Context) {
+	var req CollegeRecommenderRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, "Invalid request: "+err.Error())
+		return
+	}
+
+	var userID *uint
+	if uid, exists := c.Get("user_id"); exists && uid != nil {
+		if id, ok := uid.(uint); ok && id > 0 {
+			userID = &id
+		}
+	}
+
+	recommendations, err := h.service.RecommendColleges(req, userID)
+	if err != nil {
+		response.Error(c, 500, "Failed to get recommendations")
+		return
+	}
+
+	response.Success(c, 200, "Recommendations retrieved successfully", CollegeRecommendResponse{
+		Recommendations: recommendations,
+	})
+}
+
+func (h *Handler) GetMapColleges(c *gin.Context) {
+	var north, south, east, west float64
+	var err error
+
+	if q := c.Query("north"); q != "" {
+		north, err = strconv.ParseFloat(q, 64)
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, "Invalid north parameter")
+			return
+		}
+	}
+	if q := c.Query("south"); q != "" {
+		south, err = strconv.ParseFloat(q, 64)
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, "Invalid south parameter")
+			return
+		}
+	}
+	if q := c.Query("east"); q != "" {
+		east, err = strconv.ParseFloat(q, 64)
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, "Invalid east parameter")
+			return
+		}
+	}
+	if q := c.Query("west"); q != "" {
+		west, err = strconv.ParseFloat(q, 64)
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, "Invalid west parameter")
+			return
+		}
+	}
+
+	colleges, err := h.service.GetMapColleges(north, south, east, west)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch map colleges")
+		return
+	}
+	response.Success(c, http.StatusOK, "Colleges retrieved", gin.H{"colleges": colleges})
+}
+
+func (h *Handler) UpdateCollegeLocation(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid college ID")
+		return
+	}
+
+	var req struct {
+		Latitude  float64 `json:"latitude" binding:"required"`
+		Longitude float64 `json:"longitude" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+	if err := h.service.UpdateCollegeLocation(uint(id), req.Latitude, req.Longitude); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	response.Success(c, http.StatusOK, "Location updated", gin.H{"id": id, "latitude": req.Latitude, "longitude": req.Longitude})
+}
+
+func (h *Handler) UpdateInstitutionCollegeLocation(c *gin.Context) {
+	userID := c.GetUint("user_id")
+	instUser, err := h.institutionRepo.FindInstitutionUserByID(userID)
+	if err != nil || instUser.CollegeID == 0 {
+		response.Error(c, http.StatusForbidden, "No college associated with your account")
+		return
+	}
+
+	var req struct {
+		Latitude  float64 `json:"latitude" binding:"required"`
+		Longitude float64 `json:"longitude" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+	if err := h.service.UpdateCollegeLocation(instUser.CollegeID, req.Latitude, req.Longitude); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	response.Success(c, http.StatusOK, "College location updated", gin.H{
+		"college_id": instUser.CollegeID,
+		"latitude":   req.Latitude,
+		"longitude":  req.Longitude,
+	})
 }

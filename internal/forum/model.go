@@ -12,8 +12,10 @@ type ForumCommunity struct {
 	UpdatedAt   time.Time      `json:"updated_at"`
 	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
 	Name        string         `gorm:"unique;not null" json:"name"`
-	Emoji       string         `json:"emoji"`
+	Description string         `gorm:"type:text" json:"description"`
+	Icon        string         `json:"icon"`
 	BgColor     string         `json:"bg_color"`
+	IsGeneral   bool           `gorm:"default:false" json:"is_general"`
 	MemberCount int            `gorm:"-" json:"member_count"`
 	IsMember    bool           `gorm:"-" json:"is_member"`
 	PostCount   int            `gorm:"-" json:"post_count"`
@@ -94,4 +96,5 @@ type User struct {
 	Email     string `json:"email"`
 	FirstName string `json:"first_name"`
 	LastName  string `json:"last_name"`
+	ImageURL  string `json:"image_url"`
 }

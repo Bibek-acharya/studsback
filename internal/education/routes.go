@@ -1,6 +1,10 @@
 package education
 
-import "github.com/gin-gonic/gin"
+import (
+	"studsphere/backend/internal/shared/middleware"
+
+	"github.com/gin-gonic/gin"
+)
 
 func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 	if h == nil {
@@ -15,15 +19,23 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			education.GET("/exams", h.GetEducationExams)
 			education.GET("/exams/:id", h.GetEducationExamByID)
 			education.GET("/courses", h.GetEducationCourses)
+			education.GET("/courses/search", h.SearchGlobalCourses)
 			education.GET("/courses/filter-counts", h.GetCourseFilterCounts)
-			education.GET("/courses/:id", h.GetEducationCourseByID)
+			education.GET("/courses/secondary", h.GetSecondaryCourses)
+			education.GET("/courses/by-level/:level", h.GetCoursesByLevel)
+			education.GET("/courses/by-affiliation/:id", h.GetCoursesByAffiliation)
+			education.GET("/courses/institution/:id", h.GetInstitutionCourses)
 			education.GET("/courses/:id/details", h.GetEducationCourseDetailsByID)
+			education.GET("/courses/:id/resolved", h.GetResolvedCourse)
+			education.GET("/courses/:id", h.GetEducationCourseByID)
 			education.GET("/news", h.GetEducationNews)
 			education.GET("/news/filter-counts", h.GetNewsFilterCounts)
 			education.GET("/news/:id", h.GetEducationNewsByID)
+			education.GET("/news/by-slug/:slug", h.GetEducationNewsBySlug)
 			education.GET("/events", h.GetEducationEvents)
 			education.GET("/events/filter-counts", h.GetEventFilterCounts)
 			education.GET("/events/:id", h.GetEducationEventByID)
+			education.GET("/events/by-slug/:slug", h.GetEducationEventBySlug)
 			education.GET("/blogs", h.GetEducationBlogs)
 			education.GET("/blogs/filter-counts", h.GetBlogFilterCounts)
 			education.GET("/blogs/:id", h.GetEducationBlogByID)
@@ -38,16 +50,57 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			entrances.GET("/:id", h.GetPublicEntranceByID)
 		}
 
+		// Admin course management routes — admin and super_admin only
+		adminCourses := v1.Group("/admin/courses")
+		adminCourses.Use(authMW)
+		adminCourses.Use(middleware.RequireRole("admin", "super_admin"))
+		{
+			adminCourses.GET("", h.AdminListCourses)
+			adminCourses.GET("/pending", h.AdminListPendingCourses)
+			adminCourses.GET("/:id", h.AdminGetCourse)
+			adminCourses.POST("", h.AdminCreateCourse)
+			adminCourses.PUT("/:id", h.AdminUpdateCourse)
+			adminCourses.DELETE("/:id", h.AdminDeleteCourse)
+			adminCourses.PUT("/:id/publish", h.AdminPublishCourse)
+		}
+
 		// Admin blog management routes
 		adminBlogs := v1.Group("/admin/blogs")
 		adminBlogs.Use(authMW)
 		adminBlogs.Use(roleMW)
 		{
 			adminBlogs.GET("", h.AdminGetBlogs)
+			adminBlogs.GET("/:id", h.AdminGetBlogByID)
 			adminBlogs.POST("", h.CreateBlog)
 			adminBlogs.PUT("/:id", h.UpdateBlog)
 			adminBlogs.DELETE("/:id", h.DeleteBlog)
 			adminBlogs.POST("/upload-image", h.UploadBlogImage)
+		}
+
+		// Admin event management routes
+		adminEvents := v1.Group("/admin/events")
+		adminEvents.Use(authMW)
+		adminEvents.Use(roleMW)
+		{
+			adminEvents.GET("", h.AdminGetEvents)
+			adminEvents.GET("/:id", h.AdminGetEventByID)
+			adminEvents.POST("", h.CreateEvent)
+			adminEvents.PUT("/:id", h.UpdateEvent)
+			adminEvents.DELETE("/:id", h.DeleteEvent)
+			adminEvents.PUT("/:id/feature", h.ToggleEventFeatured)
+		}
+
+		// Admin news management routes
+		adminNews := v1.Group("/admin/news")
+		adminNews.Use(authMW)
+		adminNews.Use(roleMW)
+		{
+			adminNews.GET("", h.AdminGetNews)
+			adminNews.POST("", h.AdminCreateNews)
+			adminNews.GET("/:id", h.AdminGetNewsByID)
+			adminNews.PUT("/:id", h.AdminUpdateNews)
+			adminNews.DELETE("/:id", h.AdminDeleteNews)
+			adminNews.POST("/upload-image", h.AdminUploadNewsImage)
 		}
 
 		// Blog comments (public)

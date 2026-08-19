@@ -7,6 +7,7 @@ const (
 	ApplicationStatusRejected     = "rejected"
 	ApplicationStatusShortlisted  = "shortlisted"
 	ApplicationStatusPendingPayment = "pending_payment"
+	ApplicationStatusDraft         = "draft"
 )
 
 type CreateScholarshipRequest struct {
@@ -35,8 +36,8 @@ type ScholarshipApplicationRequest struct {
 	DateOfBirthAD   string  `json:"date_of_birth_ad" binding:"required"`
 	Age             int     `json:"age"`
 	PhoneNumber     string  `json:"phone_number" binding:"required"`
-	Email           string  `json:"email"`
-	PhotoURL        string  `json:"photo_url"`
+	Email           string  `json:"email" binding:"required,email"`
+	PhotoURL        string  `json:"photo_url" binding:"required"`
 
 	SEEGPA             string `json:"see_gpa" binding:"required"`
 	SchoolType         string `json:"school_type" binding:"required"`
@@ -61,12 +62,12 @@ type ScholarshipApplicationRequest struct {
 	GuardianName          string  `json:"guardian_name" binding:"required"`
 	GuardianPhone         string  `json:"guardian_phone" binding:"required"`
 	GuardianEmail         string  `json:"guardian_email"`
-	FatherOccupation      string  `json:"father_occupation" binding:"required"`
+	FatherOccupation      string  `json:"father_occupation"`
 	FatherOccupationOther string  `json:"father_occupation_other"`
-	MotherOccupation      string  `json:"mother_occupation" binding:"required"`
+	MotherOccupation      string  `json:"mother_occupation"`
 	MotherOccupationOther string  `json:"mother_occupation_other"`
-	FamilyMonthlyIncome   float64 `json:"family_monthly_income" binding:"required"`
-	FamilyMembersCount    int     `json:"family_members_count" binding:"required"`
+	FamilyMonthlyIncome   float64 `json:"family_monthly_income"`
+	FamilyMembersCount    int     `json:"family_members_count"`
 
 	Stream     string `json:"stream" binding:"required"`
 	ExamCenter string `json:"exam_center" binding:"required"`
@@ -123,14 +124,17 @@ type UpdateScholarshipApplicationStatusRequest struct {
 }
 
 type ScholarshipResponse struct {
-	ID               uint          `json:"id"`
-	Title            string        `json:"title"`
-	Provider         string        `json:"provider"`
-	Location         string        `json:"location"`
-	Type             string        `json:"type"`
-	Amount           string        `json:"amount"`
-	Deadline         string        `json:"deadline"`
-	Status           string        `json:"status"`
+	ID                   uint          `json:"id"`
+	Slug                 string        `json:"slug"`
+	Title                string        `json:"title"`
+	Provider             string        `json:"provider"`
+	Location             string        `json:"location"`
+	Type                 string        `json:"type"`
+	Amount               string        `json:"amount"`
+	Deadline             string        `json:"deadline"`
+	ApplicationStartDate string        `json:"application_start_date"`
+	ApplicationEndDate   string        `json:"application_end_date"`
+	Status               string        `json:"status"`
 	Category         string        `json:"category"`
 	Description      string        `json:"description"`
 	Image            string        `json:"image"`
@@ -148,6 +152,8 @@ type ScholarshipResponse struct {
 	Benefits         []DetailField `json:"benefits,omitempty"`
 	FAQs             []DetailField `json:"faqs,omitempty"`
 	PaymentConfig    interface{}   `json:"payment_config,omitempty"`
+	ExamDate         string        `json:"exam_date,omitempty"`
+	ExamTime         string        `json:"exam_time,omitempty"`
 }
 
 type ScholarshipApplicationResponse struct {
@@ -208,11 +214,14 @@ type ScholarshipListResponse struct {
 }
 
 type ScholarshipSummary struct {
-	ID          uint   `json:"id"`
-	Title       string `json:"title"`
-	Provider    string `json:"provider"`
-	Deadline    string `json:"deadline"`
-	Status      string `json:"status"`
+	ID                   uint   `json:"id"`
+	Slug                 string `json:"slug"`
+	Title                string `json:"title"`
+	Provider             string `json:"provider"`
+	Deadline             string `json:"deadline"`
+	Status               string `json:"status"`
+	ApplicationStartDate string `json:"application_start_date"`
+	ApplicationEndDate   string `json:"application_end_date"`
 	Location    string `json:"location"`
 	FundingType string `json:"funding_type"`
 	DegreeLevel string `json:"degree_level"`
@@ -240,11 +249,22 @@ type UserSummary struct {
 }
 
 type DetailField struct {
+	Year           string `json:"year,omitempty"`
 	Title          string `json:"title,omitempty"`
 	Description    string `json:"description,omitempty"`
+	Icon           string `json:"icon,omitempty"`
+	Folder         string `json:"folder,omitempty"`
 	Stage          string `json:"stage,omitempty"`
+	Step           int    `json:"step,omitempty"`
 	Criterion      string `json:"criterion,omitempty"`
+	Criteria       string `json:"criteria,omitempty"`
+	Weight         string `json:"weight,omitempty"`
 	Name           string `json:"name,omitempty"`
+	Type           string `json:"type,omitempty"`
+	Seats          string `json:"seats,omitempty"`
+	AllocatedSeats int    `json:"allocatedSeats,omitempty"`
+	Coverage       string `json:"coverage,omitempty"`
+	Eligibility    string `json:"eligibility,omitempty"`
 	URL            string `json:"url,omitempty"`
 	CenterName     string `json:"centerName,omitempty"`
 	Province       string `json:"province,omitempty"`
@@ -257,5 +277,81 @@ type DetailField struct {
 	Event          string `json:"event,omitempty"`
 	Question       string `json:"question,omitempty"`
 	Answer         string `json:"answer,omitempty"`
+	GroupHeading   string `json:"groupHeading,omitempty"`
+	Website        string `json:"website,omitempty"`
+	Logo           string `json:"logo,omitempty"`
+	Label          string `json:"label,omitempty"`
+	Message        string `json:"message,omitempty"`
+	Tag            string `json:"tag,omitempty"`
+	Badge          string `json:"badge,omitempty"`
+	Tags           string `json:"tags,omitempty"`
+	Link           string `json:"link,omitempty"`
+}
+
+type PartnerGroupResponse struct {
+	GroupHeading string                `json:"groupHeading"`
+	Partners     []PartnerEntryResponse `json:"partners"`
+}
+
+type PartnerEntryResponse struct {
+	Name    string `json:"name"`
+	Website string `json:"website"`
+	Logo    string `json:"logo"`
+}
+
+type ScholarshipRecommendRequest struct {
+	EducationLevel    string   `json:"educationLevel"`
+	StudyMode         string   `json:"studyMode"`
+	AcademicScoreType string   `json:"academicScoreType"`
+	AcademicScore     string   `json:"academicScore"`
+	FieldOfStudy      string   `json:"fieldOfStudy"`
+	WillingEssay      string   `json:"willingEssay"`
+	WillingInterview  string   `json:"willingInterview"`
+	WillingGpa        string   `json:"willingGpa"`
+	Province          string   `json:"province"`
+	District          string   `json:"district"`
+	StudyLocation     string   `json:"studyLocation"`
+	Category          string   `json:"category"`
+	Gender            string   `json:"gender"`
+	Income            string   `json:"income"`
+	Talents           []string `json:"talents"`
+	Achievements      []string `json:"achievements"`
+	Involvement       []string `json:"involvement"`
+}
+
+type ScholarshipRecommendResponse struct {
+	Scholarships []RecommendResult `json:"scholarships"`
+}
+
+type RecommendResultBreakdown struct {
+	EducationLevel       int `json:"educationLevel"`
+	FieldOfStudy         int `json:"fieldOfStudy"`
+	Location             int `json:"location"`
+	FinancialFit         int `json:"financialFit"`
+	StudyLocation        int `json:"studyLocation"`
+	CategoryGender       int `json:"categoryGender"`
+	GPAMatch             int `json:"gpaMatch"`
+	Willingness          int `json:"willingness"`
+	Talents              int `json:"talents"`
+	Achievements         int `json:"achievements"`
+	ProfileCompatibility int `json:"profileCompatibility,omitempty"`
+}
+
+type RecommendResult struct {
+	ID              uint                    `json:"id"`
+	Slug            string                  `json:"slug"`
+	Title           string                  `json:"title"`
+	Provider        string                  `json:"provider"`
+	ProviderType    string                  `json:"providerType"`
+	Coverage        string                  `json:"coverage"`
+	Deadline        string                  `json:"deadline"`
+	Description     string                  `json:"description"`
+	DegreeLevel     string                  `json:"degreeLevel"`
+	FundingType     string                  `json:"fundingType"`
+	ScholarshipType string                  `json:"scholarshipType"`
+	ImageURL        string                  `json:"imageUrl"`
+	TagColorClass   string                  `json:"tagColorClass"`
+	Score           int                     `json:"score"`
+	Breakdown       RecommendResultBreakdown `json:"breakdown"`
 }
 

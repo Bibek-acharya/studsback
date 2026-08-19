@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"studsphere/backend/internal/auth"
+	"studsphere/backend/internal/shared/logger"
 )
 
 type Service struct {
@@ -23,79 +24,6 @@ func parseTime(s string) (time.Time, error) {
 		}
 	}
 	return time.Time{}, nil
-}
-
-func (s *Service) GetMessages(userID uint, page, limit int) ([]Message, int64, error) {
-	if page < 1 {
-		page = 1
-	}
-	if limit < 1 || limit > 50 {
-		limit = 20
-	}
-
-	return s.repo.GetMessages(userID, page, limit)
-}
-
-func (s *Service) GetMessageByID(msgID, userID uint) (*Message, error) {
-	message, err := s.repo.GetMessageByID(msgID, userID)
-	if err != nil {
-		return nil, err
-	}
-
-	if !message.Read && message.ReceiverID == userID {
-		if err := s.repo.MarkMessageRead(message.ID); err != nil {
-			return nil, err
-		}
-		message.Read = true
-	}
-
-	return message, nil
-}
-
-func (s *Service) CreateMessage(userID, receiverID uint, subject, content string) (*Message, error) {
-	message := &Message{
-		SenderID:   userID,
-		ReceiverID: receiverID,
-		Subject:    subject,
-		Content:    content,
-		Direction:  "sent",
-	}
-
-	if err := s.repo.CreateMessage(message); err != nil {
-		return nil, err
-	}
-
-	return message, nil
-}
-
-func (s *Service) ReplyToMessage(msgID, userID uint, content string) (*Message, error) {
-	original, err := s.repo.GetMessageForReply(msgID)
-	if err != nil {
-		return nil, err
-	}
-
-	receiverID := original.SenderID
-	if original.SenderID == userID {
-		receiverID = original.ReceiverID
-	}
-
-	reply := &Message{
-		SenderID:   userID,
-		ReceiverID: receiverID,
-		Subject:    "Re: " + original.Subject,
-		Content:    content,
-		Direction:  "sent",
-	}
-
-	if err := s.repo.CreateMessage(reply); err != nil {
-		return nil, err
-	}
-
-	return reply, nil
-}
-
-func (s *Service) GetMessageContacts(userID uint) ([]Contact, error) {
-	return s.repo.GetContacts(userID)
 }
 
 func (s *Service) GetCalendarEvents(userID uint) ([]CalendarEvent, error) {
@@ -268,6 +196,16 @@ func (s *Service) CreateBookmark(userID uint, req BookmarkRequest) (*Bookmark, e
 		return nil, err
 	}
 
+	if req.ItemType == "college" {
+		s.CreateNotification(userID, "College Saved",
+			"You saved a college to your bookmarks. We'll notify you about updates and deadlines.",
+			"system", "/user/dashboard/bookmarks")
+	} else if req.ItemType == "scholarship" {
+		s.CreateNotification(userID, "Scholarship Saved",
+			"You saved a scholarship. Keep an eye on upcoming deadlines.",
+			"scholarship", "/user/dashboard/bookmarks")
+	}
+
 	return bookmark, nil
 }
 
@@ -303,13 +241,32 @@ func (s *Service) MarkAllNotificationsRead(userID uint) error {
 	return s.repo.MarkAllNotificationsRead(userID)
 }
 
+func (s *Service) CreateNotification(userID uint, title, message, notifType, link string) {
+	notification := &Notification{
+		UserID:  userID,
+		Title:   title,
+		Message: message,
+		Type:    notifType,
+		Link:    link,
+		Read:    false,
+	}
+	if err := s.repo.CreateNotification(notification); err != nil {
+		logger.Warn("Failed to create notification", "error", err)
+	}
+}
+
 func (s *Service) GetDashboardStats(userID uint) (*DashboardStats, error) {
 	applicationsSubmitted, err := s.repo.CountAdmissions(userID)
 	if err != nil {
 		return nil, err
 	}
 
-	savedColleges, err := s.repo.CountSavedColleges(userID)
+	savedColleges, err := s.repo.CountBookmarksByType(userID, "college")
+	if err != nil {
+		return nil, err
+	}
+
+	savedScholarships, err := s.repo.CountBookmarksByType(userID, "scholarship")
 	if err != nil {
 		return nil, err
 	}
@@ -319,23 +276,43 @@ func (s *Service) GetDashboardStats(userID uint) (*DashboardStats, error) {
 		return nil, err
 	}
 
+	activeInvites, err := s.repo.CountActiveInvites(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	unreadMessages, err := s.repo.CountUnreadMessages(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	upcomingDeadlines, err := s.repo.CountUpcomingEvents(userID)
+	if err != nil {
+		return nil, err
+	}
+
 	profileCompletion := 0
 	user, err := s.repo.GetUserByID(userID)
 	if err == nil && user != nil {
-		profileCompletion = computeProfileCompletion(user)
+		educationCount, _ := s.repo.CountEducationEntries(userID)
+		profileCompletion = computeProfileCompletion(user, educationCount)
 	}
 
 	return &DashboardStats{
 		ApplicationsSubmitted: int(applicationsSubmitted),
 		SavedColleges:         int(savedColleges),
+		SavedScholarships:     int(savedScholarships),
 		ScholarshipsApplied:   int(scholarshipsApplied),
+		ActiveInvites:         int(activeInvites),
+		UnreadMessages:        int(unreadMessages),
+		UpcomingDeadlines:     int(upcomingDeadlines),
 		ProfileCompletion:     profileCompletion,
 	}, nil
 }
 
-func computeProfileCompletion(user *auth.User) int {
+func computeProfileCompletion(user *auth.User, educationCount int64) int {
 	score := 0
-	totalChecks := 10
+	totalChecks := 12
 
 	if user.FirstName != "" {
 		score++
@@ -364,7 +341,13 @@ func computeProfileCompletion(user *auth.User) int {
 	if user.Preferences != nil && user.Preferences.OnboardingCompleted {
 		score++
 	}
-	if user.Role != "" {
+	if user.ImageURL != "" {
+		score++
+	}
+	if educationCount > 0 {
+		score++
+	}
+	if user.Email != "" {
 		score++
 	}
 

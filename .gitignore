@@ -3,6 +3,10 @@
 .env.*
 !.env.example
 
+# Compiled binaries
+server
+verify-esewa
+
 # Go build outputs
 bin/
 *.exe
@@ -12,16 +16,16 @@ bin/
 *.dylib
 *.test
 *.out
-main
-server
-cmd/server/server
-cmd/*/*/server
 
 # Coverage and temporary files
 coverage/
 coverage.out
 tmp/
 temp/
+scratch/
+
+# Generated files
+*.html
 
 # Local databases and runtime files
 *.db
@@ -49,3 +53,4 @@ go.work
 # OS files
 .DS_Store
 Thumbs.db
+/docs/

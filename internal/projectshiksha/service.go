@@ -1,9 +1,17 @@
 package projectshiksha
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"io"
 	"math/rand"
+	"net/http"
 	"time"
+
+	"studsphere/backend/internal/shared/config"
 )
 
 // Service handles business logic for Project Shiksha
@@ -118,9 +126,9 @@ func (s *Service) ProcessPayment(appID uint, method string, amount float64, tran
 	app.PaymentMethod = method
 	app.PaymentAmount = amount
 	
-	// For eSewa and Khalti, mark as completed immediately (in real scenario, this would be after webhook)
+	// For Khalti, mark as completed immediately; eSewa requires gateway verification
 	// For bank transfer, keep pending until verification
-	if method == "esewa" || method == "khalti" {
+	if method == "khalti" {
 		app.PaymentStatus = "completed"
 		payment.Status = "completed"
 		now := time.Now()
@@ -142,6 +150,125 @@ func (s *Service) ProcessPayment(appID uint, method string, amount float64, tran
 
 	if payment.Status != "pending" {
 		s.repo.UpdatePayment(payment)
+	}
+
+	return payment, nil
+}
+
+// InitiateEsewaPayment initiates an eSewa payment and returns signature + form data
+func (s *Service) InitiateEsewaPayment(appID uint, amount float64) (*EsewaInitiateResponse, error) {
+	app, err := s.repo.GetApplicationByID(appID)
+	if err != nil {
+		return nil, fmt.Errorf("application not found")
+	}
+
+	cfg := config.AppConfig
+
+	totalAmount := fmt.Sprintf("%.0f", amount)
+	taxAmount := "0"
+	transactionUUID := fmt.Sprintf("PS-%d-%d", appID, time.Now().UnixMilli())
+
+	message := fmt.Sprintf("total_amount=%s,transaction_uuid=%s,product_code=%s", totalAmount, transactionUUID, cfg.EsewaMerchantCode)
+	h := hmac.New(sha256.New, []byte(cfg.EsewaSecretKey))
+	h.Write([]byte(message))
+	signature := base64.StdEncoding.EncodeToString(h.Sum(nil))
+
+	existingPayment, _ := s.repo.GetPaymentByApplicationID(appID)
+	if existingPayment != nil {
+		existingPayment.TransactionID = transactionUUID
+		existingPayment.Status = "pending"
+		s.repo.UpdatePayment(existingPayment)
+	} else {
+		payment := &ShikshaPayment{
+			ApplicationID: appID,
+			PaymentMethod: "esewa",
+			Amount:        amount,
+			Status:        "pending",
+			TransactionID: transactionUUID,
+		}
+		if err := s.repo.CreatePayment(payment); err != nil {
+			return nil, err
+		}
+	}
+
+	_ = app
+	return &EsewaInitiateResponse{
+		Amount:          fmt.Sprintf("%.0f", amount),
+		TaxAmount:       taxAmount,
+		TotalAmount:     totalAmount,
+		TransactionUUID: transactionUUID,
+		ProductCode:     cfg.EsewaMerchantCode,
+		Signature:       signature,
+		SuccessURL:      cfg.EsewaSuccessURL,
+		FailureURL:      cfg.EsewaFailureURL,
+		GatewayURL:      cfg.EsewaGatewayURL(),
+	}, nil
+}
+
+// VerifyEsewaPayment verifies an eSewa payment via eSewa status API
+func (s *Service) VerifyEsewaPayment(req EsewaVerifyRequest) (*ShikshaPayment, error) {
+	cfg := config.AppConfig
+
+	apiURL := fmt.Sprintf("%s?product_code=%s&total_amount=%s&transaction_uuid=%s",
+		cfg.EsewaStatusAPIURL(), cfg.EsewaMerchantCode, req.TotalAmount, req.TransactionUUID)
+
+	resp, err := http.Get(apiURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to verify with eSewa: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read eSewa response: %w", err)
+	}
+
+	var esewaResp struct {
+		Status          string      `json:"status"`
+		RefID           string      `json:"ref_id"`
+		TotalAmount     interface{} `json:"total_amount"`
+		TransactionUUID string      `json:"transaction_uuid"`
+		ProductCode     string      `json:"product_code"`
+	}
+
+	if err := json.Unmarshal(body, &esewaResp); err != nil {
+		return nil, fmt.Errorf("failed to parse eSewa response: %w", err)
+	}
+
+	if esewaResp.Status != "COMPLETE" {
+		return nil, fmt.Errorf("eSewa payment not completed, status: %s", esewaResp.Status)
+	}
+
+	payment, err := s.repo.GetPaymentByTransactionID(req.TransactionUUID)
+	if err != nil {
+		return nil, fmt.Errorf("payment not found for transaction: %s", req.TransactionUUID)
+	}
+
+	payment.Status = "completed"
+	payment.TransactionID = req.TransactionUUID
+	if err := s.repo.UpdatePayment(payment); err != nil {
+		return nil, err
+	}
+
+	app, err := s.repo.GetApplicationByID(req.ApplicationID)
+	if err != nil {
+		return nil, fmt.Errorf("application not found")
+	}
+
+	app.PaymentStatus = "completed"
+	app.PaymentMethod = "esewa"
+	app.PaymentAmount = payment.Amount
+	now := time.Now()
+	app.PaymentVerifiedAt = &now
+
+	if app.RollNumber == "" {
+		rollNumber := s.generateRollNumber()
+		app.RollNumber = rollNumber
+		s.repo.UpdateRollNumber(app.ID, rollNumber)
+	}
+
+	if err := s.repo.UpdateApplication(app); err != nil {
+		return nil, err
 	}
 
 	return payment, nil

@@ -1,9 +1,12 @@
 package search
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 
+	"studsphere/backend/internal/embedding"
+	"studsphere/backend/internal/shared/config"
 	"studsphere/backend/internal/shared/response"
 
 	"github.com/gin-gonic/gin"
@@ -51,16 +54,44 @@ func (h *Handler) Search(c *gin.Context) {
 }
 
 func (h *Handler) Reindex(c *gin.Context) {
-	response.Success(c, http.StatusAccepted, "Reindex is not available (vector search disabled)", nil)
+	if !embedding.IsEnabled() {
+		response.Success(c, http.StatusAccepted, "Embedding is not enabled. Set EMBEDDING_ENABLED=true in .env", nil)
+		return
+	}
+	db := config.GetDB()
+	force := c.DefaultQuery("force", "false") == "true"
+	go func() {
+		var err error
+		if force {
+			err = embedding.ReindexAllForce(db)
+		} else {
+			err = embedding.ReindexAll()
+		}
+		if err != nil {
+			log.Printf("Reindex error: %v", err)
+		}
+	}()
+	msg := "Embedding reindex started in background"
+	if force {
+		msg = "Full AI retrain started — clearing and regenerating all embeddings"
+	}
+	response.Success(c, http.StatusAccepted, msg, nil)
 }
 
 func (h *Handler) GetVectorStatus(c *gin.Context) {
+	pgvectorReady := false
+	if !config.IsSQLite {
+		var result int
+		if err := config.GetDB().Raw("SELECT count(*) FROM pg_extension WHERE extname = 'vector'").Scan(&result).Error; err == nil && result > 0 {
+			pgvectorReady = true
+		}
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data": gin.H{
-			"embedding_enabled": false,
-			"pgvector_ready":    false,
-			"message":           "Vector search has been disabled",
+			"embedding_enabled": embedding.IsEnabled(),
+			"pgvector_ready":    pgvectorReady,
+			"message":           "Vector search is enabled",
 		},
 	})
 }

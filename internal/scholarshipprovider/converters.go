@@ -83,17 +83,22 @@ func toScholarshipResponse(s *ProviderScholarship) ScholarshipResponse {
 		FAQsNew:                  decodeJSONB[[]FAQItem](s.FAQsNew),
 		GalleryImages:            decodeJSONB[[]GalleryImageItem](s.GalleryImages),
 		GalleryImagesNew:         decodeJSONB[[]GalleryImageItem](s.GalleryImagesNew),
-		PartnerGroups:            decodeJSONB[[]PartnerOrganization](s.PartnerGroups),
+		PartnerGroups:            decodeJSONB[[]PartnerGroup](s.PartnerGroups),
 		PartnerMessages:          decodeJSONB[[]PartnerMessage](s.PartnerMessages),
 		ExamCenters:              decodeJSONB[[]ExamCenterItem](s.ExamCenters),
 		ExamCentersNew:           decodeJSONB[[]ExamCenterItem](s.ExamCentersNew),
 		Downloads:                decodeJSONB[[]DownloadItem](s.Downloads),
+		PaymentConfig:            decodeJSONB[*PaymentConfig](s.PaymentConfig),
+		Image:                    s.BannerBackgroundImageURL,
+		ExamDate:                 s.ExamDate,
+		ExamTime:                 s.ExamTime,
 	}
 }
 
 func toNewsResponse(n *ProviderNews) NewsResponse {
 	return NewsResponse{
 		ID:            n.ID,
+		Slug:          n.Slug,
 		CreatedAt:     n.CreatedAt,
 		UpdatedAt:     n.UpdatedAt,
 		ProviderID:    n.ProviderID,

@@ -4,13 +4,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/rand"
 	"mime/multipart"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
+
+	"studsphere/backend/internal/shared/utils"
+
+	"studsphere/backend/internal/shared/storage"
 )
 
 type Service struct {
@@ -45,15 +46,118 @@ func (s *Service) GetForumCommunities(currentUserID uint) ([]CommunityResponse, 
 		responses = append(responses, CommunityResponse{
 			ID:          c.ID,
 			Name:        c.Name,
-			Emoji:       c.Emoji,
+			Description: c.Description,
+			Icon:        c.Icon,
 			BgColor:     c.BgColor,
 			MemberCount: int(memberCount),
 			IsMember:    memberMap[c.ID],
+			IsGeneral:   c.IsGeneral,
 			PostCount:   int(postCount),
 		})
 	}
 
 	return responses, nil
+}
+
+func (s *Service) CreateForumCommunity(req CreateCommunityRequest) (*CommunityResponse, error) {
+	community := &ForumCommunity{
+		Name:        req.Name,
+		Description: req.Description,
+		Icon:        req.Icon,
+		BgColor:     req.BgColor,
+	}
+	if err := s.repo.CreateCommunity(community); err != nil {
+		return nil, errors.New("failed to create community")
+	}
+	return &CommunityResponse{
+		ID:          community.ID,
+		Name:        community.Name,
+		Description: community.Description,
+		Icon:        community.Icon,
+		BgColor:     community.BgColor,
+		MemberCount: 0,
+		IsMember:    false,
+		IsGeneral:   community.IsGeneral,
+		PostCount:   0,
+	}, nil
+}
+
+func (s *Service) UpdateForumCommunity(communityID uint, req UpdateCommunityRequest) (*CommunityResponse, error) {
+	community, err := s.repo.GetCommunityByID(communityID)
+	if err != nil {
+		return nil, errors.New("community not found")
+	}
+
+	community.Name = req.Name
+	community.Description = req.Description
+	community.Icon = req.Icon
+	community.BgColor = req.BgColor
+
+	if err := s.repo.UpdateCommunity(community); err != nil {
+		return nil, errors.New("failed to update community")
+	}
+
+	memberCount, _ := s.repo.GetMemberCount(communityID)
+	postCount, _ := s.repo.GetPostCount(communityID)
+
+	return &CommunityResponse{
+		ID:          community.ID,
+		Name:        community.Name,
+		Description: community.Description,
+		Icon:        community.Icon,
+		BgColor:     community.BgColor,
+		IsGeneral:   community.IsGeneral,
+		MemberCount: int(memberCount),
+		PostCount:   int(postCount),
+	}, nil
+}
+
+func (s *Service) DeleteForumCommunity(communityID uint) error {
+	community, err := s.repo.GetCommunityByID(communityID)
+	if err != nil {
+		return errors.New("community not found")
+	}
+
+	if community.IsGeneral {
+		return errors.New("the General community cannot be deleted")
+	}
+
+	posts, err := s.repo.GetPostsByCommunityID(communityID)
+	if err != nil {
+		return errors.New("failed to fetch community posts")
+	}
+
+	for _, post := range posts {
+		s.deletePostFile(post.ImageURL)
+		s.deletePostFile(post.VideoURL)
+
+		s.repo.DeleteCommentsByPostID(post.ID)
+		s.repo.DeleteVotesByPostID(post.ID)
+		s.repo.DeleteSavesByPostID(post.ID)
+		s.repo.DeletePollVotesByPostID(post.ID)
+		s.repo.HardDeletePost(post.ID)
+	}
+
+	if err := s.repo.DeleteMembersByCommunityID(communityID); err != nil {
+		return errors.New("failed to delete community members")
+	}
+
+	if err := s.repo.DeleteCommunity(community); err != nil {
+		return errors.New("failed to delete community")
+	}
+
+	return nil
+}
+
+func (s *Service) deletePostFile(url string) {
+	if url == "" {
+		return
+	}
+	filename := strings.TrimPrefix(url, "/uploads/")
+	if filename == url || filename == "" {
+		return
+	}
+	storage.DeleteObject(filename)
 }
 
 func (s *Service) JoinForumCommunity(communityID uint, userID uint) (*CommunityResponse, error) {
@@ -83,10 +187,11 @@ func (s *Service) JoinForumCommunity(communityID uint, userID uint) (*CommunityR
 	return &CommunityResponse{
 		ID:          community.ID,
 		Name:        community.Name,
-		Emoji:       community.Emoji,
+		Icon:        community.Icon,
 		BgColor:     community.BgColor,
 		MemberCount: int(memberCount),
 		IsMember:    isMember,
+		IsGeneral:   community.IsGeneral,
 		PostCount:   int(postCount),
 	}, nil
 }
@@ -95,6 +200,19 @@ func (s *Service) GetForumPosts(category, communityID string, currentUserID uint
 	posts, err := s.repo.GetAllPosts(category, communityID, currentUserID)
 	if err != nil {
 		return nil, errors.New("failed to fetch posts")
+	}
+
+	if currentUserID == 0 {
+		general, err := s.repo.FindCommunityByName("General")
+		if err == nil {
+			filtered := []ForumPost{}
+			for _, p := range posts {
+				if p.CommunityID == general.ID {
+					filtered = append(filtered, p)
+				}
+			}
+			posts = filtered
+		}
 	}
 
 	if currentUserID != 0 {
@@ -171,6 +289,26 @@ func (s *Service) GetForumPosts(category, communityID string, currentUserID uint
 	return responses, nil
 }
 
+func (s *Service) GetTrendingForumPosts() ([]TrendingPostResponse, error) {
+	posts, err := s.repo.GetTrendingPosts(5)
+	if err != nil {
+		return nil, errors.New("failed to fetch trending posts")
+	}
+
+	var responses []TrendingPostResponse
+	for _, p := range posts {
+		responses = append(responses, TrendingPostResponse{
+			ID:           p.ID,
+			Title:        p.Title,
+			Category:     p.Category,
+			Upvotes:      p.Upvotes,
+			CommentCount: p.CommentCount,
+		})
+	}
+
+	return responses, nil
+}
+
 func (s *Service) GetForumPostComments(postID uint, limit, offset int) (map[string]interface{}, error) {
 	totalCount, err := s.repo.GetCommentCount(postID)
 	if err != nil {
@@ -199,6 +337,25 @@ func (s *Service) GetForumPostComments(postID uint, limit, offset int) (map[stri
 }
 
 func (s *Service) CreateForumPost(req CreatePostRequest, userID uint) (*PostResponse, error) {
+	if req.CommunityID == 0 {
+		general, err := s.repo.FindCommunityByName("General")
+		if err != nil {
+			return nil, errors.New("General community not found")
+		}
+		req.CommunityID = general.ID
+	}
+
+	community, err := s.repo.GetCommunityByID(req.CommunityID)
+	if err != nil {
+		return nil, errors.New("community not found")
+	}
+	if !community.IsGeneral {
+		_, err = s.repo.FindMembership(req.CommunityID, userID)
+		if err != nil {
+			return nil, errors.New("you must join this community before posting")
+		}
+	}
+
 	pollOptionsJSON, _ := json.Marshal(req.PollOptions)
 
 	post := &ForumPost{
@@ -217,7 +374,7 @@ func (s *Service) CreateForumPost(req CreatePostRequest, userID uint) (*PostResp
 		return nil, errors.New("failed to create post")
 	}
 
-	post, err := s.repo.GetPostByID(post.ID)
+	post, err = s.repo.GetPostByID(post.ID)
 	if err != nil {
 		return nil, errors.New("failed to fetch created post")
 	}
@@ -267,6 +424,27 @@ func (s *Service) DeleteForumPost(postID uint, userID uint) error {
 	}
 
 	if err := s.repo.DeletePost(post); err != nil {
+		return errors.New("failed to delete post")
+	}
+
+	return nil
+}
+
+func (s *Service) AdminDeleteForumPost(postID uint) error {
+	post, err := s.repo.GetPostByID(postID)
+	if err != nil {
+		return errors.New("post not found")
+	}
+
+	s.deletePostFile(post.ImageURL)
+	s.deletePostFile(post.VideoURL)
+
+	s.repo.DeleteCommentsByPostID(post.ID)
+	s.repo.DeleteVotesByPostID(post.ID)
+	s.repo.DeleteSavesByPostID(post.ID)
+	s.repo.DeletePollVotesByPostID(post.ID)
+
+	if err := s.repo.HardDeletePost(post.ID); err != nil {
 		return errors.New("failed to delete post")
 	}
 
@@ -450,43 +628,19 @@ func (s *Service) UploadForumMedia(files []*multipart.FileHeader) ([]string, err
 		return nil, errors.New("no files provided")
 	}
 
-	uploadDir := filepath.Join("uploads", "forum")
-	if err := os.MkdirAll(uploadDir, 0755); err != nil {
-		return nil, errors.New("failed to create upload directory")
-	}
-
 	var urls []string
 	for _, file := range files {
-		f, err := file.Open()
-		if err != nil {
-			continue
-		}
-
 		ct := file.Header.Get("Content-Type")
-		f.Close()
-
 		if !strings.HasPrefix(ct, "image/") && !strings.HasPrefix(ct, "video/") {
 			continue
 		}
 
-		ext := filepath.Ext(file.Filename)
-		if ext == "" {
-			if strings.HasPrefix(ct, "image/") {
-				ext = ".jpg"
-			} else {
-				ext = ".mp4"
-			}
-		}
-
-		randSuffix := rand.Intn(999999)
-		filename := fmt.Sprintf("%d_%d%s", time.Now().UnixNano(), randSuffix, ext)
-		savePath := filepath.Join(uploadDir, filename)
-
-		if err := saveUploadedFile(file, savePath); err != nil {
+		url, err := utils.SaveUploadedImage(file, "forum")
+		if err != nil {
 			return nil, fmt.Errorf("failed to save file: %s", file.Filename)
 		}
 
-		urls = append(urls, "/uploads/forum/"+filename)
+		urls = append(urls, url)
 	}
 
 	if len(urls) == 0 {
@@ -494,23 +648,6 @@ func (s *Service) UploadForumMedia(files []*multipart.FileHeader) ([]string, err
 	}
 
 	return urls, nil
-}
-
-func saveUploadedFile(file *multipart.FileHeader, savePath string) error {
-	src, err := file.Open()
-	if err != nil {
-		return err
-	}
-	defer src.Close()
-
-	dst, err := os.Create(savePath)
-	if err != nil {
-		return err
-	}
-	defer dst.Close()
-
-	_, err = dst.ReadFrom(src)
-	return err
 }
 
 func mapPostToResponse(post ForumPost) PostResponse {
@@ -539,6 +676,13 @@ func mapPostToResponse(post ForumPost) PostResponse {
 
 	if post.User.ID != 0 {
 		resp.UserName = post.User.FirstName + " " + post.User.LastName
+		resp.User = &UserInfo{
+			ID:        post.User.ID,
+			FirstName: post.User.FirstName,
+			LastName:  post.User.LastName,
+			Email:     post.User.Email,
+			ImageURL:  post.User.ImageURL,
+		}
 	}
 
 	return resp

@@ -1,17 +1,33 @@
 package institution
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"strings"
 	"time"
+
+	"studsphere/backend/internal/ai"
+	"studsphere/backend/internal/education"
+	"studsphere/backend/internal/shared/utils"
+	"studsphere/backend/internal/system"
 )
 
-type Service struct {
-	repo *Repository
+var notifyStudentFunc func(userID uint, title, message, notifType, link string)
+
+func SetNotifyStudentFunc(fn func(userID uint, title, message, notifType, link string)) {
+	notifyStudentFunc = fn
 }
 
-func NewService(repo *Repository) *Service {
-	return &Service{repo: repo}
+type Service struct {
+	repo         *Repository
+	educationRepo *education.Repository
+	systemSvc    *system.Service
+}
+
+func NewService(repo *Repository, educationRepo *education.Repository, systemSvc *system.Service) *Service {
+	return &Service{repo: repo, educationRepo: educationRepo, systemSvc: systemSvc}
 }
 
 func (s *Service) GetDashboard(instID uint) (*DashboardResponse, error) {
@@ -64,7 +80,7 @@ func (s *Service) GetAnalytics(instID uint) (*AnalyticsResponse, error) {
 	for i, p := range programs {
 		programStats[i] = ProgramStat{
 			ID:        p.ID,
-			Name:      p.Name,
+			Name:      p.InstitutionName,
 			Status:    p.Status,
 			Entrances: entranceCount,
 		}
@@ -87,12 +103,75 @@ func (s *Service) GetProfile(instID uint) (*ProfileResponse, error) {
 		return nil, err
 	}
 
+	var pd ProfileData
+	if user.ProfileData != nil && *user.ProfileData != "" {
+		json.Unmarshal([]byte(*user.ProfileData), &pd)
+	}
+
+	subType := "free"
+	var sub struct {
+		ExpireDate *time.Time `json:"expire_date"`
+	}
+	s.repo.db.Table("institution_subscriptions").
+		Where("institution_id = ?", instID).
+		Select("expire_date").
+		Scan(&sub)
+	if sub.ExpireDate != nil && sub.ExpireDate.After(time.Now()) {
+		subType = "premium"
+	}
+
+	// Parse university_affiliations from bytes to JSON array
+	var uniAffiliations interface{}
+	if len(user.UniversityAffiliations) > 0 {
+		json.Unmarshal(user.UniversityAffiliations, &uniAffiliations)
+	}
+
 	return &ProfileResponse{
-		ID:                 user.ID,
-		InstitutionName:    user.InstitutionName,
-		Email:              user.Email,
-		RegistrationNumber: user.RegistrationNumber,
-		Role:               user.Role,
+		SubscriptionType:     subType,
+		ID:                   user.ID,
+		CollegeID:            user.CollegeID,
+		InstitutionName:      user.InstitutionName,
+		Email:                user.Email,
+		RegistrationNumber:   user.RegistrationNumber,
+		Role:                 user.Role,
+		ProfileStatus:        user.ProfileStatus,
+		Location:             user.District,
+		Website:              user.WebsiteURL,
+		ContactEmail:         user.ContactEmail,
+		ContactPhone:         user.ContactPhone,
+		MapURL:               user.MapURL,
+		FacebookURL:          user.FacebookURL,
+		InstagramURL:         user.InstagramURL,
+		TiktokURL:            user.TiktokURL,
+		YoutubeURL:           user.YoutubeURL,
+		LinkedinURL:          user.LinkedinURL,
+		LogoURL:              user.LogoURL,
+		BannerURL:            user.BannerURL,
+		CardImageURL:         user.CardImageURL,
+		About:                user.About,
+		Vision:               user.Vision,
+		Mission:              user.Mission,
+		Affiliation:                user.Affiliation,
+		UniversityAffiliations:     uniAffiliations,
+		NonUniversityAffiliation:   user.NonUniversityAffiliation,
+		Level:                      user.Level,
+		Videos:               pd.Videos,
+		OverviewData:         pd.OverviewData,
+		LeadershipData:       pd.LeadershipData,
+		CoursesData:          pd.CoursesData,
+		ProgramsData:         pd.ProgramsData,
+		FacilitiesData:       pd.FacilitiesData,
+		AlumniData:           pd.AlumniData,
+		DownloadsData:        pd.DownloadsData,
+		GalleryData:          pd.GalleryData,
+		WhatsNewData:         pd.WhatsNewData,
+		EligibilityData:      pd.EligibilityData,
+		AdmissionProcessData: pd.AdmissionProcessData,
+		ScholarshipsData:     pd.ScholarshipsData,
+		FaqsData:             pd.FaqsData,
+		ContactPersonsData:   pd.ContactPersonsData,
+		BrochureData:         pd.BrochureData,
+		PreferencesCompleted: user.Preferences != nil,
 	}, nil
 }
 
@@ -108,18 +187,163 @@ func (s *Service) UpdateProfile(instID uint, req UpdateProfileRequest) (*Profile
 	if req.RegistrationNumber != "" {
 		user.RegistrationNumber = req.RegistrationNumber
 	}
+	if req.Location != "" {
+		user.District = req.Location
+	}
+	if req.Website != "" {
+		user.WebsiteURL = req.Website
+	}
+	if req.LogoURL != "" {
+		if utils.IsDataURI(req.LogoURL) {
+			url, err := utils.SaveDataURI(req.LogoURL, "institution/logo")
+			if err != nil {
+				return nil, fmt.Errorf("failed to save logo data URI: %w", err)
+			}
+			user.LogoURL = url
+		} else {
+			user.LogoURL = req.LogoURL
+		}
+	}
+	if req.BannerURL != "" {
+		if utils.IsDataURI(req.BannerURL) {
+			url, err := utils.SaveDataURI(req.BannerURL, "institution/banner")
+			if err != nil {
+				return nil, fmt.Errorf("failed to save banner data URI: %w", err)
+			}
+			user.BannerURL = url
+		} else {
+			user.BannerURL = req.BannerURL
+		}
+	}
+	if req.CardImageURL != "" {
+		if utils.IsDataURI(req.CardImageURL) {
+			url, err := utils.SaveDataURI(req.CardImageURL, "institution/card")
+			if err != nil {
+				return nil, fmt.Errorf("failed to save card image data URI: %w", err)
+			}
+			user.CardImageURL = url
+		} else {
+			user.CardImageURL = req.CardImageURL
+		}
+	}
+	if req.About != "" {
+		user.About = req.About
+	}
+	if req.Vision != "" {
+		user.Vision = req.Vision
+	}
+	if req.Mission != "" {
+		user.Mission = req.Mission
+	}
+	if req.ContactEmail != "" {
+		user.ContactEmail = req.ContactEmail
+	}
+	if req.ContactPhone != "" {
+		user.ContactPhone = req.ContactPhone
+	}
+	if req.Affiliation != "" {
+		user.Affiliation = req.Affiliation
+	}
+	if req.NonUniversityAffiliation != "" {
+		user.NonUniversityAffiliation = req.NonUniversityAffiliation
+	}
+	if req.UniversityAffiliations != nil {
+		if data, err := json.Marshal(req.UniversityAffiliations); err == nil {
+			user.UniversityAffiliations = data
+		}
+		// Set UniversityID from first affiliation for backward compatibility
+		if arr, ok := req.UniversityAffiliations.([]interface{}); ok && len(arr) > 0 {
+			if id, ok := arr[0].(float64); ok && id > 0 {
+				uid := uint(id)
+				user.UniversityID = &uid
+			}
+		}
+	}
+	if req.Level != "" {
+		user.Level = req.Level
+	}
+	if req.MapURL != "" {
+		user.MapURL = req.MapURL
+	}
+	if req.FacebookURL != "" {
+		user.FacebookURL = req.FacebookURL
+	}
+	if req.InstagramURL != "" {
+		user.InstagramURL = req.InstagramURL
+	}
+	if req.TiktokURL != "" {
+		user.TiktokURL = req.TiktokURL
+	}
+	if req.YoutubeURL != "" {
+		user.YoutubeURL = req.YoutubeURL
+	}
+	if req.LinkedinURL != "" {
+		user.LinkedinURL = req.LinkedinURL
+	}
+	if req.Status != "" {
+		user.ProfileStatus = req.Status
+	}
+	if req.Videos != nil || req.OverviewData != nil || req.LeadershipData != nil ||
+		req.CoursesData != nil || req.ProgramsData != nil || req.FacilitiesData != nil ||
+		req.AlumniData != nil || req.DownloadsData != nil || req.GalleryData != nil ||
+		req.WhatsNewData != nil || req.EligibilityData != nil || req.AdmissionProcessData != nil ||
+		req.ScholarshipsData != nil || req.FaqsData != nil || req.ContactPersonsData != nil ||
+		req.BrochureData != nil {
+
+		var existing map[string]interface{}
+		if user.ProfileData != nil && *user.ProfileData != "" {
+			json.Unmarshal([]byte(*user.ProfileData), &existing)
+		}
+		if existing == nil {
+			existing = make(map[string]interface{})
+		}
+
+		setField(&existing, "videos", req.Videos)
+		setField(&existing, "overview_data", req.OverviewData)
+		setField(&existing, "leadership_data", req.LeadershipData)
+		setField(&existing, "courses_data", req.CoursesData)
+		setField(&existing, "programs_data", req.ProgramsData)
+		setField(&existing, "facilities_data", req.FacilitiesData)
+		setField(&existing, "alumni_data", req.AlumniData)
+		setField(&existing, "downloads_data", req.DownloadsData)
+		setField(&existing, "gallery_data", req.GalleryData)
+		setField(&existing, "whats_new_data", req.WhatsNewData)
+		setField(&existing, "eligibility_data", req.EligibilityData)
+		setField(&existing, "admission_process_data", req.AdmissionProcessData)
+		setField(&existing, "scholarships_data", req.ScholarshipsData)
+		setField(&existing, "faqs_data", req.FaqsData)
+		setField(&existing, "contact_persons_data", req.ContactPersonsData)
+		setField(&existing, "brochure_data", req.BrochureData)
+
+		if data, err := json.Marshal(existing); err == nil {
+			str := string(data)
+			user.ProfileData = &str
+		}
+	}
 
 	if err := s.repo.SaveInstitutionUser(user); err != nil {
 		return nil, err
 	}
 
-	return &ProfileResponse{
-		ID:                 user.ID,
-		InstitutionName:    user.InstitutionName,
-		Email:              user.Email,
-		RegistrationNumber: user.RegistrationNumber,
-		Role:               user.Role,
-	}, nil
+	// Sync university_affiliations to linked college table
+	if user.CollegeID > 0 && len(user.UniversityAffiliations) > 0 {
+		s.repo.db.Table("colleges").Where("id = ?", user.CollegeID).Update("university_affiliations", user.UniversityAffiliations)
+	}
+
+	return s.GetProfile(instID)
+}
+
+func setField(data *map[string]interface{}, key string, val interface{}) {
+	if val != nil {
+		switch v := val.(type) {
+		case string:
+			if v != "" {
+				(*data)[key] = v
+			}
+		default:
+			(*data)[key] = v
+		}
+	}
 }
 
 func (s *Service) UpdatePassword(instID uint, req UpdatePasswordRequest) error {
@@ -147,16 +371,67 @@ func (s *Service) GetProgramByID(instID, id uint) (*InstitutionProgram, error) {
 	return s.repo.FindProgramByIDAndInstitution(id, instID)
 }
 
+func (s *Service) GetProgramByIDOnly(id uint) (*InstitutionProgram, error) {
+	return s.repo.FindProgramByID(id)
+}
+
+func (s *Service) GetGlobalCourseByID(id uint) (*education.Course, error) {
+	return s.educationRepo.FindCourseByIDOnly(id)
+}
+
+func (s *Service) ResolveAffiliationName(affiliationID *uint) string {
+	if affiliationID == nil || *affiliationID == 0 {
+		return ""
+	}
+	aff, err := s.educationRepo.FindAffiliationByID(*affiliationID)
+	if err != nil || aff == nil {
+		return ""
+	}
+	return aff.Name
+}
+
 func (s *Service) CreateProgram(instID uint, req CreateProgramRequest) (*InstitutionProgram, error) {
+	// Validate global course exists
+	globalCourse, err := s.educationRepo.FindCourseByIDOnly(req.GlobalCourseID)
+	if err != nil {
+		return nil, errors.New("global course not found")
+	}
+
+	if !globalCourse.IsGlobal {
+		return nil, errors.New("selected course is not a global course")
+	}
+
+	status := "active"
+	if req.Status != "" {
+		status = req.Status
+	}
+
+	// Marshal institution-specific arrays
+	whoShouldChoose, _ := json.Marshal(req.WhoShouldChoose)
+	features, _ := json.Marshal(req.Features)
+	fullTimeCourses, _ := json.Marshal(req.FullTimeCourses)
+	feeItems, _ := json.Marshal(req.FeeItems)
+
+	// Marshal overrides
+	overrides, _ := json.Marshal(req.Overrides)
+
 	program := &InstitutionProgram{
-		InstitutionID: instID,
-		Name:          req.Name,
-		Description:   req.Description,
-		Duration:      req.Duration,
-		Fee:           req.Fee,
-		Eligibility:   req.Eligibility,
-		Capacity:      req.Capacity,
-		Status:        "active",
+		Name:                globalCourse.Title,
+		InstitutionID:       instID,
+		InstitutionName:     req.InstitutionName,
+		InstitutionLocation: req.InstitutionLocation,
+		InstitutionLink:     req.InstitutionLink,
+		GlobalCourseID:      req.GlobalCourseID,
+		Fee:                 req.Fee,
+		Eligibility:         req.Eligibility,
+		Capacity:            req.Capacity,
+		Status:              status,
+		WhoShouldChoose:     whoShouldChoose,
+		Features:            features,
+		FullTimeCourses:     fullTimeCourses,
+		FeeItems:            feeItems,
+		Overrides:           overrides,
+		NullifiedFields:     req.NullifiedFields,
 	}
 
 	if err := s.repo.CreateProgram(program); err != nil {
@@ -166,21 +441,16 @@ func (s *Service) CreateProgram(instID uint, req CreateProgramRequest) (*Institu
 	return program, nil
 }
 
+func (s *Service) FindProgramByGlobalCourse(institutionID, globalCourseID uint) (*InstitutionProgram, error) {
+	return s.repo.FindProgramByGlobalCourse(institutionID, globalCourseID)
+}
+
 func (s *Service) UpdateProgram(instID, id uint, req UpdateProgramRequest) (*InstitutionProgram, error) {
 	program, err := s.repo.FindProgramByIDAndInstitution(id, instID)
 	if err != nil {
 		return nil, errors.New("program not found")
 	}
 
-	if req.Name != "" {
-		program.Name = req.Name
-	}
-	if req.Description != "" {
-		program.Description = req.Description
-	}
-	if req.Duration != "" {
-		program.Duration = req.Duration
-	}
 	if req.Fee != "" {
 		program.Fee = req.Fee
 	}
@@ -193,16 +463,136 @@ func (s *Service) UpdateProgram(instID, id uint, req UpdateProgramRequest) (*Ins
 	if req.Status != "" {
 		program.Status = req.Status
 	}
+	if req.InstitutionName != "" {
+		program.InstitutionName = req.InstitutionName
+	}
+	if req.InstitutionLocation != "" {
+		program.InstitutionLocation = req.InstitutionLocation
+	}
+	if req.InstitutionLink != "" {
+		program.InstitutionLink = req.InstitutionLink
+	}
+	if req.GlobalCourseID > 0 {
+		program.GlobalCourseID = req.GlobalCourseID
+	}
+
+	if req.WhoShouldChoose != nil {
+		data, _ := json.Marshal(req.WhoShouldChoose)
+		program.WhoShouldChoose = data
+	}
+	if req.Features != nil {
+		data, _ := json.Marshal(req.Features)
+		program.Features = data
+	}
+	if req.FullTimeCourses != nil {
+		data, _ := json.Marshal(req.FullTimeCourses)
+		program.FullTimeCourses = data
+	}
+	if req.FeeItems != nil {
+		data, _ := json.Marshal(req.FeeItems)
+		program.FeeItems = data
+	}
+
+	// Recalculate overrides if program is linked to a global course
+	if program.GlobalCourseID > 0 {
+		s.recalculateOverrides(program)
+	} else {
+		program.Overrides = nil
+		program.NullifiedFields = nil
+	}
 
 	if err := s.repo.SaveProgram(program); err != nil {
 		return nil, err
 	}
 
+	if err := s.repo.SyncCourseFromProgram(program); err != nil {
+		fmt.Printf("[WARN] Failed to sync course from program %d: %v\n", program.ID, err)
+	}
+
 	return program, nil
+}
+
+func (s *Service) recalculateOverrides(program *InstitutionProgram) {
+	if program.GlobalCourseID == 0 {
+		return
+	}
+
+	globalCourse, err := s.educationRepo.FindCourseByIDOnly(program.GlobalCourseID)
+	if err != nil || globalCourse == nil {
+		return
+	}
+
+	var currentOverrides education.CourseOverrides
+	if len(program.Overrides) > 0 {
+		json.Unmarshal(program.Overrides, &currentOverrides)
+	}
+
+	var globalCareers []education.CareerItem
+	if len(globalCourse.Careers) > 0 {
+		json.Unmarshal(globalCourse.Careers, &globalCareers)
+	}
+
+	var globalFAQs []education.FaqItem
+	if len(globalCourse.FAQs) > 0 {
+		json.Unmarshal(globalCourse.FAQs, &globalFAQs)
+	}
+
+	result := education.CourseOverrides{}
+
+	if currentOverrides.Description != nil && *currentOverrides.Description != globalCourse.Description {
+		result.Description = currentOverrides.Description
+	}
+
+	if currentOverrides.BannerURL != nil && *currentOverrides.BannerURL != globalCourse.BannerURL {
+		result.BannerURL = currentOverrides.BannerURL
+	}
+
+	if currentOverrides.Careers != nil && !careersEqual(currentOverrides.Careers, globalCareers) {
+		result.Careers = currentOverrides.Careers
+	}
+
+	if currentOverrides.FAQs != nil && !faqsEqual(currentOverrides.FAQs, globalFAQs) {
+		result.FAQs = currentOverrides.FAQs
+	}
+
+	if result.Description != nil || result.BannerURL != nil || result.Careers != nil || result.FAQs != nil {
+		data, _ := json.Marshal(result)
+		program.Overrides = data
+	} else {
+		program.Overrides = nil
+	}
+}
+
+func careersEqual(a, b []education.CareerItem) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i].Title != b[i].Title || a[i].Icon != b[i].Icon || a[i].Color != b[i].Color {
+			return false
+		}
+	}
+	return true
+}
+
+func faqsEqual(a, b []education.FaqItem) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i].Question != b[i].Question || a[i].Answer != b[i].Answer {
+			return false
+		}
+	}
+	return true
 }
 
 func (s *Service) DeleteProgram(instID, id uint) error {
 	return s.repo.DeleteProgram(id, instID)
+}
+
+func (s *Service) DeleteProgramByID(id uint) error {
+	return s.repo.DeleteProgramByID(id)
 }
 
 func (s *Service) GetMedia(instID uint) ([]InstitutionMedia, error) {
@@ -232,11 +622,116 @@ func (s *Service) GetCounsellingSessions(instID uint) ([]InstitutionCounsellingS
 	return s.repo.FindCounsellingSessionsByInstitution(instID)
 }
 
+func (s *Service) GetCounsellingSessionsPaginated(instID uint, page, limit int) ([]InstitutionCounsellingSession, int64, error) {
+	return s.repo.FindCounsellingSessionsByInstitutionPaginated(instID, page, limit)
+}
+
+func (s *Service) GetCounsellingBookingsPaginated(instID uint, page, limit int) ([]InstitutionCounsellingBooking, int64, error) {
+	return s.repo.FindCounsellingBookingsByInstitutionPaginated(instID, page, limit)
+}
+
+func (s *Service) UpdateCounsellingSession(instID uint, id uint, req UpdateCounsellingSessionRequest) (*InstitutionCounsellingSession, error) {
+	session, err := s.repo.FindCounsellingSessionByID(id, instID)
+	if err != nil {
+		return nil, errors.New("session not found")
+	}
+
+	if req.Title != "" {
+		session.Title = req.Title
+	}
+	if req.Description != "" {
+		session.Description = req.Description
+	}
+	if req.Status != "" {
+		session.Status = req.Status
+	}
+	if req.MaxSeats > 0 {
+		session.MaxSeats = req.MaxSeats
+	}
+	if req.Duration > 0 {
+		session.Duration = req.Duration
+	}
+	if req.ScheduledAt != "" {
+		scheduledAt, err := time.Parse(time.RFC3339, req.ScheduledAt)
+		if err != nil {
+			scheduledAt, err = time.Parse("2006-01-02T15:04", req.ScheduledAt)
+			if err != nil {
+				return nil, errors.New("invalid scheduled_at format, use RFC3339 or YYYY-MM-DDTHH:mm")
+			}
+		}
+		session.ScheduledAt = scheduledAt
+	}
+
+	if err := s.repo.UpdateCounsellingSession(session); err != nil {
+		return nil, err
+	}
+
+	return session, nil
+}
+
+func (s *Service) GetPublicCounsellingSessions(instID uint) ([]PublicCounsellingSessionResponse, error) {
+	sessions, err := s.repo.FindUpcomingSessionsByInstitution(instID)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := make([]PublicCounsellingSessionResponse, len(sessions))
+	for i, session := range sessions {
+		resp[i] = PublicCounsellingSessionResponse{
+			ID:             session.ID,
+			Title:          session.Title,
+			Description:    session.Description,
+			ScheduledAt:    session.ScheduledAt.Format(time.RFC3339),
+			Duration:       session.Duration,
+			MaxSeats:       session.MaxSeats,
+			BookedSeats:    session.BookedSeats,
+			AvailableSeats: session.MaxSeats - session.BookedSeats,
+			Status:         session.Status,
+		}
+	}
+
+	return resp, nil
+}
+
 func (s *Service) GetCounsellingBookings(instID uint) ([]InstitutionCounsellingBooking, error) {
 	return s.repo.FindCounsellingBookingsByInstitution(instID)
 }
 
-func (s *Service) UpdateBookingStatus(instID, id uint, status string) (*InstitutionCounsellingBooking, error) {
+func (s *Service) CreateCounsellingSession(instID uint, req CreateCounsellingSessionRequest) (*InstitutionCounsellingSession, error) {
+	scheduledAt, err := time.Parse(time.RFC3339, req.ScheduledAt)
+	if err != nil {
+		scheduledAt, err = time.Parse("2006-01-02T15:04", req.ScheduledAt)
+		if err != nil {
+			return nil, errors.New("invalid scheduled_at format, use RFC3339 or YYYY-MM-DDTHH:mm")
+		}
+	}
+
+	session := &InstitutionCounsellingSession{
+		InstitutionID: instID,
+		Title:         req.Title,
+		Description:   req.Description,
+		ScheduledAt:   scheduledAt,
+		Duration:      req.Duration,
+		MaxSeats:      req.MaxSeats,
+		Status:        "scheduled",
+	}
+
+	if err := s.repo.CreateCounsellingSession(session); err != nil {
+		return nil, err
+	}
+
+	return session, nil
+}
+
+func (s *Service) DeleteCounsellingSession(instID, id uint) error {
+	session, err := s.repo.FindCounsellingSessionByID(id, instID)
+	if err != nil {
+		return errors.New("session not found")
+	}
+	return s.repo.DeleteCounsellingSession(session)
+}
+
+func (s *Service) UpdateBookingStatus(instID, id uint, status, meetingLink, meetingPlatform string) (*InstitutionCounsellingBooking, error) {
 	booking, err := s.repo.FindBookingByIDWithSession(id, instID)
 	if err != nil {
 		return nil, errors.New("booking not found")
@@ -250,20 +745,84 @@ func (s *Service) UpdateBookingStatus(instID, id uint, status string) (*Institut
 	}
 
 	booking.Status = status
+	if meetingLink != "" {
+		booking.MeetingLink = meetingLink
+		booking.MeetingPlatform = meetingPlatform
+	}
 
 	if err := s.repo.SaveBooking(booking); err != nil {
 		return nil, err
 	}
 
+	if status == "confirmed" && notifyStudentFunc != nil {
+		sessionTitle := "Counselling Session"
+		if booking.Session.Title != "" {
+			sessionTitle = booking.Session.Title
+		}
+		notifyStudentFunc(booking.UserID, "Counselling Approved",
+			fmt.Sprintf("Your booking for '%s' has been confirmed by the institution.", sessionTitle),
+			"counselling", "")
+	}
+
 	return booking, nil
 }
 
-func (s *Service) GetEntrances(instID uint, page, limit int) ([]InstitutionEntrance, int64, error) {
-	return s.repo.FindEntrancesByInstitution(instID, page, limit)
+func (s *Service) CreatePublicBooking(userID uint, req PublicCounsellingBookingRequest) (*InstitutionCounsellingBooking, error) {
+	if req.SessionMode != "online" && req.SessionMode != "in_person" {
+		return nil, errors.New("session_mode must be 'online' or 'in_person'")
+	}
+
+	session, err := s.repo.FindCounsellingSessionByIDOnly(req.SessionID)
+	if err != nil {
+		return nil, errors.New("session not found")
+	}
+
+	if session.Status != "scheduled" {
+		return nil, errors.New("session is not available for booking")
+	}
+
+	if session.BookedSeats >= session.MaxSeats {
+		return nil, errors.New("no available seats in this session")
+	}
+
+	if s.repo.CheckUserSessionBooking(userID, req.SessionID) {
+		return nil, errors.New("you have already booked this session")
+	}
+
+	booking := &InstitutionCounsellingBooking{
+		SessionID:        req.SessionID,
+		UserID:           userID,
+		Status:           "pending",
+		Notes:            req.StudentNotes,
+		StudentName:      req.StudentName,
+		StudentPhone:     req.StudentPhone,
+		StudentEmail:     req.StudentEmail,
+		ProgramLevel:     req.ProgramLevel,
+		InterestedCourse: req.InterestedCourse,
+		SessionMode:      req.SessionMode,
+	}
+
+	if err := s.repo.CreateBooking(booking); err != nil {
+		return nil, errors.New("failed to create booking")
+	}
+
+	if err := s.repo.IncrementBookedSeats(req.SessionID); err != nil {
+		return nil, errors.New("failed to update seat count")
+	}
+
+	return booking, nil
+}
+
+func (s *Service) GetEntrances(instID uint, status string, page, limit int) ([]InstitutionEntrance, int64, error) {
+	return s.repo.FindEntrancesByInstitution(instID, status, page, limit)
 }
 
 func (s *Service) GetEntranceByID(instID, id uint) (*InstitutionEntrance, error) {
 	return s.repo.FindEntranceByIDAndInstitution(id, instID)
+}
+
+func (s *Service) GetEntranceByIDOnly(id uint) (*InstitutionEntrance, error) {
+	return s.repo.FindEntranceByID(id)
 }
 
 func (s *Service) CreateEntrance(instID uint, req CreateEntranceRequest) (*InstitutionEntrance, error) {
@@ -273,18 +832,69 @@ func (s *Service) CreateEntrance(instID uint, req CreateEntranceRequest) (*Insti
 	}
 
 	entrance := &InstitutionEntrance{
-		InstitutionID: instID,
-		Title:         req.Title,
-		Description:   req.Description,
-		Date:          date,
-		Duration:      req.Duration,
-		TotalSeats:    req.TotalSeats,
-		Status:        "upcoming",
+		InstitutionID:       instID,
+		InstitutionName:     req.InstitutionName,
+		InstitutionLocation: req.InstitutionLocation,
+		InstitutionLink:     req.InstitutionLink,
+		InstitutionLogo:     req.InstitutionLogo,
+		Title:               req.Title,
+		Description:         req.Description,
+		Program:             req.Program,
+		Date:                date,
+		StartTime:           req.StartTime,
+		EndTime:             req.EndTime,
+		Duration:            req.Duration,
+		TotalMarks:          req.TotalMarks,
+		PassingMarks:        req.PassingMarks,
+		TotalSeats:          req.TotalSeats,
+		Instructions:        req.Instructions,
+		HeroBanner:          req.HeroBanner,
+		Status:              "draft",
+		ApplicationFee:      req.ApplicationFee,
+		OverviewDetails:     req.OverviewDetails,
+		ExamDateSchedules:   req.ExamDateSchedules,
+		EligibilityList:     req.EligibilityList,
+		ApplicationSteps:    req.ApplicationSteps,
+		ExamPattern:         req.ExamPattern,
+		SubjectMarks:        req.SubjectMarks,
+		ModelSets:           req.ModelSets,
+		UpcomingDates:       req.UpcomingDates,
+		ContactPersons:      req.ContactPersons,
+		Faqs:                req.Faqs,
+		Email:               req.Email,
+		ContactNumber:       req.ContactNumber,
+		SocialLinks:         req.SocialLinks,
+		ApplicationLink:     req.ApplicationLink,
+		NoticeFile:          req.NoticeFile,
+		EmbeddedMap:         req.EmbeddedMap,
+		RequiredDocuments:   req.RequiredDocuments,
+		ExaminationSchedule: req.ExaminationSchedule,
+		ProgramsOffered:     req.ProgramsOffered,
+	}
+
+	if req.Status != "" {
+		entrance.Status = req.Status
+	}
+
+	if req.Questions != nil {
+		data, _ := json.Marshal(req.Questions)
+		str := string(data)
+		entrance.Questions = &str
 	}
 
 	if err := s.repo.CreateEntrance(entrance); err != nil {
 		return nil, err
 	}
+
+	s.systemSvc.CreatePublicNotification(
+		"New Entrance: "+entrance.Title,
+		entrance.Description,
+		"entrance",
+		fmt.Sprintf("/entrance/%d", entrance.ID),
+		"fa-pencil-alt",
+		"text-red-600",
+		"bg-red-100",
+	)
 
 	return entrance, nil
 }
@@ -301,19 +911,120 @@ func (s *Service) UpdateEntrance(instID, id uint, req UpdateEntranceRequest) (*I
 	if req.Description != "" {
 		entrance.Description = req.Description
 	}
+	if req.Program != "" {
+		entrance.Program = req.Program
+	}
 	if req.Date != "" {
 		if t, err := time.Parse("2006-01-02", req.Date); err == nil {
 			entrance.Date = t
 		}
 	}
+	if req.StartTime != "" {
+		entrance.StartTime = req.StartTime
+	}
+	if req.EndTime != "" {
+		entrance.EndTime = req.EndTime
+	}
 	if req.Duration > 0 {
 		entrance.Duration = req.Duration
+	}
+	if req.TotalMarks > 0 {
+		entrance.TotalMarks = req.TotalMarks
+	}
+	if req.PassingMarks > 0 {
+		entrance.PassingMarks = req.PassingMarks
 	}
 	if req.TotalSeats > 0 {
 		entrance.TotalSeats = req.TotalSeats
 	}
+	if req.Instructions != "" {
+		entrance.Instructions = req.Instructions
+	}
+	if req.HeroBanner != "" {
+		entrance.HeroBanner = req.HeroBanner
+	}
+	if req.Questions != nil {
+		data, _ := json.Marshal(req.Questions)
+		str := string(data)
+		entrance.Questions = &str
+	}
 	if req.Status != "" {
 		entrance.Status = req.Status
+	}
+	if req.ApplicationFee != "" {
+		entrance.ApplicationFee = req.ApplicationFee
+	}
+	if len(req.OverviewDetails) > 0 {
+		entrance.OverviewDetails = req.OverviewDetails
+	}
+	if len(req.ExamDateSchedules) > 0 {
+		entrance.ExamDateSchedules = req.ExamDateSchedules
+	}
+	if len(req.EligibilityList) > 0 {
+		entrance.EligibilityList = req.EligibilityList
+	}
+	if len(req.ApplicationSteps) > 0 {
+		entrance.ApplicationSteps = req.ApplicationSteps
+	}
+	if len(req.ExamPattern) > 0 {
+		entrance.ExamPattern = req.ExamPattern
+	}
+	if len(req.SubjectMarks) > 0 {
+		entrance.SubjectMarks = req.SubjectMarks
+	}
+	if len(req.ModelSets) > 0 {
+		entrance.ModelSets = req.ModelSets
+	}
+	if len(req.UpcomingDates) > 0 {
+		entrance.UpcomingDates = req.UpcomingDates
+	}
+	if len(req.ContactPersons) > 0 {
+		entrance.ContactPersons = req.ContactPersons
+	}
+	if len(req.Faqs) > 0 {
+		entrance.Faqs = req.Faqs
+	}
+	if req.Email != "" {
+		entrance.Email = req.Email
+	}
+	if req.ContactNumber != "" {
+		entrance.ContactNumber = req.ContactNumber
+	}
+	if len(req.SocialLinks) > 0 {
+		entrance.SocialLinks = req.SocialLinks
+	}
+	if req.ApplicationLink != "" {
+		entrance.ApplicationLink = req.ApplicationLink
+	}
+	if req.NoticeFile != "" {
+		entrance.NoticeFile = req.NoticeFile
+	}
+	if req.EmbeddedMap != "" {
+		entrance.EmbeddedMap = req.EmbeddedMap
+	}
+	if len(req.RequiredDocuments) > 0 {
+		entrance.RequiredDocuments = req.RequiredDocuments
+	}
+	if len(req.ExaminationSchedule) > 0 {
+		entrance.ExaminationSchedule = req.ExaminationSchedule
+	}
+	if len(req.ProgramsOffered) > 0 {
+		entrance.ProgramsOffered = req.ProgramsOffered
+	}
+	if req.InstitutionName != "" {
+		entrance.InstitutionName = req.InstitutionName
+	}
+	if req.InstitutionLocation != "" {
+		entrance.InstitutionLocation = req.InstitutionLocation
+	}
+	if req.InstitutionLink != "" {
+		entrance.InstitutionLink = req.InstitutionLink
+	}
+	if req.InstitutionAffiliation != "" {
+		entrance.InstitutionAffiliation = req.InstitutionAffiliation
+	}
+	if req.InstitutionLogo != "" {
+		entrance.InstitutionLogo = req.InstitutionLogo
 	}
 
 	if err := s.repo.SaveEntrance(entrance); err != nil {
@@ -325,6 +1036,10 @@ func (s *Service) UpdateEntrance(instID, id uint, req UpdateEntranceRequest) (*I
 
 func (s *Service) DeleteEntrance(instID, id uint) error {
 	return s.repo.DeleteEntrance(id, instID)
+}
+
+func (s *Service) DeleteEntranceByID(id uint) error {
+	return s.repo.DeleteEntranceByID(id)
 }
 
 func (s *Service) GetEntranceApplicants(instID, entranceID uint) ([]InstitutionEntranceApplicant, error) {
@@ -344,25 +1059,70 @@ func (s *Service) GetEventByID(instID, id uint) (*InstitutionEvent, error) {
 	return s.repo.FindEventByIDAndInstitution(id, instID)
 }
 
-func (s *Service) CreateEvent(instID uint, req CreateEventRequest) (*InstitutionEvent, error) {
-	date, err := time.Parse("2006-01-02", req.Date)
+func parseEventTime(s string) *time.Time {
+	if s == "" {
+		return nil
+	}
+	t, err := time.Parse(time.RFC3339, s)
 	if err != nil {
-		return nil, errors.New("invalid date format")
+		t, err = time.Parse("2006-01-02T15:04:05", s)
+	}
+	if err != nil {
+		t, err = time.Parse("2006-01-02", s)
+	}
+	if err != nil {
+		return nil
+	}
+	return &t
+}
+
+func (s *Service) CreateEvent(instID uint, req CreateEventRequest) (*InstitutionEvent, error) {
+	var tagsJSON *string
+	if req.Tags != nil {
+		b, _ := json.Marshal(req.Tags)
+		t := string(b)
+		tagsJSON = &t
 	}
 
 	event := &InstitutionEvent{
-		InstitutionID: instID,
-		Title:         req.Title,
-		Description:   req.Description,
-		Date:          date,
-		Location:      req.Location,
-		Image:         req.Image,
-		Status:        "upcoming",
+		InstitutionID:      instID,
+		Name:               req.Name,
+		ShortDesc:          req.ShortDesc,
+		Description:        req.Description,
+		ImageURL:           req.ImageURL,
+		EventType:          req.EventType,
+		Category:           req.Category,
+		MaxParticipants:    req.MaxParticipants,
+		OnlineLink:         req.OnlineLink,
+		OrganizedBy:        req.OrganizedBy,
+		ContactPerson:      req.ContactPerson,
+		ContactEmail:       req.ContactEmail,
+		Location:           req.Location,
+		Tags:               tagsJSON,
+		EnableRegistration: req.EnableRegistration,
+		Status:             "draft",
+	}
+
+	event.StartDate = parseEventTime(req.StartDate)
+	event.EndDate = parseEventTime(req.EndDate)
+
+	if req.Status == "upcoming" || req.Status == "published" {
+		event.Status = req.Status
 	}
 
 	if err := s.repo.CreateEvent(event); err != nil {
 		return nil, err
 	}
+
+	s.systemSvc.CreatePublicNotification(
+		"New Event: "+event.Name,
+		event.ShortDesc,
+		"event",
+		fmt.Sprintf("/events/%d", event.ID),
+		"fa-calendar",
+		"text-purple-600",
+		"bg-purple-100",
+	)
 
 	return event, nil
 }
@@ -373,23 +1133,54 @@ func (s *Service) UpdateEvent(instID, id uint, req UpdateEventRequest) (*Institu
 		return nil, errors.New("event not found")
 	}
 
-	if req.Title != "" {
-		event.Title = req.Title
+	if req.Name != "" {
+		event.Name = req.Name
+	}
+	if req.ShortDesc != "" {
+		event.ShortDesc = req.ShortDesc
 	}
 	if req.Description != "" {
 		event.Description = req.Description
 	}
-	if req.Date != "" {
-		if t, err := time.Parse("2006-01-02", req.Date); err == nil {
-			event.Date = t
-		}
+	if req.ImageURL != "" {
+		event.ImageURL = req.ImageURL
+	}
+	if req.EventType != "" {
+		event.EventType = req.EventType
+	}
+	if req.Category != "" {
+		event.Category = req.Category
+	}
+	if req.OnlineLink != "" {
+		event.OnlineLink = req.OnlineLink
+	}
+	if req.OrganizedBy != "" {
+		event.OrganizedBy = req.OrganizedBy
+	}
+	if req.ContactPerson != "" {
+		event.ContactPerson = req.ContactPerson
+	}
+	if req.ContactEmail != "" {
+		event.ContactEmail = req.ContactEmail
 	}
 	if req.Location != "" {
 		event.Location = req.Location
 	}
-	if req.Image != "" {
-		event.Image = req.Image
+	if req.StartDate != "" {
+		event.StartDate = parseEventTime(req.StartDate)
 	}
+	if req.EndDate != "" {
+		event.EndDate = parseEventTime(req.EndDate)
+	}
+	if req.MaxParticipants > 0 {
+		event.MaxParticipants = req.MaxParticipants
+	}
+	if req.Tags != nil {
+		b, _ := json.Marshal(req.Tags)
+		t := string(b)
+		event.Tags = &t
+	}
+	event.EnableRegistration = req.EnableRegistration
 	if req.Status != "" {
 		event.Status = req.Status
 	}
@@ -399,6 +1190,33 @@ func (s *Service) UpdateEvent(instID, id uint, req UpdateEventRequest) (*Institu
 	}
 
 	return event, nil
+}
+
+func (s *Service) ListPublicEvents(page, limit int) ([]EventResponse, int64, error) {
+	events, total, err := s.repo.FindAllPublishedEvents(page, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+	var resp []EventResponse
+	for _, e := range events {
+		resp = append(resp, toEventResponse(e))
+	}
+	return resp, total, nil
+}
+
+func (s *Service) GetPublicEventByID(id uint) (*InstitutionEvent, error) {
+	event, err := s.repo.FindPublishedEventByID(id)
+	if err != nil {
+		return nil, err
+	}
+	if event.Status != "upcoming" && event.Status != "published" {
+		return nil, errors.New("event not found")
+	}
+	return event, nil
+}
+
+func (s *Service) GetPublicEventBySlug(slug string) (*InstitutionEvent, error) {
+	return s.repo.FindEventBySlug(slug)
 }
 
 func (s *Service) DeleteEvent(instID, id uint) error {
@@ -413,20 +1231,75 @@ func (s *Service) GetNewsByID(instID, id uint) (*InstitutionNews, error) {
 	return s.repo.FindNewsByIDAndInstitution(id, instID)
 }
 
+func (s *Service) ListPublicNews(page, limit int) ([]NewsResponse, int64, error) {
+	news, total, err := s.repo.FindAllPublishedNews(page, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+	var resp []NewsResponse
+	for _, n := range news {
+		resp = append(resp, toNewsResponse(n))
+	}
+	return resp, total, nil
+}
+
+func (s *Service) GetPublicNewsByID(id uint) (*InstitutionNews, error) {
+	return s.repo.FindPublishedNewsByID(id)
+}
+
+func (s *Service) GetPublicNewsBySlug(slug string) (*InstitutionNews, error) {
+	return s.repo.FindNewsBySlug(slug)
+}
+
 func (s *Service) CreateNews(instID uint, req CreateNewsRequest) (*InstitutionNews, error) {
+	var tagsJSON *string
+	if req.Tags != nil {
+		b, _ := json.Marshal(req.Tags)
+		t := string(b)
+		tagsJSON = &t
+	}
+
+	now := time.Now()
+
 	news := &InstitutionNews{
 		InstitutionID: instID,
 		Title:         req.Title,
+		ShortDesc:     req.ShortDesc,
 		Content:       req.Content,
-		Excerpt:       req.Excerpt,
-		Image:         req.Image,
-		Category:      req.Category,
-		Published:     true,
+		ImageURL:      req.ImageURL,
+		NewsType:      req.NewsType,
+		PublishedBy:   req.PublishedBy,
+		Tags:          tagsJSON,
+		AllowComments: req.AllowComments,
+		Status:        "draft",
+	}
+
+	if req.PublishDate != "" {
+		news.PublishDate = &req.PublishDate
+	}
+
+	if req.Status == "published" {
+		news.Status = "published"
+		news.PublishedAt = &now
+	}
+
+	if req.PublishedBy == "" {
+		news.PublishedBy = "Admin"
 	}
 
 	if err := s.repo.CreateNews(news); err != nil {
 		return nil, err
 	}
+
+	s.systemSvc.CreatePublicNotification(
+		"New News: "+news.Title,
+		news.ShortDesc,
+		"news",
+		fmt.Sprintf("/news/%d", news.ID),
+		"fa-newspaper",
+		"text-blue-600",
+		"bg-blue-100",
+	)
 
 	return news, nil
 }
@@ -443,14 +1316,33 @@ func (s *Service) UpdateNews(instID, id uint, req UpdateNewsRequest) (*Instituti
 	if req.Content != "" {
 		news.Content = req.Content
 	}
-	if req.Excerpt != "" {
-		news.Excerpt = req.Excerpt
+	if req.ShortDesc != "" {
+		news.ShortDesc = req.ShortDesc
 	}
-	if req.Image != "" {
-		news.Image = req.Image
+	if req.ImageURL != "" {
+		news.ImageURL = req.ImageURL
 	}
-	if req.Category != "" {
-		news.Category = req.Category
+	if req.NewsType != "" {
+		news.NewsType = req.NewsType
+	}
+	if req.PublishedBy != "" {
+		news.PublishedBy = req.PublishedBy
+	}
+	if req.PublishDate != "" {
+		news.PublishDate = &req.PublishDate
+	}
+	if req.Tags != nil {
+		b, _ := json.Marshal(req.Tags)
+		t := string(b)
+		news.Tags = &t
+	}
+	news.AllowComments = req.AllowComments
+	if req.Status != "" {
+		news.Status = req.Status
+		if req.Status == "published" && news.PublishedAt == nil {
+			now := time.Now()
+			news.PublishedAt = &now
+		}
 	}
 
 	if err := s.repo.SaveNews(news); err != nil {
@@ -462,6 +1354,115 @@ func (s *Service) UpdateNews(instID, id uint, req UpdateNewsRequest) (*Instituti
 
 func (s *Service) DeleteNews(instID, id uint) error {
 	return s.repo.DeleteNews(id, instID)
+}
+
+func (s *Service) GetBlogs(instID uint, page, limit int) ([]InstitutionBlog, int64, error) {
+	return s.repo.FindBlogsByInstitution(instID, page, limit)
+}
+
+func (s *Service) GetBlogByID(instID, id uint) (*InstitutionBlog, error) {
+	return s.repo.FindBlogByIDAndInstitution(id, instID)
+}
+
+func (s *Service) CreateBlog(instID uint, req CreateBlogRequest) (*InstitutionBlog, error) {
+	status := req.Status
+	if status == "" {
+		status = "draft"
+	}
+	var publishedAt *time.Time
+	if status == "published" {
+		now := time.Now()
+		publishedAt = &now
+	}
+
+	blog := &InstitutionBlog{
+		InstitutionID: instID,
+		Title:         req.Title,
+		Content:       req.Content,
+		Excerpt:       req.Excerpt,
+		Image:         req.Image,
+		Category:      req.Category,
+		BlogCategory:  req.BlogCategory,
+		ReadTime:      req.ReadTime,
+		Tags:          req.Tags,
+		Status:        status,
+		PublishedAt:   publishedAt,
+	}
+
+	if err := s.repo.CreateBlog(blog); err != nil {
+		return nil, err
+	}
+
+	if status == "published" {
+		s.systemSvc.CreatePublicNotification(
+			"New Blog: "+blog.Title,
+			blog.Excerpt,
+			"blog",
+			fmt.Sprintf("/blog/%d", blog.ID),
+			"fa-blog",
+			"text-green-600",
+			"bg-green-100",
+		)
+	}
+
+	return blog, nil
+}
+
+func (s *Service) UpdateBlog(instID, id uint, req UpdateBlogRequest) (*InstitutionBlog, error) {
+	blog, err := s.repo.FindBlogByIDAndInstitution(id, instID)
+	if err != nil {
+		return nil, errors.New("blog not found")
+	}
+
+	if req.Title != "" {
+		blog.Title = req.Title
+	}
+	if req.Content != "" {
+		blog.Content = req.Content
+	}
+	if req.Excerpt != "" {
+		blog.Excerpt = req.Excerpt
+	}
+	if req.Image != "" {
+		blog.Image = req.Image
+	}
+	if req.Category != "" {
+		blog.Category = req.Category
+	}
+	if req.BlogCategory != "" {
+		blog.BlogCategory = req.BlogCategory
+	}
+	if req.ReadTime != "" {
+		blog.ReadTime = req.ReadTime
+	}
+	if req.Tags != "" {
+		blog.Tags = req.Tags
+	}
+	if req.Status != "" {
+		blog.Status = req.Status
+		if req.Status == "published" && blog.PublishedAt == nil {
+			now := time.Now()
+			blog.PublishedAt = &now
+		}
+	}
+
+	if err := s.repo.SaveBlog(blog); err != nil {
+		return nil, err
+	}
+
+	return blog, nil
+}
+
+func (s *Service) DeleteBlog(instID, id uint) error {
+	return s.repo.DeleteBlog(id, instID)
+}
+
+func (s *Service) ListPublicBlogs(page, limit int) ([]InstitutionBlog, int64, error) {
+	return s.repo.FindPublishedBlogs(page, limit)
+}
+
+func (s *Service) GetPublicBlogBySlug(slug string) (*InstitutionBlog, error) {
+	return s.repo.FindBlogBySlug(slug)
 }
 
 func (s *Service) GetQMS(instID uint, page, limit int) ([]InstitutionQMS, int64, error) {
@@ -522,74 +1523,6 @@ func (s *Service) DeleteQMS(instID, id uint) error {
 	return s.repo.DeleteQMS(id, instID)
 }
 
-func (s *Service) GetMessages(instID uint, page, limit int) ([]InstitutionMessage, int64, error) {
-	return s.repo.FindMessagesByInstitution(instID, page, limit)
-}
-
-func (s *Service) GetMessageByID(instID, id uint) (*InstitutionMessage, error) {
-	message, err := s.repo.FindMessageByIDAndInstitution(id, instID)
-	if err != nil {
-		return nil, err
-	}
-
-	if !message.Read {
-		message.Read = true
-		if err := s.repo.SaveMessage(message); err != nil {
-			return nil, err
-		}
-	}
-
-	return message, nil
-}
-
-func (s *Service) CreateMessage(instID uint, req CreateMessageRequest) (*InstitutionMessage, error) {
-	message := &InstitutionMessage{
-		InstitutionID: instID,
-		UserID:        req.UserID,
-		Subject:       req.Subject,
-		Content:       req.Content,
-		Direction:     "outbound",
-	}
-
-	if err := s.repo.CreateMessage(message); err != nil {
-		return nil, err
-	}
-
-	return message, nil
-}
-
-func (s *Service) GetMessageStudents(instID uint) ([]StudentContact, error) {
-	messages, err := s.repo.FindAllMessagesByInstitution(instID)
-	if err != nil {
-		return nil, err
-	}
-
-	contactMap := map[uint]*StudentContact{}
-	for _, msg := range messages {
-		if _, exists := contactMap[msg.UserID]; !exists {
-			user, err := s.repo.FindUserByID(msg.UserID)
-			if err != nil {
-				user = &User{}
-			}
-			contactMap[msg.UserID] = &StudentContact{
-				UserID:      msg.UserID,
-				Name:        user.FirstName + " " + user.LastName,
-				LastMessage: msg.Content,
-			}
-		}
-		if !msg.Read && msg.Direction == "inbound" {
-			contactMap[msg.UserID].Unread++
-		}
-	}
-
-	contacts := make([]StudentContact, 0, len(contactMap))
-	for _, c := range contactMap {
-		contacts = append(contacts, *c)
-	}
-
-	return contacts, nil
-}
-
 func (s *Service) GetSettings(instID uint) (*SettingsResponse, error) {
 	settings, err := s.repo.FindOrCreateSettings(instID)
 	if err != nil {
@@ -640,22 +1573,13 @@ func (s *Service) UpdateSettings(instID uint, req UpdateSettingsRequest) (*Setti
 }
 
 func (s *Service) GetScholarships(instID uint) ([]Scholarship, error) {
-	college, err := s.repo.FindCollegeByUniversityID(instID)
-	if err != nil {
-		return nil, errors.New("no college found for this institution")
-	}
-
-	return s.repo.FindScholarshipsByLocation("%" + college.Name + "%")
+	return s.repo.FindScholarshipsByInstitution(instID)
 }
 
 func (s *Service) CreateScholarship(instID uint, req CreateScholarshipRequest) (*Scholarship, error) {
-	college, err := s.repo.FindCollegeByUniversityID(instID)
-	if err != nil {
-		return nil, errors.New("no college found for this institution")
-	}
-
 	var deadline time.Time
 	if req.Deadline != "" {
+		var err error
 		deadline, err = time.Parse("2006-01-02", req.Deadline)
 		if err != nil {
 			return nil, errors.New("invalid deadline format (expected YYYY-MM-DD)")
@@ -664,9 +1588,16 @@ func (s *Service) CreateScholarship(instID uint, req CreateScholarshipRequest) (
 
 	fieldOfStudy, _ := json.Marshal(req.FieldOfStudy)
 
+	status := req.Status
+	if status == "" {
+		status = "draft"
+	}
+
 	scholarship := &Scholarship{
+		InstitutionID:   instID,
 		Title:           req.Title,
-		Provider:        college.Name,
+		ShortDesc:       req.ShortDesc,
+		Provider:        req.Provider,
 		Location:        req.Location,
 		Value:           req.Value,
 		Deadline:        deadline,
@@ -676,6 +1607,7 @@ func (s *Service) CreateScholarship(instID uint, req CreateScholarshipRequest) (
 		Description:     req.Description,
 		ImageURL:        req.ImageURL,
 		FieldOfStudy:    fieldOfStudy,
+		Status:          status,
 	}
 
 	if err := s.repo.CreateScholarship(scholarship); err != nil {
@@ -686,22 +1618,16 @@ func (s *Service) CreateScholarship(instID uint, req CreateScholarshipRequest) (
 }
 
 func (s *Service) UpdateScholarship(instID, id uint, req UpdateScholarshipRequest) (*Scholarship, error) {
-	college, err := s.repo.FindCollegeByUniversityID(instID)
-	if err != nil {
-		return nil, errors.New("no college found for this institution")
-	}
-
-	scholarship, err := s.repo.FindScholarshipByID(id)
+	scholarship, err := s.repo.FindScholarshipByIDAndInstitution(id, instID)
 	if err != nil {
 		return nil, errors.New("scholarship not found")
 	}
 
-	if scholarship.Provider != college.Name {
-		return nil, errors.New("you can only update your own scholarships")
-	}
-
 	if req.Title != "" {
 		scholarship.Title = req.Title
+	}
+	if req.ShortDesc != "" {
+		scholarship.ShortDesc = req.ShortDesc
 	}
 	if req.Provider != "" {
 		scholarship.Provider = req.Provider
@@ -737,6 +1663,9 @@ func (s *Service) UpdateScholarship(instID, id uint, req UpdateScholarshipReques
 			scholarship.FieldOfStudy = data
 		}
 	}
+	if req.Status != "" {
+		scholarship.Status = req.Status
+	}
 
 	if err := s.repo.SaveScholarship(scholarship); err != nil {
 		return nil, err
@@ -746,21 +1675,27 @@ func (s *Service) UpdateScholarship(instID, id uint, req UpdateScholarshipReques
 }
 
 func (s *Service) DeleteScholarship(instID, id uint) error {
-	college, err := s.repo.FindCollegeByUniversityID(instID)
-	if err != nil {
-		return errors.New("no college found for this institution")
-	}
-
-	scholarship, err := s.repo.FindScholarshipByID(id)
+	_, err := s.repo.FindScholarshipByIDAndInstitution(id, instID)
 	if err != nil {
 		return errors.New("scholarship not found")
 	}
-
-	if scholarship.Provider != college.Name {
-		return errors.New("you can only delete your own scholarships")
-	}
-
 	return s.repo.DeleteScholarship(id)
+}
+
+func (s *Service) ListPublicScholarships(page, limit int) ([]ScholarshipResponse, int64, error) {
+	scholarships, total, err := s.repo.FindAllPublishedScholarships(page, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+	var resp []ScholarshipResponse
+	for _, sch := range scholarships {
+		resp = append(resp, toScholarshipResponse(sch))
+	}
+	return resp, total, nil
+}
+
+func (s *Service) GetPublicScholarshipByID(id uint) (*Scholarship, error) {
+	return s.repo.FindPublishedScholarshipByID(id)
 }
 
 func (s *Service) GetAdmissions(instID uint, status string) ([]Admission, error) {
@@ -799,6 +1734,533 @@ func (s *Service) UpdateAdmissionStatus(instID, id uint, req UpdateAdmissionStat
 	}
 
 	return admission, nil
+}
+
+// --- Admission Page Service ---
+
+func extractAdmissionTitle(data *string) string {
+	if data == nil || *data == "" {
+		return ""
+	}
+	var parsed map[string]interface{}
+	if err := json.Unmarshal([]byte(*data), &parsed); err != nil {
+		return ""
+	}
+	if od, ok := parsed["overview_data"].(map[string]interface{}); ok {
+		if heading, ok := od["overviewHeading"].(string); ok && heading != "" {
+			return heading
+		}
+	}
+	if programs, ok := parsed["programs_data"].([]interface{}); ok && len(programs) > 0 {
+		if first, ok := programs[0].(map[string]interface{}); ok {
+			if title, ok := first["title"].(string); ok && title != "" {
+				return title
+			}
+		}
+	}
+	return ""
+}
+
+func extractFirstProgram(data *string) string {
+	if data == nil || *data == "" {
+		return ""
+	}
+	var parsed map[string]interface{}
+	if err := json.Unmarshal([]byte(*data), &parsed); err != nil {
+		return ""
+	}
+	if programs, ok := parsed["programs_data"].([]interface{}); ok && len(programs) > 0 {
+		if first, ok := programs[0].(map[string]interface{}); ok {
+			if title, ok := first["title"].(string); ok {
+				return title
+			}
+		}
+	}
+	return ""
+}
+
+func extractLevel(data *string) string {
+	if data == nil || *data == "" {
+		return ""
+	}
+	var parsed map[string]interface{}
+	if err := json.Unmarshal([]byte(*data), &parsed); err != nil {
+		return ""
+	}
+	if od, ok := parsed["overview_data"].(map[string]interface{}); ok {
+		if level, ok := od["level"].(string); ok {
+			return level
+		}
+	}
+	return ""
+}
+
+func (s *Service) CreateAdmissionPage(instID uint, req CreateAdmissionPageRequest) (*AdmissionPageResponse, error) {
+	dataStr := string(req.Data)
+	page := &AdmissionPage{
+		InstitutionID:       instID,
+		InstitutionName:     req.InstitutionName,
+		InstitutionLocation: req.InstitutionLocation,
+		InstitutionLink:     req.InstitutionLink,
+		Title:               extractAdmissionTitle(&dataStr),
+		Level:               extractLevel(&dataStr),
+		Status:              "draft",
+		Data:                &dataStr,
+	}
+
+	if req.Status == "published" {
+		now := time.Now()
+		page.Status = "published"
+		page.PublishedAt = &now
+	}
+
+	if err := s.repo.CreateAdmissionPage(page); err != nil {
+		return nil, err
+	}
+
+	if page.Status == "published" {
+		s.systemSvc.CreatePublicNotification(
+			"Admission Open: "+page.Title,
+			"New admission opening available",
+			"admission",
+			fmt.Sprintf("/admissions/%d", page.ID),
+			"fa-door-open",
+			"text-orange-600",
+			"bg-orange-100",
+		)
+	}
+
+	return toAdmissionPageResponse(page), nil
+}
+
+func (s *Service) GetAdmissionPages(instID uint, status string, page, limit int) ([]AdmissionPageListItem, int64, error) {
+	pages, total, err := s.repo.FindAdmissionPagesByInstitution(instID, status, page, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	items := make([]AdmissionPageListItem, len(pages))
+	for i, p := range pages {
+		items[i] = toAdmissionPageListItem(p)
+	}
+	return items, total, nil
+}
+
+func (s *Service) GetAdmissionPage(instID, id uint) (*AdmissionPageResponse, error) {
+	page, err := s.repo.FindAdmissionPageByID(id, instID)
+	if err != nil {
+		return nil, err
+	}
+	return toAdmissionPageResponse(page), nil
+}
+
+func (s *Service) UpdateAdmissionPage(instID, id uint, req UpdateAdmissionPageRequest) (*AdmissionPageResponse, error) {
+	page, err := s.repo.FindAdmissionPageByID(id, instID)
+	if err != nil {
+		return nil, err
+	}
+
+	wasPublished := page.Status == "published"
+
+	if req.Data != nil {
+		dataStr := string(req.Data)
+		page.Data = &dataStr
+		page.Title = extractAdmissionTitle(&dataStr)
+		page.Level = extractLevel(&dataStr)
+	}
+
+	if req.Status != nil {
+		page.Status = *req.Status
+		if *req.Status == "published" {
+			now := time.Now()
+			page.PublishedAt = &now
+		} else {
+			page.PublishedAt = nil
+		}
+	}
+	if req.InstitutionName != "" {
+		page.InstitutionName = req.InstitutionName
+	}
+	if req.InstitutionLocation != "" {
+		page.InstitutionLocation = req.InstitutionLocation
+	}
+	if req.InstitutionLink != "" {
+		page.InstitutionLink = req.InstitutionLink
+	}
+
+	if err := s.repo.SaveAdmissionPage(page); err != nil {
+		return nil, err
+	}
+
+	if page.Status == "published" && !wasPublished {
+		s.systemSvc.CreatePublicNotification(
+			"Admission Open: "+page.Title,
+			"New admission opening available",
+			"admission",
+			fmt.Sprintf("/admissions/%d", page.ID),
+			"fa-door-open",
+			"text-orange-600",
+			"bg-orange-100",
+		)
+	}
+
+	return toAdmissionPageResponse(page), nil
+}
+
+func (s *Service) GenerateWhatsNew(pageID uint, data map[string]interface{}) (map[string]interface{}, error) {
+	llmClient := ai.NewLLMClient()
+
+	prompt := ai.BuildWhatsNewPrompt(data)
+
+	summary, err := llmClient.GenerateSummary(context.Background(), prompt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate summary: %w", err)
+	}
+
+	if existingData, ok := data["whats_new_data"].(map[string]interface{}); ok {
+		existingData["description"] = summary
+	} else {
+		data["whats_new_data"] = map[string]interface{}{
+			"description": summary,
+		}
+	}
+
+	return data, nil
+}
+
+func (s *Service) DeleteAdmissionPage(instID, id uint) error {
+	return s.repo.DeleteAdmissionPage(id, instID)
+}
+
+func (s *Service) DeleteAdmissionPageByID(id uint) error {
+	return s.repo.DeleteAdmissionPageByID(id)
+}
+
+// --- Superadmin Service Methods ---
+
+func (s *Service) GetAllPrograms(page, limit int) ([]InstitutionProgram, int64, error) {
+	return s.repo.FindAllPrograms(page, limit)
+}
+
+func (s *Service) GetAllEntrances(status string, page, limit int) ([]InstitutionEntrance, int64, error) {
+	return s.repo.FindAllEntrances(status, page, limit)
+}
+
+func (s *Service) GetAllAdmissionPages(status string, page, limit int) ([]AdmissionPage, int64, error) {
+	return s.repo.FindAllAdmissionPages(status, page, limit)
+}
+
+func (s *Service) GetEntranceApplicantsByID(entranceID uint) ([]InstitutionEntranceApplicant, error) {
+	_, err := s.repo.FindEntranceByID(entranceID)
+	if err != nil {
+		return nil, errors.New("entrance not found")
+	}
+	return s.repo.FindEntranceApplicants(entranceID)
+}
+
+func (s *Service) GetPublishedAdmissionPages(page, limit int) ([]AdmissionPageListItem, int64, error) {
+	pages, total, err := s.repo.FindPublishedAdmissionPages(page, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	items := make([]AdmissionPageListItem, len(pages))
+	for i, p := range pages {
+		items[i] = toAdmissionPageListItem(p)
+	}
+	return items, total, nil
+}
+
+func mapAdmissionLevel(level string) string {
+	mapping := map[string]string{
+		"high-school": "+2",
+		"a-level":     "A-Level",
+		"diploma":     "Diploma/CTEVT",
+		"ctevt":       "Diploma/CTEVT",
+		"bachelor":    "Bachelor",
+		"master":      "Master",
+	}
+	if mapped, ok := mapping[level]; ok {
+		return mapped
+	}
+	return level
+}
+
+func (s *Service) GetPublishedAdmissionInstitutions(page, limit int, level, search string, provinces, districts, locals, types []string, sortBy string) (*PublishedAdmissionInstitutionListResponse, error) {
+	results, total, err := s.repo.FindPublishedAdmissionInstitutions(page, limit, mapAdmissionLevel(level), search, provinces, districts, locals, types, sortBy)
+	if err != nil {
+		return nil, err
+	}
+
+	colleges := make([]PublishedAdmissionInstitutionItem, len(results))
+	for i, row := range results {
+		id, _ := row["id"].(int64)
+		admissionPageID, _ := row["admission_page_id"].(int64)
+		name, _ := row["name"].(string)
+		imageURL, _ := row["image_url"].(string)
+		location, _ := row["location"].(string)
+		collegeType, _ := row["type"].(string)
+		rating, _ := row["rating"].(float64)
+		website, _ := row["website"].(string)
+		affiliation, _ := row["affiliation"].(string)
+		verified, _ := row["verified"].(bool)
+		heroBanner, _ := row["hero_banner"].(string)
+
+		featuredPrograms := []FeaturedProgramItem{}
+		if fp, ok := row["featured_programs"]; ok && fp != nil {
+			switch v := fp.(type) {
+			case []byte:
+				json.Unmarshal(v, &featuredPrograms)
+			case string:
+				if s := strings.TrimSpace(v); s != "" {
+					json.Unmarshal([]byte(v), &featuredPrograms)
+				}
+			case []interface{}:
+				for _, item := range v {
+					if m, ok := item.(map[string]interface{}); ok {
+						title, _ := m["title"].(string)
+						status, _ := m["admissionStatus"].(string)
+						featuredPrograms = append(featuredPrograms, FeaturedProgramItem{
+							Title:           strings.TrimSpace(title),
+							AdmissionStatus: strings.TrimSpace(status),
+						})
+					}
+				}
+			}
+		}
+		if len(featuredPrograms) == 0 {
+			featuredPrograms = []FeaturedProgramItem{}
+		}
+
+		colleges[i] = PublishedAdmissionInstitutionItem{
+			ID:               uint(id),
+			AdmissionPageID:  uint(admissionPageID),
+			Name:             name,
+			ImageURL:         imageURL,
+			Location:         location,
+			Type:             collegeType,
+			Rating:           rating,
+			Website:          website,
+			Affiliation:      affiliation,
+			Verified:         verified,
+			FeaturedPrograms: featuredPrograms,
+			Programs:         0,
+			HeroBanner:       heroBanner,
+		}
+	}
+
+	totalPages := int64(1)
+	if limit > 0 {
+		totalPages = (total + int64(limit) - 1) / int64(limit)
+	}
+
+	return &PublishedAdmissionInstitutionListResponse{
+		Colleges: colleges,
+		Pagination: PaginationMeta{
+			Total:      total,
+			Page:       page,
+			Limit:      limit,
+			PageSize:   limit,
+			TotalPages: totalPages,
+		},
+	}, nil
+}
+
+func (s *Service) GetPublishedAdmissionInstitutionByID(id uint, level string) (*PublishedAdmissionInstitutionDetailResponse, error) {
+	rows, err := s.repo.FindPublishedAdmissionInstitutionByID(id)
+	if err != nil {
+		return nil, err
+	}
+
+	admissionPage, err := s.repo.FindPublishedAdmissionByInstitutionID(id, level)
+	if err != nil {
+		return nil, err
+	}
+
+	college := &PublishedAdmissionInstitutionItem{}
+	if len(rows) > 0 {
+		row := rows[0]
+		college.ID = uint(getInt64(row, "id"))
+		college.Name = getString(row, "name")
+		college.ImageURL = getString(row, "image_url")
+		college.Location = getString(row, "location")
+		college.Type = getString(row, "type")
+		college.Rating = getFloat64(row, "rating")
+		college.Website = getString(row, "website")
+		college.Affiliation = getString(row, "affiliation")
+		college.Verified = getBool(row, "verified")
+		college.ContactEmail = getString(row, "contact_email")
+		college.ContactPhone = getString(row, "contact_phone")
+
+		featuredPrograms := []FeaturedProgramItem{}
+		if admissionPage != nil && admissionPage.Data != nil {
+			var pageData struct {
+				ProgramsData []struct {
+					Title           string `json:"title"`
+					AdmissionStatus string `json:"admissionStatus"`
+				} `json:"programs_data"`
+			}
+			if err := json.Unmarshal([]byte(*admissionPage.Data), &pageData); err == nil {
+				for _, p := range pageData.ProgramsData {
+					if t := strings.TrimSpace(p.Title); t != "" {
+						featuredPrograms = append(featuredPrograms, FeaturedProgramItem{
+							Title:           t,
+							AdmissionStatus: strings.TrimSpace(p.AdmissionStatus),
+						})
+					}
+				}
+			}
+		}
+		college.FeaturedPrograms = featuredPrograms
+	}
+	pCount, _ := s.repo.CountProgramsByInstitution(id)
+	college.Programs = int(pCount)
+
+	var data json.RawMessage
+	if admissionPage.Data != nil {
+		data = json.RawMessage(*admissionPage.Data)
+	}
+
+	var publishedAt *string
+	if admissionPage.PublishedAt != nil {
+		s := admissionPage.PublishedAt.Format(time.RFC3339)
+		publishedAt = &s
+	}
+
+	return &PublishedAdmissionInstitutionDetailResponse{
+		Institution: college,
+		Data:        data,
+		CreatedAt:   admissionPage.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:   admissionPage.UpdatedAt.Format(time.RFC3339),
+		PublishedAt: publishedAt,
+	}, nil
+}
+
+func (s *Service) GetPublishedAdmissionByPageID(pageID uint) (*PublishedAdmissionInstitutionDetailResponse, error) {
+	admissionPage, err := s.repo.FindPublishedAdmissionPageByID(pageID)
+	if err != nil {
+		return nil, err
+	}
+
+	instID := admissionPage.InstitutionID
+	rows, err := s.repo.FindPublishedAdmissionInstitutionByID(instID)
+	if err != nil {
+		return nil, err
+	}
+
+	college := &PublishedAdmissionInstitutionItem{}
+	if len(rows) > 0 {
+		row := rows[0]
+		college.ID = uint(getInt64(row, "id"))
+		college.AdmissionPageID = pageID
+		college.Name = getString(row, "name")
+		college.ImageURL = getString(row, "image_url")
+		college.Location = getString(row, "location")
+		college.Type = getString(row, "type")
+		college.Rating = getFloat64(row, "rating")
+		college.Website = getString(row, "website")
+		college.Affiliation = getString(row, "affiliation")
+		college.Verified = getBool(row, "verified")
+		college.ContactEmail = getString(row, "contact_email")
+		college.ContactPhone = getString(row, "contact_phone")
+
+		featuredPrograms := []FeaturedProgramItem{}
+		if admissionPage.Data != nil {
+			var pageData struct {
+				ProgramsData []struct {
+					Title           string `json:"title"`
+					AdmissionStatus string `json:"admissionStatus"`
+				} `json:"programs_data"`
+			}
+			if err := json.Unmarshal([]byte(*admissionPage.Data), &pageData); err == nil {
+				for _, p := range pageData.ProgramsData {
+					if t := strings.TrimSpace(p.Title); t != "" {
+						featuredPrograms = append(featuredPrograms, FeaturedProgramItem{
+							Title:           t,
+							AdmissionStatus: strings.TrimSpace(p.AdmissionStatus),
+						})
+					}
+				}
+			}
+		}
+		college.FeaturedPrograms = featuredPrograms
+	}
+	pCount, _ := s.repo.CountProgramsByInstitution(instID)
+	college.Programs = int(pCount)
+
+	var data json.RawMessage
+	if admissionPage.Data != nil {
+		data = json.RawMessage(*admissionPage.Data)
+	}
+
+	var publishedAt *string
+	if admissionPage.PublishedAt != nil {
+		s := admissionPage.PublishedAt.Format(time.RFC3339)
+		publishedAt = &s
+	}
+
+	return &PublishedAdmissionInstitutionDetailResponse{
+		Institution: college,
+		Data:        data,
+		CreatedAt:   admissionPage.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:   admissionPage.UpdatedAt.Format(time.RFC3339),
+		PublishedAt: publishedAt,
+	}, nil
+}
+
+func getInt64(m map[string]interface{}, key string) int64 {
+	v, _ := m[key].(int64)
+	return v
+}
+
+func getString(m map[string]interface{}, key string) string {
+	v, _ := m[key].(string)
+	return v
+}
+
+func getFloat64(m map[string]interface{}, key string) float64 {
+	v, _ := m[key].(float64)
+	return v
+}
+
+func getBool(m map[string]interface{}, key string) bool {
+	v, _ := m[key].(bool)
+	return v
+}
+
+func toAdmissionPageResponse(p *AdmissionPage) *AdmissionPageResponse {
+	resp := &AdmissionPageResponse{
+		ID:            p.ID,
+		CreatedAt:     p.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:     p.UpdatedAt.Format(time.RFC3339),
+		InstitutionID: p.InstitutionID,
+		Title:         p.Title,
+		Status:        p.Status,
+	}
+	if p.Data != nil {
+		resp.Data = json.RawMessage(*p.Data)
+	}
+	if p.PublishedAt != nil {
+		s := p.PublishedAt.Format(time.RFC3339)
+		resp.PublishedAt = &s
+	}
+	return resp
+}
+
+func toAdmissionPageListItem(p AdmissionPage) AdmissionPageListItem {
+	item := AdmissionPageListItem{
+		ID:         p.ID,
+		Title:      p.Title,
+		Program:    extractFirstProgram(p.Data),
+		Level:      extractLevel(p.Data),
+		Status:     p.Status,
+		LastEdited: p.UpdatedAt.Format("2006-01-02"),
+	}
+	if p.PublishedAt != nil {
+		s := p.PublishedAt.Format("2006-01-02")
+		item.PublishedAt = &s
+	}
+	return item
 }
 
 func (s *Service) GetScholarshipApplications(instID uint, status string) ([]ScholarshipApplication, error) {
@@ -846,4 +2308,411 @@ func (s *Service) UpdateScholarshipApplicationStatus(instID, id uint, req Update
 	}
 
 	return application, nil
+}
+
+func (s *Service) ListPublicInstitutions(page, limit int, search, location, instType string, academic, courseDuration, facilities, program, course []string) ([]PublicInstitutionResponse, int64, error) {
+	users, total, err := s.repo.FindPublicInstitutions(page, limit, search, location, instType, academic, courseDuration, facilities, program, course)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	results := make([]PublicInstitutionResponse, len(users))
+	for i, u := range users {
+		logoURL := u.LogoURL
+		bannerURL := u.BannerURL
+		if strings.HasPrefix(logoURL, "data:") {
+			logoURL = ""
+		}
+		if strings.HasPrefix(bannerURL, "data:") {
+			bannerURL = ""
+		}
+		cardImageURL := u.CardImageURL
+		if strings.HasPrefix(cardImageURL, "data:") {
+			cardImageURL = ""
+		}
+		results[i] = PublicInstitutionResponse{
+			ID:                       u.ID,
+			InstitutionName:          u.InstitutionName,
+			Verified:                 u.Verified,
+			Claimed:                  u.Claimed,
+			Affiliation:              u.Affiliation,
+			NonUniversityAffiliation: u.NonUniversityAffiliation,
+			UniversityID:             u.UniversityID,
+			IsSponsored:              u.IsSponsored,
+			LogoURL:                  logoURL,
+			BannerURL:                bannerURL,
+			CardImageURL:             cardImageURL,
+			About:                    u.About,
+			District:                 u.District,
+			WebsiteURL:               u.WebsiteURL,
+			Status:                   u.Status,
+			Featured:                 u.Featured,
+			CollegeID:                u.CollegeID,
+			Type:                     u.OrganizationType,
+		}
+	}
+	return results, total, nil
+}
+
+func (s *Service) GetPublicInstitution(id uint) (*PublicInstitutionDetailResponse, error) {
+	user, err := s.repo.FindPublicInstitutionByID(id)
+	if err != nil {
+		return nil, errors.New("institution not found or not public")
+	}
+
+	var pd ProfileData
+	if user.ProfileData != nil && *user.ProfileData != "" {
+		json.Unmarshal([]byte(*user.ProfileData), &pd)
+	}
+
+	logoURL := user.LogoURL
+	bannerURL := user.BannerURL
+	if strings.HasPrefix(logoURL, "data:") {
+		logoURL = ""
+	}
+	if strings.HasPrefix(bannerURL, "data:") {
+		bannerURL = ""
+	}
+
+	programs, _ := s.repo.FindAllProgramsByInstitution(id)
+	programResponses := make([]ProgramResponse, 0, len(programs))
+	for _, p := range programs {
+		var whoShouldChoose []education.PersonaItem
+		var features []education.FeatureItem
+		var fullTimeCourses []education.FullTimeCourse
+		var feeItems []education.FeeItem
+		var overrides education.CourseOverrides
+		json.Unmarshal(p.WhoShouldChoose, &whoShouldChoose)
+		json.Unmarshal(p.Features, &features)
+		json.Unmarshal(p.FullTimeCourses, &fullTimeCourses)
+		json.Unmarshal(p.FeeItems, &feeItems)
+		json.Unmarshal(p.Overrides, &overrides)
+
+		programResponses = append(programResponses, ProgramResponse{
+			ID:                  p.ID,
+			CreatedAt:           p.CreatedAt.Format(time.RFC3339),
+			UpdatedAt:           p.UpdatedAt.Format(time.RFC3339),
+			InstitutionID:       p.InstitutionID,
+			InstitutionName:     p.InstitutionName,
+			InstitutionLocation: p.InstitutionLocation,
+			InstitutionLink:     p.InstitutionLink,
+			GlobalCourseID:      p.GlobalCourseID,
+			Fee:                 p.Fee,
+			Eligibility:         p.Eligibility,
+			Capacity:            p.Capacity,
+			Status:              p.Status,
+			WhoShouldChoose:     whoShouldChoose,
+			Features:            features,
+			FullTimeCourses:     fullTimeCourses,
+			FeeItems:            feeItems,
+			Overrides:           overrides,
+			NullifiedFields:     p.NullifiedFields,
+		})
+	}
+
+	events, _, _ := s.repo.FindEventsByInstitution(id, 1, 100)
+	eventResponses := make([]EventResponse, 0, len(events))
+	for _, e := range events {
+		if e.Status == "upcoming" || e.Status == "published" {
+			eventResponses = append(eventResponses, toEventResponse(e))
+		}
+	}
+
+	newsList, _, _ := s.repo.FindNewsByInstitution(id, 1, 100)
+	newsResponses := make([]NewsResponse, 0, len(newsList))
+	for _, n := range newsList {
+		if n.Status == "published" {
+			newsResponses = append(newsResponses, toNewsResponse(n))
+		}
+	}
+
+	var scholarshipResponses []ScholarshipResponse
+	college, err := s.repo.FindCollegeByUniversityID(id)
+	if err == nil && college != nil {
+		scholarships, _ := s.repo.FindScholarshipsByLocation("%" + college.Name + "%")
+		scholarshipResponses = make([]ScholarshipResponse, 0, len(scholarships))
+		for _, sch := range scholarships {
+			if sch.Status != "published" {
+				continue
+			}
+			scholarshipResponses = append(scholarshipResponses, toScholarshipResponse(sch))
+		}
+	}
+
+	var admissionPageData json.RawMessage
+	var admissionPageID uint
+	admissionPage, err := s.repo.FindPublishedAdmissionByInstitutionID(id, "")
+	if err == nil && admissionPage != nil && admissionPage.Data != nil {
+		admissionPageData = json.RawMessage(*admissionPage.Data)
+		admissionPageID = admissionPage.ID
+	}
+
+	return &PublicInstitutionDetailResponse{
+		ID:                      user.ID,
+		InstitutionName:         user.InstitutionName,
+		Verified:                user.Verified,
+		Claimed:                 user.Claimed,
+		Featured:                user.Featured,
+		ProfileStatus:           user.ProfileStatus,
+		LogoURL:                 logoURL,
+		BannerURL:               bannerURL,
+		CardImageURL:            user.CardImageURL,
+		About:                   user.About,
+		Vision:                  user.Vision,
+		Mission:                 user.Mission,
+		District:                user.District,
+		WebsiteURL:              user.WebsiteURL,
+		Level:                   user.Level,
+		Videos:                  pd.Videos,
+		OverviewData:            pd.OverviewData,
+		LeadershipData:          pd.LeadershipData,
+		CoursesData:             pd.CoursesData,
+		ProgramsData:            pd.ProgramsData,
+		FacilitiesData:          pd.FacilitiesData,
+		AlumniData:              pd.AlumniData,
+		GalleryData:             pd.GalleryData,
+		DownloadsData:           pd.DownloadsData,
+		FaqsData:                pd.FaqsData,
+		InstitutionPrograms:     programResponses,
+		InstitutionEvents:       eventResponses,
+		InstitutionNews:         newsResponses,
+		InstitutionScholarships: scholarshipResponses,
+		AdmissionPageID:         admissionPageID,
+		AdmissionPageData:       admissionPageData,
+		ContactEmail:            user.ContactEmail,
+		ContactPhone:            user.ContactPhone,
+		MapURL:                  user.MapURL,
+		FacebookURL:             user.FacebookURL,
+		InstagramURL:            user.InstagramURL,
+		TiktokURL:               user.TiktokURL,
+		YoutubeURL:              user.YoutubeURL,
+		LinkedinURL:             user.LinkedinURL,
+		BrochureData:            pd.BrochureData,
+		Type:                    user.OrganizationType,
+		FollowerCount:           s.getFollowerCount(id),
+	}, nil
+}
+
+func (s *Service) GetSponsoredInstitutions(universityID uint) ([]PublicInstitutionResponse, error) {
+	users, err := s.repo.FindSponsoredByUniversityID(universityID)
+	if err != nil {
+		return nil, err
+	}
+	return toPublicResponses(users), nil
+}
+
+func (s *Service) GetInstitutionsByUniversity(universityID uint) ([]PublicInstitutionResponse, error) {
+	users, err := s.repo.FindByUniversityID(universityID)
+	if err != nil {
+		return nil, err
+	}
+	return toPublicResponses(users), nil
+}
+
+func (s *Service) GetInstitutionsByUniversities(universityIDs []uint) ([]PublicInstitutionResponse, error) {
+	users, err := s.repo.FindByUniversityIDs(universityIDs)
+	if err != nil {
+		return nil, err
+	}
+	return toPublicResponses(users), nil
+}
+
+func toPublicResponses(users []InstitutionUser) []PublicInstitutionResponse {
+	results := make([]PublicInstitutionResponse, len(users))
+	for i, u := range users {
+		logoURL := u.LogoURL
+		bannerURL := u.BannerURL
+		if strings.HasPrefix(logoURL, "data:") {
+			logoURL = ""
+		}
+		if strings.HasPrefix(bannerURL, "data:") {
+			bannerURL = ""
+		}
+		cardImageURL := u.CardImageURL
+		if strings.HasPrefix(cardImageURL, "data:") {
+			cardImageURL = ""
+		}
+		results[i] = PublicInstitutionResponse{
+			ID:                       u.ID,
+			InstitutionName:          u.InstitutionName,
+			Verified:                 u.Verified,
+			Claimed:                  u.Claimed,
+			Affiliation:              u.Affiliation,
+			NonUniversityAffiliation: u.NonUniversityAffiliation,
+			UniversityID:             u.UniversityID,
+			IsSponsored:     u.IsSponsored,
+			LogoURL:         logoURL,
+			BannerURL:       bannerURL,
+			CardImageURL:    cardImageURL,
+			About:           u.About,
+			District:        u.District,
+			WebsiteURL:      u.WebsiteURL,
+			Status:          u.Status,
+			Featured:        u.Featured,
+			CollegeID:       u.CollegeID,
+			Type:            u.OrganizationType,
+		}
+	}
+	return results
+}
+
+func (s *Service) ToggleSponsored(id uint, isSponsored bool) error {
+	return s.repo.UpdateInstitutionField(id, "is_sponsored", isSponsored)
+}
+
+func (s *Service) GetPublicInstitutionFilterCounts() (*PublicInstitutionFilterCountsResponse, error) {
+	return s.repo.GetPublicFilterCounts()
+}
+
+func (s *Service) GetStudentProfile(studentID uint) (*StudentProfileResponse, error) {
+	return s.repo.FindUserByID(studentID)
+}
+
+func (s *Service) getFollowerCount(institutionID uint) int64 {
+	count, _ := s.repo.CountFollowers(institutionID)
+	return count
+}
+
+func (s *Service) GetInstitutionInquiries(institutionID uint, page, limit int, status, inquiryType, search string) ([]system.ContactInquiry, int64, error) {
+	return s.systemSvc.GetInstitutionInquiries(institutionID, page, limit, status, inquiryType, search)
+}
+
+func (s *Service) GetInstitutionFollowers(institutionID uint, search string, page, limit int) ([]FollowerResponse, int64, error) {
+	return s.repo.FindInstitutionFollowers(institutionID, search, page, limit)
+}
+
+// --- Course Approval Request Service ---
+
+func (s *Service) CreateCourseRequest(instID uint, req CreateCourseApprovalRequestInput) (*CourseApprovalRequest, error) {
+	courseReq := &CourseApprovalRequest{
+		InstitutionID:           instID,
+		Title:                   req.Title,
+		Description:             req.Description,
+		Duration:                req.Duration,
+		Level:                   req.Level,
+		AffiliationID:           req.AffiliationID,
+		NonUniversityAffiliation: req.NonUniversityAffiliation,
+		BannerURL:               req.BannerURL,
+		Careers:                 req.Careers,
+		FAQs:                    req.FAQs,
+		EligibilityRows:         req.EligibilityRows,
+		AdmissionSteps:          req.AdmissionSteps,
+		SubjectGroups:           req.SubjectGroups,
+		ScholarshipDesc:         req.ScholarshipDesc,
+		ScholarshipNotes:        req.ScholarshipNotes,
+		Scholarships:            req.Scholarships,
+		Fee:                     req.Fee,
+		Eligibility:             req.Eligibility,
+		Capacity:                req.Capacity,
+		WhoShouldChoose:         req.WhoShouldChoose,
+		Features:                req.Features,
+		FullTimeCourses:         req.FullTimeCourses,
+		FeeItems:                req.FeeItems,
+	}
+
+	if err := s.repo.CreateCourseRequest(courseReq); err != nil {
+		return nil, err
+	}
+
+	return courseReq, nil
+}
+
+func (s *Service) GetCourseRequests(instID uint, page, limit int) ([]CourseApprovalRequest, int64, error) {
+	return s.repo.FindCourseRequestsByInstitution(instID, page, limit)
+}
+
+func (s *Service) GetCourseRequestByID(instID, id uint) (*CourseApprovalRequest, error) {
+	return s.repo.FindCourseRequestByID(id, instID)
+}
+
+func (s *Service) GetAllCourseRequests(page, limit int) ([]CourseApprovalRequest, int64, error) {
+	return s.repo.FindAllCourseRequests(page, limit)
+}
+
+func (s *Service) GetCourseRequestByIDAdmin(id uint) (*CourseApprovalRequest, error) {
+	return s.repo.FindCourseRequestByIDAdmin(id)
+}
+
+func (s *Service) ApproveCourseRequest(id, adminID uint) error {
+	req, err := s.repo.FindCourseRequestByIDAdmin(id)
+	if err != nil {
+		return errors.New("course request not found")
+	}
+
+	if req.Status != "pending" {
+		return errors.New("request is not pending")
+	}
+
+	careers, _ := json.Marshal(req.Careers)
+	faqs, _ := json.Marshal(req.FAQs)
+	eligibilityRows, _ := json.Marshal(req.EligibilityRows)
+	admissionSteps, _ := json.Marshal(req.AdmissionSteps)
+	subjectGroups, _ := json.Marshal(req.SubjectGroups)
+	scholarships, _ := json.Marshal(req.Scholarships)
+	whoShouldChoose, _ := json.Marshal(req.WhoShouldChoose)
+	features, _ := json.Marshal(req.Features)
+	fullTimeCourses, _ := json.Marshal(req.FullTimeCourses)
+	feeItems, _ := json.Marshal(req.FeeItems)
+
+	course := &education.Course{
+		Title:                   req.Title,
+		Description:             req.Description,
+		Duration:                req.Duration,
+		Level:                   req.Level,
+		AffiliationID:           req.AffiliationID,
+		NonUniversityAffiliation: req.NonUniversityAffiliation,
+		BannerURL:               req.BannerURL,
+		Careers:                 careers,
+		FAQs:                    faqs,
+		EligibilityRows:         eligibilityRows,
+		AdmissionSteps:          admissionSteps,
+		SubjectGroups:           subjectGroups,
+		ScholarshipDesc:         req.ScholarshipDesc,
+		ScholarshipNotes:        req.ScholarshipNotes,
+		Scholarships:            scholarships,
+		WhoShouldChoose:         whoShouldChoose,
+		Features:                features,
+		FullTimeCourses:         fullTimeCourses,
+		FeeItems:                feeItems,
+		IsGlobal:                true,
+		Status:                  "published",
+		CreatedBy:               req.InstitutionID,
+	}
+
+	if err := s.educationRepo.CreateCourse(course); err != nil {
+		return fmt.Errorf("failed to create global course: %w", err)
+	}
+
+	program := &InstitutionProgram{
+		Name:            course.Title,
+		InstitutionID:   req.InstitutionID,
+		GlobalCourseID:  course.ID,
+		Fee:             req.Fee,
+		Eligibility:     req.Eligibility,
+		Capacity:        req.Capacity,
+		Status:          "active",
+		WhoShouldChoose: whoShouldChoose,
+		Features:        features,
+		FullTimeCourses: fullTimeCourses,
+		FeeItems:        feeItems,
+	}
+
+	if err := s.repo.CreateProgram(program); err != nil {
+		return fmt.Errorf("failed to create institution program: %w", err)
+	}
+
+	return s.repo.UpdateCourseRequestStatus(id, "approved", adminID, "")
+}
+
+func (s *Service) RejectCourseRequest(id, adminID uint, reason string) error {
+	req, err := s.repo.FindCourseRequestByIDAdmin(id)
+	if err != nil {
+		return errors.New("course request not found")
+	}
+
+	if req.Status != "pending" {
+		return errors.New("request is not pending")
+	}
+
+	return s.repo.UpdateCourseRequestStatus(id, "rejected", adminID, reason)
 }

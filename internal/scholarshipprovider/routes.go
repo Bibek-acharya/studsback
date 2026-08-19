@@ -13,11 +13,34 @@ func RegisterPublicRoutes(r *gin.Engine, h *Handler) {
 		{
 			public.GET("/news", h.GetPublicNews)
 			public.GET("/news/:id", h.GetPublicNewsByID)
+			public.GET("/news/by-slug/:slug", h.GetPublicNewsBySlug)
 			public.GET("/events", h.GetPublicEvents)
 			public.GET("/events/:id", h.GetPublicEventByID)
+			public.GET("/events/by-slug/:slug", h.GetPublicEventBySlug)
 			public.GET("/blogs", h.GetPublicBlogs)
 			public.GET("/blogs/:id", h.GetPublicBlogByID)
+			public.GET("/blogs/by-slug/:slug", h.GetPublicBlogBySlug)
 			public.GET("/providers/:id", h.GetPublicProviderProfile)
+			public.GET("/volunteers", h.GetPublicVolunteers)
+			public.GET("/volunteers/:id", h.GetPublicVolunteerByID)
+			public.POST("/volunteers/:id/apply", h.ApplyVolunteer)
+			public.GET("/results/scholarships", h.GetPublishedResultScholarships)
+			public.GET("/results/check", h.CheckStudentResult)
+		}
+	}
+}
+
+func RegisterMessageRoutes(r *gin.Engine, authMW gin.HandlerFunc, h *Handler) {
+	if h == nil {
+		return
+	}
+
+	v1 := r.Group("/api/v1")
+	{
+		protected := v1.Group("/scholarship-providers")
+		protected.Use(authMW)
+		{
+			protected.POST("/messages/from-user", h.SendMessageFromUser)
 		}
 	}
 }
@@ -49,11 +72,15 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			scholarshipProvider.DELETE("/scholarships/:id", h.DeleteScholarship)
 
 			scholarshipProvider.GET("/applications", h.GetApplications)
+			scholarshipProvider.GET("/applications/pending-payment", h.GetPendingPaymentApplications)
 			scholarshipProvider.GET("/applications/export", h.ExportApplications)
+			scholarshipProvider.GET("/applications/export-filtered", h.ExportFilteredApplications)
 			scholarshipProvider.GET("/applications/:id", h.GetApplicationByID)
 			scholarshipProvider.PUT("/applications/:id/evaluate", h.EvaluateApplication)
 			scholarshipProvider.PUT("/applications/:id/status", h.UpdateApplicationStatus)
 			scholarshipProvider.PUT("/applications/:id/payment", h.ApproveApplicationPayment)
+			scholarshipProvider.PUT("/applications/:id/dispute-status", h.UpdateDisputeStatus)
+			scholarshipProvider.PUT("/applications/:id/resend-admit-card", h.ResendAdmitCard)
 
 			scholarshipProvider.GET("/interviews", h.GetInterviews)
 			scholarshipProvider.POST("/interviews", h.CreateInterview)
@@ -62,6 +89,8 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			scholarshipProvider.GET("/messages", h.GetMessages)
 			scholarshipProvider.POST("/messages", h.CreateMessage)
 			scholarshipProvider.GET("/messages/:id", h.GetMessageByID)
+			scholarshipProvider.PUT("/messages/:id/read", h.MarkMessageRead)
+			scholarshipProvider.GET("/users/:id", h.GetUser)
 
 			scholarshipProvider.GET("/profile", h.GetProfile)
 			scholarshipProvider.PUT("/profile", h.UpdateProfile)
@@ -125,6 +154,18 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			scholarshipProvider.PUT("/reviews/:id", h.UpdateReview)
 			scholarshipProvider.DELETE("/reviews/:id", h.DeleteReview)
 
+			scholarshipProvider.POST("/volunteers", h.CreateVolunteer)
+			scholarshipProvider.GET("/volunteers", h.GetVolunteers)
+			scholarshipProvider.GET("/volunteers/:id", h.GetVolunteerByID)
+			scholarshipProvider.PUT("/volunteers/:id", h.UpdateVolunteer)
+			scholarshipProvider.DELETE("/volunteers/:id", h.DeleteVolunteer)
+			scholarshipProvider.PUT("/volunteers/:id/toggle", h.ToggleVolunteerActive)
+			scholarshipProvider.GET("/volunteers/:id/applications", h.GetVolunteerApplications)
+			scholarshipProvider.GET("/volunteers/applications", h.GetAllVolunteerApplications)
+			scholarshipProvider.PUT("/volunteers/applications/:id/shortlist", h.ShortlistVolunteerApplication)
+			scholarshipProvider.PUT("/volunteers/applications/:id/unshortlist", h.UnshortlistVolunteerApplication)
+			scholarshipProvider.PUT("/volunteers/applications/:id/reject", h.RejectVolunteerApplication)
+
 			scholarshipProvider.POST("/calendar-events", h.CreateCalendarEvent)
 			scholarshipProvider.GET("/calendar-events", h.GetCalendarEvents)
 			scholarshipProvider.GET("/calendar-events/:id", h.GetCalendarEventByID)
@@ -136,6 +177,18 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			scholarshipProvider.GET("/results/:id", h.GetResultByID)
 			scholarshipProvider.PUT("/results/:id", h.UpdateResult)
 			scholarshipProvider.DELETE("/results/:id", h.DeleteResult)
+			scholarshipProvider.POST("/written-exams", h.CreateWrittenExam)
+			scholarshipProvider.GET("/written-exams", h.GetWrittenExams)
+			scholarshipProvider.GET("/written-exams/:id", h.GetWrittenExamByID)
+			scholarshipProvider.PUT("/written-exams/:id", h.UpdateWrittenExam)
+			scholarshipProvider.DELETE("/written-exams/:id", h.DeleteWrittenExam)
+			scholarshipProvider.GET("/written-exams/:id/results", h.GetWrittenExamResultsPaginated)
+			scholarshipProvider.GET("/written-exams/:id/results/export", h.ExportWrittenExamResults)
+			scholarshipProvider.GET("/written-exams/:id/filter-options", h.GetWrittenExamFilterOptions)
+			scholarshipProvider.POST("/written-exams/:id/results", h.AddWrittenExamResult)
+			scholarshipProvider.PUT("/written-exams/:id/results/:resultId", h.UpdateWrittenExamResult)
+			scholarshipProvider.DELETE("/written-exams/:id/results/:resultId", h.DeleteWrittenExamResult)
+			scholarshipProvider.POST("/written-exams/:id/results/batch-import", h.BatchImportWrittenExamResults)
 
 			scholarshipProvider.POST("/access", h.CreateAccess)
 			scholarshipProvider.GET("/access", h.GetAccess)

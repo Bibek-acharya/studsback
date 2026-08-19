@@ -2,6 +2,10 @@ package auth
 
 import (
 	"errors"
+	"time"
+
+	"studsphere/backend/internal/college"
+	"studsphere/backend/internal/institution"
 
 	"gorm.io/gorm"
 )
@@ -63,12 +67,21 @@ func (r *Repository) FindInstitutionUserByRegistrationNumber(reg string) (*Insti
 	return &user, nil
 }
 
+func (r *Repository) FindClaimedInstitutionByCollegeID(collegeID uint) (*InstitutionUser, error) {
+	var user InstitutionUser
+	err := r.db.Where("college_id = ? AND claimed = ?", collegeID, true).First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
 func (r *Repository) CreateInstitutionUser(user *InstitutionUser) error {
 	return r.db.Create(user).Error
 }
 
-func (r *Repository) SaveInstitutionUser(user *InstitutionUser) error {
-	return r.db.Save(user).Error
+func (r *Repository) CreateInstitutionSettings(settings *institution.InstitutionSettings) error {
+	return r.db.Create(settings).Error
 }
 
 func (r *Repository) FindInstitutionUserByID(id uint) (*InstitutionUser, error) {
@@ -78,6 +91,10 @@ func (r *Repository) FindInstitutionUserByID(id uint) (*InstitutionUser, error) 
 		return nil, err
 	}
 	return &user, nil
+}
+
+func (r *Repository) UpdateInstitutionUser(user *InstitutionUser) error {
+	return r.db.Save(user).Error
 }
 
 func (r *Repository) FindScholarshipProviderUserByEmail(email string) (*ScholarshipProviderUser, error) {
@@ -153,6 +170,110 @@ func (r *Repository) DeleteScholarshipProviderUser(id uint) error {
 	return nil
 }
 
+func (r *Repository) FindInstitutionUsersByStatus(status string) ([]InstitutionUser, error) {
+	var users []InstitutionUser
+	err := r.db.Preload("Subscription").Where("status = ?", status).Find(&users).Error
+	if err != nil {
+		return nil, err
+	}
+	return users, nil
+}
+
+func (r *Repository) FindInstitutionUsersFiltered(status string, filter InstitutionFilter) ([]InstitutionUser, map[string]int64, error) {
+	baseQuery := r.db.Table("institution_users").Where("institution_users.status = ?", status)
+
+	if filter.Search != "" {
+		s := "%" + filter.Search + "%"
+		baseQuery = baseQuery.Where("institution_users.institution_name LIKE ? OR institution_users.registration_number LIKE ?", s, s)
+	}
+	if filter.Type != "" {
+		baseQuery = baseQuery.Where("institution_users.organization_type = ?", filter.Type)
+	}
+	if filter.Province != "" {
+		baseQuery = baseQuery.Where("institution_users.province = ?", filter.Province)
+	}
+	if filter.Verification == "verified" {
+		baseQuery = baseQuery.Where("institution_users.verified = ?", true)
+	} else if filter.Verification == "not_verified" {
+		baseQuery = baseQuery.Where("institution_users.verified = ?", false)
+	}
+	if filter.Claim == "claimed" {
+		baseQuery = baseQuery.Where("institution_users.claimed = ?", true)
+	} else if filter.Claim == "unclaimed" {
+		baseQuery = baseQuery.Where("institution_users.claimed = ?", false)
+	}
+	if filter.Level != "" {
+		baseQuery = baseQuery.Where("institution_users.level = ?", filter.Level)
+	}
+	if filter.PaymentStatus != "" {
+		baseQuery = baseQuery.Joins("LEFT JOIN institution_subscriptions ON institution_subscriptions.institution_id = institution_users.id").
+			Where("institution_subscriptions.status = ?", filter.PaymentStatus)
+	}
+
+	var levelCounts []struct {
+		Level string `gorm:"column:level"`
+		Count int64  `gorm:"column:count"`
+	}
+	r.db.Table("institution_users").Select("level, COUNT(*) as count").
+		Where("status = ?", status).
+		Group("level").Scan(&levelCounts)
+
+	countsMap := map[string]int64{}
+	for _, lc := range levelCounts {
+		if lc.Level != "" {
+			countsMap[lc.Level] = lc.Count
+		}
+	}
+
+	var users []InstitutionUser
+	err := baseQuery.Preload("Subscription").Find(&users).Error
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return users, countsMap, nil
+}
+
+func (r *Repository) FindAllInstitutions() ([]InstitutionUser, error) {
+	var users []InstitutionUser
+	err := r.db.Preload("Subscription").Find(&users).Error
+	if err != nil {
+		return nil, err
+	}
+	return users, nil
+}
+
+func (r *Repository) FindSubscriptionByInstitutionID(institutionID uint) (*InstitutionSubscription, error) {
+	var sub InstitutionSubscription
+	err := r.db.Where("institution_id = ?", institutionID).First(&sub).Error
+	if err != nil {
+		return nil, err
+	}
+	return &sub, nil
+}
+
+func (r *Repository) CreateOrUpdateSubscription(sub *InstitutionSubscription) error {
+	var existing InstitutionSubscription
+	result := r.db.Where("institution_id = ?", sub.InstitutionID).First(&existing)
+	if result.Error != nil {
+		return r.db.Create(sub).Error
+	}
+	sub.ID = existing.ID
+	sub.CreatedAt = existing.CreatedAt
+	return r.db.Save(sub).Error
+}
+
+func (r *Repository) DeleteInstitutionUser(id uint) error {
+	result := r.db.Unscoped().Delete(&InstitutionUser{}, id)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return errors.New("institution not found")
+	}
+	return nil
+}
+
 func (r *Repository) FindEducationEntriesByUserID(userID uint) ([]EducationEntry, error) {
 	var entries []EducationEntry
 	result := r.db.Where("user_id = ?", userID).Order("created_at desc").Find(&entries)
@@ -182,4 +303,143 @@ func (r *Repository) DeleteEducationEntry(id, userID uint) error {
 		return errors.New("not found")
 	}
 	return result.Error
+}
+
+func (r *Repository) FindInstitutionUsersByStatusAndCollegeID(status string, collegeID uint, operators ...string) ([]InstitutionUser, error) {
+	var users []InstitutionUser
+	op := "="
+	if len(operators) > 0 {
+		op = operators[0]
+	}
+	err := r.db.Preload("Subscription").Where("status = ? AND college_id "+op+" ?", status, collegeID).Find(&users).Error
+	if err != nil {
+		return nil, err
+	}
+	return users, nil
+}
+
+func (r *Repository) UpdateCollegeClaimed(collegeID uint, claimed bool) error {
+	return r.db.Table("colleges").Where("id = ?", collegeID).Update("claimed", claimed).Error
+}
+
+func (r *Repository) FindCollegeByID(id uint) (*college.College, error) {
+	var c college.College
+	if err := r.db.First(&c, id).Error; err != nil {
+		return nil, err
+	}
+	return &c, nil
+}
+
+func (r *Repository) CountDashboardStats() (*SuperadminDashboardStats, error) {
+	stats := &SuperadminDashboardStats{}
+
+	if err := r.db.Table("users").Where("role = ? AND deleted_at IS NULL", "student").Count(&stats.TotalStudents).Error; err != nil {
+		return nil, err
+	}
+	if err := r.db.Table("institution_users").Where("status = ? AND deleted_at IS NULL", "approved").Count(&stats.TotalInstitutions).Error; err != nil {
+		return nil, err
+	}
+	if err := r.db.Table("scholarship_provider_users").Where("status = ? AND deleted_at IS NULL", "approved").Count(&stats.TotalProviders).Error; err != nil {
+		return nil, err
+	}
+	if err := r.db.Table("institution_users").Where("status = ? AND deleted_at IS NULL", "pending").Count(&stats.PendingInstitutions).Error; err != nil {
+		return nil, err
+	}
+	if err := r.db.Table("scholarship_provider_users").Where("status = ? AND deleted_at IS NULL", "pending").Count(&stats.PendingProviders).Error; err != nil {
+		return nil, err
+	}
+
+	return stats, nil
+}
+
+func (r *Repository) FindAllUsers(search string, page, limit int) ([]User, int64, error) {
+	var users []User
+	var total int64
+
+	query := r.db.Model(&User{}).Where("role = ? AND deleted_at IS NULL", "student")
+	if search != "" {
+		like := "%" + search + "%"
+		query = query.Where("(first_name ILIKE ? OR last_name ILIKE ? OR email ILIKE ?)", like, like, like)
+	}
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * limit
+	if err := query.Order("created_at desc").Offset(offset).Limit(limit).Find(&users).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return users, total, nil
+}
+
+func (r *Repository) UpdateUserStatus(userID uint, status string) error {
+	return r.db.Model(&User{}).Where("id = ?", userID).Update("status", status).Error
+}
+
+func (r *Repository) FindUserByIDWithStatus(userID uint) (*User, error) {
+	var user User
+	if err := r.db.Where("id = ? AND deleted_at IS NULL", userID).First(&user).Error; err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (r *Repository) UpdateInstitutionUserStatus(instID uint, status string) error {
+	return r.db.Model(&InstitutionUser{}).Where("id = ?", instID).Update("status", status).Error
+}
+
+func (r *Repository) CreateUserSession(session *UserSession) error {
+	return r.db.Create(session).Error
+}
+
+func (r *Repository) FindUserSessionsByUserID(userID uint) ([]UserSession, error) {
+	var sessions []UserSession
+	err := r.db.Where("user_id = ?", userID).Order("last_active_at desc").Find(&sessions).Error
+	return sessions, err
+}
+
+func (r *Repository) FindUserSessionByID(sessionID, userID uint) (*UserSession, error) {
+	var session UserSession
+	err := r.db.Where("id = ? AND user_id = ?", sessionID, userID).First(&session).Error
+	if err != nil {
+		return nil, err
+	}
+	return &session, nil
+}
+
+func (r *Repository) DeleteUserSession(sessionID, userID uint) error {
+	return r.db.Where("id = ? AND user_id = ?", sessionID, userID).Delete(&UserSession{}).Error
+}
+
+func (r *Repository) DeleteUserSessionsExcept(userID uint, excludeSessionID uint) error {
+	return r.db.Where("user_id = ? AND id != ?", userID, excludeSessionID).Delete(&UserSession{}).Error
+}
+
+func (r *Repository) UpdateUserSessionLastActive(sessionID uint) error {
+	return r.db.Model(&UserSession{}).Where("id = ?", sessionID).Update("last_active_at", time.Now()).Error
+}
+
+func (r *Repository) CreateProfileDocument(doc *ProfileDocument) error {
+	return r.db.Create(doc).Error
+}
+
+func (r *Repository) FindProfileDocumentsByUserID(userID uint) ([]ProfileDocument, error) {
+	var docs []ProfileDocument
+	err := r.db.Where("user_id = ?", userID).Order("created_at desc").Find(&docs).Error
+	return docs, err
+}
+
+func (r *Repository) FindProfileDocumentByID(docID, userID uint) (*ProfileDocument, error) {
+	var doc ProfileDocument
+	err := r.db.Where("id = ? AND user_id = ?", docID, userID).First(&doc).Error
+	if err != nil {
+		return nil, err
+	}
+	return &doc, nil
+}
+
+func (r *Repository) DeleteProfileDocument(docID, userID uint) error {
+	return r.db.Where("id = ? AND user_id = ?", docID, userID).Delete(&ProfileDocument{}).Error
 }

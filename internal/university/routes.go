@@ -10,7 +10,11 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 	universities := r.Group("/api/v1/universities")
 	{
 		universities.GET("", h.GetUniversities)
+		universities.GET("/filter-counts", h.GetUniversityFilterCounts)
 		universities.GET("/:id", h.GetUniversityByID)
+		universities.GET("/:id/courses", h.GetUniversityCourses)
+		universities.GET("/:id/scholarships", h.GetUniversityScholarships)
+		universities.GET("/:id/affiliated-colleges", h.GetAffiliatedColleges)
 		universities.GET("/:id/:tab", h.GetUniversityTab)
 	}
 
@@ -19,7 +23,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 	admin.Use(roleMW)
 	{
 		admin.GET("/universities", h.GetUniversities)
-		admin.GET("/universities/:id", h.GetUniversityByID)
+		admin.GET("/universities/:id", h.AdminGetUniversityByID)
 		admin.POST("/universities", h.CreateUniversity)
 		admin.PUT("/universities/:id", h.UpdateUniversity)
 		admin.DELETE("/universities/:id", h.DeleteUniversity)

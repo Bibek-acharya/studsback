@@ -13,7 +13,7 @@ RUN CGO_ENABLED=1 go build -o /bin/server ./cmd/server/main.go
 
 FROM alpine:3.20
 
-RUN apk add --no-cache ca-certificates
+RUN apk add --no-cache ca-certificates chromium font-noto fontconfig
 
 WORKDIR /app
 

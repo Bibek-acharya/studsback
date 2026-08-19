@@ -11,16 +11,20 @@ type University struct {
 	CreatedAt      time.Time      `json:"created_at"`
 	UpdatedAt      time.Time      `json:"updated_at"`
 	DeletedAt      gorm.DeletedAt `gorm:"index" json:"-"`
-	Name           string         `gorm:"uniqueIndex;not null" json:"name"`
+	Name           string         `gorm:"uniqueIndex:idx_university_name;not null" json:"name"`
 	Logo           string         `json:"logo,omitempty"`
 	Location       string         `json:"location,omitempty"`
 	Type           string         `json:"type,omitempty"`
+	IsNepali       bool           `gorm:"default:true" json:"is_nepali"`
 	Rank           int            `json:"rank"`
 	Rating         float64        `json:"rating"`
 	ReviewCount    int            `json:"review_count"`
 	Verified       bool           `gorm:"default:false" json:"verified"`
 	Popular        bool           `gorm:"default:false" json:"popular"`
-	Description    string         `gorm:"type:text" json:"description,omitempty"`
+	Status         string         `gorm:"default:'published'" json:"status,omitempty"`
+	ProgramsCount      int            `gorm:"default:0" json:"programsCount"`
+	CollegesCount      int            `gorm:"default:0" json:"collegesCount"`
+	Description        string         `gorm:"type:text" json:"description,omitempty"`
 	Established    string         `json:"established,omitempty"`
 	Students       string         `json:"students,omitempty"`
 	Chancellor     string         `json:"chancellor,omitempty"`
@@ -42,12 +46,13 @@ type University struct {
 	Gallery        []byte         `gorm:"type:jsonb" json:"gallery,omitempty"`
 	Faculties      []byte         `gorm:"type:jsonb" json:"faculties,omitempty"`
 	Admissions     []byte         `gorm:"type:jsonb" json:"admissions,omitempty"`
+	OfficialNotices []byte        `gorm:"type:jsonb" json:"official_notices,omitempty"`
+	LatestNews     []byte         `gorm:"type:jsonb" json:"latest_news,omitempty"`
 	Reviews        []byte         `gorm:"type:jsonb" json:"reviews,omitempty"`
 }
 
 type College struct {
 	ID               uint    `json:"id"`
-	UniversityID     uint    `json:"university_id"`
 	Name             string  `json:"name"`
 	ImageURL         string  `json:"image_url"`
 	Rating           float64 `json:"rating"`
@@ -62,4 +67,24 @@ type CollegeUniversityCourse struct {
 	CollegeID    uint `gorm:"not null;index" json:"college_id"`
 	UniversityID uint `gorm:"not null;index" json:"university_id"`
 	CourseID     uint `gorm:"not null;index" json:"course_id"`
+}
+
+type AffiliatedCollege struct {
+	ID           uint    `json:"id"`
+	Source       string  `json:"source"`
+	Name         string  `json:"name"`
+	CollegeID    uint    `json:"college_id"`
+	ImageURL     string  `json:"image_url"`
+	CardImageURL string  `json:"card_image_url"`
+	BannerURL    string  `json:"banner_url"`
+	Location     string  `json:"location"`
+	Type         string  `json:"type"`
+	Rating       float64 `json:"rating"`
+	Reviews      int     `json:"reviews"`
+	Programs     int     `json:"programs"`
+	Verified     bool    `json:"verified"`
+	Claimed      bool    `json:"claimed"`
+	Featured     bool    `json:"featured"`
+	Affiliation  string  `json:"affiliation"`
+	Website      string  `json:"website"`
 }

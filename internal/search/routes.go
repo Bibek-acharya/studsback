@@ -11,6 +11,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 	{
 		v1.GET("/search", h.Search)
 		v1.GET("/search/vector-status", h.GetVectorStatus)
+		v1.POST("/search/reindex", h.Reindex)
 
 		admin := v1.Group("/admin/search")
 		admin.Use(authMW)

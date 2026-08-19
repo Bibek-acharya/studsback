@@ -2,39 +2,14 @@ package studentdashboard
 
 import "time"
 
-type MessageRequest struct {
-	ReceiverID uint   `json:"receiver_id" binding:"required"`
-	Subject    string `json:"subject" binding:"required"`
-	Content    string `json:"content" binding:"required"`
-}
-
-type MessageResponse struct {
-	ID         uint      `json:"id"`
-	CreatedAt  time.Time `json:"created_at"`
-	UpdatedAt  time.Time `json:"updated_at"`
-	SenderID   uint      `json:"sender_id"`
-	ReceiverID uint      `json:"receiver_id"`
-	Subject    string    `json:"subject"`
-	Content    string    `json:"content"`
-	Read       bool      `json:"read"`
-	Direction  string    `json:"direction"`
-}
-
-type MessageReplyRequest struct {
-	Content string `json:"content" binding:"required"`
-}
-
-type ContactResponse struct {
-	UserID      uint   `json:"user_id"`
-	Name        string `json:"name"`
-	LastMessage string `json:"last_message"`
-	Unread      int    `json:"unread"`
-}
-
 type DashboardStats struct {
 	ApplicationsSubmitted int `json:"applications_submitted"`
 	SavedColleges         int `json:"saved_colleges"`
+	SavedScholarships     int `json:"saved_scholarships"`
 	ScholarshipsApplied   int `json:"scholarships_applied"`
+	ActiveInvites         int `json:"active_invites"`
+	UnreadMessages        int `json:"unread_messages"`
+	UpcomingDeadlines     int `json:"upcoming_deadlines"`
 	ProfileCompletion     int `json:"profile_completion"`
 }
 

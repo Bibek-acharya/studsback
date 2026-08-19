@@ -53,15 +53,10 @@ func (h *Handler) GetMyCounsellingBookings(c *gin.Context) {
 		return
 	}
 
-	bookings, err := h.service.GetMyBookings(userID.(uint))
+	responses, err := h.service.GetMyBookings(userID.(uint))
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "Failed to fetch counselling bookings")
 		return
-	}
-
-	responses := make([]CounsellingBookingResponse, len(bookings))
-	for i, b := range bookings {
-		responses[i] = toBookingResponse(&b)
 	}
 
 	response.Success(c, http.StatusOK, "Counselling bookings retrieved successfully", gin.H{

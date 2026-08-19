@@ -30,13 +30,14 @@ func (s *Service) SubmitContactInquiry(req ContactInquiryRequest) (*ContactInqui
 	}
 
 	inquiry := &ContactInquiry{
-		Name:    req.Name,
-		Email:   req.Email,
-		Phone:   req.Phone,
-		Subject: req.Subject,
-		Message: req.Message,
-		Type:    inquiryType,
-		Status:  "new",
+		Name:          req.Name,
+		Email:         req.Email,
+		Phone:         req.Phone,
+		Subject:       req.Subject,
+		Message:       req.Message,
+		Type:          inquiryType,
+		Status:        "new",
+		InstitutionID: req.InstitutionID,
 	}
 
 	if err := s.repo.CreateContactInquiry(inquiry); err != nil {
@@ -63,7 +64,8 @@ func (s *Service) GetContactInquiryByID(id uint) (*ContactInquiry, error) {
 
 func (s *Service) UpdateContactInquiryStatus(id uint, status string) (*ContactInquiry, error) {
 	validStatuses := map[string]bool{
-		"new": true, "read": true, "in_progress": true, "resolved": true, "closed": true,
+		"new": true, "New": true, "read": true, "in_progress": true, "resolved": true, "closed": true, "Closed": true,
+		"In Contact": true, "Follow Up": true, "Admitted": true,
 	}
 	if !validStatuses[status] {
 		return nil, errors.New("invalid status")
@@ -76,7 +78,17 @@ func (s *Service) DeleteContactInquiry(id uint) error {
 	return s.repo.DeleteContactInquiry(id)
 }
 
-func (s *Service) GetAds(page, limit int, pageFilter string, active *bool) ([]Ad, int64, error) {
+func (s *Service) GetInstitutionInquiries(institutionID uint, page, limit int, status, inquiryType, search string) ([]ContactInquiry, int64, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50 {
+		limit = 20
+	}
+	return s.repo.FindInstitutionInquiries(institutionID, page, limit, status, inquiryType, search)
+}
+
+func (s *Service) GetAds(page, limit int, pageFilter, positionFilter string, active *bool) ([]Ad, int64, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -84,11 +96,11 @@ func (s *Service) GetAds(page, limit int, pageFilter string, active *bool) ([]Ad
 		limit = 20
 	}
 
-	return s.repo.FindAds(page, limit, pageFilter, active)
+	return s.repo.FindAds(page, limit, pageFilter, positionFilter, active)
 }
 
-func (s *Service) GetActiveAds(page string) ([]Ad, error) {
-	return s.repo.FindActiveAds(page)
+func (s *Service) GetActiveAds(page, position string) ([]Ad, error) {
+	return s.repo.FindActiveAds(page, position)
 }
 
 func (s *Service) GetAdByID(id uint) (*Ad, error) {
@@ -100,6 +112,7 @@ func (s *Service) CreateAd(req AdRequest) (*Ad, error) {
 		Title:    req.Title,
 		ImageURL: req.ImageURL,
 		LinkURL:  req.LinkURL,
+		Location: req.Location,
 		Page:     req.Page,
 		Position: req.Position,
 		Active:   true,
@@ -137,6 +150,9 @@ func (s *Service) UpdateAd(id uint, req AdRequest) (*Ad, error) {
 	}
 	if req.LinkURL != "" {
 		updates["link_url"] = req.LinkURL
+	}
+	if req.Location != "" {
+		updates["location"] = req.Location
 	}
 	if req.Page != "" {
 		updates["page"] = req.Page
@@ -255,4 +271,21 @@ func (s *Service) ReorderCarouselSlides(items []struct {
 
 func (s *Service) GetActivePublicNotifications() ([]PublicNotification, error) {
 	return s.repo.FindActivePublicNotifications()
+}
+
+func (s *Service) CreatePublicNotification(title, message, notifType, link, icon, color, bgColor string) (*PublicNotification, error) {
+	n := &PublicNotification{
+		Title:   title,
+		Message: message,
+		Type:    notifType,
+		Link:    link,
+		Active:  true,
+		Icon:    icon,
+		Color:   color,
+		BgColor: bgColor,
+	}
+	if err := s.repo.CreatePublicNotification(n); err != nil {
+		return nil, err
+	}
+	return n, nil
 }

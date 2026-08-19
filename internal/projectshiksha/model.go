@@ -43,8 +43,8 @@ type ShikshaApplication struct {
 	GuardianName          string    `gorm:"size:100;not null" json:"guardian_name"`
 	GuardianPhone         string    `gorm:"size:15;not null" json:"guardian_phone"`
 	GuardianEmail         string    `gorm:"size:100" json:"guardian_email"`
-	FatherOccupation      string    `gorm:"size:50;not null" json:"father_occupation"`
-	MotherOccupation      string    `gorm:"size:50;not null" json:"mother_occupation"`
+	FatherOccupation      string    `gorm:"size:50" json:"father_occupation"`
+	MotherOccupation      string    `gorm:"size:50" json:"mother_occupation"`
 	FamilyIncome          int       `json:"family_income"`
 	FamilyMembers         int       `json:"family_members"`
 	

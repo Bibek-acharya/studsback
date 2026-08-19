@@ -2,10 +2,13 @@ package review
 
 import (
 	"errors"
+	"io"
+	"math"
 	"net/http"
 	"strconv"
 
 	"studsphere/backend/internal/shared/response"
+	"studsphere/backend/internal/shared/utils"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -66,8 +69,24 @@ func (h *Handler) GetCollegeReviews(c *gin.Context) {
 
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	instID, _ := strconv.ParseUint(c.Query("inst_id"), 10, 64)
 
-	result, err := h.service.GetCollegeReviews(uint(collegeID), page, limit)
+	result, err := h.service.GetCollegeReviews(uint(collegeID), uint(instID), page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Reviews fetched successfully", result)
+}
+
+func (h *Handler) GetInstitutionReviews(c *gin.Context) {
+	instID := getUserID(c)
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+
+	result, err := h.service.GetInstitutionReviews(instID, page, limit)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return
@@ -172,4 +191,236 @@ func (h *Handler) ReportReview(c *gin.Context) {
 	}
 
 	response.Success(c, http.StatusOK, "Review reported successfully", nil)
+}
+
+func (h *Handler) SubmitUniversityReview(c *gin.Context) {
+	userID := getUserID(c)
+
+	var req CreateUniversityReviewRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, humanizeValidationError(err))
+		return
+	}
+
+	review, err := h.service.SubmitUniversityReview(userID, req)
+	if err != nil {
+		if err.Error() == "you have already reviewed this university" {
+			response.Error(c, http.StatusConflict, err.Error())
+			return
+		}
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusCreated, "Review submitted successfully", gin.H{"review": review})
+}
+
+func (h *Handler) GetUniversityReviews(c *gin.Context) {
+	universityID, err := strconv.ParseUint(c.Param("universityId"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid university ID")
+		return
+	}
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+
+	result, err := h.service.GetUniversityReviews(uint(universityID), page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Reviews fetched successfully", result)
+}
+
+func (h *Handler) GetMyUniversityReview(c *gin.Context) {
+	userID := getUserID(c)
+
+	universityID, err := strconv.ParseUint(c.Param("universityId"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid university ID")
+		return
+	}
+
+	review, err := h.service.GetUserUniversityReview(userID, uint(universityID))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Review not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Review fetched successfully", gin.H{"review": review})
+}
+
+func (h *Handler) UpdateUniversityReview(c *gin.Context) {
+	userID := getUserID(c)
+
+	universityID, err := strconv.ParseUint(c.Param("universityId"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid university ID")
+		return
+	}
+
+	var req UpdateUniversityReviewRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		if errors.Is(err, io.EOF) {
+			response.Error(c, http.StatusBadRequest, "At least one review field is required")
+			return
+		}
+		response.Error(c, http.StatusBadRequest, humanizeValidationError(err))
+		return
+	}
+
+	review, err := h.service.UpdateUniversityReview(userID, uint(universityID), req)
+	if err != nil {
+		if err.Error() == "review not found" {
+			response.Error(c, http.StatusNotFound, err.Error())
+			return
+		}
+		if err.Error() == "At least one review field is required" {
+			response.Error(c, http.StatusBadRequest, err.Error())
+			return
+		}
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Review updated successfully", gin.H{"review": review})
+}
+
+// Admin handlers for managing reviews
+func (h *Handler) AdminGetUniversityReviews(c *gin.Context) {
+	universityID, err := strconv.ParseUint(c.Param("universityId"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid university ID")
+		return
+	}
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+
+	result, err := h.service.AdminGetUniversityReviews(uint(universityID), page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Reviews fetched successfully", result)
+}
+
+func (h *Handler) AdminDeleteReview(c *gin.Context) {
+	reviewID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid review ID")
+		return
+	}
+
+	if err := h.service.AdminDeleteReview(uint(reviewID)); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			response.Error(c, http.StatusNotFound, "Review not found")
+			return
+		}
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Review deleted successfully", nil)
+}
+
+// Date report handlers
+func (h *Handler) CreateDateReport(c *gin.Context) {
+	var req CreateDateReportRequest
+	if err := c.ShouldBind(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	// Handle file upload
+	var fileURL string
+	file, header, err := c.Request.FormFile("file")
+	if err == nil {
+		defer file.Close()
+		// Save file using utility function
+		savedPath, err := utils.SaveUploadedDocument(header, "date-reports")
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, "Failed to upload file: "+err.Error())
+			return
+		}
+		fileURL = savedPath
+	}
+
+	report, err := h.service.CreateDateReport(req, fileURL)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusCreated, "Date report submitted successfully", gin.H{"report": report})
+}
+
+func (h *Handler) GetAllDateReports(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+
+	reports, total, err := h.service.GetAllDateReports(page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	totalPages := int(math.Ceil(float64(total) / float64(limit)))
+
+	response.Success(c, http.StatusOK, "Date reports fetched successfully", gin.H{
+		"reports": reports,
+		"meta": Meta{
+			Total:      int(total),
+			Page:       page,
+			Limit:      limit,
+			TotalPages: totalPages,
+		},
+	})
+}
+
+func (h *Handler) UpdateDateReportStatus(c *gin.Context) {
+	reportID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid report ID")
+		return
+	}
+
+	var req UpdateDateReportRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err := h.service.UpdateDateReportStatus(uint(reportID), req.Status); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			response.Error(c, http.StatusNotFound, "Report not found")
+			return
+		}
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Report status updated successfully", nil)
+}
+
+func (h *Handler) DeleteDateReport(c *gin.Context) {
+	reportID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid report ID")
+		return
+	}
+
+	if err := h.service.DeleteDateReport(uint(reportID)); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			response.Error(c, http.StatusNotFound, "Report not found")
+			return
+		}
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Report deleted successfully", nil)
 }

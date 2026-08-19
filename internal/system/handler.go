@@ -121,6 +121,7 @@ func (h *Handler) GetAds(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 	pageFilter := c.Query("page")
+	positionFilter := c.Query("position")
 	activeStr := c.Query("active")
 
 	var active *bool
@@ -129,7 +130,7 @@ func (h *Handler) GetAds(c *gin.Context) {
 		active = &val
 	}
 
-	ads, total, err := h.service.GetAds(page, limit, pageFilter, active)
+	ads, total, err := h.service.GetAds(page, limit, pageFilter, positionFilter, active)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "Failed to retrieve ads")
 		return
@@ -152,8 +153,9 @@ func (h *Handler) GetAds(c *gin.Context) {
 
 func (h *Handler) GetActiveAds(c *gin.Context) {
 	page := c.Query("page")
+	position := c.Query("position")
 
-	ads, err := h.service.GetActiveAds(page)
+	ads, err := h.service.GetActiveAds(page, position)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "Failed to retrieve active ads")
 		return
@@ -408,16 +410,17 @@ func (h *Handler) GetPublicNotifications(c *gin.Context) {
 
 func toContactInquiryResponse(inquiry *ContactInquiry) ContactInquiryResponse {
 	return ContactInquiryResponse{
-		ID:        inquiry.ID,
-		Name:      inquiry.Name,
-		Email:     inquiry.Email,
-		Phone:     inquiry.Phone,
-		Subject:   inquiry.Subject,
-		Message:   inquiry.Message,
-		Type:      inquiry.Type,
-		Status:    inquiry.Status,
-		CreatedAt: inquiry.CreatedAt.Format("2006-01-02T15:04:05Z"),
-		UpdatedAt: inquiry.UpdatedAt.Format("2006-01-02T15:04:05Z"),
+		ID:            inquiry.ID,
+		InstitutionID: inquiry.InstitutionID,
+		Name:          inquiry.Name,
+		Email:         inquiry.Email,
+		Phone:         inquiry.Phone,
+		Subject:       inquiry.Subject,
+		Message:       inquiry.Message,
+		Type:          inquiry.Type,
+		Status:        inquiry.Status,
+		CreatedAt:     inquiry.CreatedAt.Format("2006-01-02T15:04:05Z"),
+		UpdatedAt:     inquiry.UpdatedAt.Format("2006-01-02T15:04:05Z"),
 	}
 }
 
@@ -435,6 +438,7 @@ func toAdResponse(ad *Ad) AdResponse {
 		Title:       ad.Title,
 		ImageURL:    ad.ImageURL,
 		LinkURL:     ad.LinkURL,
+		Location:    ad.Location,
 		Page:        ad.Page,
 		Position:    ad.Position,
 		StartDate:   startDate,

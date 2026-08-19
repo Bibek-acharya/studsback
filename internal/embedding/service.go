@@ -27,9 +27,9 @@ func httpClient() *http.Client {
 		client = &http.Client{
 			Timeout: 30 * time.Second,
 			Transport: &http.Transport{
-				MaxIdleConns:        20,
-				IdleConnTimeout:     90 * time.Second,
-				DisableCompression:  false,
+				MaxIdleConns:       20,
+				IdleConnTimeout:    90 * time.Second,
+				DisableCompression: false,
 			},
 		}
 	})
@@ -57,7 +57,7 @@ type embeddingResponse struct {
 }
 
 func IsEnabled() bool {
-	return config.AppConfig.EmbeddingEnabled && config.AppConfig.EmbeddingAPIKey != ""
+	return config.AppConfig.EmbeddingEnabled
 }
 
 func GenerateEmbedding(text string) ([]float32, error) {
@@ -106,7 +106,9 @@ func GenerateEmbeddingsBatch(texts []string) ([][]float32, error) {
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+config.AppConfig.EmbeddingAPIKey)
+	if config.AppConfig.EmbeddingAPIKey != "" {
+		req.Header.Set("Authorization", "Bearer "+config.AppConfig.EmbeddingAPIKey)
+	}
 
 	resp, err := httpClient().Do(req)
 	if err != nil {
@@ -179,9 +181,13 @@ func ReindexAll() error {
 
 	db := config.GetDB()
 	batchSize := config.AppConfig.EmbeddingBatchSize
-	tables := []string{"colleges", "courses", "exams", "scholarships", "news", "events", "blogs"}
+	tables := []string{"colleges", "courses", "exams", "scholarships", "news", "events", "blogs", "site_pages", "institution_entrances"}
 
 	for _, table := range tables {
+		if !hasEmbeddingColumn(db, table) {
+			log.Printf("  Table %s: no embedding column — skipping", table)
+			continue
+		}
 		log.Printf("Reindexing embeddings for table: %s", table)
 		if err := reindexTable(db, table, batchSize); err != nil {
 			log.Printf("Error reindexing table %s: %v", table, err)
@@ -192,7 +198,45 @@ func ReindexAll() error {
 	return nil
 }
 
+func hasEmbeddingColumn(db *gorm.DB, table string) bool {
+	var colType string
+	if config.IsSQLite {
+		return false
+	}
+	db.Raw(fmt.Sprintf("SELECT data_type FROM information_schema.columns WHERE table_name = '%s' AND column_name = 'embedding'", table)).Scan(&colType)
+	return colType != ""
+}
+
+func ReindexAllForce(db *gorm.DB) error {
+	if !IsEnabled() {
+		log.Println("Embedding service not enabled, skipping reindex")
+		return nil
+	}
+
+	batchSize := config.AppConfig.EmbeddingBatchSize
+	tables := []string{"colleges", "courses", "exams", "scholarships", "news", "events", "blogs", "site_pages", "institution_entrances"}
+
+	for _, table := range tables {
+		if !hasEmbeddingColumn(db, table) {
+			log.Printf("  Table %s: no embedding column — skipping (install pgvector extension)", table)
+			continue
+		}
+		log.Printf("Force reindexing embeddings for table: %s", table)
+		db.Exec(fmt.Sprintf("UPDATE %s SET embedding = NULL WHERE embedding IS NOT NULL", table))
+		if err := reindexTable(db, table, batchSize); err != nil {
+			log.Printf("Error reindexing table %s: %v", table, err)
+		}
+	}
+
+	log.Println("Force reindex complete")
+	return nil
+}
+
 func reindexTable(db *gorm.DB, table string, batchSize int) error {
+	if !hasEmbeddingColumn(db, table) {
+		log.Printf("  Table %s: no embedding column — skipping", table)
+		return nil
+	}
 	var total int64
 	db.Table(table).Where("embedding IS NULL").Count(&total)
 	if total == 0 {
@@ -230,7 +274,7 @@ func reindexTable(db *gorm.DB, table string, batchSize int) error {
 				continue
 			}
 
-			vectorStr := float32SliceToPgVector(vec)
+			vectorStr := Float32SliceToPgVector(vec)
 			id := row["id"]
 			sql := fmt.Sprintf("UPDATE %s SET embedding = '%s'::vector WHERE id = ?", table, vectorStr)
 			if err := db.Exec(sql, id).Error; err != nil {
@@ -261,6 +305,10 @@ func buildSelectForTable(table string) string {
 		return "id, title, COALESCE(description, '') as description, COALESCE(excerpt, '') as excerpt, COALESCE(category, '') as category, COALESCE(location, '') as location"
 	case "blogs":
 		return "id, title, COALESCE(excerpt, '') as excerpt, COALESCE(content, '') as content, COALESCE(category, '') as category, COALESCE(author, '') as author"
+	case "site_pages":
+		return "id, title, COALESCE(content, '') as content, COALESCE(slug, '') as slug"
+	case "institution_entrances":
+		return "id, title, COALESCE(description, '') as description, COALESCE(program, '') as program, COALESCE(institution_name, '') as institution_name, COALESCE(status, '') as status"
 	default:
 		return "id, title"
 	}
@@ -327,6 +375,18 @@ func buildEmbeddingInput(table string, row map[string]interface{}) string {
 			getStr(row, "category"),
 			getStr(row, "author"),
 		)
+	case "site_pages":
+		parts = append(parts,
+			getStr(row, "title"),
+			getStr(row, "content"),
+		)
+	case "institution_entrances":
+		parts = append(parts,
+			getStr(row, "title"),
+			getStr(row, "description"),
+			getStr(row, "program"),
+			getStr(row, "institution_name"),
+		)
 	}
 
 	var nonEmpty []string
@@ -347,7 +407,7 @@ func getStr(m map[string]interface{}, key string) string {
 	return ""
 }
 
-func float32SliceToPgVector(v []float32) string {
+func Float32SliceToPgVector(v []float32) string {
 	var b strings.Builder
 	b.WriteString("[")
 	for i, val := range v {
@@ -359,5 +419,3 @@ func float32SliceToPgVector(v []float32) string {
 	b.WriteString("]")
 	return b.String()
 }
-
-

@@ -14,7 +14,9 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			education.GET("/scholarships", h.GetScholarships)
 			education.GET("/scholarships/:id", h.GetScholarshipByID)
 			education.GET("/scholarships/:id/similar", h.GetSimilarScholarships)
+			education.GET("/scholarships/:id/exam-centers", h.GetAvailableExamCenters)
 			education.POST("/scholarships/:id/apply", h.ApplyScholarship)
+			education.POST("/scholarships/recommend", h.RecommendScholarships)
 		}
 
 		public := v1.Group("")
@@ -23,6 +25,8 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			public.POST("/scholarships/:id/pay", h.ProcessPayment)
 			public.POST("/scholarships/pay/:id/confirm", h.ConfirmPayment)
 			public.POST("/scholarships/pay/:id/receipt", h.uploadBankReceipt)
+			public.POST("/scholarships/pay/esewa/initiate", h.InitiateEsewaPayment)
+			public.POST("/scholarships/pay/esewa/verify", h.VerifyEsewaPayment)
 		}
 
 		protected := v1.Group("")
@@ -32,6 +36,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			protected.GET("/scholarships/applications/:id", h.GetApplication)
 			protected.PUT("/scholarships/applications/:id", h.UpdateApplication)
 			protected.DELETE("/scholarships/applications/:id", h.DeleteApplication)
+			protected.GET("/profile/recommendation-context", h.GetRecommendationContext)
 		}
 
 		provider := v1.Group("/providers")
@@ -45,6 +50,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 		admin.Use(roleMW)
 		{
 			admin.GET("/scholarships", h.GetAllApplications)
+			admin.GET("/scholarships/list", h.AdminListScholarships)
 			admin.GET("/scholarships/:id", h.GetScholarshipByID)
 			admin.POST("/scholarships", h.AdminCreateScholarship)
 			admin.PUT("/scholarships/:id", h.AdminUpdateScholarship)
@@ -54,6 +60,8 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			admin.GET("/scholarship-applications/:id", h.GetApplication)
 			admin.PUT("/scholarship-applications/:id/status", h.UpdateApplicationStatus)
 			admin.GET("/scholarship-applications/scholarship/:scholarshipId", h.GetApplicationsByScholarship)
+			admin.POST("/payments/verify-esewa", h.VerifyPendingEsewaPayments)
+			admin.POST("/payments/send-admit-cards", h.SendAdmitCards)
 		}
 	}
 }

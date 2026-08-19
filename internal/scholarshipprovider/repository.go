@@ -1,10 +1,16 @@
 package scholarshipprovider
 
 import (
+	"encoding/json"
+	"log"
+	"strings"
 	"studsphere/backend/internal/scholarship"
+	"time"
 
 	"gorm.io/gorm"
 )
+
+const excludePendingPayment = "provider_applications.status != 'pending_payment'"
 
 type Repository struct {
 	db *gorm.DB
@@ -14,42 +20,65 @@ func NewRepository(db *gorm.DB) *Repository {
 	return &Repository{db: db}
 }
 
-func (r *Repository) GetDashboardCounts(providerID uint) (int64, int64, int64, int64, int64, error) {
-	var totalScholarships, totalApplications, pendingApplications, totalInterviews, unreadMessages int64
+func (r *Repository) GetNextRollNumber() (int, error) {
+	var seq int
+	err := r.db.Raw("SELECT nextval('scholarship_roll_number_seq')").Scan(&seq).Error
+	return seq, err
+}
+
+func (r *Repository) UpdateRollNumber(id uint, rollNumber string) error {
+	return r.db.Table("provider_applications").Where("id = ?", id).Update("roll_number", rollNumber).Error
+}
+
+func (r *Repository) GetDashboardCounts(providerID uint) (int64, int64, int64, int64, int64, int64, int64, error) {
+	var totalScholarships, totalApplications, pendingApplications, approvedApplications, rejectedApplications, totalInterviews, unreadMessages int64
+
+	baseQuery := func(status ...string) *gorm.DB {
+		q := r.db.Model(&ProviderApplication{}).
+			Joins("JOIN provider_scholarships ON provider_scholarships.id = provider_applications.scholarship_id").
+			Where("provider_scholarships.provider_id = ? AND "+excludePendingPayment+" AND EXISTS (SELECT 1 FROM scholarship_payments WHERE scholarship_payments.application_id = provider_applications.scholarship_application_id)", providerID)
+		if len(status) > 0 && status[0] != "" {
+			q = q.Where("provider_applications.status = ?", status[0])
+		}
+		return q
+	}
 
 	if err := r.db.Model(&ProviderScholarship{}).Where("provider_id = ?", providerID).Count(&totalScholarships).Error; err != nil {
-		return 0, 0, 0, 0, 0, err
+		return 0, 0, 0, 0, 0, 0, 0, err
 	}
 
-	if err := r.db.Model(&ProviderApplication{}).
-		Joins("JOIN provider_scholarships ON provider_scholarships.id = provider_applications.scholarship_id").
-		Where("provider_scholarships.provider_id = ?", providerID).Count(&totalApplications).Error; err != nil {
-		return 0, 0, 0, 0, 0, err
+	if err := baseQuery().Count(&totalApplications).Error; err != nil {
+		return 0, 0, 0, 0, 0, 0, 0, err
 	}
 
-	if err := r.db.Model(&ProviderApplication{}).
-		Joins("JOIN provider_scholarships ON provider_scholarships.id = provider_applications.scholarship_id").
-		Where("provider_scholarships.provider_id = ? AND provider_applications.status = ?", providerID, "pending").
-		Count(&pendingApplications).Error; err != nil {
-		return 0, 0, 0, 0, 0, err
+	if err := baseQuery("pending").Count(&pendingApplications).Error; err != nil {
+		return 0, 0, 0, 0, 0, 0, 0, err
+	}
+
+	if err := baseQuery("approved").Count(&approvedApplications).Error; err != nil {
+		return 0, 0, 0, 0, 0, 0, 0, err
+	}
+
+	if err := baseQuery("rejected").Count(&rejectedApplications).Error; err != nil {
+		return 0, 0, 0, 0, 0, 0, 0, err
 	}
 
 	if err := r.db.Model(&ProviderInterview{}).Where("provider_id = ?", providerID).Count(&totalInterviews).Error; err != nil {
-		return 0, 0, 0, 0, 0, err
+		return 0, 0, 0, 0, 0, 0, 0, err
 	}
 
 	if err := r.db.Model(&ProviderMessage{}).Where("provider_id = ? AND read = ?", providerID, false).Count(&unreadMessages).Error; err != nil {
-		return 0, 0, 0, 0, 0, err
+		return 0, 0, 0, 0, 0, 0, 0, err
 	}
 
-	return totalScholarships, totalApplications, pendingApplications, totalInterviews, unreadMessages, nil
+	return totalScholarships, totalApplications, pendingApplications, approvedApplications, rejectedApplications, totalInterviews, unreadMessages, nil
 }
 
 func (r *Repository) GetAnalytics(providerID uint) ([]ProviderApplication, []ProviderScholarship, error) {
 	var applications []ProviderApplication
 	if err := r.db.
 		Joins("JOIN provider_scholarships ON provider_scholarships.id = provider_applications.scholarship_id").
-		Where("provider_scholarships.provider_id = ?", providerID).
+		Where("provider_scholarships.provider_id = ? AND "+excludePendingPayment+" AND EXISTS (SELECT 1 FROM scholarship_payments WHERE scholarship_payments.application_id = provider_applications.scholarship_application_id)", providerID).
 		Find(&applications).Error; err != nil {
 		return nil, nil, err
 	}
@@ -66,7 +95,7 @@ func (r *Repository) GetFilteredApplications(providerID uint, filters DetailedAn
 	var applications []ProviderApplication
 	query := r.db.Model(&ProviderApplication{}).
 		Joins("JOIN provider_scholarships ON provider_scholarships.id = provider_applications.scholarship_id").
-		Where("provider_scholarships.provider_id = ?", providerID)
+		Where("provider_scholarships.provider_id = ? AND "+excludePendingPayment+" AND EXISTS (SELECT 1 FROM scholarship_payments WHERE scholarship_payments.application_id = provider_applications.scholarship_application_id)", providerID)
 
 	if filters.Province != "" {
 		query = query.Where("provider_applications.province = ?", filters.Province)
@@ -78,10 +107,13 @@ func (r *Repository) GetFilteredApplications(providerID uint, filters DetailedAn
 		query = query.Where("provider_applications.school_type = ?", filters.SchoolType)
 	}
 	switch filters.ScholarshipStatus {
-case "recipients":
+	case "recipients":
 		query = query.Where("provider_applications.status = ?", "approved")
 	case "non-recipients":
 		query = query.Where("provider_applications.status != ?", "approved")
+	}
+	if filters.EthnicityProvince != "" {
+		query = query.Where("provider_applications.province = ?", filters.EthnicityProvince)
 	}
 
 	if err := query.Find(&applications).Error; err != nil {
@@ -90,9 +122,22 @@ case "recipients":
 	return applications, nil
 }
 
+func (r *Repository) GetPaymentsByApplicationIDs(applicationIDs []uint) ([]scholarship.Payment, error) {
+	if len(applicationIDs) == 0 {
+		return nil, nil
+	}
+	var payments []scholarship.Payment
+	if err := r.db.Where("application_id IN ?", applicationIDs).Find(&payments).Error; err != nil {
+		return nil, err
+	}
+	return payments, nil
+}
+
 func (r *Repository) GetApplicationCountByScholarship(scholarshipID uint) (int64, error) {
 	var count int64
-	if err := r.db.Model(&ProviderApplication{}).Where("scholarship_id = ?", scholarshipID).Count(&count).Error; err != nil {
+	if err := r.db.Model(&ProviderApplication{}).
+		Where("scholarship_id = ? AND "+excludePendingPayment+" AND EXISTS (SELECT 1 FROM scholarship_payments WHERE scholarship_payments.application_id = provider_applications.scholarship_application_id)", scholarshipID).
+		Count(&count).Error; err != nil {
 		return 0, err
 	}
 	return count, nil
@@ -104,6 +149,7 @@ func (r *Repository) CreateScholarship(scholarship *ProviderScholarship) error {
 
 func (r *Repository) CreatePublicScholarship(s *scholarship.Scholarship, providerScholarshipID uint) error {
 	s.ProviderScholarshipID = &providerScholarshipID
+	r.db.Unscoped().Where("provider_scholarship_id = ?", providerScholarshipID).Delete(&scholarship.Scholarship{})
 	return r.db.Create(s).Error
 }
 
@@ -135,11 +181,11 @@ func (r *Repository) UpdatePublicScholarship(id uint, updates map[string]interfa
 }
 
 func (r *Repository) DeletePublicScholarship(title, provider string) error {
-	return r.db.Where("title = ? AND provider = ?", title, provider).Delete(&scholarship.Scholarship{}).Error
+	return r.db.Unscoped().Where("title = ? AND provider = ?", title, provider).Delete(&scholarship.Scholarship{}).Error
 }
 
 func (r *Repository) DeletePublicScholarshipByProviderScholarshipID(providerScholarshipID uint) error {
-	return r.db.Where("provider_scholarship_id = ?", providerScholarshipID).Delete(&scholarship.Scholarship{}).Error
+	return r.db.Unscoped().Where("provider_scholarship_id = ?", providerScholarshipID).Delete(&scholarship.Scholarship{}).Error
 }
 
 func (r *Repository) GetScholarshipsByProvider(providerID uint, page, limit int) ([]ProviderScholarship, int64, error) {
@@ -174,7 +220,6 @@ func (r *Repository) GetPublishedScholarshipsByProvider(providerID uint, page, l
 	return scholarships, total, nil
 }
 
-
 func (r *Repository) GetScholarshipByIDAndProvider(id uint, providerID uint) (*ProviderScholarship, error) {
 	var scholarship ProviderScholarship
 	if err := r.db.Where("id = ? AND provider_id = ?", id, providerID).First(&scholarship).Error; err != nil {
@@ -204,18 +249,103 @@ func (r *Repository) DeleteScholarship(id uint, providerID uint) error {
 	})
 }
 
-func (r *Repository) GetApplicationsByProvider(providerID uint, page, limit int, status, scholarshipID string) ([]ProviderApplication, int64, error) {
+func (r *Repository) GetPendingPaymentApplications(providerID uint, page, limit int, search string) ([]ProviderApplication, int64, error) {
+	query := r.db.Model(&ProviderApplication{}).
+		Joins("JOIN provider_scholarships ON provider_scholarships.id = provider_applications.scholarship_id").
+		Where("provider_scholarships.provider_id = ? AND provider_applications.status = 'pending_payment' AND EXISTS (SELECT 1 FROM scholarship_payments WHERE scholarship_payments.application_id = provider_applications.scholarship_application_id)", providerID)
+
+	if search != "" {
+		like := "%" + strings.ToLower(search) + "%"
+		query = query.Where(
+			"(LOWER(COALESCE(first_name,'') || ' ' || COALESCE(last_name,'')) LIKE ? OR LOWER(email) LIKE ? OR LOWER(phone_number) LIKE ?)",
+			like, like, like,
+		)
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var applications []ProviderApplication
+	offset := (page - 1) * limit
+	if err := query.Preload("Scholarship").Order("created_at desc").Offset(offset).Limit(limit).Find(&applications).Error; err != nil {
+		return nil, 0, err
+	}
+
+	priority := map[string]int{"completed": 3, "pending_approval": 2, "pending": 1}
+	for i := range applications {
+		if applications[i].ScholarshipApplicationID == nil {
+			continue
+		}
+		var payments []ProviderPayment
+		if err := r.db.Table("scholarship_payments").
+			Where("application_id = ?", *applications[i].ScholarshipApplicationID).
+			Find(&payments).Error; err != nil || len(payments) == 0 {
+			continue
+		}
+		best := payments[0]
+		for _, p := range payments[1:] {
+			if priority[p.Status] > priority[best.Status] {
+				best = p
+			}
+		}
+		applications[i].Payment = &best
+	}
+
+	return applications, total, nil
+}
+
+func (r *Repository) GetApplicationsByProvider(providerID uint, page, limit int, status, scholarshipID, search, gender, ethnicity, province, district, schoolType, stream, examCenter, paymentStatus string) ([]ProviderApplication, int64, error) {
 	query := r.db.Model(&ProviderApplication{}).
 		Joins("JOIN provider_scholarships ON provider_scholarships.id = provider_applications.scholarship_id").
 		Where("provider_scholarships.provider_id = ?", providerID)
 
+	if status == "" {
+		query = query.Where(excludePendingPayment)
+	}
+
 	if status != "" {
 		query = query.Where("provider_applications.status = ?", status)
-	} else {
-		query = query.Where("provider_applications.status != ?", "pending_payment")
 	}
+
+	paymentExists := r.db.Table("scholarship_payments").
+		Select("1").
+		Where("scholarship_payments.application_id = provider_applications.scholarship_application_id")
+	if paymentStatus != "" {
+		paymentExists = paymentExists.Where("scholarship_payments.status = ?", paymentStatus)
+	}
+	query = query.Where("EXISTS (?)", paymentExists)
 	if scholarshipID != "" {
 		query = query.Where("provider_applications.scholarship_id = ?", scholarshipID)
+	}
+	if search != "" {
+		like := "%" + strings.ToLower(search) + "%"
+		query = query.Where(
+			"(LOWER(COALESCE(first_name,'') || ' ' || COALESCE(last_name,'')) LIKE ? OR LOWER(email) LIKE ? OR LOWER(phone_number) LIKE ?)",
+			like, like, like,
+		)
+	}
+	if gender != "" {
+		query = query.Where("provider_applications.gender = ?", gender)
+	}
+	if ethnicity != "" {
+		query = query.Where("provider_applications.ethnicity = ?", ethnicity)
+	}
+	if province != "" {
+		query = query.Where("provider_applications.province = ?", province)
+	}
+	if district != "" {
+		query = query.Where("provider_applications.district = ?", district)
+	}
+	if schoolType != "" {
+		query = query.Where("provider_applications.school_type = ?", schoolType)
+	}
+	if stream != "" {
+		query = query.Where("provider_applications.stream = ?", stream)
+	}
+	if examCenter != "" {
+		query = query.Where("provider_applications.exam_center = ?", examCenter)
 	}
 
 	var total int64
@@ -268,7 +398,7 @@ func (r *Repository) GetApplicationByIDAndProvider(id uint, providerID uint) (*P
 	return &application, nil
 }
 
-func (r *Repository) EvaluateApplication(application *ProviderApplication, score int, passing bool, notes string) error {
+func (r *Repository) EvaluateApplication(application *ProviderApplication, score *int, passing bool, notes string) error {
 	return r.db.Model(application).Updates(map[string]interface{}{
 		"evaluation_score":  score,
 		"evaluation_passed": passing,
@@ -277,7 +407,20 @@ func (r *Repository) EvaluateApplication(application *ProviderApplication, score
 }
 
 func (r *Repository) UpdateApplicationStatus(application *ProviderApplication, status string) error {
-	return r.db.Model(application).Update("status", status).Error
+	updates := map[string]interface{}{"status": status}
+	if status == "rejected" && application.RejectionReason != "" {
+		updates["rejection_reason"] = application.RejectionReason
+	}
+	err := r.db.Model(application).Updates(updates).Error
+	if err != nil {
+		return err
+	}
+	if application.ScholarshipApplicationID != nil {
+		r.db.Model(&scholarship.ScholarshipApplication{}).
+			Where("id = ?", *application.ScholarshipApplicationID).
+			Updates(updates)
+	}
+	return nil
 }
 
 func (r *Repository) GetInterviewsByProvider(providerID uint) ([]ProviderInterview, error) {
@@ -319,6 +462,10 @@ func (r *Repository) GetMessagesByProvider(providerID uint, page, limit int) ([]
 	}
 
 	return messages, total, nil
+}
+
+func (r *Repository) GetDB() *gorm.DB {
+	return r.db
 }
 
 func (r *Repository) CreateMessage(message *ProviderMessage) error {
@@ -448,7 +595,6 @@ func (r *Repository) GetPublishedNewsByProvider(providerID uint, page, limit int
 
 	return news, total, nil
 }
-
 
 func (r *Repository) GetNewsByIDAndProvider(id uint, providerID uint) (*ProviderNews, error) {
 	var news ProviderNews
@@ -599,16 +745,20 @@ func (r *Repository) CreateResult(result *ProviderResult) error {
 	return r.db.Create(result).Error
 }
 
-func (r *Repository) GetResultsByProvider(providerID uint, page, limit int) ([]ProviderResult, int64, error) {
+func (r *Repository) GetResultsByProvider(providerID uint, page, limit int, scholarshipID ...uint) ([]ProviderResult, int64, error) {
+	query := r.db.Model(&ProviderResult{}).Where("provider_id = ?", providerID)
+	if len(scholarshipID) > 0 && scholarshipID[0] > 0 {
+		query = query.Where("scholarship_id = ?", scholarshipID[0])
+	}
+
 	var total int64
-	if err := r.db.Model(&ProviderResult{}).Where("provider_id = ?", providerID).Count(&total).Error; err != nil {
+	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
 	var results []ProviderResult
 	offset := (page - 1) * limit
-	if err := r.db.Where("provider_id = ?", providerID).
-		Order("created_at desc").Offset(offset).Limit(limit).Find(&results).Error; err != nil {
+	if err := query.Order("created_at desc").Offset(offset).Limit(limit).Find(&results).Error; err != nil {
 		return nil, 0, err
 	}
 
@@ -634,6 +784,305 @@ func (r *Repository) DeleteResult(id uint, providerID uint) error {
 	}
 	if result.RowsAffected == 0 {
 		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *Repository) GetScholarshipsWithPublishedResults() ([]ProviderScholarship, error) {
+	var scholarships []ProviderScholarship
+	err := r.db.Raw(`
+		SELECT DISTINCT ps.* FROM provider_scholarships ps
+		INNER JOIN provider_results pr ON pr.scholarship_id = ps.id
+		WHERE pr.status = 'published'
+	`).Scan(&scholarships).Error
+	return scholarships, err
+}
+
+func (r *Repository) CheckStudentResult(scholarshipID uint, rollNumber string) (map[string]interface{}, error) {
+	var resultJSON string
+	err := r.db.Raw(`
+		SELECT elem.value::text
+		FROM provider_results pr,
+		     jsonb_array_elements(pr.results) AS elem
+		WHERE pr.scholarship_id = ?
+		  AND pr.status = 'published'
+		  AND elem->>'roll_number' = ?
+		ORDER BY pr.created_at DESC
+		LIMIT 1
+	`, scholarshipID, rollNumber).Scan(&resultJSON).Error
+	if err != nil {
+		return nil, err
+	}
+	if resultJSON == "" {
+		return nil, nil
+	}
+
+	var result map[string]interface{}
+	if err := json.Unmarshal([]byte(resultJSON), &result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (r *Repository) GetWrittenExamResultsFiltered(examID uint, filters map[string]interface{}, page, limit int, sortBy, sortOrder string) ([]WrittenExamResultWithApp, int64, error) {
+	query := r.db.Table("written_exam_results").
+		Joins("JOIN provider_applications ON provider_applications.id = written_exam_results.application_id").
+		Where("written_exam_results.written_exam_id = ?", examID)
+
+	if v, ok := filters["marks_min"]; ok {
+		query = query.Where("written_exam_results.marks_obtained >= ?", v)
+	}
+	if v, ok := filters["marks_max"]; ok {
+		query = query.Where("written_exam_results.marks_obtained <= ?", v)
+	}
+	if v, ok := filters["school_type"]; ok && v != "" {
+		query = query.Where("provider_applications.school_type = ?", v)
+	}
+	if v, ok := filters["gender"]; ok && v != "" {
+		query = query.Where("provider_applications.gender = ?", v)
+	}
+	if v, ok := filters["exam_center"]; ok && v != "" {
+		query = query.Where("provider_applications.exam_center = ?", v)
+	}
+	if v, ok := filters["search"]; ok && v != "" {
+		searchTerm := "%" + strings.ToLower(v.(string)) + "%"
+		query = query.Where("(LOWER(COALESCE(provider_applications.full_name,'') || ' ' || COALESCE(provider_applications.first_name,'') || ' ' || COALESCE(provider_applications.last_name,'')) LIKE ? OR LOWER(provider_applications.roll_number) LIKE ?)", searchTerm, searchTerm)
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	orderClause := "written_exam_results.id ASC"
+	if sortBy == "marks_obtained" {
+		if sortOrder == "desc" {
+			orderClause = "written_exam_results.marks_obtained DESC"
+		} else {
+			orderClause = "written_exam_results.marks_obtained ASC"
+		}
+	}
+
+	var results []WrittenExamResultWithApp
+	offset := (page - 1) * limit
+	selectCols := "written_exam_results.*, provider_applications.first_name as app_first_name, provider_applications.last_name as app_last_name, provider_applications.roll_number as app_roll_number, provider_applications.stream as app_stream, provider_applications.gender as app_gender, provider_applications.school_type as app_school_type, provider_applications.exam_center as app_exam_center, provider_applications.gpa as app_gpa"
+	if err := query.Select(selectCols).Order(orderClause).Offset(offset).Limit(limit).Find(&results).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return results, total, nil
+}
+
+func (r *Repository) GetWrittenExamResultsFilteredAll(examID uint, filters map[string]interface{}, sortBy, sortOrder string) ([]WrittenExamResultWithApp, error) {
+	query := r.db.Table("written_exam_results").
+		Joins("JOIN provider_applications ON provider_applications.id = written_exam_results.application_id").
+		Where("written_exam_results.written_exam_id = ?", examID)
+
+	if v, ok := filters["marks_min"]; ok {
+		query = query.Where("written_exam_results.marks_obtained >= ?", v)
+	}
+	if v, ok := filters["marks_max"]; ok {
+		query = query.Where("written_exam_results.marks_obtained <= ?", v)
+	}
+	if v, ok := filters["school_type"]; ok && v != "" {
+		query = query.Where("provider_applications.school_type = ?", v)
+	}
+	if v, ok := filters["gender"]; ok && v != "" {
+		query = query.Where("provider_applications.gender = ?", v)
+	}
+	if v, ok := filters["exam_center"]; ok && v != "" {
+		query = query.Where("provider_applications.exam_center = ?", v)
+	}
+	if v, ok := filters["search"]; ok && v != "" {
+		searchTerm := "%" + strings.ToLower(v.(string)) + "%"
+		query = query.Where("(LOWER(COALESCE(provider_applications.full_name,'') || ' ' || COALESCE(provider_applications.first_name,'') || ' ' || COALESCE(provider_applications.last_name,'')) LIKE ? OR LOWER(provider_applications.roll_number) LIKE ?)", searchTerm, searchTerm)
+	}
+
+	orderClause := "written_exam_results.id ASC"
+	if sortBy == "marks_obtained" {
+		if sortOrder == "desc" {
+			orderClause = "written_exam_results.marks_obtained DESC"
+		} else {
+			orderClause = "written_exam_results.marks_obtained ASC"
+		}
+	}
+
+	var results []WrittenExamResultWithApp
+	selectCols := "written_exam_results.*, provider_applications.first_name as app_first_name, provider_applications.last_name as app_last_name, provider_applications.roll_number as app_roll_number, provider_applications.stream as app_stream, provider_applications.gender as app_gender, provider_applications.school_type as app_school_type, provider_applications.exam_center as app_exam_center, provider_applications.gpa as app_gpa"
+	if err := query.Select(selectCols).Order(orderClause).Find(&results).Error; err != nil {
+		return nil, err
+	}
+
+	return results, nil
+}
+
+type WrittenExamFilterOptions struct {
+	SchoolTypes []string `json:"school_types"`
+	Genders     []string `json:"genders"`
+	ExamCenters []string `json:"exam_centers"`
+}
+
+func (r *Repository) GetWrittenExamFilterOptions(examID uint) (*WrittenExamFilterOptions, error) {
+	opts := &WrittenExamFilterOptions{}
+
+	if err := r.db.Table("written_exam_results").
+		Joins("JOIN provider_applications ON provider_applications.id = written_exam_results.application_id").
+		Where("written_exam_results.written_exam_id = ? AND provider_applications.school_type != ''", examID).
+		Distinct("provider_applications.school_type").
+		Pluck("provider_applications.school_type", &opts.SchoolTypes).Error; err != nil {
+		return nil, err
+	}
+
+	if err := r.db.Table("written_exam_results").
+		Joins("JOIN provider_applications ON provider_applications.id = written_exam_results.application_id").
+		Where("written_exam_results.written_exam_id = ? AND provider_applications.gender != ''", examID).
+		Distinct("provider_applications.gender").
+		Pluck("provider_applications.gender", &opts.Genders).Error; err != nil {
+		return nil, err
+	}
+
+	if err := r.db.Table("written_exam_results").
+		Joins("JOIN provider_applications ON provider_applications.id = written_exam_results.application_id").
+		Where("written_exam_results.written_exam_id = ? AND provider_applications.exam_center != ''", examID).
+		Distinct("provider_applications.exam_center").
+		Pluck("provider_applications.exam_center", &opts.ExamCenters).Error; err != nil {
+		return nil, err
+	}
+
+	return opts, nil
+}
+
+func (r *Repository) CreateWrittenExam(exam *WrittenExam) error {
+	return r.db.Create(exam).Error
+}
+
+func (r *Repository) GetWrittenExamsByProvider(providerID uint, page, limit int) ([]WrittenExam, int64, error) {
+	var total int64
+	if err := r.db.Model(&WrittenExam{}).Where("provider_id = ?", providerID).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var exams []WrittenExam
+	offset := (page - 1) * limit
+	if err := r.db.Where("provider_id = ?", providerID).Order("created_at desc").Offset(offset).Limit(limit).Find(&exams).Error; err != nil {
+		return nil, 0, err
+	}
+	return exams, total, nil
+}
+
+func (r *Repository) GetWrittenExamsByScholarship(providerID, scholarshipID uint) ([]WrittenExam, error) {
+	var exams []WrittenExam
+	if err := r.db.Where("provider_id = ? AND scholarship_id = ?", providerID, scholarshipID).Order("created_at desc").Find(&exams).Error; err != nil {
+		return nil, err
+	}
+	return exams, nil
+}
+
+func (r *Repository) GetWrittenExamByIDAndProvider(id, providerID uint) (*WrittenExam, error) {
+	var exam WrittenExam
+	if err := r.db.Where("id = ? AND provider_id = ?", id, providerID).First(&exam).Error; err != nil {
+		return nil, err
+	}
+	return &exam, nil
+}
+
+func (r *Repository) UpdateWrittenExam(exam *WrittenExam, updates map[string]interface{}) error {
+	return r.db.Model(exam).Updates(updates).Error
+}
+
+func (r *Repository) DeleteWrittenExam(id, providerID uint) error {
+	r.db.Where("written_exam_id = ?", id).Delete(&WrittenExamResult{})
+	result := r.db.Where("id = ? AND provider_id = ?", id, providerID).Delete(&WrittenExam{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *Repository) CleanupSoftDeletedResults(examID uint) error {
+	return r.db.Exec(`DELETE FROM written_exam_results WHERE written_exam_id = ? AND deleted_at IS NOT NULL`, examID).Error
+}
+
+func (r *Repository) RawCount(count *int64, examID uint) error {
+	return r.db.Raw("SELECT COUNT(*) FROM written_exam_results WHERE written_exam_id = ?", examID).Scan(count).Error
+}
+
+func (r *Repository) RawDeletedCount(count *int64, examID uint) error {
+	return r.db.Raw("SELECT COUNT(*) FROM written_exam_results WHERE written_exam_id = ? AND deleted_at IS NOT NULL", examID).Scan(count).Error
+}
+
+func (r *Repository) RawFullCount(count *int64, examID uint) error {
+	return r.db.Raw("SELECT COUNT(*) FROM written_exam_results WHERE written_exam_id = ? AND deleted_at IS NULL", examID).Scan(count).Error
+}
+
+func (r *Repository) GetWrittenExamResults(examID uint) ([]WrittenExamResult, error) {
+	var results []WrittenExamResult
+	if err := r.db.Where("written_exam_id = ?", examID).Order("id asc").Find(&results).Error; err != nil {
+		log.Printf("GetWrittenExamResults error for exam=%d: %v", examID, err)
+		return nil, err
+	}
+	log.Printf("GetWrittenExamResults: exam=%d count=%d", examID, len(results))
+	return results, nil
+}
+
+func (r *Repository) CreateWrittenExamResult(result *WrittenExamResult) error {
+	return r.db.Create(result).Error
+}
+
+func (r *Repository) GetWrittenExamResultByID(id, examID uint) (*WrittenExamResult, error) {
+	var result WrittenExamResult
+	if err := r.db.Where("id = ? AND written_exam_id = ?", id, examID).First(&result).Error; err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func (r *Repository) UpdateWrittenExamResult(result *WrittenExamResult, updates map[string]interface{}) error {
+	return r.db.Model(result).Updates(updates).Error
+}
+
+func (r *Repository) DeleteWrittenExamResult(id, examID uint) error {
+	result := r.db.Where("id = ? AND written_exam_id = ?", id, examID).Delete(&WrittenExamResult{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *Repository) GetApplicationsByScholarship(scholarshipID uint) ([]ProviderApplication, error) {
+	var apps []ProviderApplication
+	if err := r.db.Where("scholarship_id = ?", scholarshipID).Find(&apps).Error; err != nil {
+		return nil, err
+	}
+	return apps, nil
+}
+
+func (r *Repository) BulkUpsertWrittenExamResults(results []WrittenExamResult) error {
+	for _, result := range results {
+		err := r.db.Exec(`
+			INSERT INTO written_exam_results
+				(written_exam_id, application_id, marks_obtained, remarks,
+				 interview_location, interview_date, reporting_time, required_documents,
+				 created_at, updated_at, deleted_at)
+			VALUES (?, ?, ?, '', ?, ?, ?, ?::jsonb, NOW(), NOW(), NULL)
+			ON CONFLICT (written_exam_id, application_id)
+			DO UPDATE SET marks_obtained = EXCLUDED.marks_obtained,
+			              updated_at = NOW(),
+			              deleted_at = NULL,
+			              interview_location = EXCLUDED.interview_location,
+			              interview_date = EXCLUDED.interview_date,
+			              reporting_time = EXCLUDED.reporting_time,
+			              required_documents = EXCLUDED.required_documents
+		`, result.WrittenExamID, result.ApplicationID, result.MarksObtained,
+			result.InterviewLocation, result.InterviewDate, result.ReportingTime, string(result.RequiredDocuments)).Error
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -765,6 +1214,24 @@ func (r *Repository) GetPublishedBlogByID(id uint) (*ProviderBlog, error) {
 	return &blog, nil
 }
 
+func (r *Repository) FindProviderNewsBySlug(slug string) (*ProviderNews, error) {
+	var news ProviderNews
+	err := r.db.Where("slug = ? AND status = ?", slug, "published").First(&news).Error
+	return &news, err
+}
+
+func (r *Repository) FindProviderEventBySlug(slug string) (*ProviderEvent, error) {
+	var event ProviderEvent
+	err := r.db.Where("slug = ? AND status = ?", slug, "upcoming").First(&event).Error
+	return &event, err
+}
+
+func (r *Repository) FindProviderBlogBySlug(slug string) (*ProviderBlog, error) {
+	var blog ProviderBlog
+	err := r.db.Where("slug = ? AND status = ?", slug, "published").First(&blog).Error
+	return &blog, err
+}
+
 func (r *Repository) CreateAccessUser(user *ProviderAccessUser) error {
 	return r.db.Create(user).Error
 }
@@ -832,7 +1299,7 @@ func (r *Repository) GetDashboardDetails(providerID uint) ([]ScholarshipStat, er
 	var stats []ScholarshipStat
 
 	err := r.db.Model(&ProviderScholarship{}).
-		Select("id, title, status, (SELECT COUNT(*) FROM provider_applications WHERE provider_applications.scholarship_id = provider_scholarships.id) AS applications").
+		Select("id, title, status, (SELECT COUNT(*) FROM provider_applications WHERE provider_applications.scholarship_id = provider_scholarships.id AND "+excludePendingPayment+" AND EXISTS (SELECT 1 FROM scholarship_payments WHERE scholarship_payments.application_id = provider_applications.scholarship_application_id)) AS applications").
 		Where("provider_id = ?", providerID).
 		Scan(&stats).Error
 
@@ -922,7 +1389,6 @@ func (r *Repository) CountPublishedProviderContent(providerID uint) (scholarship
 	r.db.Model(&ProviderBlog{}).Where("provider_id = ? AND status = ?", providerID, "published").Count(&blogs)
 	return
 }
-
 
 // ─── Services ────────────────────────────────────────────────────
 func (r *Repository) GetServicesByProvider(providerID uint) ([]ProviderService, error) {
@@ -1104,6 +1570,26 @@ func (r *Repository) DeleteReview(id, providerID uint) error {
 	return nil
 }
 
+type userRow struct {
+	ID        uint   `gorm:"column:id"`
+	FirstName string `gorm:"column:first_name"`
+	LastName  string `gorm:"column:last_name"`
+	Email     string `gorm:"column:email"`
+	Phone     string `gorm:"column:phone"`
+	Gender    string `gorm:"column:gender"`
+	Address   string `gorm:"column:address"`
+	Bio       string `gorm:"column:bio"`
+	Role      string `gorm:"column:role"`
+}
+
+func (r *Repository) GetUserByID(userID uint) (*userRow, error) {
+	var user userRow
+	if err := r.db.Table("users").First(&user, userID).Error; err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
 func (r *Repository) GetPublishedReviews(providerID uint) ([]ProviderReview, error) {
 	var reviews []ProviderReview
 	if err := r.db.Where("provider_id = ? AND status = ?", providerID, "published").
@@ -1111,4 +1597,201 @@ func (r *Repository) GetPublishedReviews(providerID uint) ([]ProviderReview, err
 		return nil, err
 	}
 	return reviews, nil
+}
+
+// ─── Volunteer CRUD ─────────────────────────────────────────────────
+
+func (r *Repository) CreateVolunteer(v *ProviderVolunteer) error {
+	return r.db.Create(v).Error
+}
+
+func (r *Repository) GetVolunteersByProvider(providerID uint, page, limit int) ([]ProviderVolunteer, int64, error) {
+	var total int64
+	if err := r.db.Model(&ProviderVolunteer{}).Where("provider_id = ?", providerID).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var volunteers []ProviderVolunteer
+	offset := (page - 1) * limit
+	if err := r.db.Where("provider_id = ?", providerID).Order("created_at desc").Offset(offset).Limit(limit).Find(&volunteers).Error; err != nil {
+		return nil, 0, err
+	}
+	for i := range volunteers {
+		var count int64
+		if cnt := r.db.Model(&VolunteerApplication{}).Where("volunteer_id = ?", volunteers[i].ID).Count(&count); cnt.Error != nil {
+			count = 0
+		}
+		volunteers[i].ApplicantCount = count
+	}
+	return volunteers, total, nil
+}
+
+func (r *Repository) GetVolunteerByID(id uint) (*ProviderVolunteer, error) {
+	var v ProviderVolunteer
+	if err := r.db.First(&v, id).Error; err != nil {
+		return nil, err
+	}
+	var count int64
+	if cnt := r.db.Model(&VolunteerApplication{}).Where("volunteer_id = ?", v.ID).Count(&count); cnt.Error != nil {
+		count = 0
+	}
+	v.ApplicantCount = count
+	return &v, nil
+}
+
+func (r *Repository) GetVolunteerBySlug(slug string) (*ProviderVolunteer, error) {
+	var v ProviderVolunteer
+	if err := r.db.Where("slug = ?", slug).First(&v).Error; err != nil {
+		return nil, err
+	}
+	var count int64
+	if cnt := r.db.Model(&VolunteerApplication{}).Where("volunteer_id = ?", v.ID).Count(&count); cnt.Error != nil {
+		count = 0
+	}
+	v.ApplicantCount = count
+	return &v, nil
+}
+
+func (r *Repository) GetVolunteerByIDAndProvider(id, providerID uint) (*ProviderVolunteer, error) {
+	var v ProviderVolunteer
+	if err := r.db.Where("id = ? AND provider_id = ?", id, providerID).First(&v).Error; err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r *Repository) UpdateVolunteer(v *ProviderVolunteer, updates map[string]interface{}) error {
+	return r.db.Model(v).Updates(updates).Error
+}
+
+func (r *Repository) DeleteVolunteer(id, providerID uint) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("volunteer_id = ?", id).Delete(&VolunteerApplication{}).Error; err != nil {
+			return err
+		}
+		result := tx.Where("id = ? AND provider_id = ?", id, providerID).Delete(&ProviderVolunteer{})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return gorm.ErrRecordNotFound
+		}
+		return nil
+	})
+}
+
+func (r *Repository) ToggleVolunteerActive(id, providerID uint) (*ProviderVolunteer, error) {
+	var v ProviderVolunteer
+	if err := r.db.Where("id = ? AND provider_id = ?", id, providerID).First(&v).Error; err != nil {
+		return nil, err
+	}
+	v.Active = !v.Active
+	if err := r.db.Model(&v).Update("active", v.Active).Error; err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r *Repository) GetPublicVolunteers(page, limit int, search, volunteerType string) ([]ProviderVolunteer, int64, error) {
+	var total int64
+	today := time.Now().Format("2006-01-02")
+	query := r.db.Model(&ProviderVolunteer{}).Where("active = ?", true).
+		Where("application_deadline >= ? OR application_deadline = '' OR application_deadline IS NULL", today)
+	if search != "" {
+		q := "%" + search + "%"
+		query = query.Where("title ILIKE ? OR description ILIKE ?", q, q)
+	}
+	if volunteerType != "" {
+		query = query.Where("volunteer_type = ?", volunteerType)
+	}
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var volunteers []ProviderVolunteer
+	offset := (page - 1) * limit
+	dataQuery := r.db.Where("active = ?", true).
+		Where("application_deadline >= ? OR application_deadline = '' OR application_deadline IS NULL", today)
+	if search != "" {
+		q := "%" + search + "%"
+		dataQuery = dataQuery.Where("title ILIKE ? OR description ILIKE ?", q, q)
+	}
+	if volunteerType != "" {
+		dataQuery = dataQuery.Where("volunteer_type = ?", volunteerType)
+	}
+	if err := dataQuery.Order("created_at desc").Offset(offset).Limit(limit).Find(&volunteers).Error; err != nil {
+		return nil, 0, err
+	}
+	for i := range volunteers {
+		var count int64
+		if cnt := r.db.Model(&VolunteerApplication{}).Where("volunteer_id = ?", volunteers[i].ID).Count(&count); cnt.Error != nil {
+			count = 0
+		}
+		volunteers[i].ApplicantCount = count
+	}
+	return volunteers, total, nil
+}
+
+// ─── Volunteer Application CRUD ─────────────────────────────────────
+
+func (r *Repository) CreateVolunteerApplication(a *VolunteerApplication) error {
+	return r.db.Create(a).Error
+}
+
+func (r *Repository) GetVolunteerApplicationsByProvider(providerID uint, volunteerID *uint, page, limit int, status *string, search, province, district, gender, day string) ([]VolunteerApplication, int64, error) {
+	query := r.db.Model(&VolunteerApplication{}).
+		Joins("JOIN provider_volunteers ON provider_volunteers.id = volunteer_applications.volunteer_id").
+		Where("provider_volunteers.provider_id = ?", providerID)
+
+	if volunteerID != nil && *volunteerID > 0 {
+		query = query.Where("volunteer_applications.volunteer_id = ?", *volunteerID)
+	}
+
+	if status != nil && *status != "" {
+		query = query.Where("volunteer_applications.status = ?", *status)
+	}
+
+	if search != "" {
+		q := "%" + search + "%"
+		query = query.Where("(volunteer_applications.full_name ILIKE ? OR volunteer_applications.email ILIKE ?)", q, q)
+	}
+
+	if province != "" {
+		query = query.Where("volunteer_applications.province = ?", province)
+	}
+
+	if district != "" {
+		query = query.Where("volunteer_applications.district = ?", district)
+	}
+
+	if gender != "" {
+		query = query.Where("volunteer_applications.gender = ?", gender)
+	}
+
+	if day != "" {
+		query = query.Where("EXISTS (SELECT 1 FROM jsonb_array_elements_text(volunteer_applications.available_days) AS d WHERE SPLIT_PART(d, '-', 3) = LPAD(?, 2, '0'))", day)
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var apps []VolunteerApplication
+	offset := (page - 1) * limit
+	if err := query.Order("volunteer_applications.created_at desc").Offset(offset).Limit(limit).Find(&apps).Error; err != nil {
+		return nil, 0, err
+	}
+	return apps, total, nil
+}
+
+func (r *Repository) GetVolunteerApplicationByID(id uint) (*VolunteerApplication, error) {
+	var a VolunteerApplication
+	if err := r.db.First(&a, id).Error; err != nil {
+		return nil, err
+	}
+	return &a, nil
+}
+
+func (r *Repository) UpdateVolunteerApplicationStatus(id uint, status string) error {
+	return r.db.Model(&VolunteerApplication{}).Where("id = ?", id).Update("status", status).Error
 }

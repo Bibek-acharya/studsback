@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"studsphere/backend/internal/shared/response"
+	"studsphere/backend/internal/shared/sanitize"
 
 	"github.com/gin-gonic/gin"
 )
@@ -47,6 +48,16 @@ func (h *Handler) GetEducationExamByID(c *gin.Context) {
 	}
 
 	response.Success(c, http.StatusOK, "Education exam retrieved successfully", exam)
+}
+
+func (h *Handler) SearchGlobalCourses(c *gin.Context) {
+	query := c.Query("q")
+	courses, err := h.service.SearchGlobalCourses(query)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to search courses")
+		return
+	}
+	response.Success(c, http.StatusOK, "Courses retrieved successfully", gin.H{"courses": courses})
 }
 
 func (h *Handler) GetEducationCourses(c *gin.Context) {
@@ -95,6 +106,22 @@ func (h *Handler) GetCourseFilterCounts(c *gin.Context) {
 	})
 }
 
+func (h *Handler) GetInstitutionCourses(c *gin.Context) {
+	instID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid institution ID")
+		return
+	}
+
+	courses, err := h.service.GetInstitutionCourses(uint(instID))
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch institution courses")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Institution courses retrieved successfully", gin.H{"courses": courses})
+}
+
 func (h *Handler) GetEducationCourseByID(c *gin.Context) {
 	id := c.Param("id")
 	course, err := h.service.GetEducationCourseByID(id)
@@ -123,9 +150,13 @@ func (h *Handler) GetEducationNews(c *gin.Context) {
 	category := c.Query("category")
 	search := c.Query("search")
 	sort := c.DefaultQuery("sort", "newest")
+	var universityID *uint
+	if uid, err := strconv.ParseUint(c.Query("university_id"), 10, 64); err == nil && uid > 0 {
+		id := uint(uid)
+		universityID = &id
+	}
 
-	// If no filtering params, use old endpoint
-	if category == "" && search == "" {
+	if category == "" && search == "" && universityID == nil {
 		news, err := h.service.GetEducationNews()
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, "Failed to fetch news")
@@ -135,7 +166,7 @@ func (h *Handler) GetEducationNews(c *gin.Context) {
 		return
 	}
 
-	news, meta, err := h.service.GetEducationNewsFiltered(page, limit, category, search, sort)
+	news, meta, err := h.service.GetEducationNewsFiltered(page, limit, category, search, sort, universityID)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "Failed to fetch news")
 		return
@@ -171,15 +202,30 @@ func (h *Handler) GetEducationNewsByID(c *gin.Context) {
 	response.Success(c, http.StatusOK, "News article retrieved successfully", news)
 }
 
+func (h *Handler) GetEducationNewsBySlug(c *gin.Context) {
+	slug := c.Param("slug")
+	news, err := h.service.GetEducationNewsBySlug(slug)
+	if err != nil {
+		response.Error(c, 404, "News not found")
+		return
+	}
+	response.Success(c, 200, "News retrieved successfully", news)
+}
+
 func (h *Handler) GetEducationEvents(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 	category := c.Query("category")
 	search := c.Query("search")
 	sort := c.DefaultQuery("sort", "newest")
+	featuredStr := c.Query("featured")
+	var universityID *uint
+	if uid, err := strconv.ParseUint(c.Query("university_id"), 10, 64); err == nil && uid > 0 {
+		id := uint(uid)
+		universityID = &id
+	}
 
-	// If no filtering params, use old endpoint
-	if category == "" && search == "" {
+	if category == "" && search == "" && featuredStr == "" && universityID == nil {
 		events, err := h.service.GetEducationEvents()
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, "Failed to fetch events")
@@ -189,7 +235,7 @@ func (h *Handler) GetEducationEvents(c *gin.Context) {
 		return
 	}
 
-	events, meta, err := h.service.GetEducationEventsFiltered(page, limit, category, search, sort)
+	events, meta, err := h.service.GetEducationEventsFiltered(page, limit, category, search, sort, featuredStr, universityID)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "Failed to fetch events")
 		return
@@ -223,6 +269,16 @@ func (h *Handler) GetEducationEventByID(c *gin.Context) {
 	}
 
 	response.Success(c, http.StatusOK, "Event retrieved successfully", event)
+}
+
+func (h *Handler) GetEducationEventBySlug(c *gin.Context) {
+	slug := c.Param("slug")
+	event, err := h.service.GetEducationEventBySlug(slug)
+	if err != nil {
+		response.Error(c, 404, "Event not found")
+		return
+	}
+	response.Success(c, 200, "Event retrieved successfully", event)
 }
 
 func (h *Handler) GetEducationBlogs(c *gin.Context) {
@@ -364,12 +420,26 @@ func (h *Handler) AdminGetBlogs(c *gin.Context) {
 	})
 }
 
+func (h *Handler) AdminGetBlogByID(c *gin.Context) {
+	id := c.Param("id")
+	blog, err := h.service.GetBlogByIDAdmin(id)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Blog not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Blog retrieved successfully", blog)
+}
+
 func (h *Handler) CreateBlog(c *gin.Context) {
 	var req CreateBlogRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
+
+	req.Excerpt = sanitize.HTML(req.Excerpt)
+	req.Content = sanitize.HTML(req.Content)
 
 	blog, err := h.service.CreateBlog(req)
 	if err != nil {
@@ -386,6 +456,13 @@ func (h *Handler) UpdateBlog(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	if req.Excerpt != "" {
+		req.Excerpt = sanitize.HTML(req.Excerpt)
+	}
+	if req.Content != "" {
+		req.Content = sanitize.HTML(req.Content)
 	}
 
 	blog, err := h.service.UpdateBlog(id, req)
@@ -407,6 +484,103 @@ func (h *Handler) DeleteBlog(c *gin.Context) {
 	response.Success(c, http.StatusOK, "Blog deleted successfully", nil)
 }
 
+func (h *Handler) AdminGetEvents(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
+	hasUniversity := c.Query("has_university") == "true"
+	var universityID *uint
+	if uid, err := strconv.ParseUint(c.Query("university_id"), 10, 64); err == nil && uid > 0 {
+		id := uint(uid)
+		universityID = &id
+	}
+
+	events, meta, err := h.service.GetAllEventsAdmin(page, limit, universityID, hasUniversity)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch events")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Events retrieved successfully", gin.H{
+		"events": events,
+		"meta":   meta,
+	})
+}
+
+func (h *Handler) AdminGetEventByID(c *gin.Context) {
+	id := c.Param("id")
+	event, err := h.service.GetEducationEventByID(id)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Event not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Event retrieved successfully", event)
+}
+
+func (h *Handler) CreateEvent(c *gin.Context) {
+	var req EventRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	req.Excerpt = sanitize.HTML(req.Excerpt)
+	req.Description = sanitize.HTML(req.Description)
+
+	event, err := h.service.CreateEvent(req)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to create event")
+		return
+	}
+
+	response.Success(c, http.StatusCreated, "Event created successfully", event)
+}
+
+func (h *Handler) UpdateEvent(c *gin.Context) {
+	id := c.Param("id")
+	var req UpdateEventRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if req.Excerpt != "" {
+		req.Excerpt = sanitize.HTML(req.Excerpt)
+	}
+	if req.Description != "" {
+		req.Description = sanitize.HTML(req.Description)
+	}
+
+	event, err := h.service.UpdateEvent(id, req)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to update event")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Event updated successfully", event)
+}
+
+func (h *Handler) DeleteEvent(c *gin.Context) {
+	id := c.Param("id")
+	if err := h.service.DeleteEvent(id); err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to delete event")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Event deleted successfully", nil)
+}
+
+func (h *Handler) ToggleEventFeatured(c *gin.Context) {
+	id := c.Param("id")
+	event, err := h.service.ToggleEventFeatured(id)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to toggle featured")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Featured toggled successfully", event)
+}
+
 func (h *Handler) UploadBlogImage(c *gin.Context) {
 	file, err := c.FormFile("image")
 	if err != nil {
@@ -423,6 +597,291 @@ func (h *Handler) UploadBlogImage(c *gin.Context) {
 	response.Success(c, http.StatusOK, "Image uploaded successfully", gin.H{"url": urls[0]})
 }
 
+// ─── Admin News CRUD Handlers ─────────────────────────────────────────────────
+
+func (h *Handler) AdminGetNews(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	category := c.Query("category")
+	search := c.Query("search")
+	hasUniversity := c.Query("has_university") == "true"
+	var universityID *uint
+	if uid, err := strconv.ParseUint(c.Query("university_id"), 10, 64); err == nil && uid > 0 {
+		id := uint(uid)
+		universityID = &id
+	}
+
+	news, meta, err := h.service.GetAllNewsAdmin(page, limit, category, search, universityID, hasUniversity)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch news")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "News retrieved successfully", gin.H{
+		"news": news,
+		"meta": meta,
+	})
+}
+
+func (h *Handler) AdminCreateNews(c *gin.Context) {
+	var req CreateNewsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	req.Excerpt = sanitize.HTML(req.Excerpt)
+	req.Content = sanitize.HTML(req.Content)
+
+	news, err := h.service.CreateNewsAdmin(req)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to create news")
+		return
+	}
+
+	response.Success(c, http.StatusCreated, "News created successfully", news)
+}
+
+func (h *Handler) AdminGetNewsByID(c *gin.Context) {
+	id := c.Param("id")
+	news, err := h.service.GetNewsByIDAdmin(id)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "News not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "News retrieved successfully", news)
+}
+
+func (h *Handler) AdminUpdateNews(c *gin.Context) {
+	id := c.Param("id")
+	var req UpdateNewsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if req.Excerpt != "" {
+		req.Excerpt = sanitize.HTML(req.Excerpt)
+	}
+	if req.Content != "" {
+		req.Content = sanitize.HTML(req.Content)
+	}
+
+	news, err := h.service.UpdateNewsAdmin(id, req)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to update news")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "News updated successfully", news)
+}
+
+func (h *Handler) AdminDeleteNews(c *gin.Context) {
+	id := c.Param("id")
+	if err := h.service.DeleteNewsAdmin(id); err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to delete news")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "News deleted successfully", nil)
+}
+
+func (h *Handler) AdminUploadNewsImage(c *gin.Context) {
+	file, err := c.FormFile("image")
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "No image file provided")
+		return
+	}
+
+	url, err := h.service.UploadNewsImage(file)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to upload image")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Image uploaded successfully", gin.H{"url": url})
+}
+
+// ─── Admin Course CRUD Handlers ──────────────────────────────────────────────
+
+func (h *Handler) GetCoursesByLevel(c *gin.Context) {
+	level := c.Param("level")
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+
+	courses, total, err := h.service.GetCoursesByLevel(level, page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch courses")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Courses retrieved successfully", gin.H{
+		"courses": courses,
+		"meta": gin.H{
+			"total": total,
+			"page":  page,
+			"limit": limit,
+		},
+	})
+}
+
+func (h *Handler) GetCoursesByAffiliation(c *gin.Context) {
+	affiliationID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid affiliation ID")
+		return
+	}
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+
+	courses, total, err := h.service.GetCoursesByAffiliation(uint(affiliationID), page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch courses")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Courses retrieved successfully", gin.H{
+		"courses": courses,
+		"meta": gin.H{
+			"total": total,
+			"page":  page,
+			"limit": limit,
+		},
+	})
+}
+
+func (h *Handler) GetSecondaryCourses(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+
+	courses, total, err := h.service.GetSecondaryCourses(page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch courses")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Courses retrieved successfully", gin.H{
+		"courses": courses,
+		"meta": gin.H{
+			"total": total,
+			"page":  page,
+			"limit": limit,
+		},
+	})
+}
+
+func (h *Handler) AdminCreateCourse(c *gin.Context) {
+	var req CreateCourseRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err := req.Validate(); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	req.Normalize()
+	req.Description = sanitize.HTML(req.Description)
+
+	course, err := h.service.CreateCourse(req)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to create course")
+		return
+	}
+
+	response.Success(c, http.StatusCreated, "Course created successfully", course)
+}
+
+func (h *Handler) AdminListCourses(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+
+	courses, meta, err := h.service.GetAllCoursesAdmin(page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch courses")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Courses retrieved successfully", gin.H{
+		"courses": courses,
+		"meta":    meta,
+	})
+}
+
+func (h *Handler) AdminListPendingCourses(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+
+	courses, meta, err := h.service.GetPendingCourses(page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch pending courses")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Pending courses retrieved successfully", gin.H{
+		"courses": courses,
+		"meta":    meta,
+	})
+}
+
+func (h *Handler) AdminGetCourse(c *gin.Context) {
+	id := c.Param("id")
+	course, err := h.service.GetCourseByIDAdmin(id)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Course not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Course retrieved successfully", course)
+}
+
+func (h *Handler) AdminUpdateCourse(c *gin.Context) {
+	id := c.Param("id")
+	var req UpdateCourseRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if req.Description != nil && *req.Description != "" {
+		sanitized := sanitize.HTML(*req.Description)
+		req.Description = &sanitized
+	}
+
+	course, err := h.service.UpdateCourse(id, req)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to update course")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Course updated successfully", course)
+}
+
+func (h *Handler) AdminDeleteCourse(c *gin.Context) {
+	id := c.Param("id")
+	if err := h.service.DeleteCourse(id); err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to delete course")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Course deleted successfully", nil)
+}
+
+func (h *Handler) AdminPublishCourse(c *gin.Context) {
+	id := c.Param("id")
+	course, err := h.service.PublishCourse(id)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to publish course")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Course published successfully", course)
+}
+
 func (h *Handler) GetBlogComments(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -437,6 +896,28 @@ func (h *Handler) GetBlogComments(c *gin.Context) {
 	}
 
 	response.Success(c, http.StatusOK, "Comments retrieved successfully", comments)
+}
+
+func (h *Handler) GetResolvedCourse(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid course ID")
+		return
+	}
+
+	institutionID, err := strconv.ParseUint(c.Query("institutionId"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid institutionId query parameter")
+		return
+	}
+
+	resolved, err := h.service.ResolveCourse(uint(id), uint(institutionID))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Course or program not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Resolved course retrieved successfully", resolved)
 }
 
 func (h *Handler) CreateBlogComment(c *gin.Context) {
