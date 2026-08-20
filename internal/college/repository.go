@@ -185,8 +185,11 @@ func (r *Repository) FindAll(filters CollegeFilters) ([]College, int64, error) {
 	}
 
 	if filters.CourseID != "" {
-		query = query.Joins("LEFT JOIN college_university_courses ON college_university_courses.college_id = colleges.id AND college_university_courses.course_id = ?", filters.CourseID).
-			Select("colleges.*, (college_university_courses.course_id IS NOT NULL) AS course_offers")
+		query = query.
+			Joins("LEFT JOIN college_university_courses ON college_university_courses.college_id = colleges.id AND college_university_courses.course_id = ?", filters.CourseID).
+			Joins("LEFT JOIN institution_users iu_cuc ON iu_cuc.college_id = colleges.id AND iu_cuc.deleted_at IS NULL").
+			Joins("LEFT JOIN institution_programs ip_cuc ON ip_cuc.institution_id = iu_cuc.id AND ip_cuc.global_course_id = ? AND ip_cuc.status = 'active' AND ip_cuc.deleted_at IS NULL", filters.CourseID).
+			Select("colleges.*, (college_university_courses.course_id IS NOT NULL OR ip_cuc.id IS NOT NULL) AS course_offers")
 	}
 
 	sort := filters.Sort
