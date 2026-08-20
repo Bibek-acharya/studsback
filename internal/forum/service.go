@@ -565,6 +565,7 @@ func (s *Service) CreateForumComment(postID uint, userID uint, req CreateComment
 		PostID:   postID,
 		UserID:   userID,
 		Content:  req.Content,
+		ImageURL: req.ImageURL,
 		ParentID: req.ParentID,
 	}
 
@@ -695,6 +696,7 @@ func mapCommentToResponse(comment ForumComment) CommentResponse {
 		PostID:    comment.PostID,
 		UserID:    comment.UserID,
 		Content:   comment.Content,
+		ImageURL:  comment.ImageURL,
 		ParentID:  comment.ParentID,
 	}
 

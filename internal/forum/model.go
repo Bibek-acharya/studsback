@@ -64,6 +64,7 @@ type ForumComment struct {
 	UserID    uint           `gorm:"not null" json:"user_id"`
 	User      User           `gorm:"foreignKey:UserID" json:"user"`
 	Content   string         `gorm:"type:text;not null" json:"content"`
+	ImageURL  string         `json:"image_url"`
 	ParentID  *uint          `json:"parent_id"`
 	Replies   []ForumComment `gorm:"-" json:"replies"`
 }

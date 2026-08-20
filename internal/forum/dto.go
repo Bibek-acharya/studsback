@@ -32,6 +32,7 @@ type UpdatePostRequest struct {
 
 type CreateCommentRequest struct {
 	Content  string `json:"content" binding:"required"`
+	ImageURL string `json:"image_url"`
 	ParentID *uint  `json:"parent_id"`
 }
 
@@ -89,6 +90,7 @@ type CommentResponse struct {
 	User      CommentUser       `json:"user"`
 	UserName  string            `json:"user_name"`
 	Content   string            `json:"content"`
+	ImageURL  string            `json:"image_url"`
 	ParentID  *uint             `json:"parent_id"`
 	Replies   []CommentResponse `json:"replies"`
 }
