@@ -220,7 +220,6 @@ func (s *Service) SendOTP(email string, otpType string) error {
 
 	if otpType == "password_reset" {
 		_, userErr := s.repo.FindUserByEmail(email)
-		_, institutionErr := s.repo.FindInstitutionUserByEmail(email)
 		_, providerErr := s.repo.FindScholarshipProviderUserByEmail(email)
 		_, instErr := s.repo.FindInstitutionUserByEmail(email)
 		if userErr != nil && providerErr != nil && instErr != nil {
