@@ -1019,3 +1019,53 @@ func (r *Repository) GetFilterCounts(level string) (*CollegeFilterCountsResponse
 
 	return resp, nil
 }
+
+// Comparison History methods
+
+func (r *Repository) LogComparison(college1ID, college2ID uint, college1Name, college2Name string) error {
+	// Normalize: always store smaller ID first to avoid duplicate pairs
+	c1ID, c2ID := college1ID, college2ID
+	c1Name, c2Name := college1Name, college2Name
+	if college1ID > college2ID {
+		c1ID, c2ID = college2ID, college1ID
+		c1Name, c2Name = college2Name, college1Name
+	}
+
+	var history ComparisonHistory
+	result := r.db.Where("college1_id = ? AND college2_id = ? AND deleted_at IS NULL", c1ID, c2ID).First(&history)
+	if result.Error == gorm.ErrRecordNotFound {
+		history = ComparisonHistory{
+			College1ID:      c1ID,
+			College2ID:      c2ID,
+			College1Name:    c1Name,
+			College2Name:    c2Name,
+			ComparisonCount: 1,
+		}
+		return r.db.Create(&history).Error
+	}
+	if result.Error != nil {
+		return result.Error
+	}
+	history.ComparisonCount++
+	return r.db.Save(&history).Error
+}
+
+type PopularComparison struct {
+	College1ID    uint   `json:"college1_id"`
+	College1Name  string `json:"college1_name"`
+	College2ID    uint   `json:"college2_id"`
+	College2Name  string `json:"college2_name"`
+	Count         int    `json:"count"`
+}
+
+func (r *Repository) GetPopularComparisons(limit int) ([]PopularComparison, error) {
+	var results []PopularComparison
+	err := r.db.
+		Table("comparison_history").
+		Select("college1_id, college1_name, college2_id, college2_name, comparison_count as count").
+		Where("deleted_at IS NULL").
+		Order("comparison_count DESC").
+		Limit(limit).
+		Scan(&results).Error
+	return results, err
+}

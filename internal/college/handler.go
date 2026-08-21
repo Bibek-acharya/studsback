@@ -333,3 +333,39 @@ func (h *Handler) UpdateInstitutionCollegeLocation(c *gin.Context) {
 		"longitude":  req.Longitude,
 	})
 }
+
+// Comparison History handlers
+
+type LogComparisonRequest struct {
+	College1ID   uint   `json:"college1_id" binding:"required"`
+	College2ID   uint   `json:"college2_id" binding:"required"`
+	College1Name string `json:"college1_name" binding:"required"`
+	College2Name string `json:"college2_name" binding:"required"`
+}
+
+func (h *Handler) LogComparison(c *gin.Context) {
+	var req LogComparisonRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid request: "+err.Error())
+		return
+	}
+
+	if err := h.service.LogComparison(req.College1ID, req.College2ID, req.College1Name, req.College2Name); err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to log comparison")
+		return
+	}
+
+	response.Success(c, http.StatusCreated, "Comparison logged", nil)
+}
+
+func (h *Handler) GetPopularComparisons(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "6"))
+
+	result, err := h.service.GetPopularComparisons(limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch popular comparisons")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Popular comparisons retrieved", result)
+}

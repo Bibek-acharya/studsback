@@ -491,3 +491,16 @@ func parseJSONField(data []byte, fallback interface{}) interface{} {
 
 	return parsed
 }
+
+// Comparison History methods
+
+func (s *Service) LogComparison(college1ID, college2ID uint, college1Name, college2Name string) error {
+	return s.repo.LogComparison(college1ID, college2ID, college1Name, college2Name)
+}
+
+func (s *Service) GetPopularComparisons(limit int) ([]PopularComparison, error) {
+	if limit <= 0 || limit > 20 {
+		limit = 6
+	}
+	return s.repo.GetPopularComparisons(limit)
+}

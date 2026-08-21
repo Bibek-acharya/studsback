@@ -115,6 +115,7 @@ func main() {
 		&auth.ProfileDocument{},
 		&university.University{},
 		&college.College{},
+		&college.ComparisonHistory{},
 		&counselling.CounsellingBooking{},
 		&scholarship.Scholarship{},
 		&scholarship.ScholarshipApplication{},
