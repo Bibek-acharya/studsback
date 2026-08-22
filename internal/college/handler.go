@@ -3,6 +3,8 @@ package college
 import (
 	"net/http"
 	"strconv"
+	"sync"
+	"time"
 
 	"studsphere/backend/internal/institution"
 	"studsphere/backend/internal/shared/response"
@@ -15,6 +17,49 @@ type Handler struct {
 	service         *Service
 	institutionRepo *institution.Repository
 }
+
+// Rate limiter for log-comparison: max 10 requests per minute per IP
+type rateLimiter struct {
+	mu       sync.Mutex
+	requests map[string][]time.Time
+	limit    int
+	window   time.Duration
+}
+
+func newRateLimiter(limit int, window time.Duration) *rateLimiter {
+	return &rateLimiter{
+		requests: make(map[string][]time.Time),
+		limit:    limit,
+		window:   window,
+	}
+}
+
+func (rl *rateLimiter) Allow(key string) bool {
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+
+	now := time.Now()
+	windowStart := now.Add(-rl.window)
+
+	// Clean old requests
+	reqs := rl.requests[key]
+	valid := make([]time.Time, 0, len(reqs))
+	for _, t := range reqs {
+		if t.After(windowStart) {
+			valid = append(valid, t)
+		}
+	}
+
+	if len(valid) >= rl.limit {
+		rl.requests[key] = valid
+		return false
+	}
+
+	rl.requests[key] = append(valid, now)
+	return true
+}
+
+var comparisonLimiter = newRateLimiter(10, time.Minute)
 
 func NewHandler(service *Service, institutionRepo *institution.Repository) *Handler {
 	return &Handler{service: service, institutionRepo: institutionRepo}
@@ -344,9 +389,32 @@ type LogComparisonRequest struct {
 }
 
 func (h *Handler) LogComparison(c *gin.Context) {
+	// Rate limit: 10 requests per minute per IP
+	ip := c.ClientIP()
+	if !comparisonLimiter.Allow(ip) {
+		response.Error(c, http.StatusTooManyRequests, "Rate limit exceeded. Try again later.")
+		return
+	}
+
 	var req LogComparisonRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "Invalid request: "+err.Error())
+		return
+	}
+
+	// Validate college IDs are different
+	if req.College1ID == req.College2ID {
+		response.Error(c, http.StatusBadRequest, "Cannot compare a college with itself")
+		return
+	}
+
+	// Validate college IDs exist
+	if err := h.service.ValidateCollegeExists(req.College1ID); err != nil {
+		response.Error(c, http.StatusBadRequest, "College 1 not found")
+		return
+	}
+	if err := h.service.ValidateCollegeExists(req.College2ID); err != nil {
+		response.Error(c, http.StatusBadRequest, "College 2 not found")
 		return
 	}
 

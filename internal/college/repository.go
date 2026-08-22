@@ -1022,6 +1022,11 @@ func (r *Repository) GetFilterCounts(level string) (*CollegeFilterCountsResponse
 
 // Comparison History methods
 
+func (r *Repository) ValidateCollegeExists(collegeID uint) error {
+	var college College
+	return r.db.Where("id = ? AND deleted_at IS NULL", collegeID).First(&college).Error
+}
+
 func (r *Repository) LogComparison(college1ID, college2ID uint, college1Name, college2Name string) error {
 	// Normalize: always store smaller ID first to avoid duplicate pairs
 	c1ID, c2ID := college1ID, college2ID
@@ -1067,14 +1072,16 @@ func (r *Repository) GetPopularComparisons(limit int) ([]PopularComparison, erro
 		Select(`
 			ch.college1_id,
 			ch.college1_name,
-			COALESCE(iu1.logo_url, '') as college1_logo_url,
+			COALESCE(NULLIF(iu1.logo_url, ''), c1.image_url, '') as college1_logo_url,
 			ch.college2_id,
 			ch.college2_name,
-			COALESCE(iu2.logo_url, '') as college2_logo_url,
+			COALESCE(NULLIF(iu2.logo_url, ''), c2.image_url, '') as college2_logo_url,
 			ch.comparison_count as count
 		`).
 		Joins("LEFT JOIN institution_users iu1 ON iu1.college_id = ch.college1_id AND iu1.deleted_at IS NULL").
 		Joins("LEFT JOIN institution_users iu2 ON iu2.college_id = ch.college2_id AND iu2.deleted_at IS NULL").
+		Joins("LEFT JOIN colleges c1 ON c1.id = ch.college1_id AND c1.deleted_at IS NULL").
+		Joins("LEFT JOIN colleges c2 ON c2.id = ch.college2_id AND c2.deleted_at IS NULL").
 		Where("ch.deleted_at IS NULL").
 		Order("ch.comparison_count DESC").
 		Limit(limit).

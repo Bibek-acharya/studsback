@@ -494,6 +494,10 @@ func parseJSONField(data []byte, fallback interface{}) interface{} {
 
 // Comparison History methods
 
+func (s *Service) ValidateCollegeExists(collegeID uint) error {
+	return s.repo.ValidateCollegeExists(collegeID)
+}
+
 func (s *Service) LogComparison(college1ID, college2ID uint, college1Name, college2Name string) error {
 	return s.repo.LogComparison(college1ID, college2ID, college1Name, college2Name)
 }
