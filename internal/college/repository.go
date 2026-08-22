@@ -1051,20 +1051,32 @@ func (r *Repository) LogComparison(college1ID, college2ID uint, college1Name, co
 }
 
 type PopularComparison struct {
-	College1ID    uint   `json:"college1_id"`
-	College1Name  string `json:"college1_name"`
-	College2ID    uint   `json:"college2_id"`
-	College2Name  string `json:"college2_name"`
-	Count         int    `json:"count"`
+	College1ID      uint   `json:"college1_id"`
+	College1Name    string `json:"college1_name"`
+	College1LogoURL string `json:"college1_logo_url"`
+	College2ID      uint   `json:"college2_id"`
+	College2Name    string `json:"college2_name"`
+	College2LogoURL string `json:"college2_logo_url"`
+	Count           int    `json:"count"`
 }
 
 func (r *Repository) GetPopularComparisons(limit int) ([]PopularComparison, error) {
 	var results []PopularComparison
 	err := r.db.
-		Table("comparison_history").
-		Select("college1_id, college1_name, college2_id, college2_name, comparison_count as count").
-		Where("deleted_at IS NULL").
-		Order("comparison_count DESC").
+		Table("comparison_history ch").
+		Select(`
+			ch.college1_id,
+			ch.college1_name,
+			COALESCE(iu1.logo_url, '') as college1_logo_url,
+			ch.college2_id,
+			ch.college2_name,
+			COALESCE(iu2.logo_url, '') as college2_logo_url,
+			ch.comparison_count as count
+		`).
+		Joins("LEFT JOIN institution_users iu1 ON iu1.college_id = ch.college1_id AND iu1.deleted_at IS NULL").
+		Joins("LEFT JOIN institution_users iu2 ON iu2.college_id = ch.college2_id AND iu2.deleted_at IS NULL").
+		Where("ch.deleted_at IS NULL").
+		Order("ch.comparison_count DESC").
 		Limit(limit).
 		Scan(&results).Error
 	return results, err
