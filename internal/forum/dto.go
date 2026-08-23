@@ -69,6 +69,7 @@ type PostResponse struct {
 	Downvotes    int         `json:"downvotes"`
 	CommentCount int         `json:"comment_count"`
 	IsPoll       bool        `json:"is_poll"`
+	PollOptions  string      `json:"poll_options"`
 	IsLiked      bool        `json:"is_liked"`
 	IsDisliked   bool        `json:"is_disliked"`
 	IsSaved      bool        `json:"is_saved"`
