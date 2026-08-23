@@ -71,13 +71,18 @@ func applyInstitutionProfile(result *ComparisonCollege, raw []byte) {
 		return
 	}
 	var profile struct {
-		Facilities []map[string]interface{} `json:"facilities_data"`
-		Gallery    interface{}              `json:"gallery_data"`
+		Facilities     []map[string]interface{} `json:"facilities_data"`
+		FacilitiesData []map[string]interface{} `json:"facilitiesData"`
+		Gallery        interface{}              `json:"gallery_data"`
 	}
 	if json.Unmarshal(raw, &profile) != nil {
 		return
 	}
-	for _, facility := range profile.Facilities {
+	facilities := profile.Facilities
+	if len(facilities) == 0 {
+		facilities = profile.FacilitiesData
+	}
+	for _, facility := range facilities {
 		for _, key := range []string{"heading", "title", "name"} {
 			if value, ok := facility[key].(string); ok && value != "" {
 				result.Facilities = append(result.Facilities, value)
