@@ -667,6 +667,7 @@ func mapPostToResponse(post ForumPost) PostResponse {
 		Downvotes:    post.Downvotes,
 		CommentCount: post.CommentCount,
 		IsPoll:       post.IsPoll,
+		PollOptions:  post.PollOptions,
 		IsLiked:      post.IsLiked,
 		IsDisliked:   post.IsDisliked,
 		IsSaved:      post.IsSaved,
