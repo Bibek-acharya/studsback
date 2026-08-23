@@ -421,6 +421,74 @@ func buildCollegeMapDTOs(colleges []College) []CollegeMapDTO {
 	return dtos
 }
 
+// calculateFitScores computes fit scores based on college data
+func calculateFitScores(college College) (academic, campus, career, balanced int) {
+	// Parse JSON fields to get counts
+	featuredPrograms := parseJSONField(college.FeaturedPrograms, []interface{}{})
+	amenities := parseJSONField(college.Amenities, []interface{}{})
+	gallery := parseJSONField(college.Gallery, []interface{}{})
+	alumni := parseJSONField(college.Alumni, []interface{}{})
+	offeredPrograms := parseJSONField(college.OfferedPrograms, []interface{}{})
+	courses := parseJSONField(college.Courses, []interface{}{})
+
+	// Programs count: prefer actual count from offered_programs or courses
+	programCount := len(offeredPrograms.([]interface{}))
+	if programCount == 0 {
+		programCount = len(courses.([]interface{}))
+	}
+	if programCount == 0 {
+		programCount = college.Programs // fallback to static field
+	}
+
+	amenityCount := len(amenities.([]interface{}))
+	galleryCount := len(gallery.([]interface{}))
+	alumniCount := len(alumni.([]interface{}))
+	featuredCount := len(featuredPrograms.([]interface{}))
+	reviewCount := college.Reviews
+
+	// Academic Fit: rating (40%) + programs (30%) + reviews (30%)
+	academic = int(college.Rating*4 + float64(min(programCount, 10))*3 + float64(min(reviewCount, 50))*3/10)
+	if academic > 10 {
+		academic = 10
+	}
+	if academic < 1 {
+		academic = 1
+	}
+
+	// Campus Life: amenities (40%) + gallery (30%) + rating (30%)
+	campus = int(float64(min(amenityCount, 10))*4 + float64(min(galleryCount, 10))*3 + college.Rating*3)
+	if campus > 10 {
+		campus = 10
+	}
+	if campus < 1 {
+		campus = 1
+	}
+
+	// Career Fit: programs (40%) + alumni (30%) + featured programs (30%)
+	career = int(float64(min(programCount, 10))*4 + float64(min(alumniCount, 10))*3 + float64(min(featuredCount, 10))*3)
+	if career > 10 {
+		career = 10
+	}
+	if career < 1 {
+		career = 1
+	}
+
+	// Balanced: average of three
+	balanced = (academic + campus + career) / 3
+	if balanced < 1 {
+		balanced = 1
+	}
+
+	return
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 func buildCollegeResponse(college College) CollegeResponse {
 	affiliation := college.Affiliation
 	if len(college.UniversityAffiliations) > 0 {
@@ -428,6 +496,20 @@ func buildCollegeResponse(college College) CollegeResponse {
 		if err := json.Unmarshal(college.UniversityAffiliations, &uniIDs); err == nil && len(uniIDs) > 0 {
 			affiliation = fmt.Sprintf("University IDs: %v", uniIDs)
 		}
+	}
+
+	// Calculate fit scores dynamically
+	academicFit, campusLifeFit, careerFit, balancedFit := calculateFitScores(college)
+
+	// Calculate program count from actual data
+	offeredPrograms := parseJSONField(college.OfferedPrograms, []interface{}{})
+	courses := parseJSONField(college.Courses, []interface{}{})
+	programCount := len(offeredPrograms.([]interface{}))
+	if programCount == 0 {
+		programCount = len(courses.([]interface{}))
+	}
+	if programCount == 0 {
+		programCount = college.Programs // fallback to static field
 	}
 
 	return CollegeResponse{
@@ -445,7 +527,7 @@ func buildCollegeResponse(college College) CollegeResponse {
 		Featured:                 college.Featured,
 		Rating:                   college.Rating,
 		Reviews:                  college.Reviews,
-		Programs:                 college.Programs,
+		Programs:                 programCount,
 		Established:              college.Established,
 		Students:                 college.Students,
 		Description:              college.Description,
@@ -466,10 +548,10 @@ func buildCollegeResponse(college College) CollegeResponse {
 		Alumni:                   parseJSONField(college.Alumni, []interface{}{}),
 		Departments:              parseJSONField(college.Departments, []interface{}{}),
 		CollegeReviews:           parseJSONField(college.CollegeReviews, []interface{}{}),
-		AcademicFitScore:         college.AcademicFitScore,
-		CampusLifeScore:          college.CampusLifeScore,
-		CareerFitScore:           college.CareerFitScore,
-		BalancedFitScore:         college.BalancedFitScore,
+		AcademicFitScore:         academicFit,
+		CampusLifeScore:          campusLifeFit,
+		CareerFitScore:           careerFit,
+		BalancedFitScore:         balancedFit,
 		ProfileTags:              parseJSONField(college.ProfileTags, []interface{}{}),
 		Latitude:                 college.Latitude,
 		Longitude:                college.Longitude,
