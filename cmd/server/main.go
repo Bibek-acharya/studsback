@@ -133,6 +133,8 @@ func main() {
 		&forum.ForumVote{},
 		&forum.ForumSave{},
 		&forum.ForumPollVote{},
+		&forum.ForumReport{},
+		&forum.ForumNotInterested{},
 		&admission.Admission{},
 		&jobs.Job{},
 		&jobs.JobApplication{},

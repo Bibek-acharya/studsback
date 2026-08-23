@@ -716,6 +716,28 @@ func mapCommentToResponse(comment ForumComment) CommentResponse {
 	return resp
 }
 
+func (s *Service) ReportPost(postID, userID uint, req ReportPostRequest) error {
+	report := &ForumReport{
+		PostID:    postID,
+		UserID:    userID,
+		Reasons:   strings.Join(req.Reasons, ","),
+		OtherText: req.OtherText,
+	}
+	return s.repo.CreateReport(report)
+}
+
+func (s *Service) NotInterested(postID, userID uint) error {
+	ni := &ForumNotInterested{
+		PostID: postID,
+		UserID: userID,
+	}
+	return s.repo.CreateNotInterested(ni)
+}
+
+func (s *Service) GetNotInterestedPostIDs(userID uint) ([]uint, error) {
+	return s.repo.GetNotInterestedPostIDs(userID)
+}
+
 func ParseUint(s string) (uint, error) {
 	v, err := strconv.ParseUint(s, 10, 64)
 	if err != nil {

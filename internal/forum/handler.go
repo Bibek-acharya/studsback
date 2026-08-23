@@ -446,3 +446,51 @@ func getUserID(c *gin.Context) uint {
 
 	return 0
 }
+
+func (h *Handler) ReportForumPost(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		response.Error(c, 401, "Authentication required")
+		return
+	}
+
+	postID, err := ParseUint(c.Param("id"))
+	if err != nil {
+		response.Error(c, 400, "Invalid post ID")
+		return
+	}
+
+	var req ReportPostRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+
+	if err := h.service.ReportPost(postID, userID.(uint), req); err != nil {
+		response.Error(c, 500, err.Error())
+		return
+	}
+
+	response.Success(c, 200, "Report submitted successfully", nil)
+}
+
+func (h *Handler) NotInterestedForumPost(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		response.Error(c, 401, "Authentication required")
+		return
+	}
+
+	postID, err := ParseUint(c.Param("id"))
+	if err != nil {
+		response.Error(c, 400, "Invalid post ID")
+		return
+	}
+
+	if err := h.service.NotInterested(postID, userID.(uint)); err != nil {
+		response.Error(c, 500, err.Error())
+		return
+	}
+
+	response.Success(c, 200, "Post hidden from your feed", nil)
+}

@@ -27,6 +27,8 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 				protectedForum.DELETE("/posts/:id", h.DeleteForumPost)
 				protectedForum.POST("/posts/:id/comments", h.CreateForumComment)
 				protectedForum.POST("/posts/:id/poll/vote", h.VoteForumPoll)
+				protectedForum.POST("/posts/:id/report", h.ReportForumPost)
+				protectedForum.POST("/posts/:id/not-interested", h.NotInterestedForumPost)
 				protectedForum.POST("/upload", h.UploadForumMedia)
 				protectedForum.POST("/communities", h.CreateForumCommunity)
 				protectedForum.POST("/communities/:id/join", h.JoinForumCommunity)

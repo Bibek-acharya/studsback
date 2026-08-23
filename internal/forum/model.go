@@ -92,6 +92,22 @@ type ForumPollVote struct {
 	OptionIdx int       `json:"option_idx"`
 }
 
+type ForumReport struct {
+	ID        uint      `gorm:"primarykey" json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+	PostID    uint      `gorm:"not null" json:"post_id"`
+	UserID    uint      `gorm:"not null" json:"user_id"`
+	Reasons   string    `gorm:"type:text;not null" json:"reasons"`
+	OtherText string    `gorm:"type:text" json:"other_text"`
+}
+
+type ForumNotInterested struct {
+	ID        uint      `gorm:"primarykey" json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+	PostID    uint      `gorm:"uniqueIndex:idx_user_post_ni;not null" json:"post_id"`
+	UserID    uint      `gorm:"uniqueIndex:idx_user_post_ni;not null" json:"user_id"`
+}
+
 type User struct {
 	ID        uint   `json:"id"`
 	Email     string `json:"email"`
