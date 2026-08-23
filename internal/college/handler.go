@@ -130,6 +130,26 @@ func (h *Handler) GetCollegeByID(c *gin.Context) {
 	response.Success(c, 200, "College retrieved successfully", result)
 }
 
+func (h *Handler) CompareColleges(c *gin.Context) {
+	college1ID, err1 := strconv.ParseUint(c.Query("college1_id"), 10, 64)
+	college2ID, err2 := strconv.ParseUint(c.Query("college2_id"), 10, 64)
+	if err1 != nil || err2 != nil || college1ID == 0 || college2ID == 0 {
+		response.Error(c, http.StatusBadRequest, "Valid college1_id and college2_id are required")
+		return
+	}
+	if college1ID == college2ID {
+		response.Error(c, http.StatusBadRequest, "Cannot compare a college with itself")
+		return
+	}
+
+	result, err := h.service.CompareColleges(uint(college1ID), uint(college2ID))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, err.Error())
+		return
+	}
+	response.Success(c, http.StatusOK, "College comparison retrieved", result)
+}
+
 func (h *Handler) CreateCollege(c *gin.Context) {
 	var req CreateCollegeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

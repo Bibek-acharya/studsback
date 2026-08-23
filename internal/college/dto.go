@@ -149,6 +149,33 @@ type CollegeListResponse struct {
 	Pagination PaginationInfo    `json:"pagination"`
 }
 
+type ComparisonReview struct {
+	ID        uint               `json:"id"`
+	Rating    float64            `json:"rating"`
+	Ratings   map[string]float64 `json:"ratings"`
+	Pros      string             `json:"pros"`
+	Cons      string             `json:"cons"`
+	Course    string             `json:"course"`
+	CreatedAt interface{}        `json:"created_at"`
+}
+
+type ComparisonCollege struct {
+	College       CollegeResponse    `json:"college"`
+	InstitutionID uint               `json:"institution_id,omitempty"`
+	LogoURL       string             `json:"logo_url,omitempty"`
+	Facilities    []string           `json:"facilities"`
+	Scholarships  []interface{}      `json:"scholarships"`
+	Gallery       interface{}        `json:"gallery"`
+	Rating        float64            `json:"rating"`
+	ReviewCount   int                `json:"review_count"`
+	Reviews       []ComparisonReview `json:"reviews"`
+}
+
+type CollegeComparisonResponse struct {
+	College1 ComparisonCollege `json:"college1"`
+	College2 ComparisonCollege `json:"college2"`
+}
+
 type CollegeFilters struct {
 	UniversityID    string
 	Location        string

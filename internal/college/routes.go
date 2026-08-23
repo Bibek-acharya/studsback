@@ -15,6 +15,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			colleges.GET("/filter-counts", h.GetCollegeFilterCounts)
 			colleges.GET("/featured", h.GetFeaturedColleges)
 			colleges.GET("/popular-comparisons", h.GetPopularComparisons)
+			colleges.GET("/compare", h.CompareColleges)
 			colleges.GET("/:id", h.GetCollegeByID)
 			colleges.POST("/recommend", h.RecommendColleges)
 			colleges.POST("/log-comparison", h.LogComparison)
