@@ -274,3 +274,17 @@ func (r *Repository) GetTrendingPosts(limit int) ([]ForumPost, error) {
 		Find(&posts).Error
 	return posts, err
 }
+
+func (r *Repository) CreateReport(report *ForumReport) error {
+	return r.db.Create(report).Error
+}
+
+func (r *Repository) CreateNotInterested(ni *ForumNotInterested) error {
+	return r.db.Create(ni).Error
+}
+
+func (r *Repository) GetNotInterestedPostIDs(userID uint) ([]uint, error) {
+	var ids []uint
+	err := r.db.Model(&ForumNotInterested{}).Where("user_id = ?", userID).Pluck("post_id", &ids).Error
+	return ids, err
+}

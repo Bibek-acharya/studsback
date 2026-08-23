@@ -40,6 +40,11 @@ type VotePollRequest struct {
 	OptionIdx int `json:"option_idx" binding:"required"`
 }
 
+type ReportPostRequest struct {
+	Reasons   []string `json:"reasons" binding:"required"`
+	OtherText string   `json:"other_text"`
+}
+
 type CommunityResponse struct {
 	ID          uint   `json:"id"`
 	Name        string `json:"name"`
