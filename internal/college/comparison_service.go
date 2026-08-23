@@ -3,11 +3,11 @@ package college
 import "errors"
 
 func (s *Service) CompareColleges(college1ID, college2ID uint) (*CollegeComparisonResponse, error) {
-	college1, err := s.repo.FindByID(college1ID)
+	college1, err := s.repo.FindByIDOrInstitutionID(college1ID)
 	if err != nil {
 		return nil, errors.New("first college not found")
 	}
-	college2, err := s.repo.FindByID(college2ID)
+	college2, err := s.repo.FindByIDOrInstitutionID(college2ID)
 	if err != nil {
 		return nil, errors.New("second college not found")
 	}

@@ -264,6 +264,23 @@ func (r *Repository) FindByID(id uint) (*College, error) {
 	return &college, nil
 }
 
+// FindByIDOrInstitutionID resolves legacy comparison records that stored an
+// institution_users ID instead of the corresponding colleges ID.
+func (r *Repository) FindByIDOrInstitutionID(id uint) (*College, error) {
+	college, err := r.FindByID(id)
+	if err == nil {
+		return college, nil
+	}
+
+	var collegeID uint
+	if err := r.db.Table("institution_users").
+		Where("id = ? AND college_id > 0 AND deleted_at IS NULL", id).
+		Pluck("college_id", &collegeID).Error; err != nil || collegeID == 0 {
+		return nil, err
+	}
+	return r.FindByID(collegeID)
+}
+
 func (r *Repository) Create(college *College) error {
 	return r.db.Create(college).Error
 }
@@ -560,20 +577,20 @@ func (r *Repository) FindAllForRecommendation(limit int) ([]College, error) {
 			colType = "Private"
 		}
 		c := College{
-			ID:              row.ID,
-			Name:            row.InstitutionName,
-			FullName:        row.InstitutionName,
-			Location:        loc,
-			Affiliation:     row.Affiliation,
-			CollegeType:     colType,
-			Verified:        row.Verified,
-			Featured:        row.Featured,
-			Description:     row.About,
-			Website:         row.WebsiteURL,
-			ImageURL:        row.LogoURL,
+			ID:               row.ID,
+			Name:             row.InstitutionName,
+			FullName:         row.InstitutionName,
+			Location:         loc,
+			Affiliation:      row.Affiliation,
+			CollegeType:      colType,
+			Verified:         row.Verified,
+			Featured:         row.Featured,
+			Description:      row.About,
+			Website:          row.WebsiteURL,
+			ImageURL:         row.LogoURL,
 			AcademicFitScore: 5,
-			CampusLifeScore: 5,
-			CareerFitScore:  5,
+			CampusLifeScore:  5,
+			CareerFitScore:   5,
 			BalancedFitScore: 5,
 		}
 		colleges = append(colleges, c)
