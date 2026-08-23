@@ -1040,8 +1040,8 @@ func (r *Repository) GetFilterCounts(level string) (*CollegeFilterCountsResponse
 // Comparison History methods
 
 func (r *Repository) ValidateCollegeExists(collegeID uint) error {
-	var college College
-	return r.db.Where("id = ? AND deleted_at IS NULL", collegeID).First(&college).Error
+	_, err := r.FindByIDOrInstitutionID(collegeID)
+	return err
 }
 
 func (r *Repository) LogComparison(college1ID, college2ID uint, college1Name, college2Name string) error {
