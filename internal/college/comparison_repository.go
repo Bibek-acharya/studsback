@@ -36,16 +36,21 @@ func (r *Repository) BuildComparisonCollege(college College) (ComparisonCollege,
 		Gallery:      []interface{}{},
 		Reviews:      []ComparisonReview{},
 	}
+	if len(college.Amenities) > 0 {
+		_ = json.Unmarshal(college.Amenities, &result.Facilities)
+	}
 
 	var institution comparisonInstitution
 	instErr := r.db.Table("institution_users").
 		Select("id, logo_url, profile_data").
-		Where("college_id = ? AND deleted_at IS NULL", college.ID).
+		Where("(college_id = ? OR id = ?) AND deleted_at IS NULL", college.ID, college.ID).
 		Order("verified DESC, claimed DESC, id ASC").
 		First(&institution).Error
 	if instErr == nil {
 		result.InstitutionID = institution.ID
-		result.LogoURL = institution.LogoURL
+		if institution.LogoURL != "" {
+			result.LogoURL = institution.LogoURL
+		}
 		applyInstitutionProfile(&result, institution.ProfileData)
 
 		var scholarships []comparisonScholarship

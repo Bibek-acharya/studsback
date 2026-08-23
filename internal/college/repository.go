@@ -272,13 +272,32 @@ func (r *Repository) FindByIDOrInstitutionID(id uint) (*College, error) {
 		return college, nil
 	}
 
-	var collegeID uint
+	var institution struct {
+		ID              uint
+		CollegeID       uint
+		InstitutionName string
+		District        string
+		Affiliation     string
+		LogoURL         string
+		About           string
+	}
 	if err := r.db.Table("institution_users").
-		Where("id = ? AND college_id > 0 AND deleted_at IS NULL", id).
-		Pluck("college_id", &collegeID).Error; err != nil || collegeID == 0 {
+		Select("id, college_id, institution_name, district, affiliation, logo_url, about").
+		Where("id = ? AND deleted_at IS NULL", id).
+		First(&institution).Error; err != nil {
 		return nil, err
 	}
-	return r.FindByID(collegeID)
+	if institution.CollegeID > 0 {
+		return r.FindByID(institution.CollegeID)
+	}
+	return &College{
+		ID:          institution.ID,
+		Name:        institution.InstitutionName,
+		Location:    institution.District,
+		Affiliation: institution.Affiliation,
+		ImageURL:    institution.LogoURL,
+		Description: institution.About,
+	}, nil
 }
 
 func (r *Repository) Create(college *College) error {
