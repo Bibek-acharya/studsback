@@ -1470,17 +1470,17 @@ func (r *Repository) GetPublicFilterCounts() (*PublicInstitutionFilterCountsResp
 	}
 
 	academicLevelCounts := map[string]int64{
-		"+2":                        0,
-		"A-Level":                   0,
-		"TSLC (CTEVT)":              0,
-		"Diploma (CTEVT)":           0,
-		"PCL":                       0,
-		"Bachelor's":                0,
-		"Bachelor's (Honours)":      0,
+		"+2":                         0,
+		"A-Level":                    0,
+		"TSLC (CTEVT)":               0,
+		"Diploma (CTEVT)":            0,
+		"PCL":                        0,
+		"Bachelor's":                 0,
+		"Bachelor's (Honours)":       0,
 		"Postgraduate Diploma (PGD)": 0,
-		"Master's":                  0,
-		"MPhil":                     0,
-		"PhD":                       0,
+		"Master's":                   0,
+		"MPhil":                      0,
+		"PhD":                        0,
 	}
 
 	for _, row := range facetRows {
@@ -1537,12 +1537,12 @@ func (r *Repository) GetPublicFilterCounts() (*PublicInstitutionFilterCountsResp
 
 	facilityNames := []string{"Library", "Hostel", "Transportation", "Lab", "Sports", "Cafeteria"}
 	facilityPatterns := map[string]string{
-		"Library":       "library",
-		"Hostel":        "hostel",
+		"Library":        "library",
+		"Hostel":         "hostel",
 		"Transportation": "transport",
-		"Lab":           "lab",
-		"Sports":        "sport",
-		"Cafeteria":     "cafeteria",
+		"Lab":            "lab",
+		"Sports":         "sport",
+		"Cafeteria":      "cafeteria",
 	}
 	for _, fac := range facilityNames {
 		var count int64
@@ -1717,4 +1717,40 @@ func (r *Repository) UpdateCourseRequestStatus(id uint, status string, reviewedB
 		updates["rejection_reason"] = reason
 	}
 	return r.db.Model(&CourseApprovalRequest{}).Where("id = ?", id).Updates(updates).Error
+}
+
+type InstitutionReviewStats struct {
+	Avg   float64
+	Count int64
+}
+
+// ReviewStatsForInstitutions returns averaged review ratings keyed by the id
+// reviews are linked with (institution_id, or college_id when linked that way).
+func (r *Repository) ReviewStatsForInstitutions(ids []uint) map[uint]InstitutionReviewStats {
+	stats := map[uint]InstitutionReviewStats{}
+	if len(ids) == 0 {
+		return stats
+	}
+	var rows []struct {
+		Key         uint
+		AvgRating   float64
+		ReviewCount int64
+	}
+	err := r.db.Raw(`
+		SELECT COALESCE(NULLIF(rv.institution_id, 0), rv.college_id) AS inst_key,
+		       ROUND(AVG(e.value::numeric), 1)::float8 AS avg_rating,
+		       COUNT(DISTINCT rv.id) AS review_count
+		FROM reviews rv
+		CROSS JOIN LATERAL jsonb_each_text(rv.ratings) e
+		WHERE rv.is_published = true AND rv.deleted_at IS NULL
+		  AND (rv.institution_id IN ? OR rv.college_id IN ?)
+		GROUP BY inst_key
+	`, ids, ids).Scan(&rows).Error
+	if err != nil {
+		return stats
+	}
+	for _, row := range rows {
+		stats[row.Key] = InstitutionReviewStats{Avg: row.AvgRating, Count: row.ReviewCount}
+	}
+	return stats
 }

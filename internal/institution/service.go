@@ -2330,6 +2330,19 @@ func (s *Service) ListPublicInstitutions(page, limit int, search, location, inst
 		return nil, 0, err
 	}
 
+	idSet := make(map[uint]bool)
+	for _, u := range users {
+		idSet[u.ID] = true
+		if u.CollegeID > 0 {
+			idSet[u.CollegeID] = true
+		}
+	}
+	ids := make([]uint, 0, len(idSet))
+	for id := range idSet {
+		ids = append(ids, id)
+	}
+	reviewStats := s.repo.ReviewStatsForInstitutions(ids)
+
 	results := make([]PublicInstitutionResponse, len(users))
 	for i, u := range users {
 		logoURL := u.LogoURL
@@ -2343,6 +2356,10 @@ func (s *Service) ListPublicInstitutions(page, limit int, search, location, inst
 		cardImageURL := u.CardImageURL
 		if strings.HasPrefix(cardImageURL, "data:") {
 			cardImageURL = ""
+		}
+		stats, ok := reviewStats[u.ID]
+		if !ok && u.CollegeID > 0 {
+			stats = reviewStats[u.CollegeID]
 		}
 		results[i] = PublicInstitutionResponse{
 			ID:                       u.ID,
@@ -2363,6 +2380,8 @@ func (s *Service) ListPublicInstitutions(page, limit int, search, location, inst
 			Featured:                 u.Featured,
 			CollegeID:                u.CollegeID,
 			Type:                     u.OrganizationType,
+			Rating:                   stats.Avg,
+			ReviewCount:              stats.Count,
 		}
 	}
 	return results, total, nil
@@ -2460,6 +2479,11 @@ func (s *Service) GetPublicInstitution(id uint) (*PublicInstitutionDetailRespons
 		admissionPageID = admissionPage.ID
 	}
 
+	stats, ok := s.repo.ReviewStatsForInstitutions([]uint{id})[id]
+	if !ok && user.CollegeID > 0 {
+		stats = s.repo.ReviewStatsForInstitutions([]uint{user.CollegeID})[user.CollegeID]
+	}
+
 	return &PublicInstitutionDetailResponse{
 		ID:                      user.ID,
 		InstitutionName:         user.InstitutionName,
@@ -2503,6 +2527,9 @@ func (s *Service) GetPublicInstitution(id uint) (*PublicInstitutionDetailRespons
 		BrochureData:            pd.BrochureData,
 		Type:                    user.OrganizationType,
 		FollowerCount:           s.getFollowerCount(id),
+		Rating:                  stats.Avg,
+		ReviewCount:             stats.Count,
+		Reviews:                 stats.Count,
 	}, nil
 }
 

@@ -8,20 +8,20 @@ import (
 )
 
 type CreateProgramRequest struct {
-	GlobalCourseID      uint                    `json:"globalCourseId" binding:"required"`
-	Fee                 string                  `json:"fee"`
-	Eligibility         string                  `json:"eligibility"`
-	Capacity            int                     `json:"capacity"`
-	InstitutionName     string                  `json:"institution_name"`
-	InstitutionLocation string                  `json:"institution_location"`
-	InstitutionLink     string                  `json:"institution_link"`
-	Status              string                  `json:"status"`
-	WhoShouldChoose     []education.PersonaItem `json:"whoShouldChoose"`
-	Features            []education.FeatureItem `json:"features"`
+	GlobalCourseID      uint                       `json:"globalCourseId" binding:"required"`
+	Fee                 string                     `json:"fee"`
+	Eligibility         string                     `json:"eligibility"`
+	Capacity            int                        `json:"capacity"`
+	InstitutionName     string                     `json:"institution_name"`
+	InstitutionLocation string                     `json:"institution_location"`
+	InstitutionLink     string                     `json:"institution_link"`
+	Status              string                     `json:"status"`
+	WhoShouldChoose     []education.PersonaItem    `json:"whoShouldChoose"`
+	Features            []education.FeatureItem    `json:"features"`
 	FullTimeCourses     []education.FullTimeCourse `json:"fullTimeCourses"`
-	FeeItems            []education.FeeItem    `json:"feeItems"`
-	Overrides           education.CourseOverrides `json:"overrides"`
-	NullifiedFields     []string                `json:"nullifiedFields"`
+	FeeItems            []education.FeeItem        `json:"feeItems"`
+	Overrides           education.CourseOverrides  `json:"overrides"`
+	NullifiedFields     []string                   `json:"nullifiedFields"`
 }
 
 type UpdateProgramRequest struct {
@@ -40,92 +40,92 @@ type UpdateProgramRequest struct {
 }
 
 type ProgramResponse struct {
-	ID                      uint                    `json:"id"`
-	CreatedAt               string                  `json:"created_at"`
-	UpdatedAt               string                  `json:"updated_at"`
-	Name                    string                  `json:"name"`
-	InstitutionID           uint                    `json:"institution_id"`
-	InstitutionName         string                  `json:"institution_name"`
-	InstitutionLocation     string                  `json:"institution_location"`
-	InstitutionLink         string                  `json:"institution_link"`
-	GlobalCourseID          uint                    `json:"globalCourseId"`
-	GlobalCourseTitle       string                  `json:"globalCourseTitle"`
-	Duration                string                  `json:"duration"`
-	Level                   string                  `json:"level"`
-	Field                   string                  `json:"field"`
-	AffiliationName         string                  `json:"affiliationName"`
-	NonUniversityAffiliation string                 `json:"nonUniversityAffiliation"`
-	BannerUrl               string                  `json:"bannerUrl"`
-	Fee                     string                  `json:"fee"`
-	Eligibility             string                  `json:"eligibility"`
-	Capacity                int                     `json:"capacity"`
-	Status                  string                  `json:"status"`
-	WhoShouldChoose         []education.PersonaItem `json:"whoShouldChoose"`
-	Features                []education.FeatureItem `json:"features"`
-	FullTimeCourses         []education.FullTimeCourse `json:"fullTimeCourses"`
-	FeeItems                []education.FeeItem    `json:"feeItems"`
-	Overrides               education.CourseOverrides `json:"overrides"`
-	NullifiedFields         []string                `json:"nullifiedFields"`
+	ID                       uint                       `json:"id"`
+	CreatedAt                string                     `json:"created_at"`
+	UpdatedAt                string                     `json:"updated_at"`
+	Name                     string                     `json:"name"`
+	InstitutionID            uint                       `json:"institution_id"`
+	InstitutionName          string                     `json:"institution_name"`
+	InstitutionLocation      string                     `json:"institution_location"`
+	InstitutionLink          string                     `json:"institution_link"`
+	GlobalCourseID           uint                       `json:"globalCourseId"`
+	GlobalCourseTitle        string                     `json:"globalCourseTitle"`
+	Duration                 string                     `json:"duration"`
+	Level                    string                     `json:"level"`
+	Field                    string                     `json:"field"`
+	AffiliationName          string                     `json:"affiliationName"`
+	NonUniversityAffiliation string                     `json:"nonUniversityAffiliation"`
+	BannerUrl                string                     `json:"bannerUrl"`
+	Fee                      string                     `json:"fee"`
+	Eligibility              string                     `json:"eligibility"`
+	Capacity                 int                        `json:"capacity"`
+	Status                   string                     `json:"status"`
+	WhoShouldChoose          []education.PersonaItem    `json:"whoShouldChoose"`
+	Features                 []education.FeatureItem    `json:"features"`
+	FullTimeCourses          []education.FullTimeCourse `json:"fullTimeCourses"`
+	FeeItems                 []education.FeeItem        `json:"feeItems"`
+	Overrides                education.CourseOverrides  `json:"overrides"`
+	NullifiedFields          []string                   `json:"nullifiedFields"`
 }
 
 type CourseApprovalRequest struct {
-	ID                      uint                      `gorm:"primarykey" json:"id"`
-	CreatedAt               time.Time                 `json:"createdAt"`
-	UpdatedAt               time.Time                 `json:"updatedAt"`
-	InstitutionID           uint                      `gorm:"index;not null" json:"institutionId"`
-	Title                   string                    `json:"title"`
-	Description             string                    `gorm:"type:text" json:"description"`
-	Duration                string                    `json:"duration"`
-	Level                   string                    `json:"level"`
-	AffiliationID           *uint                     `json:"affiliationId"`
-	NonUniversityAffiliation string                   `gorm:"default:''" json:"nonUniversityAffiliation"`
-	BannerURL               string                    `json:"bannerUrl"`
-	Careers                 []education.CareerItem    `gorm:"type:jsonb" json:"careers"`
-	FAQs                    []education.FaqItem       `gorm:"type:jsonb" json:"faqs"`
-	EligibilityRows         []education.EligibilityRow `gorm:"type:jsonb" json:"eligibilityRows"`
-	AdmissionSteps          []education.AdmissionStep  `gorm:"type:jsonb" json:"admissionSteps"`
-	SubjectGroups           []education.SubjectGroup   `gorm:"type:jsonb" json:"subjectGroups"`
-	ScholarshipDesc         string                    `json:"scholarshipDesc"`
-	ScholarshipNotes        string                    `json:"scholarshipNotes"`
-	Scholarships            []education.ScholarshipItem `gorm:"type:jsonb" json:"scholarships"`
-	Fee                     string                    `json:"fee"`
-	Eligibility             string                    `json:"eligibility"`
-	Capacity                int                       `json:"capacity"`
-	WhoShouldChoose         []education.PersonaItem   `gorm:"type:jsonb" json:"whoShouldChoose"`
-	Features                []education.FeatureItem   `gorm:"type:jsonb" json:"features"`
-	FullTimeCourses         []education.FullTimeCourse `gorm:"type:jsonb" json:"fullTimeCourses"`
-	FeeItems                []education.FeeItem       `gorm:"type:jsonb" json:"feeItems"`
-	Status                  string                    `gorm:"default:'pending'" json:"status"`
-	ReviewedBy              *uint                     `json:"reviewedBy"`
-	ReviewedAt              *time.Time                `json:"reviewedAt"`
-	RejectionReason         string                    `json:"rejectionReason"`
+	ID                       uint                        `gorm:"primarykey" json:"id"`
+	CreatedAt                time.Time                   `json:"createdAt"`
+	UpdatedAt                time.Time                   `json:"updatedAt"`
+	InstitutionID            uint                        `gorm:"index;not null" json:"institutionId"`
+	Title                    string                      `json:"title"`
+	Description              string                      `gorm:"type:text" json:"description"`
+	Duration                 string                      `json:"duration"`
+	Level                    string                      `json:"level"`
+	AffiliationID            *uint                       `json:"affiliationId"`
+	NonUniversityAffiliation string                      `gorm:"default:''" json:"nonUniversityAffiliation"`
+	BannerURL                string                      `json:"bannerUrl"`
+	Careers                  []education.CareerItem      `gorm:"type:jsonb" json:"careers"`
+	FAQs                     []education.FaqItem         `gorm:"type:jsonb" json:"faqs"`
+	EligibilityRows          []education.EligibilityRow  `gorm:"type:jsonb" json:"eligibilityRows"`
+	AdmissionSteps           []education.AdmissionStep   `gorm:"type:jsonb" json:"admissionSteps"`
+	SubjectGroups            []education.SubjectGroup    `gorm:"type:jsonb" json:"subjectGroups"`
+	ScholarshipDesc          string                      `json:"scholarshipDesc"`
+	ScholarshipNotes         string                      `json:"scholarshipNotes"`
+	Scholarships             []education.ScholarshipItem `gorm:"type:jsonb" json:"scholarships"`
+	Fee                      string                      `json:"fee"`
+	Eligibility              string                      `json:"eligibility"`
+	Capacity                 int                         `json:"capacity"`
+	WhoShouldChoose          []education.PersonaItem     `gorm:"type:jsonb" json:"whoShouldChoose"`
+	Features                 []education.FeatureItem     `gorm:"type:jsonb" json:"features"`
+	FullTimeCourses          []education.FullTimeCourse  `gorm:"type:jsonb" json:"fullTimeCourses"`
+	FeeItems                 []education.FeeItem         `gorm:"type:jsonb" json:"feeItems"`
+	Status                   string                      `gorm:"default:'pending'" json:"status"`
+	ReviewedBy               *uint                       `json:"reviewedBy"`
+	ReviewedAt               *time.Time                  `json:"reviewedAt"`
+	RejectionReason          string                      `json:"rejectionReason"`
 
 	Institution *InstitutionUser `gorm:"foreignKey:InstitutionID" json:"institution,omitempty"`
 }
 
 type CreateCourseApprovalRequestInput struct {
-	Title                   string                    `json:"title" binding:"required"`
-	Description             string                    `json:"description"`
-	Duration                string                    `json:"duration"`
-	Level                   string                    `json:"level"`
-	AffiliationID           *uint                     `json:"affiliationId"`
-	NonUniversityAffiliation string                   `json:"nonUniversityAffiliation"`
-	BannerURL               string                    `json:"bannerUrl"`
-	Careers           []education.CareerItem    `json:"careers"`
-	FAQs              []education.FaqItem       `json:"faqs"`
-	EligibilityRows   []education.EligibilityRow `json:"eligibilityRows"`
-	AdmissionSteps    []education.AdmissionStep  `json:"admissionSteps"`
-	SubjectGroups     []education.SubjectGroup   `json:"subjectGroups"`
-	ScholarshipDesc   string                    `json:"scholarshipDesc"`
-	ScholarshipNotes  string                    `json:"scholarshipNotes"`
-	Scholarships      []education.ScholarshipItem `json:"scholarships"`
-	Fee               string                    `json:"fee"`
-	Eligibility       string                    `json:"eligibility"`
-	Capacity          int                       `json:"capacity"`
-	WhoShouldChoose   []education.PersonaItem   `json:"whoShouldChoose"`
-	Features          []education.FeatureItem   `json:"features"`
-	FullTimeCourses   []education.FullTimeCourse `json:"fullTimeCourses"`
-	FeeItems          []education.FeeItem       `json:"feeItems"`
+	Title                    string                      `json:"title" binding:"required"`
+	Description              string                      `json:"description"`
+	Duration                 string                      `json:"duration"`
+	Level                    string                      `json:"level"`
+	AffiliationID            *uint                       `json:"affiliationId"`
+	NonUniversityAffiliation string                      `json:"nonUniversityAffiliation"`
+	BannerURL                string                      `json:"bannerUrl"`
+	Careers                  []education.CareerItem      `json:"careers"`
+	FAQs                     []education.FaqItem         `json:"faqs"`
+	EligibilityRows          []education.EligibilityRow  `json:"eligibilityRows"`
+	AdmissionSteps           []education.AdmissionStep   `json:"admissionSteps"`
+	SubjectGroups            []education.SubjectGroup    `json:"subjectGroups"`
+	ScholarshipDesc          string                      `json:"scholarshipDesc"`
+	ScholarshipNotes         string                      `json:"scholarshipNotes"`
+	Scholarships             []education.ScholarshipItem `json:"scholarships"`
+	Fee                      string                      `json:"fee"`
+	Eligibility              string                      `json:"eligibility"`
+	Capacity                 int                         `json:"capacity"`
+	WhoShouldChoose          []education.PersonaItem     `json:"whoShouldChoose"`
+	Features                 []education.FeatureItem     `json:"features"`
+	FullTimeCourses          []education.FullTimeCourse  `json:"fullTimeCourses"`
+	FeeItems                 []education.FeeItem         `json:"feeItems"`
 }
 
 type CreateMediaRequest struct {
@@ -710,93 +710,93 @@ type ProfileData struct {
 }
 
 type UpdateProfileRequest struct {
-	Status               string                 `json:"status"`
-	InstitutionName      string                 `json:"institution_name"`
-	RegistrationNumber   string                 `json:"registration_number"`
-	Location             string                 `json:"location"`
-	Website              string                 `json:"website"`
-	Level                string                 `json:"level"`
-	ContactEmail         string                 `json:"contact_email"`
-	ContactPhone         string                 `json:"contact_phone"`
-	Affiliation                string                 `json:"affiliation"`
-	UniversityAffiliations     interface{}            `json:"university_affiliations"`
-	NonUniversityAffiliation   string                 `json:"non_university_affiliation"`
-	MapURL                     string                 `json:"map_url"`
-	FacebookURL          string                 `json:"facebook_url"`
-	InstagramURL         string                 `json:"instagram_url"`
-	TiktokURL            string                 `json:"tiktok_url"`
-	YoutubeURL           string                 `json:"youtube_url"`
-	LinkedinURL          string                 `json:"linkedin_url"`
-	LogoURL              string                 `json:"logo_url"`
-	BannerURL            string                 `json:"banner_url"`
-	CardImageURL         string                 `json:"card_image_url"`
-	About                string                 `json:"about"`
-	Vision               string                 `json:"vision"`
-	Mission              string                 `json:"mission"`
-	Videos               interface{}            `json:"videos"`
-	OverviewData         interface{}            `json:"overview_data"`
-	LeadershipData       interface{}            `json:"leadership_data"`
-	CoursesData          []CourseDataItem       `json:"courses_data"`
-	ProgramsData         []ProgramDataItem      `json:"programs_data"`
-	FacilitiesData       []FacilityDataItem     `json:"facilities_data"`
-	AlumniData           []AlumniDataItem       `json:"alumni_data"`
-	DownloadsData        []DownloadDataItem     `json:"downloads_data"`
-	GalleryData          interface{}            `json:"gallery_data"`
-	WhatsNewData         *WhatsNewData          `json:"whats_new_data"`
-	EligibilityData      *EligibilityData       `json:"eligibility_data"`
-	AdmissionProcessData []AdmissionProcessItem `json:"admission_process_data"`
-	ScholarshipsData     []ScholarshipDataItem  `json:"scholarships_data"`
-	FaqsData             []FaqDataItem          `json:"faqs_data"`
-	ContactPersonsData   []ContactPersonItem    `json:"contact_persons_data"`
-	BrochureData         *BrochureData          `json:"brochure_data"`
+	Status                   string                 `json:"status"`
+	InstitutionName          string                 `json:"institution_name"`
+	RegistrationNumber       string                 `json:"registration_number"`
+	Location                 string                 `json:"location"`
+	Website                  string                 `json:"website"`
+	Level                    string                 `json:"level"`
+	ContactEmail             string                 `json:"contact_email"`
+	ContactPhone             string                 `json:"contact_phone"`
+	Affiliation              string                 `json:"affiliation"`
+	UniversityAffiliations   interface{}            `json:"university_affiliations"`
+	NonUniversityAffiliation string                 `json:"non_university_affiliation"`
+	MapURL                   string                 `json:"map_url"`
+	FacebookURL              string                 `json:"facebook_url"`
+	InstagramURL             string                 `json:"instagram_url"`
+	TiktokURL                string                 `json:"tiktok_url"`
+	YoutubeURL               string                 `json:"youtube_url"`
+	LinkedinURL              string                 `json:"linkedin_url"`
+	LogoURL                  string                 `json:"logo_url"`
+	BannerURL                string                 `json:"banner_url"`
+	CardImageURL             string                 `json:"card_image_url"`
+	About                    string                 `json:"about"`
+	Vision                   string                 `json:"vision"`
+	Mission                  string                 `json:"mission"`
+	Videos                   interface{}            `json:"videos"`
+	OverviewData             interface{}            `json:"overview_data"`
+	LeadershipData           interface{}            `json:"leadership_data"`
+	CoursesData              []CourseDataItem       `json:"courses_data"`
+	ProgramsData             []ProgramDataItem      `json:"programs_data"`
+	FacilitiesData           []FacilityDataItem     `json:"facilities_data"`
+	AlumniData               []AlumniDataItem       `json:"alumni_data"`
+	DownloadsData            []DownloadDataItem     `json:"downloads_data"`
+	GalleryData              interface{}            `json:"gallery_data"`
+	WhatsNewData             *WhatsNewData          `json:"whats_new_data"`
+	EligibilityData          *EligibilityData       `json:"eligibility_data"`
+	AdmissionProcessData     []AdmissionProcessItem `json:"admission_process_data"`
+	ScholarshipsData         []ScholarshipDataItem  `json:"scholarships_data"`
+	FaqsData                 []FaqDataItem          `json:"faqs_data"`
+	ContactPersonsData       []ContactPersonItem    `json:"contact_persons_data"`
+	BrochureData             *BrochureData          `json:"brochure_data"`
 }
 
 type ProfileResponse struct {
-	ID                   uint                   `json:"id"`
-	CollegeID            uint                   `json:"college_id"`
-	InstitutionName      string                 `json:"institution_name"`
-	Email                string                 `json:"email"`
-	SubscriptionType     string                 `json:"subscription_type"`
-	RegistrationNumber   string                 `json:"registration_number"`
-	Role                 string                 `json:"role"`
-	ProfileStatus        string                 `json:"profile_status"`
-	PreferencesCompleted bool                   `json:"preferences_completed"`
-	Location             string                 `json:"location,omitempty"`
-	Website              string                 `json:"website,omitempty"`
-	ContactEmail         string                 `json:"contact_email,omitempty"`
-	ContactPhone         string                 `json:"contact_phone,omitempty"`
-	MapURL               string                 `json:"map_url,omitempty"`
-	FacebookURL          string                 `json:"facebook_url,omitempty"`
-	InstagramURL         string                 `json:"instagram_url,omitempty"`
-	TiktokURL            string                 `json:"tiktok_url,omitempty"`
-	YoutubeURL           string                 `json:"youtube_url,omitempty"`
-	LinkedinURL          string                 `json:"linkedin_url,omitempty"`
-	LogoURL              string                 `json:"logo_url,omitempty"`
-	BannerURL            string                 `json:"banner_url,omitempty"`
-	CardImageURL         string                 `json:"card_image_url,omitempty"`
-	About                string                 `json:"about,omitempty"`
-	Vision               string                 `json:"vision,omitempty"`
-	Mission              string                 `json:"mission,omitempty"`
-	Affiliation                string                 `json:"affiliation,omitempty"`
-	UniversityAffiliations     interface{}            `json:"university_affiliations,omitempty"`
-	NonUniversityAffiliation   string                 `json:"non_university_affiliation,omitempty"`
-	Level                      string                 `json:"level,omitempty"`
-	Videos               interface{}            `json:"videos,omitempty"`
-	OverviewData         interface{}            `json:"overview_data,omitempty"`
-	LeadershipData       interface{}            `json:"leadership_data,omitempty"`
-	CoursesData          []CourseDataItem       `json:"courses_data,omitempty"`
-	ProgramsData         []ProgramDataItem      `json:"programs_data,omitempty"`
-	FacilitiesData       []FacilityDataItem     `json:"facilities_data,omitempty"`
-	AlumniData           interface{}            `json:"alumni_data,omitempty"`
-	DownloadsData        []DownloadDataItem     `json:"downloads_data,omitempty"`
-	GalleryData          interface{}            `json:"gallery_data,omitempty"`
-	WhatsNewData         *WhatsNewData          `json:"whats_new_data,omitempty"`
-	EligibilityData      *EligibilityData       `json:"eligibility_data,omitempty"`
-	AdmissionProcessData []AdmissionProcessItem `json:"admission_process_data,omitempty"`
-	ScholarshipsData     []ScholarshipDataItem  `json:"scholarships_data,omitempty"`
-	FaqsData             []FaqDataItem          `json:"faqs_data,omitempty"`
-	ContactPersonsData   []ContactPersonItem    `json:"contact_persons_data,omitempty"`
-	BrochureData         *BrochureData          `json:"brochure_data,omitempty"`
+	ID                       uint                   `json:"id"`
+	CollegeID                uint                   `json:"college_id"`
+	InstitutionName          string                 `json:"institution_name"`
+	Email                    string                 `json:"email"`
+	SubscriptionType         string                 `json:"subscription_type"`
+	RegistrationNumber       string                 `json:"registration_number"`
+	Role                     string                 `json:"role"`
+	ProfileStatus            string                 `json:"profile_status"`
+	PreferencesCompleted     bool                   `json:"preferences_completed"`
+	Location                 string                 `json:"location,omitempty"`
+	Website                  string                 `json:"website,omitempty"`
+	ContactEmail             string                 `json:"contact_email,omitempty"`
+	ContactPhone             string                 `json:"contact_phone,omitempty"`
+	MapURL                   string                 `json:"map_url,omitempty"`
+	FacebookURL              string                 `json:"facebook_url,omitempty"`
+	InstagramURL             string                 `json:"instagram_url,omitempty"`
+	TiktokURL                string                 `json:"tiktok_url,omitempty"`
+	YoutubeURL               string                 `json:"youtube_url,omitempty"`
+	LinkedinURL              string                 `json:"linkedin_url,omitempty"`
+	LogoURL                  string                 `json:"logo_url,omitempty"`
+	BannerURL                string                 `json:"banner_url,omitempty"`
+	CardImageURL             string                 `json:"card_image_url,omitempty"`
+	About                    string                 `json:"about,omitempty"`
+	Vision                   string                 `json:"vision,omitempty"`
+	Mission                  string                 `json:"mission,omitempty"`
+	Affiliation              string                 `json:"affiliation,omitempty"`
+	UniversityAffiliations   interface{}            `json:"university_affiliations,omitempty"`
+	NonUniversityAffiliation string                 `json:"non_university_affiliation,omitempty"`
+	Level                    string                 `json:"level,omitempty"`
+	Videos                   interface{}            `json:"videos,omitempty"`
+	OverviewData             interface{}            `json:"overview_data,omitempty"`
+	LeadershipData           interface{}            `json:"leadership_data,omitempty"`
+	CoursesData              []CourseDataItem       `json:"courses_data,omitempty"`
+	ProgramsData             []ProgramDataItem      `json:"programs_data,omitempty"`
+	FacilitiesData           []FacilityDataItem     `json:"facilities_data,omitempty"`
+	AlumniData               interface{}            `json:"alumni_data,omitempty"`
+	DownloadsData            []DownloadDataItem     `json:"downloads_data,omitempty"`
+	GalleryData              interface{}            `json:"gallery_data,omitempty"`
+	WhatsNewData             *WhatsNewData          `json:"whats_new_data,omitempty"`
+	EligibilityData          *EligibilityData       `json:"eligibility_data,omitempty"`
+	AdmissionProcessData     []AdmissionProcessItem `json:"admission_process_data,omitempty"`
+	ScholarshipsData         []ScholarshipDataItem  `json:"scholarships_data,omitempty"`
+	FaqsData                 []FaqDataItem          `json:"faqs_data,omitempty"`
+	ContactPersonsData       []ContactPersonItem    `json:"contact_persons_data,omitempty"`
+	BrochureData             *BrochureData          `json:"brochure_data,omitempty"`
 }
 
 type UpdatePasswordRequest struct {
@@ -938,24 +938,26 @@ type UserDTO struct {
 }
 
 type PublicInstitutionResponse struct {
-	ID                       uint   `json:"id"`
-	InstitutionName          string `json:"institution_name"`
-	Verified                 bool   `json:"verified"`
-	Claimed                  bool   `json:"claimed"`
-	Affiliation              string `json:"affiliation,omitempty"`
-	NonUniversityAffiliation string `json:"non_university_affiliation,omitempty"`
-	UniversityID             *uint  `json:"university_id"`
-	IsSponsored              bool   `json:"is_sponsored"`
-	LogoURL         string `json:"logo_url,omitempty"`
-	BannerURL       string `json:"banner_url,omitempty"`
-	CardImageURL    string `json:"card_image_url,omitempty"`
-	About           string `json:"about,omitempty"`
-	District        string `json:"district,omitempty"`
-	WebsiteURL      string `json:"website_url,omitempty"`
-	Status          string `json:"status"`
-	Featured        bool   `json:"featured"`
-	CollegeID       uint   `json:"college_id"`
-	Type            string `json:"type"`
+	ID                       uint    `json:"id"`
+	InstitutionName          string  `json:"institution_name"`
+	Verified                 bool    `json:"verified"`
+	Claimed                  bool    `json:"claimed"`
+	Affiliation              string  `json:"affiliation,omitempty"`
+	NonUniversityAffiliation string  `json:"non_university_affiliation,omitempty"`
+	UniversityID             *uint   `json:"university_id"`
+	IsSponsored              bool    `json:"is_sponsored"`
+	LogoURL                  string  `json:"logo_url,omitempty"`
+	BannerURL                string  `json:"banner_url,omitempty"`
+	CardImageURL             string  `json:"card_image_url,omitempty"`
+	About                    string  `json:"about,omitempty"`
+	District                 string  `json:"district,omitempty"`
+	WebsiteURL               string  `json:"website_url,omitempty"`
+	Status                   string  `json:"status"`
+	Featured                 bool    `json:"featured"`
+	CollegeID                uint    `json:"college_id"`
+	Type                     string  `json:"type"`
+	Rating                   float64 `json:"rating"`
+	ReviewCount              int64   `json:"review_count"`
 }
 
 type PublicInstitutionDetailResponse struct {
@@ -1001,6 +1003,9 @@ type PublicInstitutionDetailResponse struct {
 	BrochureData            interface{}           `json:"brochure_data"`
 	Type                    string                `json:"type"`
 	FollowerCount           int64                 `json:"follower_count"`
+	Rating                  float64               `json:"rating"`
+	ReviewCount             int64                 `json:"review_count"`
+	Reviews                 int64                 `json:"reviews"`
 }
 
 // --- Admission Page DTOs ---
