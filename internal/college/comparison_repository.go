@@ -79,6 +79,7 @@ func applyInstitutionProfile(result *ComparisonCollege, raw []byte) {
 		Facilities     []map[string]interface{} `json:"facilities_data"`
 		FacilitiesData []map[string]interface{} `json:"facilitiesData"`
 		Gallery        interface{}              `json:"gallery_data"`
+		Courses        []map[string]interface{} `json:"courses_data"`
 	}
 	if json.Unmarshal(raw, &profile) != nil {
 		return
@@ -97,6 +98,19 @@ func applyInstitutionProfile(result *ComparisonCollege, raw []byte) {
 	}
 	if profile.Gallery != nil {
 		result.Gallery = profile.Gallery
+	}
+
+	courseNames := make([]string, 0, len(profile.Courses))
+	for _, course := range profile.Courses {
+		for _, key := range []string{"courseName", "name", "title"} {
+			if value, ok := course[key].(string); ok && value != "" {
+				courseNames = append(courseNames, value)
+				break
+			}
+		}
+	}
+	if len(courseNames) > 0 {
+		result.College.Courses = courseNames
 	}
 }
 
