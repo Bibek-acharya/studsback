@@ -157,6 +157,7 @@ func (s *Service) GetCollegeReviews(collegeID, instID uint, page, limit int) (*C
 	}
 
 	var totalRating float64
+	var ratingValues int
 	for _, r := range uniqueReviews {
 		ratings := make(map[string]float64)
 		if err := json.Unmarshal(r.Ratings, &ratings); err == nil {
@@ -166,11 +167,12 @@ func (s *Service) GetCollegeReviews(collegeID, instID uint, page, limit int) (*C
 			}
 			for _, val := range ratings {
 				totalRating += val
+				ratingValues++
 			}
 		}
 	}
-	if len(uniqueReviews) > 0 {
-		overallRating = math.Round(totalRating/float64(len(uniqueReviews))*10) / 10
+	if ratingValues > 0 {
+		overallRating = math.Round(totalRating/float64(ratingValues)*10) / 10
 	}
 	for cat := range categoryAverages {
 		if categoryCounts[cat] > 0 {
