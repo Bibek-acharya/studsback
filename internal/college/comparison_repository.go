@@ -9,6 +9,9 @@ import (
 type comparisonInstitution struct {
 	ID          uint
 	LogoURL     string
+	Verified    bool
+	Claimed     bool
+	Type        string `gorm:"column:organization_type"`
 	ProfileData []byte
 }
 
@@ -42,7 +45,7 @@ func (r *Repository) BuildComparisonCollege(college College) (ComparisonCollege,
 
 	var institution comparisonInstitution
 	instErr := r.db.Table("institution_users").
-		Select("id, logo_url, profile_data").
+		Select("id, logo_url, verified, claimed, COALESCE(organization_type, '') AS organization_type, profile_data").
 		Where("(college_id = ? OR id = ?) AND deleted_at IS NULL", college.ID, college.ID).
 		Order("verified DESC, claimed DESC, id ASC").
 		First(&institution).Error
@@ -50,6 +53,17 @@ func (r *Repository) BuildComparisonCollege(college College) (ComparisonCollege,
 		result.InstitutionID = institution.ID
 		if institution.LogoURL != "" {
 			result.LogoURL = institution.LogoURL
+		}
+		// The institution_users record is the live one institutions maintain;
+		// the colleges row can be stale (empty type, unverified).
+		if institution.Verified {
+			result.College.Verified = true
+		}
+		if institution.Claimed {
+			result.College.Claimed = true
+		}
+		if institution.Type != "" {
+			result.College.CollegeType = institution.Type
 		}
 		applyInstitutionProfile(&result, institution.ProfileData)
 
