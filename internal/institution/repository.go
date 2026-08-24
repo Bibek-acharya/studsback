@@ -1732,7 +1732,7 @@ func (r *Repository) ReviewStatsForInstitutions(ids []uint) map[uint]Institution
 		return stats
 	}
 	var rows []struct {
-		Key         uint
+		InstKey     uint
 		AvgRating   float64
 		ReviewCount int64
 	}
@@ -1750,7 +1750,7 @@ func (r *Repository) ReviewStatsForInstitutions(ids []uint) map[uint]Institution
 		return stats
 	}
 	for _, row := range rows {
-		stats[row.Key] = InstitutionReviewStats{Avg: row.AvgRating, Count: row.ReviewCount}
+		stats[row.InstKey] = InstitutionReviewStats{Avg: row.AvgRating, Count: row.ReviewCount}
 	}
 	return stats
 }
