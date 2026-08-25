@@ -142,29 +142,31 @@ type InstitutionEntranceApplicant struct {
 }
 
 type InstitutionEvent struct {
-	ID                 uint           `gorm:"primarykey" json:"id"`
-	CreatedAt          time.Time      `json:"created_at"`
-	UpdatedAt          time.Time      `json:"updated_at"`
-	DeletedAt          gorm.DeletedAt `gorm:"index" json:"-"`
-	InstitutionID      uint           `gorm:"index;not null;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"institution_id"`
-	Slug               string         `gorm:"uniqueIndex" json:"slug"`
-	Name               string         `gorm:"not null" json:"name"`
-	ShortDesc          string         `gorm:"type:text" json:"short_desc"`
-	Description        string         `gorm:"type:text" json:"description"`
-	ImageURL           string         `json:"image_url"`
-	EventType          string         `json:"event_type"`
-	Category           string         `json:"category"`
-	MaxParticipants    int            `json:"max_participants"`
-	OnlineLink         string         `json:"online_link"`
-	OrganizedBy        string         `json:"organized_by"`
-	ContactPerson      string         `json:"contact_person"`
-	ContactEmail       string         `json:"contact_email"`
-	StartDate          *time.Time     `json:"start_date"`
-	EndDate            *time.Time     `json:"end_date"`
-	Location           string         `json:"location"`
-	Tags               *string        `gorm:"type:jsonb;default:'[]'" json:"tags"`
-	EnableRegistration bool           `gorm:"default:false" json:"enable_registration"`
-	Status             string         `gorm:"default:'draft'" json:"status"`
+	ID                   uint           `gorm:"primarykey" json:"id"`
+	CreatedAt            time.Time      `json:"created_at"`
+	UpdatedAt            time.Time      `json:"updated_at"`
+	DeletedAt            gorm.DeletedAt `gorm:"index" json:"-"`
+	InstitutionID        uint           `gorm:"index;not null;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"institution_id"`
+	Slug                 string         `gorm:"uniqueIndex" json:"slug"`
+	Name                 string         `gorm:"not null" json:"name"`
+	ShortDesc            string         `gorm:"type:text" json:"short_desc"`
+	Description          string         `gorm:"type:text" json:"description"`
+	ImageURL             string         `json:"image_url"`
+	EventType            string         `json:"event_type"`
+	Category             string         `json:"category"`
+	MaxParticipants      int            `json:"max_participants"`
+	OnlineLink           string         `json:"online_link"`
+	OrganizedBy          string         `json:"organized_by"`
+	ContactPerson        string         `json:"contact_person"`
+	ContactEmail         string         `json:"contact_email"`
+	StartDate            *time.Time     `json:"start_date"`
+	EndDate              *time.Time     `json:"end_date"`
+	Location             string         `json:"location"`
+	Tags                 *string        `gorm:"type:jsonb;default:'[]'" json:"tags"`
+	EnableRegistration   bool           `gorm:"default:false" json:"enable_registration"`
+	Status               string         `gorm:"default:'draft'" json:"status"`
+	ApplicationLink      string         `json:"application_link"`
+	RegistrationDeadline *time.Time     `json:"registration_deadline"`
 }
 
 func (ie *InstitutionEvent) BeforeSave(tx *gorm.DB) error {

@@ -262,25 +262,29 @@ func (News) TableName() string {
 }
 
 type Event struct {
-	ID              uint           `gorm:"primarykey" json:"id"`
-	CreatedAt       time.Time      `json:"created_at"`
-	UpdatedAt       time.Time      `json:"updated_at"`
-	DeletedAt       gorm.DeletedAt `gorm:"index" json:"-"`
-	Slug            string         `gorm:"uniqueIndex" json:"slug"`
-	UniversityID    uint           `gorm:"index" json:"university_id"`
-	Title           string         `gorm:"not null" json:"title" binding:"required"`
-	Excerpt         string         `gorm:"type:text" json:"excerpt"`
-	Description     string         `gorm:"type:text" json:"description"`
-	Category        string         `json:"category"`
-	Organizer       string         `json:"organizer"`
-	Location        string         `json:"location"`
-	Date            string         `json:"date"`
-	Time            string         `json:"time"`
-	RegistrationFee string         `json:"registration_fee"`
-	Image           string         `json:"image"`
-	Interested      int            `json:"interested"`
-	Trending        bool           `json:"trending"`
-	Featured        bool           `gorm:"default:false;index" json:"featured"`
+	ID                   uint           `gorm:"primarykey" json:"id"`
+	CreatedAt            time.Time      `json:"created_at"`
+	UpdatedAt            time.Time      `json:"updated_at"`
+	DeletedAt            gorm.DeletedAt `gorm:"index" json:"-"`
+	Slug                 string         `gorm:"uniqueIndex" json:"slug"`
+	UniversityID         uint           `gorm:"index" json:"university_id"`
+	Title                string         `gorm:"not null" json:"title" binding:"required"`
+	Excerpt              string         `gorm:"type:text" json:"excerpt"`
+	Description          string         `gorm:"type:text" json:"description"`
+	Category             string         `json:"category"`
+	Organizer            string         `json:"organizer"`
+	Location             string         `json:"location"`
+	Date                 string         `json:"date"`
+	Time                 string         `json:"time"`
+	RegistrationFee      string         `json:"registration_fee"`
+	Image                string         `json:"image"`
+	Interested           int            `json:"interested"`
+	Trending             bool           `json:"trending"`
+	Featured             bool           `gorm:"default:false;index" json:"featured"`
+	EndDate              *time.Time     `json:"end_date"`
+	Status               string         `gorm:"default:'upcoming'" json:"status"`
+	ApplicationLink      string         `json:"application_link"`
+	RegistrationDeadline *time.Time     `json:"registration_deadline"`
 }
 
 func (e *Event) BeforeCreate(tx *gorm.DB) error {

@@ -595,17 +595,17 @@ func (r *Repository) FindAllPublishedEvents(page, limit int) ([]InstitutionEvent
 	var events []InstitutionEvent
 	var total int64
 	offset := (page - 1) * limit
-	if err := r.db.Model(&InstitutionEvent{}).Where("status IN ?", []string{"upcoming", "published"}).Count(&total).Error; err != nil {
+	if err := r.db.Model(&InstitutionEvent{}).Where("status IN ? AND (end_date IS NULL OR end_date > ?)", []string{"upcoming", "published"}, time.Now()).Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
-	err := r.db.Where("status IN ?", []string{"upcoming", "published"}).
+	err := r.db.Where("status IN ? AND (end_date IS NULL OR end_date > ?)", []string{"upcoming", "published"}, time.Now()).
 		Order("created_at desc").Offset(offset).Limit(limit).Find(&events).Error
 	return events, total, err
 }
 
 func (r *Repository) FindPublishedEventByID(id uint) (*InstitutionEvent, error) {
 	var event InstitutionEvent
-	err := r.db.Where("id = ? AND status IN ?", id, []string{"upcoming", "published"}).First(&event).Error
+	err := r.db.Where("id = ? AND status IN ? AND (end_date IS NULL OR end_date > ?)", id, []string{"upcoming", "published"}, time.Now()).First(&event).Error
 	if err != nil {
 		return nil, err
 	}

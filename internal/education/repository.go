@@ -2,6 +2,7 @@ package education
 
 import (
 	"errors"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -538,7 +539,7 @@ func (r *Repository) FindNewsBySlug(slug string) (*News, error) {
 
 func (r *Repository) FindEvents() ([]Event, error) {
 	var events []Event
-	err := r.db.Order("date asc").Find(&events).Error
+	err := r.db.Where("end_date IS NULL OR end_date > ?", time.Now()).Order("date asc").Find(&events).Error
 	return events, err
 }
 
@@ -554,7 +555,7 @@ func (r *Repository) FindEventsFiltered(page, limit int, category, search, sort,
 	}
 	offset := (page - 1) * limit
 
-	query := r.db.Model(&Event{})
+	query := r.db.Model(&Event{}).Where("end_date IS NULL OR end_date > ?", time.Now())
 
 	if category != "" {
 		query = query.Where("category = ?", category)

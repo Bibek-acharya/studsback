@@ -1815,6 +1815,13 @@ func (s *Service) CreateEvent(providerID uint, req CreateEventRequest) (*Provide
 		Tags:               tagsBytes,
 		EnableRegistration: req.EnableRegistration,
 		Status:             status,
+		ApplicationLink:    req.ApplicationLink,
+	}
+
+	if req.RegistrationDeadline != "" {
+		if t, err := parseTime(req.RegistrationDeadline); err == nil {
+			event.RegistrationDeadline = &t
+		}
 	}
 
 	if err := s.repo.CreateEvent(event); err != nil {

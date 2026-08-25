@@ -1164,11 +1164,11 @@ func (r *Repository) GetPublishedEvents(page, limit int) ([]ProviderEvent, int64
 
 	offset := (page - 1) * limit
 
-	if err := r.db.Model(&ProviderEvent{}).Where("status = ?", "upcoming").Count(&total).Error; err != nil {
+	if err := r.db.Model(&ProviderEvent{}).Where("status = ? AND (end_date IS NULL OR end_date > ?)", "upcoming", time.Now()).Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
-	if err := r.db.Where("status = ?", "upcoming").
+	if err := r.db.Where("status = ? AND (end_date IS NULL OR end_date > ?)", "upcoming", time.Now()).
 		Order("start_date asc").
 		Offset(offset).Limit(limit).
 		Find(&events).Error; err != nil {
@@ -1180,7 +1180,7 @@ func (r *Repository) GetPublishedEvents(page, limit int) ([]ProviderEvent, int64
 
 func (r *Repository) GetPublishedEventByID(id uint) (*ProviderEvent, error) {
 	var event ProviderEvent
-	if err := r.db.Where("id = ? AND status = ?", id, "upcoming").First(&event).Error; err != nil {
+	if err := r.db.Where("id = ? AND status = ? AND (end_date IS NULL OR end_date > ?)", id, "upcoming", time.Now()).First(&event).Error; err != nil {
 		return nil, err
 	}
 	return &event, nil

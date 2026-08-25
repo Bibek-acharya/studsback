@@ -1115,10 +1115,15 @@ func (s *Service) CreateEvent(instID uint, req CreateEventRequest) (*Institution
 		Tags:               tagsJSON,
 		EnableRegistration: req.EnableRegistration,
 		Status:             "draft",
+		ApplicationLink:    req.ApplicationLink,
 	}
 
 	event.StartDate = parseEventTime(req.StartDate)
 	event.EndDate = parseEventTime(req.EndDate)
+
+	if req.RegistrationDeadline != "" {
+		event.RegistrationDeadline = parseEventTime(req.RegistrationDeadline)
+	}
 
 	if req.Status == "upcoming" || req.Status == "published" {
 		event.Status = req.Status

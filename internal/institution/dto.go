@@ -366,69 +366,75 @@ type EntranceApplicantResponse struct {
 }
 
 type CreateEventRequest struct {
-	Name               string   `json:"name" binding:"required"`
-	ShortDesc          string   `json:"short_desc"`
-	Description        string   `json:"description"`
-	ImageURL           string   `json:"image_url"`
-	EventType          string   `json:"event_type"`
-	Category           string   `json:"category"`
-	MaxParticipants    int      `json:"max_participants"`
-	OnlineLink         string   `json:"online_link"`
-	OrganizedBy        string   `json:"organized_by"`
-	ContactPerson      string   `json:"contact_person"`
-	ContactEmail       string   `json:"contact_email"`
-	StartDate          string   `json:"start_date" binding:"required"`
-	EndDate            string   `json:"end_date"`
-	Location           string   `json:"location"`
-	Tags               []string `json:"tags"`
-	EnableRegistration bool     `json:"enable_registration"`
-	Status             string   `json:"status"`
+	Name                 string   `json:"name" binding:"required"`
+	ShortDesc            string   `json:"short_desc"`
+	Description          string   `json:"description"`
+	ImageURL             string   `json:"image_url"`
+	EventType            string   `json:"event_type"`
+	Category             string   `json:"category"`
+	MaxParticipants      int      `json:"max_participants"`
+	OnlineLink           string   `json:"online_link"`
+	OrganizedBy          string   `json:"organized_by"`
+	ContactPerson        string   `json:"contact_person"`
+	ContactEmail         string   `json:"contact_email"`
+	StartDate            string   `json:"start_date" binding:"required"`
+	EndDate              string   `json:"end_date"`
+	Location             string   `json:"location"`
+	Tags                 []string `json:"tags"`
+	EnableRegistration   bool     `json:"enable_registration"`
+	Status               string   `json:"status"`
+	ApplicationLink      string   `json:"application_link"`
+	RegistrationDeadline string   `json:"registration_deadline"`
 }
 
 type UpdateEventRequest struct {
-	Name               string   `json:"name"`
-	ShortDesc          string   `json:"short_desc"`
-	Description        string   `json:"description"`
-	ImageURL           string   `json:"image_url"`
-	EventType          string   `json:"event_type"`
-	Category           string   `json:"category"`
-	MaxParticipants    int      `json:"max_participants"`
-	OnlineLink         string   `json:"online_link"`
-	OrganizedBy        string   `json:"organized_by"`
-	ContactPerson      string   `json:"contact_person"`
-	ContactEmail       string   `json:"contact_email"`
-	StartDate          string   `json:"start_date"`
-	EndDate            string   `json:"end_date"`
-	Location           string   `json:"location"`
-	Tags               []string `json:"tags"`
-	EnableRegistration bool     `json:"enable_registration"`
-	Status             string   `json:"status"`
+	Name                 string   `json:"name"`
+	ShortDesc            string   `json:"short_desc"`
+	Description          string   `json:"description"`
+	ImageURL             string   `json:"image_url"`
+	EventType            string   `json:"event_type"`
+	Category             string   `json:"category"`
+	MaxParticipants      int      `json:"max_participants"`
+	OnlineLink           string   `json:"online_link"`
+	OrganizedBy          string   `json:"organized_by"`
+	ContactPerson        string   `json:"contact_person"`
+	ContactEmail         string   `json:"contact_email"`
+	StartDate            string   `json:"start_date"`
+	EndDate              string   `json:"end_date"`
+	Location             string   `json:"location"`
+	Tags                 []string `json:"tags"`
+	EnableRegistration   bool     `json:"enable_registration"`
+	Status               string   `json:"status"`
+	ApplicationLink      string   `json:"application_link"`
+	RegistrationDeadline string   `json:"registration_deadline"`
 }
 
 type EventResponse struct {
-	ID                 uint     `json:"id"`
-	Slug               string   `json:"slug"`
-	CreatedAt          string   `json:"created_at"`
-	UpdatedAt          string   `json:"updated_at"`
-	InstitutionID      uint     `json:"institution_id"`
-	Name               string   `json:"name"`
-	ShortDesc          string   `json:"short_desc"`
-	Description        string   `json:"description"`
-	ImageURL           string   `json:"image_url"`
-	EventType          string   `json:"event_type"`
-	Category           string   `json:"category"`
-	MaxParticipants    int      `json:"max_participants"`
-	OnlineLink         string   `json:"online_link"`
-	OrganizedBy        string   `json:"organized_by"`
-	ContactPerson      string   `json:"contact_person"`
-	ContactEmail       string   `json:"contact_email"`
-	StartDate          *string  `json:"start_date"`
-	EndDate            *string  `json:"end_date"`
-	Location           string   `json:"location"`
-	Tags               []string `json:"tags"`
-	EnableRegistration bool     `json:"enable_registration"`
-	Status             string   `json:"status"`
-	Attendees          int      `json:"attendees"`
+	ID                   uint     `json:"id"`
+	Slug                 string   `json:"slug"`
+	CreatedAt            string   `json:"created_at"`
+	UpdatedAt            string   `json:"updated_at"`
+	InstitutionID        uint     `json:"institution_id"`
+	Name                 string   `json:"name"`
+	ShortDesc            string   `json:"short_desc"`
+	Description          string   `json:"description"`
+	ImageURL             string   `json:"image_url"`
+	EventType            string   `json:"event_type"`
+	Category             string   `json:"category"`
+	MaxParticipants      int      `json:"max_participants"`
+	OnlineLink           string   `json:"online_link"`
+	OrganizedBy          string   `json:"organized_by"`
+	ContactPerson        string   `json:"contact_person"`
+	ContactEmail         string   `json:"contact_email"`
+	StartDate            *string  `json:"start_date"`
+	EndDate              *string  `json:"end_date"`
+	Location             string   `json:"location"`
+	Tags                 []string `json:"tags"`
+	EnableRegistration   bool     `json:"enable_registration"`
+	Status               string   `json:"status"`
+	Attendees            int      `json:"attendees"`
+	ApplicationLink      string   `json:"application_link"`
+	RegistrationDeadline *string  `json:"registration_deadline"`
 }
 
 type CreateNewsRequest struct {

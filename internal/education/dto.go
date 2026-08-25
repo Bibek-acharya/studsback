@@ -1,6 +1,9 @@
 package education
 
-import "errors"
+import (
+	"errors"
+	"time"
+)
 
 type FilterCounts struct {
 	Levels  []string `json:"levels"`
@@ -311,52 +314,64 @@ type NewsResponse struct {
 }
 
 type EventResponse struct {
-	ID              uint   `json:"id"`
-	UniversityID    uint   `json:"university_id"`
-	Slug            string `json:"slug"`
-	Title           string `json:"title"`
-	Excerpt         string `json:"excerpt"`
-	Description     string `json:"description"`
-	Category        string `json:"category"`
-	Organizer       string `json:"organizer"`
-	Location        string `json:"location"`
-	Date            string `json:"date"`
-	Time            string `json:"time"`
-	RegistrationFee string `json:"registrationFee"`
-	Image           string `json:"image"`
-	Interested      int    `json:"interested"`
-	Trending        bool   `json:"trending"`
-	Featured        bool   `json:"featured"`
+	ID                   uint       `json:"id"`
+	UniversityID         uint       `json:"university_id"`
+	Slug                 string     `json:"slug"`
+	Title                string     `json:"title"`
+	Excerpt              string     `json:"excerpt"`
+	Description          string     `json:"description"`
+	Category             string     `json:"category"`
+	Organizer            string     `json:"organizer"`
+	Location             string     `json:"location"`
+	Date                 string     `json:"date"`
+	Time                 string     `json:"time"`
+	RegistrationFee      string     `json:"registrationFee"`
+	Image                string     `json:"image"`
+	Interested           int        `json:"interested"`
+	Trending             bool       `json:"trending"`
+	Featured             bool       `json:"featured"`
+	EndDate              *time.Time `json:"end_date"`
+	Status               string     `json:"status"`
+	ApplicationLink      string     `json:"application_link"`
+	RegistrationDeadline *time.Time `json:"registration_deadline"`
 }
 
 type EventRequest struct {
-	UniversityID    uint   `json:"university_id"`
-	Title           string `json:"title" binding:"required"`
-	Excerpt         string `json:"excerpt"`
-	Description     string `json:"description"`
-	Category        string `json:"category"`
-	Organizer       string `json:"organizer"`
-	Location        string `json:"location"`
-	Date            string `json:"date"`
-	Time            string `json:"time"`
-	RegistrationFee string `json:"registrationFee"`
-	Image           string `json:"image"`
-	Featured        *bool  `json:"featured"`
+	UniversityID         uint   `json:"university_id"`
+	Title                string `json:"title" binding:"required"`
+	Excerpt              string `json:"excerpt"`
+	Description          string `json:"description"`
+	Category             string `json:"category"`
+	Organizer            string `json:"organizer"`
+	Location             string `json:"location"`
+	Date                 string `json:"date"`
+	Time                 string `json:"time"`
+	RegistrationFee      string `json:"registrationFee"`
+	Image                string `json:"image"`
+	Featured             *bool  `json:"featured"`
+	EndDate              string `json:"end_date"`
+	Status               string `json:"status"`
+	ApplicationLink      string `json:"application_link"`
+	RegistrationDeadline string `json:"registration_deadline"`
 }
 
 type UpdateEventRequest struct {
-	UniversityID    uint   `json:"university_id"`
-	Title           string `json:"title"`
-	Excerpt         string `json:"excerpt"`
-	Description     string `json:"description"`
-	Category        string `json:"category"`
-	Organizer       string `json:"organizer"`
-	Location        string `json:"location"`
-	Date            string `json:"date"`
-	Time            string `json:"time"`
-	RegistrationFee string `json:"registrationFee"`
-	Image           string `json:"image"`
-	Featured        *bool  `json:"featured"`
+	UniversityID         uint   `json:"university_id"`
+	Title                string `json:"title"`
+	Excerpt              string `json:"excerpt"`
+	Description          string `json:"description"`
+	Category             string `json:"category"`
+	Organizer            string `json:"organizer"`
+	Location             string `json:"location"`
+	Date                 string `json:"date"`
+	Time                 string `json:"time"`
+	RegistrationFee      string `json:"registrationFee"`
+	Image                string `json:"image"`
+	Featured             *bool  `json:"featured"`
+	EndDate              string `json:"end_date"`
+	Status               string `json:"status"`
+	ApplicationLink      string `json:"application_link"`
+	RegistrationDeadline string `json:"registration_deadline"`
 }
 
 type BlogResponse struct {

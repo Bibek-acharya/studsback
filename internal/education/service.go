@@ -224,22 +224,26 @@ func buildEventResponse(event Event) EventResponse {
 		date = event.CreatedAt.Format("2006-01-02")
 	}
 	return EventResponse{
-		ID:              event.ID,
-		UniversityID:    event.UniversityID,
-		Slug:            event.Slug,
-		Title:           event.Title,
-		Excerpt:         event.Excerpt,
-		Description:     event.Description,
-		Category:        event.Category,
-		Organizer:       event.Organizer,
-		Location:        event.Location,
-		Date:            date,
-		Time:            event.Time,
-		RegistrationFee: event.RegistrationFee,
-		Image:           event.Image,
-		Interested:      event.Interested,
-		Trending:        event.Trending,
-		Featured:        event.Featured,
+		ID:                   event.ID,
+		UniversityID:         event.UniversityID,
+		Slug:                 event.Slug,
+		Title:                event.Title,
+		Excerpt:              event.Excerpt,
+		Description:          event.Description,
+		Category:             event.Category,
+		Organizer:            event.Organizer,
+		Location:             event.Location,
+		Date:                 date,
+		Time:                 event.Time,
+		RegistrationFee:      event.RegistrationFee,
+		Image:                event.Image,
+		Interested:           event.Interested,
+		Trending:             event.Trending,
+		Featured:             event.Featured,
+		EndDate:              event.EndDate,
+		Status:               event.Status,
+		ApplicationLink:      event.ApplicationLink,
+		RegistrationDeadline: event.RegistrationDeadline,
 	}
 }
 
@@ -1391,10 +1395,29 @@ func (s *Service) CreateEvent(req EventRequest) (*EventResponse, error) {
 		Time:            req.Time,
 		RegistrationFee: req.RegistrationFee,
 		Image:           req.Image,
+		ApplicationLink: req.ApplicationLink,
 	}
 
 	if req.Featured != nil {
 		event.Featured = *req.Featured
+	}
+
+	if req.EndDate != "" {
+		if t, err := time.Parse("2006-01-02", req.EndDate); err == nil {
+			event.EndDate = &t
+		}
+	}
+
+	if req.RegistrationDeadline != "" {
+		if t, err := time.Parse("2006-01-02", req.RegistrationDeadline); err == nil {
+			event.RegistrationDeadline = &t
+		}
+	}
+
+	if req.Status != "" {
+		event.Status = req.Status
+	} else {
+		event.Status = "upcoming"
 	}
 
 	if err := s.repo.CreateEvent(event); err != nil {

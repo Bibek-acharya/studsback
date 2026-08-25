@@ -271,30 +271,32 @@ func (pn *ProviderNews) BeforeCreate(tx *gorm.DB) error {
 }
 
 type ProviderEvent struct {
-	ID                 uint           `gorm:"primarykey" json:"id"`
-	CreatedAt          time.Time      `json:"created_at"`
-	UpdatedAt          time.Time      `json:"updated_at"`
-	DeletedAt          gorm.DeletedAt `gorm:"index" json:"-"`
-	ProviderID         uint           `gorm:"index;not null" json:"provider_id"`
-	Slug               string         `gorm:"uniqueIndex" json:"slug"`
-	Name               string         `gorm:"not null" json:"name"`
-	ShortDesc          string         `gorm:"type:text" json:"short_desc"`
-	Description        string         `gorm:"type:text" json:"description"`
-	ImageURL           *string        `json:"image_url"`
-	EventType          string         `json:"event_type"`
-	Category           string         `json:"category"`
-	MaxParticipants    int            `json:"max_participants"`
-	OnlineLink         string         `json:"online_link"`
-	OrganizedBy        string         `json:"organized_by"`
-	ContactPerson      string         `json:"contact_person"`
-	ContactEmail       string         `json:"contact_email"`
-	StartDate          time.Time      `json:"start_date"`
-	EndDate            time.Time      `json:"end_date"`
-	Location           string         `json:"location"`
-	Tags               []byte         `gorm:"type:jsonb" json:"tags"`
-	EnableRegistration bool           `gorm:"default:false" json:"enable_registration"`
-	Status             string         `gorm:"default:'upcoming'" json:"status"`
-	Attendees          int            `gorm:"default:0" json:"attendees"`
+	ID                   uint           `gorm:"primarykey" json:"id"`
+	CreatedAt            time.Time      `json:"created_at"`
+	UpdatedAt            time.Time      `json:"updated_at"`
+	DeletedAt            gorm.DeletedAt `gorm:"index" json:"-"`
+	ProviderID           uint           `gorm:"index;not null" json:"provider_id"`
+	Slug                 string         `gorm:"uniqueIndex" json:"slug"`
+	Name                 string         `gorm:"not null" json:"name"`
+	ShortDesc            string         `gorm:"type:text" json:"short_desc"`
+	Description          string         `gorm:"type:text" json:"description"`
+	ImageURL             *string        `json:"image_url"`
+	EventType            string         `json:"event_type"`
+	Category             string         `json:"category"`
+	MaxParticipants      int            `json:"max_participants"`
+	OnlineLink           string         `json:"online_link"`
+	OrganizedBy          string         `json:"organized_by"`
+	ContactPerson        string         `json:"contact_person"`
+	ContactEmail         string         `json:"contact_email"`
+	StartDate            time.Time      `json:"start_date"`
+	EndDate              time.Time      `json:"end_date"`
+	Location             string         `json:"location"`
+	Tags                 []byte         `gorm:"type:jsonb" json:"tags"`
+	EnableRegistration   bool           `gorm:"default:false" json:"enable_registration"`
+	Status               string         `gorm:"default:'upcoming'" json:"status"`
+	Attendees            int            `gorm:"default:0" json:"attendees"`
+	ApplicationLink      string         `json:"application_link"`
+	RegistrationDeadline *time.Time     `json:"registration_deadline"`
 }
 
 func (pe *ProviderEvent) BeforeCreate(tx *gorm.DB) error {
