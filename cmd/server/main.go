@@ -608,6 +608,14 @@ func fixMissingColumns(db *gorm.DB) error {
 		{"admission_pages", "level TEXT DEFAULT ''"},
 		{"news", "featured BOOLEAN DEFAULT FALSE"},
 		{"news", "published BOOLEAN DEFAULT TRUE"},
+		{"events", "end_date TIMESTAMP"},
+		{"events", "status VARCHAR(20) DEFAULT 'upcoming'"},
+		{"events", "application_link TEXT"},
+		{"events", "registration_deadline TIMESTAMP"},
+		{"provider_events", "application_link TEXT"},
+		{"provider_events", "registration_deadline TIMESTAMP"},
+		{"institution_events", "application_link TEXT"},
+		{"institution_events", "registration_deadline TIMESTAMP"},
 	}
 	for _, c := range cols {
 		if err := addColumnIfMissing(db, c.table, c.def); err != nil {
