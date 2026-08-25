@@ -1476,6 +1476,22 @@ func (s *Service) UpdateEvent(id string, req UpdateEventRequest) (*EventResponse
 	if req.UniversityID != 0 {
 		updates["university_id"] = req.UniversityID
 	}
+	if req.ApplicationLink != "" {
+		updates["application_link"] = req.ApplicationLink
+	}
+	if req.RegistrationDeadline != "" {
+		if t, err := time.Parse("2006-01-02", req.RegistrationDeadline); err == nil {
+			updates["registration_deadline"] = t
+		}
+	}
+	if req.EndDate != "" {
+		if t, err := time.Parse("2006-01-02", req.EndDate); err == nil {
+			updates["end_date"] = t
+		}
+	}
+	if req.Status != "" {
+		updates["status"] = req.Status
+	}
 
 	event, err := s.repo.UpdateEvent(id, updates)
 	if err != nil {
