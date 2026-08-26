@@ -160,6 +160,49 @@ func SaveUploadedImage(header *multipart.FileHeader, folder string) (string, err
 	return "/" + filepath.ToSlash(filepath.Join("uploads", cleanFolder, filename)), nil
 }
 
+func SaveUploadedMedia(header *multipart.FileHeader, folder string) (string, error) {
+	if header == nil {
+		return "", fmt.Errorf("no file provided")
+	}
+
+	cleanFolder, err := sanitizeUploadFolder(folder)
+	if err != nil {
+		return "", err
+	}
+
+	contentType := strings.ToLower(strings.TrimSpace(header.Header.Get("Content-Type")))
+	if contentType == "" {
+		contentType = strings.ToLower(mime.TypeByExtension(filepath.Ext(header.Filename)))
+	}
+	if contentType != "" && !strings.HasPrefix(contentType, "image/") && !strings.HasPrefix(contentType, "video/") {
+		return "", fmt.Errorf("only image and video files are allowed")
+	}
+
+	src, err := header.Open()
+	if err != nil {
+		return "", fmt.Errorf("failed to open uploaded file: %w", err)
+	}
+	defer src.Close()
+
+	data, err := io.ReadAll(src)
+	if err != nil {
+		return "", fmt.Errorf("failed to read uploaded file: %w", err)
+	}
+
+	ext := getFileExtension(header)
+	filename := fmt.Sprintf("%d%s", time.Now().UnixNano(), ext)
+
+	if contentType == "" {
+		contentType = getContentTypeForFile(header.Filename, data)
+	}
+
+	if err := storage.UploadBytes(cleanFolder+"/"+filename, data, contentType); err != nil {
+		return "", fmt.Errorf("failed to upload file: %w", err)
+	}
+
+	return "/" + filepath.ToSlash(filepath.Join("uploads", cleanFolder, filename)), nil
+}
+
 func ReadLatestUploadedImage(folder string) ([]byte, string, error) {
 	cleanFolder, err := sanitizeUploadFolder(folder)
 	if err != nil {

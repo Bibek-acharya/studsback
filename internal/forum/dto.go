@@ -79,8 +79,8 @@ type PostResponse struct {
 	IsLiked      bool              `json:"is_liked"`
 	IsDisliked   bool              `json:"is_disliked"`
 	IsSaved      bool              `json:"is_saved"`
-	VotedOption  *int              `json:"voted_option,omitempty"`
-	PollResults  map[int]int       `json:"poll_results,omitempty"`
+	VotedOption  *int              `json:"voted_option"`
+	PollResults  map[int]int       `json:"poll_results"`
 	TotalVotes   int               `json:"total_votes"`
 }
 

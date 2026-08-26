@@ -668,7 +668,7 @@ func (s *Service) UploadForumMedia(files []*multipart.FileHeader) ([]string, err
 			continue
 		}
 
-		url, err := utils.SaveUploadedImage(file, "forum")
+		url, err := utils.SaveUploadedMedia(file, "forum")
 		if err != nil {
 			return nil, fmt.Errorf("failed to save file: %s", file.Filename)
 		}
