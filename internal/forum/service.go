@@ -619,8 +619,14 @@ func (s *Service) VoteForumPoll(postID uint, userID uint, optionIdx int) (*PostR
 
 	existingVote, err := s.repo.GetPollVoteByPostAndUser(postID, userID)
 	if err == nil {
-		existingVote.OptionIdx = optionIdx
-		s.repo.UpdatePollVote(existingVote)
+		if existingVote.OptionIdx == optionIdx {
+			s.repo.DeletePollVote(postID, userID)
+			post.VotedOption = nil
+		} else {
+			existingVote.OptionIdx = optionIdx
+			s.repo.UpdatePollVote(existingVote)
+			post.VotedOption = &optionIdx
+		}
 	} else {
 		vote := &ForumPollVote{
 			PostID:    postID,
@@ -628,6 +634,7 @@ func (s *Service) VoteForumPoll(postID uint, userID uint, optionIdx int) (*PostR
 			OptionIdx: optionIdx,
 		}
 		s.repo.CreatePollVote(vote)
+		post.VotedOption = &optionIdx
 	}
 
 	allPollVotes, _ := s.repo.GetAllPollVotesByPostID(postID)
@@ -641,7 +648,6 @@ func (s *Service) VoteForumPoll(postID uint, userID uint, optionIdx int) (*PostR
 
 	post.PollResults = results
 	post.TotalVotes = total
-	post.VotedOption = &optionIdx
 
 	resp := mapPostToResponse(*post)
 	return &resp, nil

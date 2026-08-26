@@ -172,6 +172,10 @@ func (r *Repository) CreatePollVote(vote *ForumPollVote) error {
 	return r.db.Create(vote).Error
 }
 
+func (r *Repository) DeletePollVote(postID, userID uint) error {
+	return r.db.Where("post_id = ? AND user_id = ?", postID, userID).Delete(&ForumPollVote{}).Error
+}
+
 func (r *Repository) UpdatePollVote(vote *ForumPollVote) error {
 	return r.db.Save(vote).Error
 }
