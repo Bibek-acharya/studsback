@@ -391,7 +391,7 @@ func (h *Handler) VoteForumPoll(c *gin.Context) {
 		return
 	}
 
-	post, err := h.service.VoteForumPoll(postID, userID.(uint), req.OptionIdx)
+	post, err := h.service.VoteForumPoll(postID, userID.(uint), *req.OptionIdx)
 	if err != nil {
 		response.Error(c, 400, err.Error())
 		return

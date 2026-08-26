@@ -37,7 +37,7 @@ type CreateCommentRequest struct {
 }
 
 type VotePollRequest struct {
-	OptionIdx int `json:"option_index" binding:"required"`
+	OptionIdx *int `json:"option_index" binding:"required"`
 }
 
 type ReportPostRequest struct {
