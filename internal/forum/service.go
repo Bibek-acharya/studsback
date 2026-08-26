@@ -309,20 +309,25 @@ func (s *Service) GetTrendingForumPosts() ([]TrendingPostResponse, error) {
 	return responses, nil
 }
 
-func (s *Service) GetForumPostComments(postID uint, limit, offset int) (map[string]interface{}, error) {
+func (s *Service) GetForumPostComments(postID uint, limit, offset int, sort string) (map[string]interface{}, error) {
 	totalCount, err := s.repo.GetCommentCount(postID)
 	if err != nil {
 		return nil, errors.New("failed to fetch comments")
 	}
 
-	topComments, err := s.repo.GetTopComments(postID, limit, offset)
+	topComments, err := s.repo.GetTopComments(postID, limit, offset, sort)
 	if err != nil {
 		return nil, errors.New("failed to fetch comments")
 	}
 
+	parentIDs := make([]uint, len(topComments))
+	for i, c := range topComments {
+		parentIDs[i] = c.ID
+	}
+	replyCounts, _ := s.repo.GetReplyCountsByParentIDs(parentIDs)
+
 	for i := range topComments {
-		replies, _ := s.repo.GetRepliesByParentID(topComments[i].ID)
-		topComments[i].Replies = replies
+		topComments[i].ReplyCount = replyCounts[topComments[i].ID]
 	}
 
 	var commentResponses []CommentResponse
@@ -692,13 +697,14 @@ func mapPostToResponse(post ForumPost) PostResponse {
 
 func mapCommentToResponse(comment ForumComment) CommentResponse {
 	resp := CommentResponse{
-		ID:        comment.ID,
-		CreatedAt: comment.CreatedAt.Format(time.RFC3339),
-		PostID:    comment.PostID,
-		UserID:    comment.UserID,
-		Content:   comment.Content,
-		ImageURL:  comment.ImageURL,
-		ParentID:  comment.ParentID,
+		ID:         comment.ID,
+		CreatedAt:  comment.CreatedAt.Format(time.RFC3339),
+		PostID:     comment.PostID,
+		UserID:     comment.UserID,
+		Content:    comment.Content,
+		ImageURL:   comment.ImageURL,
+		ParentID:   comment.ParentID,
+		ReplyCount: comment.ReplyCount,
 	}
 
 	if comment.User.ID != 0 {

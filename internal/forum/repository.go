@@ -182,13 +182,17 @@ func (r *Repository) GetAllPollVotesByPostID(postID uint) ([]ForumPollVote, erro
 	return votes, err
 }
 
-func (r *Repository) GetTopComments(postID uint, limit, offset int) ([]ForumComment, error) {
+func (r *Repository) GetTopComments(postID uint, limit, offset int, sort string) ([]ForumComment, error) {
 	var comments []ForumComment
+	orderClause := "created_at DESC"
+	if sort == "popular" {
+		orderClause = "created_at DESC"
+	}
 	err := r.db.Preload("User").
 		Where("post_id = ? AND parent_id IS NULL", postID).
 		Limit(limit).
 		Offset(offset).
-		Order("created_at ASC").
+		Order(orderClause).
 		Find(&comments).Error
 	return comments, err
 }
@@ -197,6 +201,30 @@ func (r *Repository) GetCommentCount(postID uint) (int64, error) {
 	var count int64
 	err := r.db.Model(&ForumComment{}).Where("post_id = ? AND parent_id IS NULL", postID).Count(&count).Error
 	return count, err
+}
+
+func (r *Repository) GetReplyCountsByParentIDs(parentIDs []uint) (map[uint]int, error) {
+	result := make(map[uint]int)
+	if len(parentIDs) == 0 {
+		return result, nil
+	}
+	type row struct {
+		ParentID uint
+		Cnt      int
+	}
+	var rows []row
+	err := r.db.Model(&ForumComment{}).
+		Select("parent_id, COUNT(*) as cnt").
+		Where("parent_id IN ?", parentIDs).
+		Group("parent_id").
+		Scan(&rows).Error
+	if err != nil {
+		return result, err
+	}
+	for _, r := range rows {
+		result[r.ParentID] = r.Cnt
+	}
+	return result, nil
 }
 
 func (r *Repository) GetRepliesByParentID(parentID uint) ([]ForumComment, error) {

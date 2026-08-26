@@ -322,10 +322,11 @@ func (h *Handler) GetForumPostComments(c *gin.Context) {
 		return
 	}
 
-	limit := c.DefaultQuery("limit", "10")
+	limit := c.DefaultQuery("limit", "20")
 	offset := c.DefaultQuery("offset", "0")
+	sort := c.DefaultQuery("sort", "newest")
 
-	limitInt := 10
+	limitInt := 20
 	offsetInt := 0
 
 	if l, err := ParseUint(limit); err == nil {
@@ -335,7 +336,7 @@ func (h *Handler) GetForumPostComments(c *gin.Context) {
 		offsetInt = int(o)
 	}
 
-	result, err := h.service.GetForumPostComments(postID, limitInt, offsetInt)
+	result, err := h.service.GetForumPostComments(postID, limitInt, offsetInt, sort)
 	if err != nil {
 		response.Error(c, 500, err.Error())
 		return
