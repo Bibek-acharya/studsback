@@ -89,17 +89,18 @@ type CommentUser struct {
 }
 
 type CommentResponse struct {
-	ID         uint              `json:"id"`
-	CreatedAt  string            `json:"created_at"`
-	PostID     uint              `json:"post_id"`
-	UserID     uint              `json:"user_id"`
-	User       CommentUser       `json:"user"`
-	UserName   string            `json:"user_name"`
-	Content    string            `json:"content"`
-	ImageURL   string            `json:"image_url"`
-	ParentID   *uint             `json:"parent_id"`
-	ReplyCount int               `json:"reply_count"`
-	Replies    []CommentResponse `json:"replies"`
+	ID             uint              `json:"id"`
+	CreatedAt      string            `json:"created_at"`
+	PostID         uint              `json:"post_id"`
+	UserID         uint              `json:"user_id"`
+	User           CommentUser       `json:"user"`
+	UserName       string            `json:"user_name"`
+	Content        string            `json:"content"`
+	ImageURL       string            `json:"image_url"`
+	ParentID       *uint             `json:"parent_id"`
+	ParentUserName string            `json:"parent_user_name"`
+	ReplyCount     int               `json:"reply_count"`
+	Replies        []CommentResponse `json:"replies"`
 }
 
 type TrendingPostResponse struct {

@@ -236,6 +236,30 @@ func (r *Repository) GetRepliesByParentID(parentID uint) ([]ForumComment, error)
 	return replies, err
 }
 
+func (r *Repository) GetParentUserNames(parentIDs []uint) (map[uint]string, error) {
+	if len(parentIDs) == 0 {
+		return nil, nil
+	}
+	type row struct {
+		CommentID uint
+		UserName  string
+	}
+	var rows []row
+	err := r.db.Table("forum_comments").
+		Select("forum_comments.id as comment_id, users.first_name || ' ' || users.last_name as user_name").
+		Joins("JOIN users ON users.id = forum_comments.user_id").
+		Where("forum_comments.id IN ?", parentIDs).
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[uint]string)
+	for _, r := range rows {
+		result[r.CommentID] = r.UserName
+	}
+	return result, nil
+}
+
 func (r *Repository) CreateComment(comment *ForumComment) error {
 	return r.db.Create(comment).Error
 }

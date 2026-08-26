@@ -350,6 +350,12 @@ func (s *Service) GetRepliesByParentID(parentID uint) ([]CommentResponse, error)
 	for _, r := range replies {
 		responses = append(responses, mapCommentToResponse(r))
 	}
+	parentNames, _ := s.repo.GetParentUserNames([]uint{parentID})
+	for i := range responses {
+		if parentNames != nil {
+			responses[i].ParentUserName = parentNames[parentID]
+		}
+	}
 	return responses, nil
 }
 
