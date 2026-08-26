@@ -124,13 +124,25 @@ func (h *Handler) GetForumPosts(c *gin.Context) {
 		return
 	}
 
-	posts, err := h.service.GetForumPosts(category, communityID, currentUserID)
+	page := 1
+	limit := 20
+	if p, err := ParseUint(c.DefaultQuery("page", "1")); err == nil && p > 0 {
+		page = int(p)
+	}
+	if l, err := ParseUint(c.DefaultQuery("limit", "20")); err == nil && l > 0 {
+		limit = int(l)
+	}
+
+	posts, hasMore, err := h.service.GetForumPosts(category, communityID, currentUserID, page, limit)
 	if err != nil {
 		response.Error(c, 500, err.Error())
 		return
 	}
 
-	response.Success(c, 200, "Posts retrieved successfully", posts)
+	response.Success(c, 200, "Posts retrieved successfully", map[string]interface{}{
+		"posts":    posts,
+		"has_more": hasMore,
+	})
 }
 
 func (h *Handler) GetTrendingForumPosts(c *gin.Context) {

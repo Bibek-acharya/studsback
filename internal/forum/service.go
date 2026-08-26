@@ -196,11 +196,14 @@ func (s *Service) JoinForumCommunity(communityID uint, userID uint) (*CommunityR
 	}, nil
 }
 
-func (s *Service) GetForumPosts(category, communityID string, currentUserID uint) ([]PostResponse, error) {
-	posts, err := s.repo.GetAllPosts(category, communityID, currentUserID)
+func (s *Service) GetForumPosts(category, communityID string, currentUserID uint, page, limit int) ([]PostResponse, bool, error) {
+	offset := (page - 1) * limit
+	posts, total, err := s.repo.GetAllPosts(category, communityID, currentUserID, limit, offset)
 	if err != nil {
-		return nil, errors.New("failed to fetch posts")
+		return nil, false, errors.New("failed to fetch posts")
 	}
+
+	hasMore := int64(offset+len(posts)) < total
 
 	if currentUserID == 0 {
 		general, err := s.repo.FindCommunityByName("General")
@@ -286,7 +289,7 @@ func (s *Service) GetForumPosts(category, communityID string, currentUserID uint
 		responses = append(responses, mapPostToResponse(p))
 	}
 
-	return responses, nil
+	return responses, hasMore, nil
 }
 
 func (s *Service) GetTrendingForumPosts() ([]TrendingPostResponse, error) {
@@ -713,6 +716,16 @@ func mapPostToResponse(post ForumPost) PostResponse {
 			LastName:  post.User.LastName,
 			Email:     post.User.Email,
 			ImageURL:  post.User.ImageURL,
+		}
+	}
+
+	if post.Community.ID != 0 {
+		resp.Community = &CommunityResponse{
+			ID:        post.Community.ID,
+			Name:      post.Community.Name,
+			Icon:      post.Community.Icon,
+			BgColor:   post.Community.BgColor,
+			IsGeneral: post.Community.IsGeneral,
 		}
 	}
 

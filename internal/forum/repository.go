@@ -62,8 +62,9 @@ func (r *Repository) CreateCommunity(community *ForumCommunity) error {
 	return r.db.Create(community).Error
 }
 
-func (r *Repository) GetAllPosts(category, communityID string, currentUserID uint) ([]ForumPost, error) {
+func (r *Repository) GetAllPosts(category, communityID string, currentUserID uint, limit, offset int) ([]ForumPost, int64, error) {
 	var posts []ForumPost
+	var total int64
 	query := r.db.Preload("User").Preload("Community")
 
 	if communityID != "" {
@@ -77,14 +78,17 @@ func (r *Repository) GetAllPosts(category, communityID string, currentUserID uin
 		query = query.Where("category = ?", category)
 	}
 
+	countQuery := query.Session(&gorm.Session{})
+	countQuery.Model(&ForumPost{}).Count(&total)
+
 	if category == "Trending" {
 		query = query.Order("upvotes DESC, created_at DESC")
 	} else {
 		query = query.Order("created_at DESC")
 	}
 
-	err := query.Find(&posts).Error
-	return posts, err
+	err := query.Limit(limit).Offset(offset).Find(&posts).Error
+	return posts, total, err
 }
 
 func (r *Repository) GetPostByID(id uint) (*ForumPost, error) {
