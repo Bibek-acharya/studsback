@@ -69,12 +69,34 @@ func (r *Repository) GetAllPosts(category, communityID string, currentUserID uin
 
 	if communityID != "" {
 		query = query.Where("community_id = ?", communityID)
+	} else if category == "Feed" && currentUserID != 0 {
+		memberships, err := r.GetMembershipsByUserID(currentUserID)
+		if err == nil && len(memberships) > 0 {
+			communityIDs := make([]uint, 0, len(memberships)+1)
+			for _, m := range memberships {
+				communityIDs = append(communityIDs, m.CommunityID)
+			}
+			var general ForumCommunity
+			if err := r.db.Where("is_general = ?", true).First(&general).Error; err == nil {
+				already := false
+				for _, id := range communityIDs {
+					if id == general.ID {
+						already = true
+						break
+					}
+				}
+				if !already {
+					communityIDs = append(communityIDs, general.ID)
+				}
+			}
+			query = query.Where("community_id IN ?", communityIDs)
+		}
 	}
 
 	if category == "Saved" {
 		query = query.Joins("JOIN forum_saves ON forum_saves.post_id = forum_posts.id").
 			Where("forum_saves.user_id = ?", currentUserID)
-	} else if category != "" && category != "Home Feed" && category != "Latest" && category != "Trending" {
+	} else if category != "" && category != "Home Feed" && category != "Latest" && category != "Trending" && category != "Feed" {
 		query = query.Where("category = ?", category)
 	}
 

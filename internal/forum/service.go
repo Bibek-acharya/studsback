@@ -284,6 +284,8 @@ func (s *Service) GetForumPosts(category, communityID string, currentUserID uint
 		}
 	}
 
+	s.setCommunityMemberStatus(posts, currentUserID)
+
 	var responses []PostResponse
 	for _, p := range posts {
 		responses = append(responses, mapPostToResponse(p))
@@ -405,6 +407,7 @@ func (s *Service) CreateForumPost(req CreatePostRequest, userID uint) (*PostResp
 		return nil, errors.New("failed to fetch created post")
 	}
 
+	s.setSinglePostMemberStatus(post, userID)
 	resp := mapPostToResponse(*post)
 	return &resp, nil
 }
@@ -683,6 +686,35 @@ func (s *Service) UploadForumMedia(files []*multipart.FileHeader) ([]string, err
 	return urls, nil
 }
 
+func (s *Service) setSinglePostMemberStatus(post *ForumPost, userID uint) {
+	if userID == 0 || post == nil || post.Community.ID == 0 {
+		return
+	}
+	memberships, _ := s.repo.GetMembershipsByUserID(userID)
+	for _, m := range memberships {
+		if m.CommunityID == post.CommunityID {
+			post.Community.IsMember = true
+			return
+		}
+	}
+}
+
+func (s *Service) setCommunityMemberStatus(posts []ForumPost, userID uint) {
+	if userID == 0 || len(posts) == 0 {
+		return
+	}
+	memberships, _ := s.repo.GetMembershipsByUserID(userID)
+	memberSet := make(map[uint]bool, len(memberships))
+	for _, m := range memberships {
+		memberSet[m.CommunityID] = true
+	}
+	for i := range posts {
+		if posts[i].Community.ID != 0 {
+			posts[i].Community.IsMember = memberSet[posts[i].CommunityID]
+		}
+	}
+}
+
 func mapPostToResponse(post ForumPost) PostResponse {
 	resp := PostResponse{
 		ID:           post.ID,
@@ -721,11 +753,13 @@ func mapPostToResponse(post ForumPost) PostResponse {
 
 	if post.Community.ID != 0 {
 		resp.Community = &CommunityResponse{
-			ID:        post.Community.ID,
-			Name:      post.Community.Name,
-			Icon:      post.Community.Icon,
-			BgColor:   post.Community.BgColor,
-			IsGeneral: post.Community.IsGeneral,
+			ID:          post.Community.ID,
+			Name:        post.Community.Name,
+			Icon:        post.Community.Icon,
+			BgColor:     post.Community.BgColor,
+			IsGeneral:   post.Community.IsGeneral,
+			MemberCount: post.Community.MemberCount,
+			IsMember:    post.Community.IsMember,
 		}
 	}
 
