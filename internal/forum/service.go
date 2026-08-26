@@ -341,6 +341,18 @@ func (s *Service) GetForumPostComments(postID uint, limit, offset int, sort stri
 	}, nil
 }
 
+func (s *Service) GetRepliesByParentID(parentID uint) ([]CommentResponse, error) {
+	replies, err := s.repo.GetRepliesByParentID(parentID)
+	if err != nil {
+		return nil, errors.New("failed to fetch replies")
+	}
+	var responses []CommentResponse
+	for _, r := range replies {
+		responses = append(responses, mapCommentToResponse(r))
+	}
+	return responses, nil
+}
+
 func (s *Service) CreateForumPost(req CreatePostRequest, userID uint) (*PostResponse, error) {
 	if req.CommunityID == 0 {
 		general, err := s.repo.FindCommunityByName("General")

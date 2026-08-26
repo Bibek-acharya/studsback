@@ -186,7 +186,7 @@ func (r *Repository) GetTopComments(postID uint, limit, offset int, sort string)
 	var comments []ForumComment
 	orderClause := "created_at DESC"
 	if sort == "popular" {
-		orderClause = "created_at DESC"
+		orderClause = "reply_count DESC, created_at DESC"
 	}
 	err := r.db.Preload("User").
 		Where("post_id = ? AND parent_id IS NULL", postID).

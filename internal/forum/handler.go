@@ -325,6 +325,7 @@ func (h *Handler) GetForumPostComments(c *gin.Context) {
 	limit := c.DefaultQuery("limit", "20")
 	offset := c.DefaultQuery("offset", "0")
 	sort := c.DefaultQuery("sort", "newest")
+	parentIDStr := c.Query("parent_id")
 
 	limitInt := 20
 	offsetInt := 0
@@ -334,6 +335,21 @@ func (h *Handler) GetForumPostComments(c *gin.Context) {
 	}
 	if o, err := ParseUint(offset); err == nil {
 		offsetInt = int(o)
+	}
+
+	if parentIDStr != "" {
+		parentID, err := ParseUint(parentIDStr)
+		if err != nil {
+			response.Error(c, 400, "Invalid parent_id")
+			return
+		}
+		replies, err := h.service.GetRepliesByParentID(uint(parentID))
+		if err != nil {
+			response.Error(c, 500, err.Error())
+			return
+		}
+		response.Success(c, 200, "Replies retrieved successfully", replies)
+		return
 	}
 
 	result, err := h.service.GetForumPostComments(postID, limitInt, offsetInt, sort)
