@@ -99,10 +99,11 @@ services:
       MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:-changeme}
       MEILI_ENV: production
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:7700/health"]
+      test: ["CMD-SHELL", "curl -sf http://localhost:7700/health || exit 1"]
       interval: 10s
       timeout: 5s
-      retries: 3
+      retries: 5
+      start_period: 15s
     restart: unless-stopped
 
   backend:
