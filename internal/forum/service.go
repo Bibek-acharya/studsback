@@ -351,6 +351,16 @@ func (s *Service) GetRepliesByParentID(parentID uint) ([]CommentResponse, error)
 	if err != nil {
 		return nil, errors.New("failed to fetch replies")
 	}
+
+	replyIDs := make([]uint, len(replies))
+	for i, r := range replies {
+		replyIDs[i] = r.ID
+	}
+	replyCounts, _ := s.repo.GetReplyCountsByParentIDs(replyIDs)
+	for i := range replies {
+		replies[i].ReplyCount = replyCounts[replies[i].ID]
+	}
+
 	var responses []CommentResponse
 	for _, r := range replies {
 		responses = append(responses, mapCommentToResponse(r))

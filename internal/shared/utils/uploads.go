@@ -189,7 +189,24 @@ func SaveUploadedMedia(header *multipart.FileHeader, folder string) (string, err
 		return "", fmt.Errorf("failed to read uploaded file: %w", err)
 	}
 
+	// Validate and transcode video files for iOS compatibility
+	isVideo := strings.HasPrefix(contentType, "video/")
+	if isVideo {
+		if err := ValidateVideo(data); err != nil {
+			return "", err
+		}
+		transcoded, err := TranscodeToH264MP4(data)
+		if err != nil {
+			return "", fmt.Errorf("video processing failed: %w", err)
+		}
+		data = transcoded
+		contentType = "video/mp4"
+	}
+
 	ext := getFileExtension(header)
+	if isVideo {
+		ext = ".mp4"
+	}
 	filename := fmt.Sprintf("%d%s", time.Now().UnixNano(), ext)
 
 	if contentType == "" {
