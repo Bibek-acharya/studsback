@@ -93,8 +93,8 @@ func NewService(repo *Repository) *Service {
 	return &Service{repo: repo}
 }
 
-func (s *Service) GetUniversities(search, uniType, status string, popular bool, isNepali string) ([]UniversityResponse, error) {
-	universities, err := s.repo.FindAll(search, uniType, status, popular, isNepali)
+func (s *Service) GetUniversities(search, uniType, status string, popular bool, isNepali string, academic []string) ([]UniversityResponse, error) {
+	universities, err := s.repo.FindAll(search, uniType, status, popular, isNepali, academic)
 	if err != nil {
 		return nil, err
 	}

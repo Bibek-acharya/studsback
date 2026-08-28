@@ -40,8 +40,13 @@ func (h *Handler) GetUniversities(c *gin.Context) {
 	if v := c.Query("isNepali"); v != "" {
 		isNepali = v
 	}
+	academicRaw := strings.TrimSpace(c.Query("academic"))
+	var academic []string
+	if academicRaw != "" {
+		academic = strings.Split(academicRaw, ",")
+	}
 
-	results, err := h.service.GetUniversities(search, uniType, status, popular, isNepali)
+	results, err := h.service.GetUniversities(search, uniType, status, popular, isNepali, academic)
 	if err != nil {
 		response.Error(c, 500, "Failed to fetch universities")
 		return

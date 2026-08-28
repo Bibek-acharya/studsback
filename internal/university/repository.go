@@ -16,7 +16,7 @@ func NewRepository(db *gorm.DB) *Repository {
 	return &Repository{db: db}
 }
 
-func (r *Repository) FindAll(search, uniType, status string, popular bool, isNepali string) ([]University, error) {
+func (r *Repository) FindAll(search, uniType, status string, popular bool, isNepali string, academic []string) ([]University, error) {
 	var universities []University
 	query := r.db.Model(&University{})
 
@@ -40,6 +40,27 @@ func (r *Repository) FindAll(search, uniType, status string, popular bool, isNep
 		query = query.Where("is_nepali = ?", true)
 	} else if isNepali == "false" {
 		query = query.Where("is_nepali = ?", false)
+	}
+
+	if len(academic) > 0 {
+		academicKeywords := map[string][]string{
+			"bachelors": {"bachelor", "bsc", "bba", "bbs", "bim", "mbbs", "bds", "bca", "bit", "b.ed", "bhm", "bachelor's", "undergraduate"},
+			"masters":   {"master", "msc", "mba", "mbs", "mca", "mit", "m.ed", "mhm", "master's", "postgraduate", "graduate"},
+		}
+		searchField := "COALESCE(description, '') || ' ' || CAST(COALESCE(programs, '[]'::jsonb) AS TEXT) || ' ' || CAST(COALESCE(courses, '[]'::jsonb) AS TEXT)"
+		for _, level := range academic {
+			keywords, ok := academicKeywords[level]
+			if !ok {
+				continue
+			}
+			likeClauses := make([]string, 0, len(keywords))
+			args := make([]interface{}, 0, len(keywords))
+			for _, kw := range keywords {
+				likeClauses = append(likeClauses, searchField+" ILIKE ?")
+				args = append(args, "%"+kw+"%")
+			}
+			query = query.Where("("+strings.Join(likeClauses, " OR ")+")", args...)
+		}
 	}
 
 	err := query.Order("rank ASC").Find(&universities).Error
