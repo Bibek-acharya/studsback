@@ -90,6 +90,21 @@ services:
       retries: 3
     restart: unless-stopped
 
+  meilisearch:
+    image: getmeili/meilisearch:v1.13
+    container_name: studsphere_meilisearch
+    volumes:
+      - meilisearch_data:/meili_data
+    environment:
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:-changeme}
+      MEILI_ENV: production
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:7700/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
   backend:
     build:
       context: .
@@ -102,6 +117,7 @@ services:
     environment:
       EMBEDDING_BASE_URL: http://ollama:11434/v1
       LLM_BASE_URL: http://ollama-llm:11434/v1
+      MEILI_HOST: http://meilisearch:7700
     volumes:
       - ./uploads:/app/uploads
     depends_on:
@@ -113,6 +129,8 @@ services:
         condition: service_healthy
       nats:
         condition: service_healthy
+      meilisearch:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:
@@ -120,3 +138,4 @@ volumes:
   ollama_llm_data:
   redis_data:
   nats_data:
+  meilisearch_data:
