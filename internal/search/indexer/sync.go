@@ -48,16 +48,16 @@ type syncTable struct {
 }
 
 var syncTables = []syncTable{
-	{"colleges", "colleges", "id, name, full_name, description, location, affiliation, college_type, rating, image_url, created_at, updated_at, deleted_at", ""},
+	{"colleges", "colleges", "id, name, full_name, description, location, affiliation, college_type, rating, image_url, featured, verified, website, created_at, updated_at, deleted_at", ""},
 	{"courses", "courses", "id, title, short_title, description, field, level, affiliation, status, created_at, updated_at, deleted_at", "status != 'draft'"},
-	{"scholarships", "scholarships", "id, title, description, provider, location, scholarship_type, status, created_at, updated_at, deleted_at", "status != 'draft'"},
-	{"news", "news", "id, title, excerpt, content, category, source, published, created_at, updated_at, deleted_at", "published = true"},
-	{"events", "events", "id, title, description, excerpt, category, location, date, image, created_at, updated_at, deleted_at", ""},
+	{"scholarships", "scholarships", "id, title, description, provider, location, scholarship_type, funding_type, status, deadline, created_at, updated_at, deleted_at", "status != 'draft'"},
+	{"news", "news", "id, title, excerpt, content, category, source, image, author, published, created_at, updated_at, deleted_at", "published = true"},
+	{"events", "events", "id, title, description, excerpt, category, location, date, image, organizer, end_date, status, created_at, updated_at, deleted_at", ""},
 	{"exams", "exams", "id, title, description, board, type, university, created_at, updated_at, deleted_at", ""},
-	{"blogs", "blogs", "id, title, excerpt, content, category, author, published, created_at, updated_at, deleted_at", "published = true"},
-	{"universities", "universities", "id, name, description, location, type, rating, logo, status, created_at, updated_at, deleted_at", "status = 'published'"},
+	{"blogs", "blogs", "id, title, excerpt, content, category, image, author, published, created_at, updated_at, deleted_at", "published = true"},
+	{"universities", "universities", "id, name, description, location, type, rating, logo, cover, verified, programs_count, colleges_count, website, status, created_at, updated_at, deleted_at", "status = 'published'"},
 	{"admission_pages", "admission_pages", "id, title, level, status, institution_name, institution_location, institution_link, created_at, updated_at, deleted_at", "status != 'draft'"},
-	{"institution_users", "institutions", "id, institution_name, district, affiliation, organization_type, about, logo_url, status, profile_status, deleted_at, updated_at", "profile_status = 'published' AND status = 'approved'"},
+	{"institution_users", "institutions", "id, institution_name, district, affiliation, organization_type, about, logo_url, card_image_url, featured, verified, website_url, status, profile_status, deleted_at, updated_at", "profile_status = 'published' AND status = 'approved'"},
 }
 
 func NewSyncWorker(db *gorm.DB, indexer *MeiliIndexer, interval time.Duration, batchSize int) *SyncWorker {
@@ -224,6 +224,19 @@ func isDeleted(row map[string]interface{}) bool {
 // isPublished checks if a row should be indexed based on its status fields.
 func isPublished(row map[string]interface{}, statusFilter string) bool {
 	if statusFilter == "" {
+		// Even with no explicit filter, check event end dates
+		if v, ok := row["end_date"]; ok && v != nil {
+			if t, ok := v.(time.Time); ok && !t.IsZero() && t.Before(time.Now()) {
+				return false
+			}
+		}
+		if v, ok := row["status"]; ok {
+			if s, ok := v.(string); ok {
+				if s == "past" || s == "completed" || s == "cancelled" {
+					return false
+				}
+			}
+		}
 		return true
 	}
 
@@ -233,6 +246,13 @@ func isPublished(row map[string]interface{}, statusFilter string) bool {
 			return b
 		}
 		return true
+	}
+
+	// Check scholarship deadline — skip if deadline has passed
+	if v, ok := row["deadline"]; ok && v != nil {
+		if t, ok := v.(time.Time); ok && !t.IsZero() && t.Before(time.Now()) {
+			return false
+		}
 	}
 
 	// String status field (courses, scholarships, universities, admission_pages, institutions)

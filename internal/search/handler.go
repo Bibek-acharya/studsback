@@ -59,7 +59,7 @@ func (h *Handler) Search(c *gin.Context) {
 	// Use the semantic remainder as the search query
 	q := parsed.Query
 	if q == "" && rawQ != "" {
-		q = rawQ // fallback: if parser stripped everything, use original
+		q = rawQ
 	}
 
 	if page < 1 {

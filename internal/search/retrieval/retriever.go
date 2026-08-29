@@ -43,6 +43,10 @@ type Candidate struct {
 	URL             string     `json:"url,omitempty"`
 	EntityType      string     `json:"entity_type,omitempty"`
 	InstitutionName string     `json:"institution_name,omitempty"`
+	Featured        bool       `json:"featured,omitempty"`
+	Verified        bool       `json:"verified,omitempty"`
+	Website         string     `json:"website,omitempty"`
+	University      string     `json:"university,omitempty"`
 	Rank            int        `json:"-"`
 	Score           float64    `json:"-"`
 }

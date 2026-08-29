@@ -97,17 +97,15 @@ var categoryMeta = map[string]SearchCategory{
 		Related:     []string{"bachelor admission", "master admission", "MBBS", "engineering", "management", "diploma"},
 		Tabs:        []string{"All Admissions", "Bachelor", "Master", "Diploma", "Certificate", "Open"},
 	},
-	"institutions": {
-		Title:       "Institutions",
-		Description: "Explore educational institutions and their programs",
-		Related:     []string{"colleges", "universities", "institutes", "schools", "training centers"},
-		Tabs:        []string{"All Institutions", "Colleges", "Universities", "Schools", "Training Centers"},
-	},
 }
 
 var categoryKeywordMap = map[string]string{
 	"college":      "colleges",
 	"colleges":     "colleges",
+	"institute":    "colleges",
+	"institutes":   "colleges",
+	"institution":  "colleges",
+	"institutions": "colleges",
 	"course":       "courses",
 	"courses":      "courses",
 	"exam":         "exams",
@@ -123,8 +121,6 @@ var categoryKeywordMap = map[string]string{
 	"universities": "universities",
 	"admission":    "admissions",
 	"admissions":   "admissions",
-	"institution":  "institutions",
-	"institutions": "institutions",
 }
 
 func resolveCategoryKey(q string, cat string) string {

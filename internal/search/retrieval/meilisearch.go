@@ -77,6 +77,10 @@ func (r *MeilisearchRetriever) resolveEntities(category string) []EntityType {
 	if category == "" {
 		return allEntities
 	}
+	// "college" searches both colleges AND institutions
+	if category == "college" {
+		return []EntityType{EntityCollege, EntityInstitution}
+	}
 	for _, e := range allEntities {
 		if string(e) == category || EntityToIndexName[e] == category {
 			return []EntityType{e}
@@ -166,11 +170,15 @@ func hitToCandidate(hit map[string]interface{}, entity EntityType) Candidate {
 		c.Title = v
 	} else if v, ok := hit["title"].(string); ok {
 		c.Title = v
+	} else if v, ok := hit["institution_name"].(string); ok {
+		c.Title = v
 	}
 
 	if v, ok := hit["description"].(string); ok {
 		c.Description = v
 	} else if v, ok := hit["excerpt"].(string); ok {
+		c.Description = v
+	} else if v, ok := hit["about"].(string); ok {
 		c.Description = v
 	}
 
@@ -190,16 +198,14 @@ func hitToCandidate(hit map[string]interface{}, entity EntityType) Candidate {
 
 	if v, ok := hit["slug"].(string); ok {
 		c.Slug = v
-	} else if entity == EntityUniversity {
+	} else if entity == EntityUniversity || entity == EntityInstitution {
 		if v, ok := hit["name"].(string); ok {
+			c.Slug = slugify(v)
+		} else if v, ok := hit["institution_name"].(string); ok {
 			c.Slug = slugify(v)
 		}
 	} else if entity == EntityAdmissionPage {
 		if v, ok := hit["title"].(string); ok {
-			c.Slug = slugify(v)
-		}
-	} else if entity == EntityInstitution {
-		if v, ok := hit["institution_name"].(string); ok {
 			c.Slug = slugify(v)
 		}
 	}
@@ -216,10 +222,42 @@ func hitToCandidate(hit map[string]interface{}, entity EntityType) Candidate {
 		c.Location = v
 	}
 
-	if v, ok := hit["type"].(string); ok {
+	if v, ok := hit["college_type"].(string); ok {
+		c.EntityType = v
+	} else if v, ok := hit["type"].(string); ok {
 		c.EntityType = v
 	} else if v, ok := hit["level"].(string); ok {
 		c.EntityType = v
+	} else if v, ok := hit["organization_type"].(string); ok {
+		c.EntityType = v
+	} else if v, ok := hit["category"].(string); ok {
+		c.EntityType = v
+	}
+
+	if v, ok := hit["affiliation"].(string); ok {
+		c.University = v
+	} else if v, ok := hit["university"].(string); ok {
+		c.University = v
+	} else if v, ok := hit["provider"].(string); ok {
+		c.University = v
+	} else if v, ok := hit["source"].(string); ok {
+		c.University = v
+	} else if v, ok := hit["author"].(string); ok {
+		c.University = v
+	}
+
+	if v, ok := hit["website"].(string); ok {
+		c.Website = v
+	} else if v, ok := hit["website_url"].(string); ok {
+		c.Website = v
+	}
+
+	if v, ok := hit["featured"].(bool); ok {
+		c.Featured = v
+	}
+
+	if v, ok := hit["verified"].(bool); ok {
+		c.Verified = v
 	}
 
 	if v, ok := hit["institution_name"].(string); ok {

@@ -166,14 +166,19 @@ func (s *SearchService) Search(ctx context.Context, req HybridSearchRequest) *Se
 	items := make([]SearchItem, len(paged))
 	for i, c := range paged {
 		items[i] = SearchItem{
-			ID:          c.ID,
-			Type:        string(c.Type),
-			Title:       c.Title,
-			Description: c.Description,
-			Image:       c.Image,
-			Slug:        c.Slug,
-			Rating:      c.Rating,
-			Location:    c.Location,
+			ID:              c.ID,
+			Type:            string(c.Type),
+			Title:           c.Title,
+			Description:     c.Description,
+			Image:           c.Image,
+			Slug:            c.Slug,
+			Rating:          c.Rating,
+			Location:        c.Location,
+			InstitutionType: c.EntityType,
+			University:      c.University,
+			Website:         c.Website,
+			Featured:        c.Featured,
+			Verified:        c.Verified,
 		}
 	}
 

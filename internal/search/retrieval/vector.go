@@ -69,6 +69,18 @@ func (r *VectorRetriever) resolveTables(category string) []vectorTable {
 	if category == "" {
 		return vectorTables
 	}
+	// "college" searches both colleges AND institutions
+	if category == "college" {
+		var result []vectorTable
+		for _, vt := range vectorTables {
+			if vt.entity == EntityCollege || vt.entity == EntityInstitution {
+				result = append(result, vt)
+			}
+		}
+		if len(result) > 0 {
+			return result
+		}
+	}
 	for _, vt := range vectorTables {
 		if string(vt.entity) == category || vt.table == category {
 			return []vectorTable{vt}
