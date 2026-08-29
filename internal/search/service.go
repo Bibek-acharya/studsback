@@ -51,10 +51,10 @@ func NewSearchService(
 		embeddingEnabled: embeddingEnabled,
 		rrf:              ranking.NewRRFScorer(60),
 		exactMatcher:     ranking.NewExactMatcher(ranking.ExactMatchConfig{
-			TitleExact:  0.1,
-			TitlePhrase: 0.05,
-			TitlePrefix: 0.03,
-			TokenMatch:  0.01,
+			TitleExact:  0.5,
+			TitlePhrase: 0.2,
+			TitlePrefix: 0.1,
+			TokenMatch:  0.05,
 			DescMatch:   0.005,
 		}),
 		businessBoost: ranking.NewBusinessBooster(ranking.BusinessBoostConfig{
@@ -151,6 +151,17 @@ func (s *SearchService) Search(ctx context.Context, req HybridSearchRequest) *Se
 	if req.Sort != "" && req.Sort != "relevance" {
 		applySort(ranked, req.Sort)
 	}
+
+	// Filter out low-relevance candidates
+	// Threshold ensures only meaningful matches appear in results
+	minScore := 0.001
+	var filtered []retrieval.Candidate
+	for _, c := range ranked {
+		if c.Score > minScore || req.Query == "" {
+			filtered = append(filtered, c)
+		}
+	}
+	ranked = filtered
 
 	total := len(ranked)
 	startIdx := (req.Page - 1) * req.Limit
