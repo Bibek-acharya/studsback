@@ -12,7 +12,7 @@ import (
 var allEntities = []EntityType{
 	EntityCollege, EntityCourse, EntityScholarship,
 	EntityNews, EntityEvent, EntityExam, EntityBlog, EntitySitePage,
-	EntityUniversity, EntityAdmissionPage,
+	EntityUniversity, EntityAdmissionPage, EntityInstitution,
 }
 
 type IndexClient interface {
@@ -122,6 +122,8 @@ func (r *MeilisearchRetriever) buildFilters(entity EntityType, f SearchFilters) 
 		switch entity {
 		case EntityAdmissionPage:
 			parts = append(parts, fmt.Sprintf("institution_location = %q", f.Location))
+		case EntityInstitution:
+			parts = append(parts, fmt.Sprintf("district = %q", f.Location))
 		default:
 			parts = append(parts, fmt.Sprintf("location = %q", f.Location))
 		}
@@ -132,6 +134,8 @@ func (r *MeilisearchRetriever) buildFilters(entity EntityType, f SearchFilters) 
 			parts = append(parts, fmt.Sprintf("college_type = %q", f.Type))
 		case EntityUniversity:
 			parts = append(parts, fmt.Sprintf("type = %q", f.Type))
+		case EntityInstitution:
+			parts = append(parts, fmt.Sprintf("organization_type = %q", f.Type))
 		default:
 			parts = append(parts, fmt.Sprintf("type = %q", f.Type))
 		}
@@ -178,6 +182,10 @@ func hitToCandidate(hit map[string]interface{}, entity EntityType) Candidate {
 		c.Image = v
 	} else if v, ok := hit["image_url"].(string); ok {
 		c.Image = v
+	} else if v, ok := hit["logo_url"].(string); ok {
+		c.Image = v
+	} else if v, ok := hit["card_image_url"].(string); ok {
+		c.Image = v
 	}
 
 	if v, ok := hit["slug"].(string); ok {
@@ -190,6 +198,10 @@ func hitToCandidate(hit map[string]interface{}, entity EntityType) Candidate {
 		if v, ok := hit["title"].(string); ok {
 			c.Slug = slugify(v)
 		}
+	} else if entity == EntityInstitution {
+		if v, ok := hit["institution_name"].(string); ok {
+			c.Slug = slugify(v)
+		}
 	}
 
 	if v, ok := hit["rating"].(float64); ok {
@@ -199,6 +211,8 @@ func hitToCandidate(hit map[string]interface{}, entity EntityType) Candidate {
 	if v, ok := hit["location"].(string); ok {
 		c.Location = v
 	} else if v, ok := hit["institution_location"].(string); ok {
+		c.Location = v
+	} else if v, ok := hit["district"].(string); ok {
 		c.Location = v
 	}
 

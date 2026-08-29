@@ -5,30 +5,32 @@ import "context"
 type EntityType string
 
 const (
-	EntityCollege      EntityType = "college"
-	EntityCourse       EntityType = "course"
-	EntityScholarship  EntityType = "scholarship"
-	EntityNews         EntityType = "news"
-	EntityEvent        EntityType = "event"
-	EntityExam         EntityType = "exam"
-	EntityBlog         EntityType = "blog"
-	EntitySitePage     EntityType = "site_page"
-	EntityUniversity   EntityType = "university"
+	EntityCollege       EntityType = "college"
+	EntityCourse        EntityType = "course"
+	EntityScholarship   EntityType = "scholarship"
+	EntityNews          EntityType = "news"
+	EntityEvent         EntityType = "event"
+	EntityExam          EntityType = "exam"
+	EntityBlog          EntityType = "blog"
+	EntitySitePage      EntityType = "site_page"
+	EntityUniversity    EntityType = "university"
 	EntityAdmissionPage EntityType = "admission_page"
+	EntityInstitution   EntityType = "institution"
 )
 
 // EntityToIndexName maps singular entity types to plural index/table names.
 var EntityToIndexName = map[EntityType]string{
-	EntityCollege:      "colleges",
-	EntityCourse:       "courses",
-	EntityScholarship:  "scholarships",
-	EntityNews:         "news",
-	EntityEvent:        "events",
-	EntityExam:         "exams",
-	EntityBlog:         "blogs",
-	EntitySitePage:     "site_pages",
-	EntityUniversity:   "universities",
+	EntityCollege:       "colleges",
+	EntityCourse:        "courses",
+	EntityScholarship:   "scholarships",
+	EntityNews:          "news",
+	EntityEvent:         "events",
+	EntityExam:          "exams",
+	EntityBlog:          "blogs",
+	EntitySitePage:      "site_pages",
+	EntityUniversity:    "universities",
 	EntityAdmissionPage: "admission_pages",
+	EntityInstitution:   "institutions",
 }
 
 type Candidate struct {

@@ -57,6 +57,7 @@ var syncTables = []syncTable{
 	{"site_pages", "site_pages", "id, title, content, slug, created_at, updated_at, deleted_at"},
 	{"universities", "universities", "id, name, description, location, type, rating, logo, created_at, updated_at, deleted_at"},
 	{"admission_pages", "admission_pages", "id, title, level, status, institution_name, institution_location, institution_link, created_at, updated_at, deleted_at"},
+	{"institution_users", "institutions", "id, institution_name, district, affiliation, organization_type, about, logo_url, status, profile_status, deleted_at, updated_at"},
 }
 
 func NewSyncWorker(db *gorm.DB, indexer *MeiliIndexer, interval time.Duration, batchSize int) *SyncWorker {

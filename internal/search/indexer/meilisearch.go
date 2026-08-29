@@ -23,11 +23,11 @@ var IndexConfigs = []IndexConfig{
 	{
 		Entity:          "colleges",
 		PrimaryKey:      "id",
-		SearchableAttrs: []string{"name", "full_name", "description", "location", "affiliation", "college_type"},
+		SearchableAttrs: []string{"name", "full_name", "description", "location", "affiliation", "college_type", "programs_list"},
 		FilterableAttrs: []string{"college_type", "location", "affiliation", "rating"},
 		SortableAttrs:   []string{"rating", "created_at"},
 		RankingRules:    []string{"words", "typo", "proximity", "attribute", "exactness"},
-		Synonyms:        map[string][]string{"uni": {"university"}, "clg": {"college"}},
+		Synonyms:        map[string][]string{"uni": {"university"}, "clg": {"college"}, "csit": {"computer science"}, "bit": {"information technology"}, "bca": {"computer application"}, "mbbs": {"medicine"}, "mba": {"business administration"}},
 	},
 	{
 		Entity:          "courses",
@@ -100,6 +100,15 @@ var IndexConfigs = []IndexConfig{
 		FilterableAttrs: []string{"level", "status", "institution_location"},
 		SortableAttrs:   []string{"created_at"},
 		RankingRules:    []string{"words", "typo", "proximity", "attribute", "exactness"},
+	},
+	{
+		Entity:          "institutions",
+		PrimaryKey:      "id",
+		SearchableAttrs: []string{"institution_name", "district", "affiliation", "about", "organization_type"},
+		FilterableAttrs: []string{"organization_type", "district", "affiliation", "status"},
+		SortableAttrs:   []string{"created_at"},
+		RankingRules:    []string{"words", "typo", "proximity", "attribute", "exactness"},
+		Synonyms:        map[string][]string{"uni": {"university"}, "clg": {"college"}, "csit": {"computer science"}, "bit": {"information technology"}},
 	},
 }
 

@@ -25,7 +25,7 @@ func AddMeilisearchSyncSupport(db *gorm.DB) error {
 	}
 
 	// Create sync indexes for efficient incremental queries
-	tables := []string{"colleges", "courses", "scholarships", "news", "events", "exams", "blogs", "site_pages", "universities", "admission_pages"}
+	tables := []string{"colleges", "courses", "scholarships", "news", "events", "exams", "blogs", "site_pages", "universities", "admission_pages", "institution_users"}
 	for _, table := range tables {
 		idxName := "idx_" + table + "_sync"
 		if err := db.Exec(`

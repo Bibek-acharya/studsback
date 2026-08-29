@@ -42,6 +42,7 @@ var vectorTables = []vectorTable{
 	{"site_pages", EntitySitePage, "id, COALESCE(title,'') as title, COALESCE(content,'') as description, COALESCE(slug,'') as slug, '' as image, '' as location, 0 as rating"},
 	{"universities", EntityUniversity, "id, COALESCE(name,'') as title, COALESCE(description,'') as description, COALESCE(name,'') as slug, COALESCE(logo,'') as image, COALESCE(location,'') as location, COALESCE(rating,0) as rating"},
 	{"admission_pages", EntityAdmissionPage, "id, COALESCE(title,'') as title, COALESCE(title,'') as description, COALESCE(title,'') as slug, '' as image, COALESCE(institution_location,'') as location, 0 as rating"},
+	{"institution_users", EntityInstitution, "id, COALESCE(institution_name,'') as title, COALESCE(about,'') as description, '' as slug, COALESCE(logo_url,'') as image, COALESCE(district,'') as location, 0 as rating"},
 }
 
 func (r *VectorRetriever) Search(ctx context.Context, req SearchRequest) ([]Candidate, error) {
