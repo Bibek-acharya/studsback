@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -224,7 +225,6 @@ func isDeleted(row map[string]interface{}) bool {
 // isPublished checks if a row should be indexed based on its status fields.
 func isPublished(row map[string]interface{}, statusFilter string) bool {
 	if statusFilter == "" {
-		// Even with no explicit filter, check event end dates
 		if v, ok := row["end_date"]; ok && v != nil {
 			if t, ok := v.(time.Time); ok && !t.IsZero() && t.Before(time.Now()) {
 				return false
@@ -240,12 +240,16 @@ func isPublished(row map[string]interface{}, statusFilter string) bool {
 		return true
 	}
 
-	// Boolean published field (news, blogs)
-	if v, ok := row["published"]; ok {
+	// Boolean published field (news, blogs) — must exist and be true
+	if strings.Contains(statusFilter, "published") {
+		v, ok := row["published"]
+		if !ok || v == nil {
+			return false
+		}
 		if b, ok := v.(bool); ok {
 			return b
 		}
-		return true
+		return false
 	}
 
 	// Check scholarship deadline — skip if deadline has passed
@@ -255,7 +259,7 @@ func isPublished(row map[string]interface{}, statusFilter string) bool {
 		}
 	}
 
-	// String status field (courses, scholarships, universities, admission_pages, institutions)
+	// String status field — must exist and not be draft/pending
 	if v, ok := row["status"]; ok {
 		if s, ok := v.(string); ok {
 			switch s {
@@ -263,15 +267,19 @@ func isPublished(row map[string]interface{}, statusFilter string) bool {
 				return false
 			}
 		}
+	} else if strings.Contains(statusFilter, "status") {
+		return false
 	}
 
-	// Institution profile_status must be "published"
+	// Institution profile_status — must exist and be published
 	if v, ok := row["profile_status"]; ok {
 		if s, ok := v.(string); ok {
 			if s == "draft" || s == "" {
 				return false
 			}
 		}
+	} else if strings.Contains(statusFilter, "profile_status") {
+		return false
 	}
 
 	return true

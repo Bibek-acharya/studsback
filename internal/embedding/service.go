@@ -181,7 +181,7 @@ func ReindexAll() error {
 
 	db := config.GetDB()
 	batchSize := config.AppConfig.EmbeddingBatchSize
-	tables := []string{"colleges", "courses", "exams", "scholarships", "news", "events", "blogs", "site_pages", "institution_entrances"}
+	tables := []string{"colleges", "courses", "exams", "scholarships", "news", "events", "blogs", "site_pages", "institution_entrances", "institution_users", "universities", "institution_news", "institution_events", "institution_blogs", "provider_news", "provider_events", "provider_blogs", "admission_pages"}
 
 	for _, table := range tables {
 		if !hasEmbeddingColumn(db, table) {
@@ -214,7 +214,7 @@ func ReindexAllForce(db *gorm.DB) error {
 	}
 
 	batchSize := config.AppConfig.EmbeddingBatchSize
-	tables := []string{"colleges", "courses", "exams", "scholarships", "news", "events", "blogs", "site_pages", "institution_entrances"}
+	tables := []string{"colleges", "courses", "exams", "scholarships", "news", "events", "blogs", "site_pages", "institution_entrances", "institution_users", "universities", "institution_news", "institution_events", "institution_blogs", "provider_news", "provider_events", "provider_blogs", "admission_pages"}
 
 	for _, table := range tables {
 		if !hasEmbeddingColumn(db, table) {
@@ -238,7 +238,7 @@ func reindexTable(db *gorm.DB, table string, batchSize int) error {
 		return nil
 	}
 	var total int64
-	db.Table(table).Where("embedding IS NULL").Count(&total)
+	db.Table(table).Where("embedding IS NULL AND deleted_at IS NULL").Count(&total)
 	if total == 0 {
 		log.Printf("  Table %s: no items need embedding", table)
 		return nil
@@ -250,7 +250,7 @@ func reindexTable(db *gorm.DB, table string, batchSize int) error {
 	for {
 		var rows []map[string]interface{}
 		if err := db.Table(table).
-			Where("embedding IS NULL").
+			Where("embedding IS NULL AND deleted_at IS NULL").
 			Select(buildSelectForTable(table)).
 			Limit(batchSize).
 			Offset(offset).
@@ -309,6 +309,24 @@ func buildSelectForTable(table string) string {
 		return "id, title, COALESCE(content, '') as content, COALESCE(slug, '') as slug"
 	case "institution_entrances":
 		return "id, title, COALESCE(description, '') as description, COALESCE(program, '') as program, COALESCE(institution_name, '') as institution_name, COALESCE(status, '') as status"
+	case "institution_users":
+		return "id, institution_name, COALESCE(district, '') as district, COALESCE(affiliation, '') as affiliation, COALESCE(organization_type, '') as organization_type, COALESCE(about, '') as about"
+	case "universities":
+		return "id, name, COALESCE(description, '') as description, COALESCE(location, '') as location, COALESCE(type, '') as type"
+	case "institution_news":
+		return "id, title, COALESCE(content, '') as content, COALESCE(short_desc, '') as short_desc, COALESCE(news_type, '') as news_type"
+	case "institution_events":
+		return "id, name, COALESCE(description, '') as description, COALESCE(short_desc, '') as short_desc, COALESCE(category, '') as category, COALESCE(location, '') as location"
+	case "institution_blogs":
+		return "id, title, COALESCE(content, '') as content, COALESCE(excerpt, '') as excerpt, COALESCE(category, '') as category"
+	case "provider_news":
+		return "id, title, COALESCE(content, '') as content, COALESCE(excerpt, '') as excerpt, COALESCE(category, '') as category"
+	case "provider_events":
+		return "id, title, COALESCE(description, '') as description, COALESCE(short_desc, '') as short_desc, COALESCE(category, '') as category, COALESCE(location, '') as location"
+	case "provider_blogs":
+		return "id, title, COALESCE(content, '') as content, COALESCE(excerpt, '') as excerpt, COALESCE(category, '') as category"
+	case "admission_pages":
+		return "id, title, COALESCE(institution_name, '') as institution_name, COALESCE(level, '') as level, COALESCE(institution_location, '') as institution_location"
 	default:
 		return "id, title"
 	}
@@ -386,6 +404,68 @@ func buildEmbeddingInput(table string, row map[string]interface{}) string {
 			getStr(row, "description"),
 			getStr(row, "program"),
 			getStr(row, "institution_name"),
+		)
+	case "institution_users":
+		parts = append(parts,
+			getStr(row, "institution_name"),
+			getStr(row, "district"),
+			getStr(row, "affiliation"),
+			getStr(row, "organization_type"),
+			getStr(row, "about"),
+		)
+	case "universities":
+		parts = append(parts,
+			getStr(row, "name"),
+			getStr(row, "description"),
+			getStr(row, "location"),
+			getStr(row, "type"),
+		)
+	case "institution_news":
+		parts = append(parts,
+			getStr(row, "title"),
+			getStr(row, "content"),
+			getStr(row, "short_desc"),
+		)
+	case "institution_events":
+		parts = append(parts,
+			getStr(row, "name"),
+			getStr(row, "description"),
+			getStr(row, "short_desc"),
+			getStr(row, "category"),
+			getStr(row, "location"),
+		)
+	case "institution_blogs":
+		parts = append(parts,
+			getStr(row, "title"),
+			getStr(row, "content"),
+			getStr(row, "excerpt"),
+		)
+	case "provider_news":
+		parts = append(parts,
+			getStr(row, "title"),
+			getStr(row, "content"),
+			getStr(row, "excerpt"),
+		)
+	case "provider_events":
+		parts = append(parts,
+			getStr(row, "title"),
+			getStr(row, "description"),
+			getStr(row, "short_desc"),
+			getStr(row, "category"),
+			getStr(row, "location"),
+		)
+	case "provider_blogs":
+		parts = append(parts,
+			getStr(row, "title"),
+			getStr(row, "content"),
+			getStr(row, "excerpt"),
+		)
+	case "admission_pages":
+		parts = append(parts,
+			getStr(row, "title"),
+			getStr(row, "institution_name"),
+			getStr(row, "level"),
+			getStr(row, "institution_location"),
 		)
 	}
 
