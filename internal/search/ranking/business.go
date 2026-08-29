@@ -18,7 +18,6 @@ type BusinessBoostConfig struct {
 	Event       EntityBoost
 	Exam        EntityBoost
 	Blog        EntityBoost
-	SitePage    EntityBoost
 }
 
 type BusinessBooster struct {
@@ -51,7 +50,6 @@ func (b *BusinessBooster) getBoost(entity retrieval.EntityType) float64 {
 		retrieval.EntityEvent:       b.config.Event.FreshnessBoost,
 		retrieval.EntityExam:        b.config.Exam.FreshnessBoost,
 		retrieval.EntityBlog:        b.config.Blog.FreshnessBoost,
-		retrieval.EntitySitePage:    b.config.SitePage.FreshnessBoost,
 	}
 	return boosts[entity]
 }

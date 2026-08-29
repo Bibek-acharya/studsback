@@ -11,7 +11,7 @@ import (
 
 var allEntities = []EntityType{
 	EntityCollege, EntityCourse, EntityScholarship,
-	EntityNews, EntityEvent, EntityExam, EntityBlog, EntitySitePage,
+	EntityNews, EntityEvent, EntityExam, EntityBlog,
 	EntityUniversity, EntityAdmissionPage, EntityInstitution,
 }
 

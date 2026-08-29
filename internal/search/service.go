@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"studsphere/backend/internal/search/queryparser"
 	"studsphere/backend/internal/search/ranking"
 	"studsphere/backend/internal/search/retrieval"
 
@@ -32,6 +33,7 @@ type HybridSearchRequest struct {
 	RatingMin  float64
 	University string
 	Sort       string
+	Intent     string
 	Page       int
 	Limit      int
 }
@@ -136,6 +138,16 @@ func (s *SearchService) Search(ctx context.Context, req HybridSearchRequest) *Se
 	ranked = s.exactMatcher.Boost(ranked, req.Query)
 	ranked = s.businessBoost.Boost(ranked)
 
+	// Apply intent-aware boost
+	if req.Intent != "" {
+		intentBoost := queryparser.IntentBoost(req.Intent, cat)
+		if intentBoost > 0 {
+			for i := range ranked {
+				ranked[i].Score += intentBoost
+			}
+		}
+	}
+
 	if req.Sort != "" && req.Sort != "relevance" {
 		applySort(ranked, req.Sort)
 	}
@@ -176,7 +188,7 @@ func (s *SearchService) Search(ctx context.Context, req HybridSearchRequest) *Se
 
 	pages := int(math.Ceil(float64(total) / float64(req.Limit)))
 
-	log.Printf("search: query=%q cat=%s results=%d latency=%s", req.Query, cat, total, time.Since(start))
+	log.Printf("search: q=%q cat=%s intent=%s location=%s results=%d latency=%s", req.Query, cat, req.Intent, req.Location, total, time.Since(start))
 
 	return &SearchResponse{
 		Items:       items,

@@ -27,7 +27,7 @@ var IndexConfigs = []IndexConfig{
 		FilterableAttrs: []string{"college_type", "location", "affiliation", "rating"},
 		SortableAttrs:   []string{"rating", "created_at"},
 		RankingRules:    []string{"words", "typo", "proximity", "attribute", "exactness"},
-		Synonyms:        map[string][]string{"uni": {"university"}, "clg": {"college"}, "csit": {"computer science"}, "bit": {"information technology"}, "bca": {"computer application"}, "mbbs": {"medicine"}, "mba": {"business administration"}},
+		Synonyms:        map[string][]string{"uni": {"university"}, "clg": {"college"}, "csit": {"computer science"}, "bit": {"information technology"}, "bca": {"computer application"}, "mbbs": {"medicine"}, "mba": {"business administration"}, "tu": {"tribhuvan university"}, "ku": {"kathmandu university"}, "pu": {"pokhara university"}, "pu)": {"purbanchal university"}},
 	},
 	{
 		Entity:          "courses",
@@ -78,14 +78,6 @@ var IndexConfigs = []IndexConfig{
 		RankingRules:    []string{"words", "typo", "proximity", "attribute", "exactness"},
 	},
 	{
-		Entity:          "site_pages",
-		PrimaryKey:      "id",
-		SearchableAttrs: []string{"title", "content", "slug"},
-		FilterableAttrs: []string{},
-		SortableAttrs:   []string{},
-		RankingRules:    []string{"words", "typo", "proximity", "attribute", "exactness"},
-	},
-	{
 		Entity:          "universities",
 		PrimaryKey:      "id",
 		SearchableAttrs: []string{"name", "description", "location", "type"},
@@ -108,7 +100,7 @@ var IndexConfigs = []IndexConfig{
 		FilterableAttrs: []string{"organization_type", "district", "affiliation", "status"},
 		SortableAttrs:   []string{"created_at"},
 		RankingRules:    []string{"words", "typo", "proximity", "attribute", "exactness"},
-		Synonyms:        map[string][]string{"uni": {"university"}, "clg": {"college"}, "csit": {"computer science"}, "bit": {"information technology"}},
+		Synonyms:        map[string][]string{"uni": {"university"}, "clg": {"college"}, "csit": {"computer science"}, "bit": {"information technology"}, "tu": {"tribhuvan university"}, "ku": {"kathmandu university"}, "pu": {"pokhara university"}},
 	},
 }
 

@@ -44,20 +44,20 @@ type syncTable struct {
 	Name          string
 	Entity        string
 	SelectColumns string
+	StatusFilter  string // SQL WHERE condition for published records (appended to query)
 }
 
 var syncTables = []syncTable{
-	{"colleges", "colleges", "id, name, full_name, description, location, affiliation, college_type, rating, image_url, created_at, updated_at, deleted_at"},
-	{"courses", "courses", "id, title, short_title, description, field, level, affiliation, created_at, updated_at, deleted_at"},
-	{"scholarships", "scholarships", "id, title, description, provider, location, scholarship_type, created_at, updated_at, deleted_at"},
-	{"news", "news", "id, title, excerpt, content, category, source, created_at, updated_at, deleted_at"},
-	{"events", "events", "id, title, description, excerpt, category, location, date, image, created_at, updated_at, deleted_at"},
-	{"exams", "exams", "id, title, description, board, type, university, created_at, updated_at, deleted_at"},
-	{"blogs", "blogs", "id, title, excerpt, content, category, author, created_at, updated_at, deleted_at"},
-	{"site_pages", "site_pages", "id, title, content, slug, created_at, updated_at, deleted_at"},
-	{"universities", "universities", "id, name, description, location, type, rating, logo, created_at, updated_at, deleted_at"},
-	{"admission_pages", "admission_pages", "id, title, level, status, institution_name, institution_location, institution_link, created_at, updated_at, deleted_at"},
-	{"institution_users", "institutions", "id, institution_name, district, affiliation, organization_type, about, logo_url, status, profile_status, deleted_at, updated_at"},
+	{"colleges", "colleges", "id, name, full_name, description, location, affiliation, college_type, rating, image_url, created_at, updated_at, deleted_at", ""},
+	{"courses", "courses", "id, title, short_title, description, field, level, affiliation, status, created_at, updated_at, deleted_at", "status != 'draft'"},
+	{"scholarships", "scholarships", "id, title, description, provider, location, scholarship_type, status, created_at, updated_at, deleted_at", "status != 'draft'"},
+	{"news", "news", "id, title, excerpt, content, category, source, published, created_at, updated_at, deleted_at", "published = true"},
+	{"events", "events", "id, title, description, excerpt, category, location, date, image, created_at, updated_at, deleted_at", ""},
+	{"exams", "exams", "id, title, description, board, type, university, created_at, updated_at, deleted_at", ""},
+	{"blogs", "blogs", "id, title, excerpt, content, category, author, published, created_at, updated_at, deleted_at", "published = true"},
+	{"universities", "universities", "id, name, description, location, type, rating, logo, status, created_at, updated_at, deleted_at", "status = 'published'"},
+	{"admission_pages", "admission_pages", "id, title, level, status, institution_name, institution_location, institution_link, created_at, updated_at, deleted_at", "status != 'draft'"},
+	{"institution_users", "institutions", "id, institution_name, district, affiliation, organization_type, about, logo_url, status, profile_status, deleted_at, updated_at", "profile_status = 'published' AND status = 'approved'"},
 }
 
 func NewSyncWorker(db *gorm.DB, indexer *MeiliIndexer, interval time.Duration, batchSize int) *SyncWorker {
@@ -157,7 +157,7 @@ func (w *SyncWorker) syncTable(ctx context.Context, table syncTable) {
 
 		for _, row := range rows {
 			id := toUint(row["id"])
-			if isDeleted(row) {
+			if isDeleted(row) || !isPublished(row, table.StatusFilter) {
 				toDelete = append(toDelete, id)
 			} else {
 				toUpsert = append(toUpsert, row)
@@ -219,4 +219,40 @@ func isDeleted(row map[string]interface{}) bool {
 		return true
 	}
 	return false
+}
+
+// isPublished checks if a row should be indexed based on its status fields.
+func isPublished(row map[string]interface{}, statusFilter string) bool {
+	if statusFilter == "" {
+		return true
+	}
+
+	// Boolean published field (news, blogs)
+	if v, ok := row["published"]; ok {
+		if b, ok := v.(bool); ok {
+			return b
+		}
+		return true
+	}
+
+	// String status field (courses, scholarships, universities, admission_pages, institutions)
+	if v, ok := row["status"]; ok {
+		if s, ok := v.(string); ok {
+			switch s {
+			case "draft", "pending", "":
+				return false
+			}
+		}
+	}
+
+	// Institution profile_status must be "published"
+	if v, ok := row["profile_status"]; ok {
+		if s, ok := v.(string); ok {
+			if s == "draft" || s == "" {
+				return false
+			}
+		}
+	}
+
+	return true
 }

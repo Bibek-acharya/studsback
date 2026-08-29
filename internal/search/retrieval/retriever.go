@@ -12,7 +12,6 @@ const (
 	EntityEvent         EntityType = "event"
 	EntityExam          EntityType = "exam"
 	EntityBlog          EntityType = "blog"
-	EntitySitePage      EntityType = "site_page"
 	EntityUniversity    EntityType = "university"
 	EntityAdmissionPage EntityType = "admission_page"
 	EntityInstitution   EntityType = "institution"
@@ -27,7 +26,6 @@ var EntityToIndexName = map[EntityType]string{
 	EntityEvent:         "events",
 	EntityExam:          "exams",
 	EntityBlog:          "blogs",
-	EntitySitePage:      "site_pages",
 	EntityUniversity:    "universities",
 	EntityAdmissionPage: "admission_pages",
 	EntityInstitution:   "institutions",

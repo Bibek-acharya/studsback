@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"studsphere/backend/internal/embedding"
+	"studsphere/backend/internal/search/queryparser"
 	"studsphere/backend/internal/search/retrieval"
 	"studsphere/backend/internal/shared/config"
 	"studsphere/backend/internal/shared/response"
@@ -30,7 +31,7 @@ func NewHybridHandler(searchService *SearchService, meiliClient *MeiliClient) *H
 }
 
 func (h *Handler) Search(c *gin.Context) {
-	q := c.Query("q")
+	rawQ := c.Query("q")
 	cat := c.Query("cat")
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
@@ -40,6 +41,26 @@ func (h *Handler) Search(c *gin.Context) {
 	entitytype := c.Query("type")
 	ratingMin, _ := strconv.ParseFloat(c.DefaultQuery("rating_min", "0"), 64)
 	university := c.Query("university")
+
+	// Run query understanding
+	parsed := queryparser.Parse(rawQ)
+
+	// Merge explicit query params with parsed results (explicit params win)
+	if location == "" {
+		location = parsed.Filters.Location
+	}
+	if university == "" {
+		university = parsed.Filters.University
+	}
+	if cat == "" && parsed.Category != "" {
+		cat = parsed.Category
+	}
+
+	// Use the semantic remainder as the search query
+	q := parsed.Query
+	if q == "" && rawQ != "" {
+		q = rawQ // fallback: if parser stripped everything, use original
+	}
 
 	if page < 1 {
 		page = 1
@@ -57,6 +78,7 @@ func (h *Handler) Search(c *gin.Context) {
 			RatingMin:  ratingMin,
 			University: university,
 			Sort:       sort,
+			Intent:     parsed.Intent,
 			Page:       page,
 			Limit:      limit,
 		})
