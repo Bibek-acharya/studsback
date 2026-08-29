@@ -47,11 +47,11 @@ type syncTable struct {
 }
 
 var syncTables = []syncTable{
-	{"colleges", "colleges", "id, name, full_name, description, location, affiliation, college_type, rating, image, slug, created_at, updated_at, deleted_at"},
+	{"colleges", "colleges", "id, name, full_name, description, location, affiliation, college_type, rating, image_url, created_at, updated_at, deleted_at"},
 	{"courses", "courses", "id, title, short_title, description, field, level, affiliation, created_at, updated_at, deleted_at"},
 	{"scholarships", "scholarships", "id, title, description, provider, location, scholarship_type, created_at, updated_at, deleted_at"},
 	{"news", "news", "id, title, excerpt, content, category, source, created_at, updated_at, deleted_at"},
-	{"events", "events", "id, title, description, excerpt, category, location, event_date, created_at, updated_at, deleted_at"},
+	{"events", "events", "id, title, description, excerpt, category, location, date, image, created_at, updated_at, deleted_at"},
 	{"exams", "exams", "id, title, description, board, type, university, created_at, updated_at, deleted_at"},
 	{"blogs", "blogs", "id, title, excerpt, content, category, author, created_at, updated_at, deleted_at"},
 	{"site_pages", "site_pages", "id, title, content, slug, created_at, updated_at, deleted_at"},

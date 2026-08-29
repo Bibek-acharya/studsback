@@ -176,6 +176,8 @@ func hitToCandidate(hit map[string]interface{}, entity EntityType) Candidate {
 		c.Image = v
 	} else if v, ok := hit["cover"].(string); ok {
 		c.Image = v
+	} else if v, ok := hit["image_url"].(string); ok {
+		c.Image = v
 	}
 
 	if v, ok := hit["slug"].(string); ok {
