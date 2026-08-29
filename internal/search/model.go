@@ -28,10 +28,11 @@ type SearchCategory struct {
 }
 
 type SearchResponse struct {
-	Items       []SearchItem    `json:"items"`
-	Category    *SearchCategory `json:"category"`
-	CategoryKey string          `json:"categoryKey"`
-	Meta        PaginationMeta  `json:"meta"`
+	Items       []SearchItem       `json:"items"`
+	Category    *SearchCategory    `json:"category"`
+	CategoryKey string             `json:"categoryKey"`
+	Meta        PaginationMeta     `json:"meta"`
+	Facets      map[string]map[string]int `json:"facets,omitempty"`
 }
 
 type PaginationMeta struct {
@@ -84,6 +85,18 @@ var categoryMeta = map[string]SearchCategory{
 		Related:     []string{"career guides", "study tips", "student life", "exam preparation", "college reviews"},
 		Tabs:        []string{"All Blogs", "Career", "Study Tips", "Student Life", "Reviews", "Guides"},
 	},
+	"universities": {
+		Title:       "Universities",
+		Description: "Explore universities, programs, and research opportunities",
+		Related:     []string{"tribhuvan university", "kathmandu university", "pokhara university", "engineering", "management", "science"},
+		Tabs:        []string{"All Universities", "Government", "Private", "Affiliated", "Research"},
+	},
+	"admissions": {
+		Title:       "Admissions",
+		Description: "Browse admission openings, programs, and application deadlines",
+		Related:     []string{"bachelor admission", "master admission", "MBBS", "engineering", "management", "diploma"},
+		Tabs:        []string{"All Admissions", "Bachelor", "Master", "Diploma", "Certificate", "Open"},
+	},
 }
 
 var categoryKeywordMap = map[string]string{
@@ -100,6 +113,10 @@ var categoryKeywordMap = map[string]string{
 	"event":        "events",
 	"blog":         "blogs",
 	"blogs":        "blogs",
+	"university":   "universities",
+	"universities": "universities",
+	"admission":    "admissions",
+	"admissions":   "admissions",
 }
 
 func resolveCategoryKey(q string, cat string) string {

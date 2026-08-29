@@ -76,7 +76,7 @@ func TestGoogleLoginOrRegisterWithPicture(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GoogleLoginOrRegister() error = %v", err)
 	}
-	if token == "" {
+	if token == nil {
 		t.Fatal("expected non-empty token")
 	}
 

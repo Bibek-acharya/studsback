@@ -2,12 +2,14 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -20,6 +22,7 @@ import (
 	"studsphere/backend/internal/counselling"
 	"studsphere/backend/internal/education"
 	"studsphere/backend/internal/emailqueue"
+	"studsphere/backend/internal/embedding"
 	"studsphere/backend/internal/faq"
 	"studsphere/backend/internal/feedback"
 	"studsphere/backend/internal/follow"
@@ -34,6 +37,8 @@ import (
 	"studsphere/backend/internal/scholarship"
 	"studsphere/backend/internal/scholarshipprovider"
 	"studsphere/backend/internal/search"
+	"studsphere/backend/internal/search/indexer"
+	"studsphere/backend/internal/search/retrieval"
 	"studsphere/backend/internal/shared/config"
 	"studsphere/backend/internal/shared/logger"
 	"studsphere/backend/internal/shared/middleware"
@@ -46,6 +51,7 @@ import (
 	"studsphere/backend/internal/university"
 
 	"github.com/gin-gonic/gin"
+	"github.com/meilisearch/meilisearch-go"
 	"github.com/nats-io/nats.go"
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
@@ -211,6 +217,9 @@ func main() {
 		if err := migrations.AddUniversityAffiliations(db); err != nil {
 			logger.Fatal("Failed to run university affiliations migration", "error", err)
 		}
+		if err := migrations.AddMeilisearchSyncSupport(db); err != nil {
+			logger.Warn("Failed to run Meilisearch sync migration", "error", err)
+		}
 		// Cleanup dangling sub-users with provider_id = 0 from previous bug
 		if err := db.Exec("DELETE FROM provider_access_users WHERE provider_id = 0").Error; err != nil {
 			logger.Warn("Failed to cleanup dangling sub-users", "error", err)
@@ -333,7 +342,7 @@ func main() {
 	systemHandler := system.NewHandler(systemSvc)
 	toolsHandler := initModule(tools.NewRepository(db), tools.NewService, tools.NewHandler)
 	universityHandler := initModule(university.NewRepository(db), university.NewService, university.NewHandler)
-	searchHandler := search.NewHandler(search.NewService(db))
+	searchHandler := initSearchHandler(db)
 	chatService := chat.NewService(db)
 	chatHandler := chat.NewHandler(chatService)
 	aiService := ai.NewService(db)
@@ -753,4 +762,69 @@ func corsMiddleware() gin.HandlerFunc {
 
 		c.Next()
 	}
+}
+
+func initSearchHandler(db *gorm.DB) *search.Handler {
+	meiliCfg := search.LoadMeiliConfig()
+	meiliClient := search.NewMeiliClient(meiliCfg)
+
+	if !meiliClient.IsHealthy() {
+		logger.Warn("Meilisearch not available, hybrid search will be degraded")
+		return search.NewHandler(nil)
+	}
+
+	logger.Info("Meilisearch connected", "host", meiliCfg.Host)
+
+	meiliRetriever := retrieval.NewMeilisearchRetriever(meiliIndexAdapter{client: meiliClient.Client}, meiliClient.IndexPrefix)
+
+	var vecRetriever *retrieval.VectorRetriever
+	if config.AppConfig.EmbeddingEnabled {
+		vecRetriever = retrieval.NewVectorRetriever(db, embeddingAdapter{})
+	}
+
+	searchSvc := search.NewSearchService(db, meiliRetriever, vecRetriever, config.AppConfig.EmbeddingEnabled)
+
+	// Start sync worker in background
+	idx := indexer.NewMeiliIndexer(meiliClient)
+	syncInterval := 5 * time.Second
+	if v := os.Getenv("SEARCH_SYNC_INTERVAL"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil {
+			syncInterval = d
+		}
+	}
+	syncBatchSize := 500
+	if v := os.Getenv("SEARCH_SYNC_BATCH_SIZE"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			syncBatchSize = n
+		}
+	}
+
+	syncWorker := indexer.NewSyncWorker(db, idx, syncInterval, syncBatchSize)
+	go syncWorker.Start(context.Background())
+
+	// Create indexes on startup
+	go func() {
+		ctx := context.Background()
+		if err := idx.CreateIndexes(ctx); err != nil {
+			logger.Warn("Failed to create Meilisearch indexes", "error", err)
+		} else {
+			logger.Info("Meilisearch indexes created/updated")
+		}
+	}()
+
+	return search.NewHybridHandler(searchSvc, meiliClient)
+}
+
+type embeddingAdapter struct{}
+
+func (embeddingAdapter) GenerateEmbedding(text string) ([]float32, error) {
+	return embedding.GenerateEmbedding(text)
+}
+
+type meiliIndexAdapter struct {
+	client meilisearch.ServiceManager
+}
+
+func (a meiliIndexAdapter) Index(uid string) retrieval.IndexClient {
+	return a.client.Index(uid)
 }

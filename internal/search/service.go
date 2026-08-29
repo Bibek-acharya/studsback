@@ -1,288 +1,247 @@
 package search
 
 import (
-	"fmt"
+	"context"
+	"log"
 	"math"
-	"strings"
+	"sort"
+	"strconv"
+	"time"
 
-	"studsphere/backend/internal/embedding"
+	"studsphere/backend/internal/search/ranking"
+	"studsphere/backend/internal/search/retrieval"
 
 	"gorm.io/gorm"
 )
 
-type Service struct {
-	db *gorm.DB
+type SearchService struct {
+	meiliRetriever   *retrieval.MeilisearchRetriever
+	vecRetriever     *retrieval.VectorRetriever
+	rrf              *ranking.RRFScorer
+	exactMatcher     *ranking.ExactMatcher
+	businessBoost    *ranking.BusinessBooster
+	db               *gorm.DB
+	embeddingEnabled bool
 }
 
-func NewService(db *gorm.DB) *Service {
-	return &Service{db: db}
+type HybridSearchRequest struct {
+	Query      string
+	Category   string
+	Location   string
+	Type       string
+	RatingMin  float64
+	University string
+	Sort       string
+	Page       int
+	Limit      int
 }
 
-func (s *Service) Search(q string, cat string, page int, limit int) (*SearchResponse, error) {
-	categoryKey := resolveCategoryKey(q, cat)
+func NewSearchService(
+	db *gorm.DB,
+	meiliRetriever *retrieval.MeilisearchRetriever,
+	vecRetriever *retrieval.VectorRetriever,
+	embeddingEnabled bool,
+) *SearchService {
+	return &SearchService{
+		db:               db,
+		meiliRetriever:   meiliRetriever,
+		vecRetriever:     vecRetriever,
+		embeddingEnabled: embeddingEnabled,
+		rrf:              ranking.NewRRFScorer(60),
+		exactMatcher:     ranking.NewExactMatcher(ranking.ExactMatchConfig{
+			TitleExact:  0.1,
+			TitlePhrase: 0.05,
+			TitlePrefix: 0.03,
+			TokenMatch:  0.01,
+			DescMatch:   0.005,
+		}),
+		businessBoost: ranking.NewBusinessBooster(ranking.BusinessBoostConfig{
+			News:  ranking.EntityBoost{FreshnessBoost: 0.03},
+			Event: ranking.EntityBoost{FreshnessBoost: 0.05},
+			Blog:  ranking.EntityBoost{FreshnessBoost: 0.01},
+		}),
+	}
+}
 
-	var items []SearchItem
-	if q != "" && embedding.IsEnabled() {
-		items = s.vectorSearch(q, categoryKey)
+func (s *SearchService) Search(ctx context.Context, req HybridSearchRequest) *SearchResponse {
+	start := time.Now()
+
+	if req.Page < 1 {
+		req.Page = 1
 	}
-	if len(items) == 0 {
-		items = s.keywordSearch(q, categoryKey)
+	if req.Page > 5 {
+		req.Page = 5
+	}
+	if req.Limit < 1 {
+		req.Limit = 20
+	}
+	if req.Limit > 50 {
+		req.Limit = 50
 	}
 
-	total := int64(len(items))
-	pages := int64(math.Ceil(float64(total) / float64(limit)))
+	cat := resolveCategoryKey(req.Query, req.Category)
 
-	start := (page - 1) * limit
-	if start < 0 {
-		start = 0
+	retrievalReq := retrieval.SearchRequest{
+		Query: req.Query,
+		Filters: retrieval.SearchFilters{
+			Category:   cat,
+			Location:   req.Location,
+			Type:       req.Type,
+			RatingMin:  req.RatingMin,
+			University: req.University,
+		},
+		Limit: 100,
 	}
-	end := start + limit
-	if end > len(items) {
-		end = len(items)
-	}
-	if start > len(items) {
-		items = []SearchItem{}
+
+	meiliCh := make(chan []retrieval.Candidate, 1)
+	vecCh := make(chan []retrieval.Candidate, 1)
+	facetsCh := make(chan map[string]map[string]int, 1)
+
+	go func() {
+		candidates, err := s.meiliRetriever.Search(ctx, retrievalReq)
+		if err != nil {
+			log.Printf("search: meilisearch error: %v", err)
+			meiliCh <- nil
+			return
+		}
+		meiliCh <- candidates
+	}()
+
+	if s.embeddingEnabled {
+		go func() {
+			candidates, err := s.vecRetriever.Search(ctx, retrievalReq)
+			if err != nil {
+				log.Printf("search: vector error: %v", err)
+				vecCh <- nil
+				return
+			}
+			vecCh <- candidates
+		}()
 	} else {
-		items = items[start:end]
+		vecCh <- nil
+	}
+
+	go func() {
+		facets := s.meiliRetriever.GetFacets(ctx, retrievalReq, []string{"location", "college_type", "rating"})
+		facetsCh <- facets
+	}()
+
+	meiliResults := <-meiliCh
+	vecResults := <-vecCh
+	facets := <-facetsCh
+
+	merged := mergeCandidates(meiliResults, vecResults)
+	sourceRanks := buildSourceRanks(meiliResults, vecResults)
+	ranked := s.rrf.RankCandidates(merged, sourceRanks)
+	ranked = s.exactMatcher.Boost(ranked, req.Query)
+	ranked = s.businessBoost.Boost(ranked)
+
+	if req.Sort != "" && req.Sort != "relevance" {
+		applySort(ranked, req.Sort)
+	}
+
+	total := len(ranked)
+	startIdx := (req.Page - 1) * req.Limit
+	endIdx := startIdx + req.Limit
+	if startIdx > total {
+		startIdx = total
+	}
+	if endIdx > total {
+		endIdx = total
+	}
+	paged := ranked[startIdx:endIdx]
+
+	items := make([]SearchItem, len(paged))
+	for i, c := range paged {
+		items[i] = SearchItem{
+			ID:          c.ID,
+			Type:        string(c.Type),
+			Title:       c.Title,
+			Description: c.Description,
+			Image:       c.Image,
+			Slug:        c.Slug,
+			Rating:      c.Rating,
+			Location:    c.Location,
+		}
 	}
 
 	var catPtr *SearchCategory
-	if categoryKey != "" {
-		if meta, ok := categoryMeta[categoryKey]; ok {
+	if cat != "" {
+		if meta, ok := categoryMeta[cat]; ok {
 			m := meta
-			m.Key = categoryKey
+			m.Key = cat
 			catPtr = &m
 		}
 	}
 
+	pages := int(math.Ceil(float64(total) / float64(req.Limit)))
+
+	log.Printf("search: query=%q cat=%s results=%d latency=%s", req.Query, cat, total, time.Since(start))
+
 	return &SearchResponse{
 		Items:       items,
 		Category:    catPtr,
-		CategoryKey: categoryKey,
+		CategoryKey: cat,
 		Meta: PaginationMeta{
-			Page:  page,
-			Limit: limit,
-			Total: total,
-			Pages: int(pages),
+			Page:  req.Page,
+			Limit: req.Limit,
+			Total: int64(total),
+			Pages: pages,
 		},
-	}, nil
+		Facets: facets,
+	}
 }
 
-func (s *Service) vectorSearch(q string, categoryKey string) []SearchItem {
-	vec, err := embedding.GenerateEmbedding(q)
-	if err != nil || len(vec) == 0 {
-		return nil
-	}
-
-	vectorStr := embedding.Float32SliceToPgVector(vec)
-	tables := categoryTables(categoryKey)
-
-	var items []SearchItem
-	for _, table := range tables {
-		selectSQL := searchSelectForTable(table)
-		if selectSQL == "" {
-			continue
-		}
-		var results []SearchItem
-		sql := fmt.Sprintf("SELECT %s FROM %s WHERE embedding IS NOT NULL ORDER BY embedding <=> '%s'::vector LIMIT 30", selectSQL, table, vectorStr)
-		if err := s.db.Raw(sql).Scan(&results).Error; err != nil {
-			continue
-		}
-		items = append(items, results...)
-	}
-	return items
+func candidateKey(c retrieval.Candidate) string {
+	return string(c.Type) + ":" + strconv.FormatUint(uint64(c.ID), 10)
 }
 
-func (s *Service) keywordSearch(q string, categoryKey string) []SearchItem {
-	var items []SearchItem
-	tables := categoryTables(categoryKey)
+func mergeCandidates(meili, vec []retrieval.Candidate) []retrieval.Candidate {
+	seen := make(map[string]bool)
+	var result []retrieval.Candidate
 
-	for _, table := range tables {
-		switch table {
-		case "colleges":
-			items = append(items, s.searchColleges(q)...)
-		case "courses":
-			items = append(items, s.searchCourses(q)...)
-		case "exams":
-			items = append(items, s.searchExams(q)...)
-		case "scholarships":
-			items = append(items, s.searchScholarships(q)...)
-		case "news":
-			items = append(items, s.searchNews(q)...)
-		case "events":
-			items = append(items, s.searchEvents(q)...)
-		case "blogs":
-			items = append(items, s.searchBlogs(q)...)
+	for _, c := range meili {
+		key := candidateKey(c)
+		if !seen[key] {
+			seen[key] = true
+			result = append(result, c)
+		}
+	}
+	for _, c := range vec {
+		key := candidateKey(c)
+		if !seen[key] {
+			seen[key] = true
+			result = append(result, c)
 		}
 	}
 
-	return items
+	return result
 }
 
-func (s *Service) searchColleges(q string) []SearchItem {
-	var results []SearchItem
-	query := s.db.Table("colleges").Select(searchSelectColleges())
-	if q != "" {
-		like := "%" + q + "%"
-		query = query.Where("LOWER(COALESCE(name, '')) LIKE LOWER(?) OR LOWER(COALESCE(location, '')) LIKE LOWER(?) OR LOWER(COALESCE(description, '')) LIKE LOWER(?)", like, like, like)
+func buildSourceRanks(meili, vec []retrieval.Candidate) map[string][]int {
+	ranks := make(map[string][]int)
+	for _, c := range meili {
+		key := candidateKey(c)
+		ranks[key] = append(ranks[key], c.Rank)
 	}
-	query.Limit(30).Find(&results)
-	return results
-}
-
-func (s *Service) searchCourses(q string) []SearchItem {
-	var results []SearchItem
-	query := s.db.Table("courses").Select(searchSelectCourses())
-	if q != "" {
-		like := "%" + q + "%"
-		query = query.Where("LOWER(COALESCE(title, '')) LIKE LOWER(?) OR LOWER(COALESCE(field, '')) LIKE LOWER(?) OR LOWER(COALESCE(affiliation, '')) LIKE LOWER(?)", like, like, like)
+	for _, c := range vec {
+		key := candidateKey(c)
+		ranks[key] = append(ranks[key], c.Rank)
 	}
-	query.Limit(30).Find(&results)
-	return results
+	return ranks
 }
 
-func (s *Service) searchExams(q string) []SearchItem {
-	var results []SearchItem
-	query := s.db.Table("exams").Select(searchSelectExams())
-	if q != "" {
-		like := "%" + q + "%"
-		query = query.Where("LOWER(COALESCE(title, '')) LIKE LOWER(?) OR LOWER(COALESCE(description, '')) LIKE LOWER(?)", like, like)
+func applySort(candidates []retrieval.Candidate, sortBy string) {
+	switch sortBy {
+	case "rating_desc":
+		sort.Slice(candidates, func(i, j int) bool {
+			return candidates[i].Rating > candidates[j].Rating
+		})
+	case "created_at_desc":
+		// Already in insertion order from Meilisearch (newest first by default)
+	case "title_asc":
+		sort.Slice(candidates, func(i, j int) bool {
+			return candidates[i].Title < candidates[j].Title
+		})
 	}
-	query.Limit(30).Find(&results)
-	return results
-}
-
-func (s *Service) searchScholarships(q string) []SearchItem {
-	var results []SearchItem
-	query := s.db.Table("scholarships").Select(searchSelectScholarships())
-	if q != "" {
-		like := "%" + q + "%"
-		query = query.Where("LOWER(COALESCE(title, '')) LIKE LOWER(?) OR LOWER(COALESCE(provider, '')) LIKE LOWER(?) OR LOWER(COALESCE(description, '')) LIKE LOWER(?)", like, like, like)
-	}
-	query.Limit(30).Find(&results)
-	return results
-}
-
-func (s *Service) searchNews(q string) []SearchItem {
-	var results []SearchItem
-	query := s.db.Table("news").Select(searchSelectNews())
-	if q != "" {
-		like := "%" + q + "%"
-		query = query.Where("LOWER(COALESCE(title, '')) LIKE LOWER(?) OR LOWER(COALESCE(excerpt, '')) LIKE LOWER(?)", like, like)
-	}
-	query.Limit(30).Find(&results)
-	return results
-}
-
-func (s *Service) searchEvents(q string) []SearchItem {
-	var results []SearchItem
-	query := s.db.Table("events").Select(searchSelectEvents())
-	if q != "" {
-		like := "%" + q + "%"
-		query = query.Where("LOWER(COALESCE(title, '')) LIKE LOWER(?) OR LOWER(COALESCE(description, '')) LIKE LOWER(?)", like, like)
-	}
-	query.Limit(30).Find(&results)
-	return results
-}
-
-func (s *Service) searchBlogs(q string) []SearchItem {
-	var results []SearchItem
-	query := s.db.Table("blogs").Select(searchSelectBlogs()).Where("published = ?", true)
-	if q != "" {
-		like := "%" + q + "%"
-		query = query.Where("LOWER(COALESCE(title, '')) LIKE LOWER(?) OR LOWER(COALESCE(excerpt, '')) LIKE LOWER(?)", like, like)
-	}
-	query.Limit(30).Find(&results)
-	return results
-}
-
-func categoryTables(categoryKey string) []string {
-	if categoryKey != "" {
-		if t := categoryToTable(categoryKey); t != "" {
-			return []string{t}
-		}
-		return []string{}
-	}
-	return allTables()
-}
-
-func categoryToTable(categoryKey string) string {
-	switch categoryKey {
-	case "colleges":
-		return "colleges"
-	case "courses":
-		return "courses"
-	case "exams":
-		return "exams"
-	case "scholarships":
-		return "scholarships"
-	case "news":
-		return "news"
-	case "events":
-		return "events"
-	case "blogs":
-		return "blogs"
-	default:
-		return ""
-	}
-}
-
-func allTables() []string {
-	return []string{"colleges", "courses", "exams", "scholarships", "news", "events", "blogs"}
-}
-
-func searchSelectForTable(table string) string {
-	switch table {
-	case "colleges":
-		return searchSelectColleges()
-	case "courses":
-		return searchSelectCourses()
-	case "exams":
-		return searchSelectExams()
-	case "scholarships":
-		return searchSelectScholarships()
-	case "news":
-		return searchSelectNews()
-	case "events":
-		return searchSelectEvents()
-	case "blogs":
-		return searchSelectBlogs()
-	default:
-		return ""
-	}
-}
-
-func searchSelectColleges() string {
-	return "id, 'college' as type, COALESCE(name, '') as title, COALESCE(description, '') as description, COALESCE(image_url, '') as image, featured, verified, COALESCE(rating, 0) as rating, COALESCE(college_type, '') as institution_type, COALESCE(location, '') as location, COALESCE(affiliation, '') as university, COALESCE(website, '') as website, COALESCE(name, '') as slug"
-}
-
-func searchSelectCourses() string {
-	return "id, 'course' as type, COALESCE(title, '') as title, COALESCE(description, '') as description, '' as image, false as featured, false as verified, 0 as rating, COALESCE(level, '') as institution_type, COALESCE(location, '') as location, COALESCE(affiliation, '') as university, '' as website, '' as slug"
-}
-
-func searchSelectExams() string {
-	return "id, 'exam' as type, COALESCE(title, '') as title, COALESCE(description, '') as description, COALESCE(image_url, '') as image, false as featured, false as verified, 0 as rating, COALESCE(type, '') as institution_type, '' as location, COALESCE(university, '') as university, '' as website, COALESCE(slug, '') as slug"
-}
-
-func searchSelectScholarships() string {
-	return "id, 'scholarship' as type, COALESCE(title, '') as title, COALESCE(description, '') as description, COALESCE(image_url, '') as image, false as featured, false as verified, 0 as rating, COALESCE(scholarship_type, '') as institution_type, COALESCE(location, '') as location, COALESCE(provider, '') as university, '' as website, '' as slug"
-}
-
-func searchSelectNews() string {
-	return "id, 'news' as type, COALESCE(title, '') as title, COALESCE(excerpt, '') as description, COALESCE(image, '') as image, false as featured, false as verified, 0 as rating, COALESCE(category, '') as institution_type, '' as location, COALESCE(source, '') as university, '' as website, '' as slug"
-}
-
-func searchSelectEvents() string {
-	return "id, 'event' as type, COALESCE(title, '') as title, COALESCE(description, '') as description, COALESCE(image, '') as image, COALESCE(trending, false) as featured, false as verified, 0 as rating, COALESCE(category, '') as institution_type, COALESCE(location, '') as location, COALESCE(organizer, '') as university, '' as website, '' as slug"
-}
-
-func searchSelectBlogs() string {
-	return "id, 'blog' as type, COALESCE(title, '') as title, COALESCE(excerpt, '') as description, COALESCE(image, '') as image, COALESCE(featured, false) as featured, false as verified, 0 as rating, COALESCE(category, '') as institution_type, '' as location, COALESCE(author, '') as university, '' as website, COALESCE(slug, '') as slug"
-}
-
-func parseTags(s string) []string {
-	if s == "" {
-		return nil
-	}
-	return strings.Fields(s)
 }
