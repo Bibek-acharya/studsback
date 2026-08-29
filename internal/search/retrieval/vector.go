@@ -32,14 +32,16 @@ type vectorTable struct {
 }
 
 var vectorTables = []vectorTable{
-	{"colleges", EntityCollege, "id, COALESCE(name,'') as title, COALESCE(description,'') as description, COALESCE(name,'') as slug, COALESCE(image,'') as image, COALESCE(location,'') as location, COALESCE(rating,0) as rating"},
+	{"colleges", EntityCollege, "id, COALESCE(name,'') as title, COALESCE(description,'') as description, COALESCE(name,'') as slug, COALESCE(image_url,'') as image, COALESCE(location,'') as location, COALESCE(rating,0) as rating"},
 	{"courses", EntityCourse, "id, COALESCE(title,'') as title, COALESCE(description,'') as description, '' as slug, '' as image, '' as location, 0 as rating"},
 	{"scholarships", EntityScholarship, "id, COALESCE(title,'') as title, COALESCE(description,'') as description, '' as slug, '' as image, COALESCE(location,'') as location, 0 as rating"},
 	{"news", EntityNews, "id, COALESCE(title,'') as title, COALESCE(content,'') as description, '' as slug, '' as image, '' as location, 0 as rating"},
-	{"events", EntityEvent, "id, COALESCE(title,'') as title, COALESCE(description,'') as description, '' as slug, '' as image, COALESCE(location,'') as location, 0 as rating"},
+	{"events", EntityEvent, "id, COALESCE(title,'') as title, COALESCE(description,'') as description, '' as slug, COALESCE(image,'') as image, COALESCE(location,'') as location, 0 as rating"},
 	{"exams", EntityExam, "id, COALESCE(title,'') as title, COALESCE(description,'') as description, '' as slug, '' as image, '' as location, 0 as rating"},
 	{"blogs", EntityBlog, "id, COALESCE(title,'') as title, COALESCE(content,'') as description, '' as slug, '' as image, '' as location, 0 as rating"},
 	{"site_pages", EntitySitePage, "id, COALESCE(title,'') as title, COALESCE(content,'') as description, COALESCE(slug,'') as slug, '' as image, '' as location, 0 as rating"},
+	{"universities", EntityUniversity, "id, COALESCE(name,'') as title, COALESCE(description,'') as description, COALESCE(name,'') as slug, COALESCE(logo,'') as image, COALESCE(location,'') as location, COALESCE(rating,0) as rating"},
+	{"admission_pages", EntityAdmissionPage, "id, COALESCE(title,'') as title, COALESCE(title,'') as description, COALESCE(title,'') as slug, '' as image, COALESCE(institution_location,'') as location, 0 as rating"},
 }
 
 func (r *VectorRetriever) Search(ctx context.Context, req SearchRequest) ([]Candidate, error) {
