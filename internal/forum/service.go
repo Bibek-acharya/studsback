@@ -792,6 +792,7 @@ func mapCommentToResponse(comment ForumComment) CommentResponse {
 		resp.User = CommentUser{
 			FirstName: comment.User.FirstName,
 			LastName:  comment.User.LastName,
+			ImageURL:  comment.User.ImageURL,
 		}
 		resp.UserName = comment.User.FirstName + " " + comment.User.LastName
 	}
