@@ -40,7 +40,10 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			adminForum.Use(authMW)
 			adminForum.Use(roleMW)
 			{
+				adminForum.GET("/reports", h.GetAdminForumReports)
+				adminForum.GET("/posts/:id/comments", h.GetAdminForumPostComments)
 				adminForum.DELETE("/posts/:id", h.AdminDeleteForumPost)
+				adminForum.DELETE("/comments/:id", h.AdminDeleteForumComment)
 			}
 		}
 	}

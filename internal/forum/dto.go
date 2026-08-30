@@ -85,6 +85,7 @@ type PostResponse struct {
 }
 
 type CommentUser struct {
+	ID        uint   `json:"id"`
 	FirstName string `json:"first_name"`
 	LastName  string `json:"last_name"`
 	ImageURL  string `json:"image_url"`
@@ -111,6 +112,17 @@ type TrendingPostResponse struct {
 	Category     string `json:"category"`
 	Upvotes      int    `json:"upvotes"`
 	CommentCount int    `json:"comment_count"`
+}
+
+type AdminForumReportResponse struct {
+	ID        uint         `json:"id"`
+	CreatedAt string       `json:"created_at"`
+	PostID    uint         `json:"post_id"`
+	Post      PostResponse `json:"post"`
+	UserID    uint         `json:"user_id"`
+	Reporter  UserInfo     `json:"reporter"`
+	Reasons   []string     `json:"reasons"`
+	OtherText string       `json:"other_text"`
 }
 
 type UserInfo struct {

@@ -135,6 +135,8 @@ func (s *Service) DeleteForumCommunity(communityID uint) error {
 		s.repo.DeleteVotesByPostID(post.ID)
 		s.repo.DeleteSavesByPostID(post.ID)
 		s.repo.DeletePollVotesByPostID(post.ID)
+		s.repo.DeleteReportsByPostID(post.ID)
+		s.repo.DeleteNotInterestedByPostID(post.ID)
 		s.repo.HardDeletePost(post.ID)
 	}
 
@@ -462,6 +464,15 @@ func (s *Service) DeleteForumPost(postID uint, userID uint) error {
 		return errors.New("you can only delete your own posts")
 	}
 
+	s.deletePostFile(post.ImageURL)
+	s.deletePostFile(post.VideoURL)
+	s.repo.DeleteCommentsByPostID(post.ID)
+	s.repo.DeleteVotesByPostID(post.ID)
+	s.repo.DeleteSavesByPostID(post.ID)
+	s.repo.DeletePollVotesByPostID(post.ID)
+	s.repo.DeleteReportsByPostID(post.ID)
+	s.repo.DeleteNotInterestedByPostID(post.ID)
+
 	if err := s.repo.DeletePost(post); err != nil {
 		return errors.New("failed to delete post")
 	}
@@ -482,6 +493,8 @@ func (s *Service) AdminDeleteForumPost(postID uint) error {
 	s.repo.DeleteVotesByPostID(post.ID)
 	s.repo.DeleteSavesByPostID(post.ID)
 	s.repo.DeletePollVotesByPostID(post.ID)
+	s.repo.DeleteReportsByPostID(post.ID)
+	s.repo.DeleteNotInterestedByPostID(post.ID)
 
 	if err := s.repo.HardDeletePost(post.ID); err != nil {
 		return errors.New("failed to delete post")
@@ -790,6 +803,7 @@ func mapCommentToResponse(comment ForumComment) CommentResponse {
 
 	if comment.User.ID != 0 {
 		resp.User = CommentUser{
+			ID:        comment.User.ID,
 			FirstName: comment.User.FirstName,
 			LastName:  comment.User.LastName,
 			ImageURL:  comment.User.ImageURL,
@@ -805,6 +819,9 @@ func mapCommentToResponse(comment ForumComment) CommentResponse {
 }
 
 func (s *Service) ReportPost(postID, userID uint, req ReportPostRequest) error {
+	if _, err := s.repo.GetPostByID(postID); err != nil {
+		return errors.New("post not found")
+	}
 	report := &ForumReport{
 		PostID:    postID,
 		UserID:    userID,
@@ -815,11 +832,102 @@ func (s *Service) ReportPost(postID, userID uint, req ReportPostRequest) error {
 }
 
 func (s *Service) NotInterested(postID, userID uint) error {
+	if _, err := s.repo.GetPostByID(postID); err != nil {
+		return errors.New("post not found")
+	}
 	ni := &ForumNotInterested{
 		PostID: postID,
 		UserID: userID,
 	}
 	return s.repo.CreateNotInterested(ni)
+}
+
+func (s *Service) GetAdminForumReports() ([]AdminForumReportResponse, error) {
+	reports, err := s.repo.GetAllReports()
+	if err != nil {
+		return nil, errors.New("failed to fetch forum reports")
+	}
+
+	responses := make([]AdminForumReportResponse, 0, len(reports))
+	for _, report := range reports {
+		reasons := make([]string, 0)
+		for _, reason := range strings.Split(report.Reasons, ",") {
+			if trimmed := strings.TrimSpace(reason); trimmed != "" {
+				reasons = append(reasons, trimmed)
+			}
+		}
+		responses = append(responses, AdminForumReportResponse{
+			ID:        report.ID,
+			CreatedAt: report.CreatedAt.Format(time.RFC3339),
+			PostID:    report.PostID,
+			Post:      mapPostToResponse(report.Post),
+			UserID:    report.UserID,
+			Reporter: UserInfo{
+				ID:        report.User.ID,
+				FirstName: report.User.FirstName,
+				LastName:  report.User.LastName,
+				Email:     report.User.Email,
+				ImageURL:  report.User.ImageURL,
+			},
+			Reasons:   reasons,
+			OtherText: report.OtherText,
+		})
+	}
+	return responses, nil
+}
+
+func (s *Service) GetAdminPostComments(postID uint) ([]CommentResponse, error) {
+	if _, err := s.repo.GetPostByID(postID); err != nil {
+		return nil, errors.New("post not found")
+	}
+	comments, err := s.repo.GetAllCommentsByPostID(postID)
+	if err != nil {
+		return nil, errors.New("failed to fetch comments")
+	}
+	return buildCommentTree(comments), nil
+}
+
+func (s *Service) AdminDeleteForumComment(commentID uint) (int64, error) {
+	_, deleted, err := s.repo.DeleteCommentTree(commentID)
+	if err != nil {
+		return 0, errors.New("comment not found")
+	}
+	return deleted, nil
+}
+
+func buildCommentTree(comments []ForumComment) []CommentResponse {
+	children := make(map[uint][]ForumComment)
+	roots := make([]ForumComment, 0)
+	byID := make(map[uint]ForumComment, len(comments))
+	for _, comment := range comments {
+		byID[comment.ID] = comment
+		if comment.ParentID == nil {
+			roots = append(roots, comment)
+		} else {
+			children[*comment.ParentID] = append(children[*comment.ParentID], comment)
+		}
+	}
+
+	var build func(ForumComment) CommentResponse
+	build = func(comment ForumComment) CommentResponse {
+		response := mapCommentToResponse(comment)
+		if comment.ParentID != nil {
+			if parent, ok := byID[*comment.ParentID]; ok {
+				response.ParentUserName = strings.TrimSpace(parent.User.FirstName + " " + parent.User.LastName)
+			}
+		}
+		for _, child := range children[comment.ID] {
+			response.Replies = append(response.Replies, build(child))
+		}
+		response.ReplyCount = len(response.Replies)
+		return response
+	}
+
+	responses := make([]CommentResponse, 0, len(roots))
+	for _, root := range roots {
+		responses = append(responses, build(root))
+	}
+	return responses
 }
 
 func (s *Service) GetNotInterestedPostIDs(userID uint) ([]uint, error) {

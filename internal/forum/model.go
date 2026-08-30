@@ -97,7 +97,9 @@ type ForumReport struct {
 	ID        uint      `gorm:"primarykey" json:"id"`
 	CreatedAt time.Time `json:"created_at"`
 	PostID    uint      `gorm:"not null" json:"post_id"`
+	Post      ForumPost `gorm:"foreignKey:PostID" json:"-"`
 	UserID    uint      `gorm:"not null" json:"user_id"`
+	User      User      `gorm:"foreignKey:UserID" json:"-"`
 	Reasons   string    `gorm:"type:text;not null" json:"reasons"`
 	OtherText string    `gorm:"type:text" json:"other_text"`
 }

@@ -300,6 +300,56 @@ func (r *Repository) GetCommentByID(id uint) (*ForumComment, error) {
 	return &comment, err
 }
 
+func (r *Repository) GetAllCommentsByPostID(postID uint) ([]ForumComment, error) {
+	var comments []ForumComment
+	err := r.db.Preload("User").
+		Where("post_id = ?", postID).
+		Order("created_at ASC").
+		Find(&comments).Error
+	return comments, err
+}
+
+func (r *Repository) DeleteCommentTree(commentID uint) (uint, int64, error) {
+	var postID uint
+	var deleted int64
+
+	err := r.db.Transaction(func(tx *gorm.DB) error {
+		var root ForumComment
+		if err := tx.First(&root, commentID).Error; err != nil {
+			return err
+		}
+		postID = root.PostID
+
+		ids := []uint{root.ID}
+		frontier := []uint{root.ID}
+		for len(frontier) > 0 {
+			var children []uint
+			if err := tx.Model(&ForumComment{}).
+				Where("parent_id IN ?", frontier).
+				Pluck("id", &children).Error; err != nil {
+				return err
+			}
+			if len(children) == 0 {
+				break
+			}
+			ids = append(ids, children...)
+			frontier = children
+		}
+
+		result := tx.Where("id IN ?", ids).Delete(&ForumComment{})
+		if result.Error != nil {
+			return result.Error
+		}
+		deleted = result.RowsAffected
+
+		return tx.Model(&ForumPost{}).
+			Where("id = ?", postID).
+			UpdateColumn("comment_count", gorm.Expr("CASE WHEN comment_count >= ? THEN comment_count - ? ELSE 0 END", deleted, deleted)).Error
+	})
+
+	return postID, deleted, err
+}
+
 func (r *Repository) IncrementCommentCount(postID uint) error {
 	return r.db.Model(&ForumPost{}).Where("id = ?", postID).Update("comment_count", gorm.Expr("comment_count + 1")).Error
 }
@@ -358,11 +408,29 @@ func (r *Repository) GetTrendingPosts(limit int) ([]ForumPost, error) {
 }
 
 func (r *Repository) CreateReport(report *ForumReport) error {
-	return r.db.Create(report).Error
+	return r.db.Where("post_id = ? AND user_id = ?", report.PostID, report.UserID).
+		Assign(ForumReport{Reasons: report.Reasons, OtherText: report.OtherText}).
+		FirstOrCreate(report).Error
 }
 
 func (r *Repository) CreateNotInterested(ni *ForumNotInterested) error {
-	return r.db.Create(ni).Error
+	return r.db.Where("post_id = ? AND user_id = ?", ni.PostID, ni.UserID).FirstOrCreate(ni).Error
+}
+
+func (r *Repository) GetAllReports() ([]ForumReport, error) {
+	var reports []ForumReport
+	err := r.db.Joins("JOIN forum_posts ON forum_posts.id = forum_reports.post_id AND forum_posts.deleted_at IS NULL").
+		Preload("Post.User").Preload("Post.Community").Preload("User").
+		Order("forum_reports.created_at DESC").Find(&reports).Error
+	return reports, err
+}
+
+func (r *Repository) DeleteReportsByPostID(postID uint) error {
+	return r.db.Where("post_id = ?", postID).Delete(&ForumReport{}).Error
+}
+
+func (r *Repository) DeleteNotInterestedByPostID(postID uint) error {
+	return r.db.Where("post_id = ?", postID).Delete(&ForumNotInterested{}).Error
 }
 
 func (r *Repository) GetNotInterestedPostIDs(userID uint) ([]uint, error) {

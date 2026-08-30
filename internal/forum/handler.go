@@ -261,6 +261,47 @@ func (h *Handler) AdminDeleteForumPost(c *gin.Context) {
 	response.Success(c, 200, "Post deleted successfully", nil)
 }
 
+func (h *Handler) GetAdminForumReports(c *gin.Context) {
+	reports, err := h.service.GetAdminForumReports()
+	if err != nil {
+		response.Error(c, 500, err.Error())
+		return
+	}
+	response.Success(c, 200, "Forum reports retrieved successfully", reports)
+}
+
+func (h *Handler) GetAdminForumPostComments(c *gin.Context) {
+	postID, err := ParseUint(c.Param("id"))
+	if err != nil {
+		response.Error(c, 400, "Invalid post ID")
+		return
+	}
+	comments, err := h.service.GetAdminPostComments(postID)
+	if err != nil {
+		if err.Error() == "post not found" {
+			response.Error(c, 404, err.Error())
+		} else {
+			response.Error(c, 500, err.Error())
+		}
+		return
+	}
+	response.Success(c, 200, "Post comments retrieved successfully", comments)
+}
+
+func (h *Handler) AdminDeleteForumComment(c *gin.Context) {
+	commentID, err := ParseUint(c.Param("id"))
+	if err != nil {
+		response.Error(c, 400, "Invalid comment ID")
+		return
+	}
+	deleted, err := h.service.AdminDeleteForumComment(commentID)
+	if err != nil {
+		response.Error(c, 404, err.Error())
+		return
+	}
+	response.Success(c, 200, "Comment and replies deleted successfully", gin.H{"deleted_count": deleted})
+}
+
 func (h *Handler) LikeForumPost(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
@@ -496,7 +537,11 @@ func (h *Handler) ReportForumPost(c *gin.Context) {
 	}
 
 	if err := h.service.ReportPost(postID, userID.(uint), req); err != nil {
-		response.Error(c, 500, err.Error())
+		if err.Error() == "post not found" {
+			response.Error(c, 404, err.Error())
+		} else {
+			response.Error(c, 500, err.Error())
+		}
 		return
 	}
 
@@ -517,7 +562,11 @@ func (h *Handler) NotInterestedForumPost(c *gin.Context) {
 	}
 
 	if err := h.service.NotInterested(postID, userID.(uint)); err != nil {
-		response.Error(c, 500, err.Error())
+		if err.Error() == "post not found" {
+			response.Error(c, 404, err.Error())
+		} else {
+			response.Error(c, 500, err.Error())
+		}
 		return
 	}
 
