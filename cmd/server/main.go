@@ -26,9 +26,9 @@ import (
 	"studsphere/backend/internal/faq"
 	"studsphere/backend/internal/feedback"
 	"studsphere/backend/internal/follow"
-	"studsphere/backend/internal/jobs"
 	"studsphere/backend/internal/forum"
 	"studsphere/backend/internal/institution"
+	"studsphere/backend/internal/jobs"
 	"studsphere/backend/internal/location"
 	"studsphere/backend/internal/messaging"
 	"studsphere/backend/internal/messaging/domain"
@@ -44,11 +44,11 @@ import (
 	"studsphere/backend/internal/shared/middleware"
 	"studsphere/backend/internal/shared/seeder"
 	"studsphere/backend/internal/shared/storage"
-	"studsphere/backend/migrations"
 	"studsphere/backend/internal/studentdashboard"
 	"studsphere/backend/internal/system"
 	"studsphere/backend/internal/tools"
 	"studsphere/backend/internal/university"
+	"studsphere/backend/migrations"
 
 	"github.com/gin-gonic/gin"
 	"github.com/meilisearch/meilisearch-go"
@@ -207,7 +207,7 @@ func main() {
 	); err != nil {
 		logger.Fatal("Failed to migrate database", "error", err)
 	} else {
-		db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_universities_name ON universities(name) WHERE deleted_at IS NULL`);
+		db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_universities_name ON universities(name) WHERE deleted_at IS NULL`)
 		if err := allowAnonymousScholarshipApplications(db); err != nil {
 			logger.Fatal("Failed to update scholarship application user_id nullability", "error", err)
 		}
@@ -800,16 +800,16 @@ func initSearchHandler(db *gorm.DB) *search.Handler {
 	}
 
 	syncWorker := indexer.NewSyncWorker(db, idx, syncInterval, syncBatchSize)
-	go syncWorker.Start(context.Background())
 
-	// Create indexes on startup
+	// Apply settings before synchronization starts so filters are valid immediately.
 	go func() {
 		ctx := context.Background()
 		if err := idx.CreateIndexes(ctx); err != nil {
 			logger.Warn("Failed to create Meilisearch indexes", "error", err)
-		} else {
-			logger.Info("Meilisearch indexes created/updated")
+			return
 		}
+		logger.Info("Meilisearch indexes created/updated")
+		syncWorker.Start(ctx)
 	}()
 
 	return search.NewHybridHandler(searchSvc, meiliClient)

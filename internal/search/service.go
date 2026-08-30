@@ -6,6 +6,7 @@ import (
 	"math"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"studsphere/backend/internal/search/queryparser"
@@ -117,7 +118,7 @@ func (s *SearchService) Search(ctx context.Context, req HybridSearchRequest) *Se
 		meiliCh <- candidates
 	}()
 
-	if s.embeddingEnabled {
+	if s.embeddingEnabled && req.Query != "" {
 		go func() {
 			candidates, err := s.vecRetriever.Search(ctx, retrievalReq)
 			if err != nil {
@@ -173,9 +174,9 @@ func (s *SearchService) Search(ctx context.Context, req HybridSearchRequest) *Se
 	// Set quality based on what's available
 	if len(retrievalErrors) > 0 {
 		if meiliResults == nil && vecResults != nil {
-			quality = "keyword-only"
-		} else if meiliResults != nil && vecResults == nil {
 			quality = "vector-only"
+		} else if meiliResults != nil && vecResults == nil {
+			quality = "keyword-only"
 		} else {
 			quality = "degraded"
 		}
@@ -183,9 +184,9 @@ func (s *SearchService) Search(ctx context.Context, req HybridSearchRequest) *Se
 
 	merged := mergeCandidates(meiliResults, vecResults)
 	sourceRanks := buildSourceRanks(meiliResults, vecResults)
+	merged = filterRelevantCandidates(merged, req.Query)
 	ranked := s.rrf.RankCandidates(merged, sourceRanks)
 	ranked = s.exactMatcher.Boost(ranked, req.Query)
-	ranked = s.businessBoost.Boost(ranked)
 
 	// Apply intent-aware boost
 	if req.Intent != "" {
@@ -199,18 +200,10 @@ func (s *SearchService) Search(ctx context.Context, req HybridSearchRequest) *Se
 
 	if req.Sort != "" && req.Sort != "relevance" {
 		applySort(ranked, req.Sort)
+	} else if req.Intent == "top" {
+		applySort(ranked, "rating_desc")
 	}
-
-	// Filter out low-relevance candidates
-	// Threshold ensures only meaningful matches appear in results
-	minScore := 0.001
-	var filtered []retrieval.Candidate
-	for _, c := range ranked {
-		if c.Score > minScore || req.Query == "" {
-			filtered = append(filtered, c)
-		}
-	}
-	ranked = filtered
+	ranked = deduplicateCandidates(ranked)
 
 	total := len(ranked)
 	startIdx := (req.Page - 1) * req.Limit
@@ -244,7 +237,7 @@ func (s *SearchService) Search(ctx context.Context, req HybridSearchRequest) *Se
 
 	var catPtr *SearchCategory
 	if cat != "" {
-		if meta, ok := categoryMeta[cat]; ok {
+		if meta, ok := categoryMeta[categoryMetaKey(cat)]; ok {
 			m := meta
 			m.Key = cat
 			catPtr = &m
@@ -277,22 +270,66 @@ func candidateKey(c retrieval.Candidate) string {
 }
 
 func mergeCandidates(meili, vec []retrieval.Candidate) []retrieval.Candidate {
-	seen := make(map[string]bool)
+	positions := make(map[string]int)
 	var result []retrieval.Candidate
 
 	for _, c := range meili {
 		key := candidateKey(c)
-		if !seen[key] {
-			seen[key] = true
+		if _, exists := positions[key]; !exists {
+			positions[key] = len(result)
 			result = append(result, c)
 		}
 	}
 	for _, c := range vec {
 		key := candidateKey(c)
-		if !seen[key] {
-			seen[key] = true
+		if idx, exists := positions[key]; exists {
+			result[idx].VectorScore = c.VectorScore
+		} else {
+			positions[key] = len(result)
 			result = append(result, c)
 		}
+	}
+
+	return result
+}
+
+func filterRelevantCandidates(candidates []retrieval.Candidate, query string) []retrieval.Candidate {
+	if query == "" {
+		return candidates
+	}
+
+	filtered := make([]retrieval.Candidate, 0, len(candidates))
+	for _, candidate := range candidates {
+		if candidate.LexicalScore >= 0.2 || candidate.VectorScore >= 0.55 {
+			filtered = append(filtered, candidate)
+		}
+	}
+	return filtered
+}
+
+func deduplicateCandidates(candidates []retrieval.Candidate) []retrieval.Candidate {
+	seen := make(map[string]bool)
+	result := make([]retrieval.Candidate, 0, len(candidates))
+
+	for _, candidate := range candidates {
+		if candidate.Type != retrieval.EntityCollege && candidate.Type != retrieval.EntityInstitution {
+			result = append(result, candidate)
+			continue
+		}
+
+		title := strings.Join(strings.Fields(strings.ToLower(candidate.Title)), " ")
+		location := strings.Join(strings.Fields(strings.ToLower(candidate.Location)), " ")
+		if title == "" || location == "" {
+			result = append(result, candidate)
+			continue
+		}
+
+		key := title + "|" + location
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		result = append(result, candidate)
 	}
 
 	return result

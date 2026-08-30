@@ -7,11 +7,11 @@ import (
 
 // StructuredQuery is the output of query understanding.
 type StructuredQuery struct {
-	Query      string            // Remaining semantic text for Meilisearch/pgvector
-	Category   string            // Detected entity type (college, course, etc.) — empty if ambiguous
-	Filters    SearchFilters     // Extracted structured filters
-	Intent     string            // Detected intent (top, latest, affordable, etc.)
-	OriginalQ  string            // Original user query before parsing
+	Query     string        // Remaining semantic text for Meilisearch/pgvector
+	Category  string        // Detected entity type (college, course, etc.) — empty if ambiguous
+	Filters   SearchFilters // Extracted structured filters
+	Intent    string        // Detected intent (top, latest, affordable, etc.)
+	OriginalQ string        // Original user query before parsing
 }
 
 // SearchFilters are structured filters extracted from the query.
@@ -24,46 +24,50 @@ type SearchFilters struct {
 
 // entitySynonyms maps user-facing terms to canonical entity types.
 var entitySynonyms = map[string]string{
-	"college":       "college",
-	"colleges":      "college",
-	"institute":     "college",
-	"institutes":    "college",
-	"institution":   "college",
-	"institutions":  "college",
-	"university":    "university",
-	"universities":  "university",
-	"course":        "course",
-	"courses":       "course",
-	"program":       "course",
-	"programs":      "course",
-	"scholarship":   "scholarship",
-	"scholarships":  "scholarship",
-	"grant":         "scholarship",
-	"grants":        "scholarship",
-	"exam":          "exam",
-	"exams":         "exam",
-	"entrance":      "exam",
-	"event":         "event",
-	"events":        "event",
-	"fair":          "event",
-	"fairs":         "event",
-	"webinar":       "event",
-	"workshop":      "event",
-	"news":          "news",
-	"article":       "news",
-	"articles":      "news",
-	"blog":          "blog",
-	"blogs":         "blog",
-	"admission":     "admission_page",
-	"admissions":    "admission_page",
+	"college":      "college",
+	"colleges":     "college",
+	"institute":    "college",
+	"institutes":   "college",
+	"institution":  "college",
+	"institutions": "college",
+	"university":   "university",
+	"universities": "university",
+	"course":       "course",
+	"courses":      "course",
+	"program":      "course",
+	"programs":     "course",
+	"scholarship":  "scholarship",
+	"scholarships": "scholarship",
+	"grant":        "scholarship",
+	"grants":       "scholarship",
+	"exam":         "exam",
+	"exams":        "exam",
+	"entrance":     "exam",
+	"event":        "event",
+	"events":       "event",
+	"fair":         "event",
+	"fairs":        "event",
+	"webinar":      "event",
+	"workshop":     "event",
+	"news":         "news",
+	"article":      "news",
+	"articles":     "news",
+	"blog":         "blog",
+	"blogs":        "blog",
+	"admission":    "admission_page",
+	"admissions":   "admission_page",
 }
 
-// intentKeywords maps intent terms to canonical intents.
-var intentKeywords = map[string][]string{
-	"top":        {"top", "best", "best rated", "highest rated", "leading", "popular", "good", "recommended", "finest", "premier", "top rated"},
-	"latest":     {"latest", "recent", "new", "newest", "upcoming", "current", "today", "this week", "this month"},
-	"affordable": {"cheap", "affordable", "low cost", "budget", "inexpensive", "low fee", "free"},
-	"nearby":     {"nearby", "near me", "close", "closest", "nearest"},
+type intentDefinition struct {
+	Intent   string
+	Keywords []string
+}
+
+var intentDefinitions = []intentDefinition{
+	{"top", []string{"highest rated", "best rated", "top rated", "recommended", "leading", "popular", "finest", "premier", "best", "top", "good"}},
+	{"latest", []string{"this month", "this week", "upcoming", "current", "latest", "recent", "newest", "today", "new"}},
+	{"affordable", []string{"affordable", "inexpensive", "low cost", "low fee", "budget", "cheap", "free"}},
+	{"nearby", []string{"near me", "closest", "nearest", "nearby", "close"}},
 }
 
 // knownLocations — Nepali districts and major cities, longest first for matching.
@@ -84,13 +88,16 @@ var knownLocations = []string{
 	"Udayapur",
 }
 
-// universityKeywords maps abbreviations and names to university affiliations.
-var universityKeywords = map[string]string{
-	"tu":  "Tribhuvan University",
-	"ku":  "Kathmandu University",
-	"pu":  "Pokhara University",
-	"pu)": "Purbanchal University",
-	"pou": "Purbanchal University",
+type universityAlias struct {
+	Alias string
+	Name  string
+}
+
+var universityAliases = []universityAlias{
+	{"pou", "Purbanchal University"},
+	{"tu", "Tribhuvan University"},
+	{"ku", "Kathmandu University"},
+	{"pu", "Pokhara University"},
 }
 
 // Parse converts a natural language query into a StructuredQuery.
@@ -132,14 +139,12 @@ func Parse(q string) StructuredQuery {
 
 // extractIntent scans for intent keywords and returns the detected intent + remaining words.
 func extractIntent(words, origWords []string) (string, []string, []string) {
-	lower := strings.Join(words, " ")
-
-	for intent, keywords := range intentKeywords {
-		for _, kw := range keywords {
-			if strings.Contains(lower, kw) {
+	for _, definition := range intentDefinitions {
+		for _, kw := range definition.Keywords {
+			if containsPhrase(words, kw) {
 				remaining := removePhrase(words, kw)
 				origRemaining := removePhrase(origWords, kw)
-				return intent, remaining, origRemaining
+				return definition.Intent, remaining, origRemaining
 			}
 		}
 	}
@@ -202,27 +207,33 @@ func extractLocation(words, origWords []string) (string, []string, []string) {
 
 // extractUniversity checks for university abbreviations/names.
 func extractUniversity(words, origWords []string) (string, []string, []string) {
-	lower := strings.Join(words, " ")
-
-	for abbrev, fullName := range universityKeywords {
-		lowerAbbrev := strings.ToLower(abbrev)
-		patterns := []string{
-			"at " + lowerAbbrev,
-			"of " + lowerAbbrev,
-			"from " + lowerAbbrev,
-			lowerAbbrev + " ",
-			" " + lowerAbbrev,
-		}
-		for _, pat := range patterns {
-			if strings.Contains(lower, pat) {
-				remaining := removePhrase(words, abbrev)
-				origRemaining := removePhrase(origWords, abbrev)
-				return fullName, remaining, origRemaining
-			}
+	for _, university := range universityAliases {
+		if containsPhrase(words, university.Alias) {
+			remaining := removePhrase(words, university.Alias)
+			origRemaining := removePhrase(origWords, university.Alias)
+			return university.Name, remaining, origRemaining
 		}
 	}
 
 	return "", words, origWords
+}
+
+func containsPhrase(words []string, phrase string) bool {
+	phraseWords := strings.Fields(strings.ToLower(phrase))
+	for i := 0; i+len(phraseWords) <= len(words); i++ {
+		matched := true
+		for j, phraseWord := range phraseWords {
+			word := strings.ToLower(strings.Trim(words[i+j], ".,!?;:"))
+			if word != phraseWord {
+				matched = false
+				break
+			}
+		}
+		if matched {
+			return true
+		}
+	}
+	return false
 }
 
 // extractCategory detects entity type from remaining words.

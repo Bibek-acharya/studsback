@@ -2,12 +2,16 @@ package retrieval
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
 
 	"github.com/meilisearch/meilisearch-go"
 )
+
+const lexicalScoreThreshold = 0.2
+const relaxedLexicalScoreThreshold = 0.35
 
 var allEntities = []EntityType{
 	EntityCollege, EntityCourse, EntityScholarship,
@@ -59,8 +63,10 @@ func (r *MeilisearchRetriever) Search(ctx context.Context, req SearchRequest) ([
 	wg.Wait()
 
 	var candidates []Candidate
+	var searchErrors []error
 	for _, res := range results {
 		if res.err != nil {
+			searchErrors = append(searchErrors, res.err)
 			continue
 		}
 		for rank, hit := range res.hits {
@@ -68,6 +74,9 @@ func (r *MeilisearchRetriever) Search(ctx context.Context, req SearchRequest) ([
 			c.Rank = rank + 1
 			candidates = append(candidates, c)
 		}
+	}
+	if len(searchErrors) == len(results) {
+		return nil, errors.Join(searchErrors...)
 	}
 
 	return candidates, nil
@@ -96,8 +105,13 @@ func (r *MeilisearchRetriever) searchIndex(ctx context.Context, entity EntityTyp
 	searchReq := &meilisearch.SearchRequest{
 		Query:                 req.Query,
 		Limit:                 int64(req.Limit),
-		AttributesToRetrieve: []string{"*"},
+		AttributesToRetrieve:  []string{"*"},
+		MatchingStrategy:      meilisearch.All,
 		ShowRankingScore:      true,
+		RankingScoreThreshold: lexicalScoreThreshold,
+	}
+	if req.Query == "" {
+		searchReq.RankingScoreThreshold = 0
 	}
 
 	filters := r.buildFilters(entity, req.Filters)
@@ -108,6 +122,14 @@ func (r *MeilisearchRetriever) searchIndex(ctx context.Context, entity EntityTyp
 	resp, err := idx.Search(req.Query, searchReq)
 	if err != nil {
 		return nil, fmt.Errorf("meilisearch search %s: %w", indexName, err)
+	}
+	if len(resp.Hits) == 0 && len(strings.Fields(req.Query)) > 1 {
+		searchReq.MatchingStrategy = meilisearch.Frequency
+		searchReq.RankingScoreThreshold = relaxedLexicalScoreThreshold
+		resp, err = idx.Search(req.Query, searchReq)
+		if err != nil {
+			return nil, fmt.Errorf("meilisearch relaxed search %s: %w", indexName, err)
+		}
 	}
 
 	hits := make([]map[string]interface{}, 0, len(resp.Hits))
@@ -124,12 +146,12 @@ func (r *MeilisearchRetriever) buildFilters(entity EntityType, f SearchFilters) 
 
 	if f.Location != "" {
 		switch entity {
+		case EntityCollege, EntityScholarship, EntityEvent, EntityUniversity:
+			parts = append(parts, fmt.Sprintf("location = %q", f.Location))
 		case EntityAdmissionPage:
 			parts = append(parts, fmt.Sprintf("institution_location = %q", f.Location))
 		case EntityInstitution:
 			parts = append(parts, fmt.Sprintf("district = %q", f.Location))
-		default:
-			parts = append(parts, fmt.Sprintf("location = %q", f.Location))
 		}
 	}
 	if f.Type != "" {
@@ -140,14 +162,14 @@ func (r *MeilisearchRetriever) buildFilters(entity EntityType, f SearchFilters) 
 			parts = append(parts, fmt.Sprintf("type = %q", f.Type))
 		case EntityInstitution:
 			parts = append(parts, fmt.Sprintf("organization_type = %q", f.Type))
-		default:
+		case EntityExam:
 			parts = append(parts, fmt.Sprintf("type = %q", f.Type))
 		}
 	}
-	if f.RatingMin > 0 {
+	if f.RatingMin > 0 && (entity == EntityCollege || entity == EntityUniversity) {
 		parts = append(parts, fmt.Sprintf("rating >= %f", f.RatingMin))
 	}
-	if f.University != "" {
+	if f.University != "" && (entity == EntityCollege || entity == EntityCourse || entity == EntityInstitution) {
 		parts = append(parts, fmt.Sprintf("affiliation = %q", f.University))
 	}
 
@@ -265,6 +287,7 @@ func hitToCandidate(hit map[string]interface{}, entity EntityType) Candidate {
 	}
 
 	if v, ok := hit["_rankingScore"].(float64); ok {
+		c.LexicalScore = v
 		c.Score = v
 	}
 

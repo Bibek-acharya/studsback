@@ -79,3 +79,37 @@ func TestRankCandidates_SingleSource(t *testing.T) {
 		t.Errorf("expected ID 1 first, got ID %d", ranked[0].ID)
 	}
 }
+
+func TestRankCandidates_PreservesLexicalQualityAcrossIndexes(t *testing.T) {
+	scorer := NewRRFScorer(60)
+	candidates := []retrieval.Candidate{
+		{ID: 1, Type: retrieval.EntityCollege, LexicalScore: 0.35},
+		{ID: 2, Type: retrieval.EntityCourse, LexicalScore: 0.90},
+	}
+	sourceRanks := map[string][]int{
+		"college:1": {1},
+		"course:2":  {1},
+	}
+
+	ranked := scorer.RankCandidates(candidates, sourceRanks)
+	if ranked[0].ID != 2 {
+		t.Fatalf("expected stronger lexical result first, got ID %d", ranked[0].ID)
+	}
+}
+
+func TestRankCandidates_RewardsHybridAgreement(t *testing.T) {
+	scorer := NewRRFScorer(60)
+	candidates := []retrieval.Candidate{
+		{ID: 1, Type: retrieval.EntityCollege, LexicalScore: 0.70, VectorScore: 0.80},
+		{ID: 2, Type: retrieval.EntityCollege, LexicalScore: 0.70},
+	}
+	sourceRanks := map[string][]int{
+		"college:1": {2, 1},
+		"college:2": {1},
+	}
+
+	ranked := scorer.RankCandidates(candidates, sourceRanks)
+	if ranked[0].ID != 1 {
+		t.Fatalf("expected hybrid result first, got ID %d", ranked[0].ID)
+	}
+}

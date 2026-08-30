@@ -49,6 +49,8 @@ type Candidate struct {
 	University      string     `json:"university,omitempty"`
 	Rank            int        `json:"-"`
 	Score           float64    `json:"-"`
+	LexicalScore    float64    `json:"-"`
+	VectorScore     float64    `json:"-"`
 }
 
 type SearchFilters struct {

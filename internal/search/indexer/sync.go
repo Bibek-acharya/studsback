@@ -23,9 +23,9 @@ func (c *SyncCursor) Advance(lastUpdatedAt time.Time, lastID uint) {
 }
 
 type syncState struct {
-	Table       string    `gorm:"column:table_name;primaryKey"`
-	LastSyncAt  time.Time `gorm:"column:last_synced_at"`
-	LastSyncID  uint      `gorm:"column:last_sync_id"`
+	Table      string    `gorm:"column:table_name;primaryKey"`
+	LastSyncAt time.Time `gorm:"column:last_synced_at"`
+	LastSyncID uint      `gorm:"column:last_sync_id"`
 }
 
 func (syncState) TableName() string {
@@ -50,14 +50,14 @@ type syncTable struct {
 
 var syncTables = []syncTable{
 	{"colleges", "colleges", "id, name, full_name, description, location, affiliation, college_type, rating, image_url, featured, verified, website, created_at, updated_at, deleted_at", ""},
-	{"courses", "courses", "id, title, short_title, description, field, level, affiliation, status, created_at, updated_at, deleted_at", "status != 'draft'"},
-	{"scholarships", "scholarships", "id, title, description, provider, location, scholarship_type, funding_type, status, deadline, created_at, updated_at, deleted_at", "status != 'draft'"},
+	{"courses", "courses", "id, title, short_title, description, field, level, affiliation, status, created_at, updated_at, deleted_at", "status IS NOT NULL AND status NOT IN ('draft', 'pending', '')"},
+	{"scholarships", "scholarships", "id, title, description, provider, location, scholarship_type, funding_type, status, deadline, created_at, updated_at, deleted_at", "status IS NOT NULL AND status NOT IN ('draft', 'pending', '') AND (deadline IS NULL OR deadline >= CURRENT_TIMESTAMP)"},
 	{"news", "news", "id, title, excerpt, content, category, source, image, author, published, created_at, updated_at, deleted_at", "published = true"},
-	{"events", "events", "id, title, description, excerpt, category, location, date, image, organizer, end_date, status, created_at, updated_at, deleted_at", ""},
+	{"events", "events", "id, title, description, excerpt, category, location, date, image, organizer, end_date, status, created_at, updated_at, deleted_at", "(status IS NULL OR status NOT IN ('past', 'completed', 'cancelled')) AND (end_date IS NULL OR end_date >= CURRENT_TIMESTAMP)"},
 	{"exams", "exams", "id, title, description, board, type, university, created_at, updated_at, deleted_at", ""},
 	{"blogs", "blogs", "id, title, excerpt, content, category, image, author, published, created_at, updated_at, deleted_at", "published = true"},
 	{"universities", "universities", "id, name, description, location, type, rating, logo, cover, verified, programs_count, colleges_count, website, status, created_at, updated_at, deleted_at", "status = 'published'"},
-	{"admission_pages", "admission_pages", "id, title, level, status, institution_name, institution_location, institution_link, created_at, updated_at, deleted_at", "status != 'draft'"},
+	{"admission_pages", "admission_pages", "id, title, level, status, institution_name, institution_location, institution_link, created_at, updated_at, deleted_at", "status IS NOT NULL AND status NOT IN ('draft', 'pending', '')"},
 	{"institution_users", "institutions", "id, institution_name, district, affiliation, organization_type, about, logo_url, card_image_url, featured, verified, website_url, status, profile_status, deleted_at, updated_at", "profile_status = 'published' AND status = 'approved'"},
 }
 
@@ -158,7 +158,7 @@ func (w *SyncWorker) syncTable(ctx context.Context, table syncTable) {
 
 		for _, row := range rows {
 			id := toUint(row["id"])
-			if isDeleted(row) || !isPublished(row, table.StatusFilter) {
+			if isDeleted(row) || !isPublished(row, table) {
 				toDelete = append(toDelete, id)
 			} else {
 				toUpsert = append(toUpsert, row)
@@ -223,8 +223,8 @@ func isDeleted(row map[string]interface{}) bool {
 }
 
 // isPublished checks if a row should be indexed based on its status fields.
-func isPublished(row map[string]interface{}, statusFilter string) bool {
-	if statusFilter == "" {
+func isPublished(row map[string]interface{}, table syncTable) bool {
+	if table.Name == "events" {
 		if v, ok := row["end_date"]; ok && v != nil {
 			if t, ok := v.(time.Time); ok && !t.IsZero() && t.Before(time.Now()) {
 				return false
@@ -240,8 +240,11 @@ func isPublished(row map[string]interface{}, statusFilter string) bool {
 		return true
 	}
 
-	// Boolean published field (news, blogs) — must exist and be true
-	if strings.Contains(statusFilter, "published") {
+	if table.StatusFilter == "" {
+		return true
+	}
+
+	if table.Name == "news" || table.Name == "blogs" {
 		v, ok := row["published"]
 		if !ok || v == nil {
 			return false
@@ -259,7 +262,17 @@ func isPublished(row map[string]interface{}, statusFilter string) bool {
 		}
 	}
 
-	// String status field — must exist and not be draft/pending
+	if table.Name == "universities" {
+		status, _ := row["status"].(string)
+		return status == "published"
+	}
+
+	if table.Name == "institution_users" {
+		status, _ := row["status"].(string)
+		profileStatus, _ := row["profile_status"].(string)
+		return status == "approved" && profileStatus == "published"
+	}
+
 	if v, ok := row["status"]; ok {
 		if s, ok := v.(string); ok {
 			switch s {
@@ -267,18 +280,7 @@ func isPublished(row map[string]interface{}, statusFilter string) bool {
 				return false
 			}
 		}
-	} else if strings.Contains(statusFilter, "status") {
-		return false
-	}
-
-	// Institution profile_status — must exist and be published
-	if v, ok := row["profile_status"]; ok {
-		if s, ok := v.(string); ok {
-			if s == "draft" || s == "" {
-				return false
-			}
-		}
-	} else if strings.Contains(statusFilter, "profile_status") {
+	} else if strings.Contains(table.StatusFilter, "status") {
 		return false
 	}
 

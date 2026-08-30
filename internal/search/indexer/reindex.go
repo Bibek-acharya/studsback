@@ -48,9 +48,13 @@ func (r *Reindexer) reindexTable(ctx context.Context, table syncTable) (int, err
 
 	for {
 		var rows []map[string]interface{}
+		where := "deleted_at IS NULL"
+		if table.StatusFilter != "" {
+			where += " AND (" + table.StatusFilter + ")"
+		}
 		query := fmt.Sprintf(
-			"SELECT %s FROM %s WHERE deleted_at IS NULL ORDER BY id ASC LIMIT ? OFFSET ?",
-			table.SelectColumns, table.Name,
+			"SELECT %s FROM %s WHERE %s ORDER BY id ASC LIMIT ? OFFSET ?",
+			table.SelectColumns, table.Name, where,
 		)
 
 		if err := r.db.WithContext(ctx).Raw(query, batchSize, offset).Scan(&rows).Error; err != nil {

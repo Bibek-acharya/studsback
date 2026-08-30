@@ -2,12 +2,15 @@ package retrieval
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"studsphere/backend/internal/embedding"
 
 	"gorm.io/gorm"
 )
+
+const vectorSimilarityThreshold = 0.55
 
 type EmbeddingGenerator interface {
 	GenerateEmbedding(text string) ([]float32, error)
@@ -54,12 +57,17 @@ func (r *VectorRetriever) Search(ctx context.Context, req SearchRequest) ([]Cand
 	tables := r.resolveTables(req.Filters.Category)
 
 	var candidates []Candidate
+	var searchErrors []error
 	for _, vt := range tables {
 		items, err := r.searchTable(ctx, vt, vectorStr, req)
 		if err != nil {
+			searchErrors = append(searchErrors, err)
 			continue
 		}
 		candidates = append(candidates, items...)
+	}
+	if len(searchErrors) == len(tables) {
+		return nil, errors.Join(searchErrors...)
 	}
 
 	return candidates, nil
@@ -98,18 +106,26 @@ func (r *VectorRetriever) searchTable(ctx context.Context, vt vectorTable, vecto
 		Image       string
 		Location    string
 		Rating      float64
+		Distance    float64
 	}
 
 	var rows []row
 	query := r.db.WithContext(ctx).
-		Select(vt.selects).
+		Select(vt.selects+", (embedding <=> ?::vector) AS distance", vectorStr).
 		Table(vt.table).
 		Where("embedding IS NOT NULL AND deleted_at IS NULL")
 
 	if req.Filters.Location != "" {
-		query = query.Where("location = ?", req.Filters.Location)
+		switch vt.entity {
+		case EntityCollege, EntityScholarship, EntityEvent, EntityUniversity:
+			query = query.Where("location = ?", req.Filters.Location)
+		case EntityAdmissionPage:
+			query = query.Where("institution_location = ?", req.Filters.Location)
+		case EntityInstitution:
+			query = query.Where("district = ?", req.Filters.Location)
+		}
 	}
-	if req.Filters.RatingMin > 0 {
+	if req.Filters.RatingMin > 0 && (vt.entity == EntityCollege || vt.entity == EntityUniversity) {
 		query = query.Where("rating >= ?", req.Filters.RatingMin)
 	}
 
@@ -121,6 +137,10 @@ func (r *VectorRetriever) searchTable(ctx context.Context, vt vectorTable, vecto
 
 	candidates := make([]Candidate, 0, len(rows))
 	for rank, row := range rows {
+		similarity := 1 - row.Distance
+		if similarity < vectorSimilarityThreshold {
+			continue
+		}
 		candidates = append(candidates, Candidate{
 			ID:          row.ID,
 			Type:        vt.entity,
@@ -131,6 +151,7 @@ func (r *VectorRetriever) searchTable(ctx context.Context, vt vectorTable, vecto
 			Location:    row.Location,
 			Rating:      row.Rating,
 			Rank:        rank + 1,
+			VectorScore: similarity,
 		})
 	}
 

@@ -102,44 +102,68 @@ var categoryMeta = map[string]SearchCategory{
 	},
 }
 
-var categoryKeywordMap = map[string]string{
-	"college":      "colleges",
-	"colleges":     "colleges",
-	"institute":    "colleges",
-	"institutes":   "colleges",
-	"institution":  "colleges",
-	"institutions": "colleges",
-	"course":       "courses",
-	"courses":      "courses",
-	"exam":         "exams",
-	"exams":        "exams",
-	"scholarship":  "scholarships",
-	"scholarships": "scholarships",
-	"news":         "news",
-	"events":       "events",
-	"event":        "events",
-	"blog":         "blogs",
-	"blogs":        "blogs",
-	"university":   "universities",
-	"universities": "universities",
-	"admission":    "admissions",
-	"admissions":   "admissions",
+var categoryAliases = map[string]string{
+	"college":        "college",
+	"colleges":       "college",
+	"institute":      "college",
+	"institutes":     "college",
+	"institution":    "college",
+	"institutions":   "college",
+	"course":         "course",
+	"courses":        "course",
+	"program":        "course",
+	"programs":       "course",
+	"exam":           "exam",
+	"exams":          "exam",
+	"entrance":       "exam",
+	"scholarship":    "scholarship",
+	"scholarships":   "scholarship",
+	"grant":          "scholarship",
+	"grants":         "scholarship",
+	"news":           "news",
+	"article":        "news",
+	"articles":       "news",
+	"event":          "event",
+	"events":         "event",
+	"blog":           "blog",
+	"blogs":          "blog",
+	"university":     "university",
+	"universities":   "university",
+	"admission":      "admission_page",
+	"admissions":     "admission_page",
+	"admission_page": "admission_page",
+}
+
+var categoryMetaKeys = map[string]string{
+	"college":        "colleges",
+	"course":         "courses",
+	"exam":           "exams",
+	"scholarship":    "scholarships",
+	"news":           "news",
+	"event":          "events",
+	"blog":           "blogs",
+	"university":     "universities",
+	"admission_page": "admissions",
 }
 
 func resolveCategoryKey(q string, cat string) string {
 	if cat != "" {
-		if _, ok := categoryMeta[cat]; ok {
-			return cat
+		if canonical, ok := categoryAliases[strings.ToLower(strings.TrimSpace(cat))]; ok {
+			return canonical
 		}
 	}
 	if q == "" {
 		return ""
 	}
-	lowerQ := strings.ToLower(q)
-	for keyword, category := range categoryKeywordMap {
-		if strings.Contains(lowerQ, keyword) {
-			return category
+	for _, word := range strings.Fields(strings.ToLower(q)) {
+		word = strings.Trim(word, ".,!?;:")
+		if canonical, ok := categoryAliases[word]; ok {
+			return canonical
 		}
 	}
 	return ""
+}
+
+func categoryMetaKey(category string) string {
+	return categoryMetaKeys[category]
 }

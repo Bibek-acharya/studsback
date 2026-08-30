@@ -29,7 +29,20 @@ func (s *RRFScorer) RankCandidates(candidates []retrieval.Candidate, sourceRanks
 	for i := range candidates {
 		key := candidateKey(candidates[i])
 		if ranks, ok := sourceRanks[key]; ok {
-			candidates[i].Score = s.Score(ranks)
+			rrfScore := s.Score(ranks)
+			if candidates[i].LexicalScore == 0 && candidates[i].VectorScore == 0 {
+				candidates[i].Score = rrfScore
+				continue
+			}
+
+			maxRRF := float64(len(ranks)) / float64(s.K+1)
+			normalizedRRF := 0.0
+			if maxRRF > 0 {
+				normalizedRRF = rrfScore / maxRRF
+			}
+			candidates[i].Score = 0.65*candidates[i].LexicalScore +
+				0.25*candidates[i].VectorScore +
+				0.10*normalizedRRF
 		}
 	}
 

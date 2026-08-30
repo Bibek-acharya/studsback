@@ -44,6 +44,10 @@ func (h *Handler) Search(c *gin.Context) {
 
 	// Validate query length
 	if len(rawQ) == 0 {
+		vectorEnabled := false
+		if h.searchService != nil {
+			vectorEnabled = h.searchService.IsEmbeddingEnabled()
+		}
 		c.JSON(http.StatusOK, gin.H{
 			"success": true,
 			"message": "Empty query",
@@ -54,7 +58,7 @@ func (h *Handler) Search(c *gin.Context) {
 				"categoryKey":     "",
 				"facets":          map[string]map[string]int{},
 				"retrievalErrors": []string{},
-				"isVectorEnabled": h.searchService.IsEmbeddingEnabled(),
+				"isVectorEnabled": vectorEnabled,
 				"quality":         "success",
 			},
 		})
@@ -93,7 +97,7 @@ func (h *Handler) Search(c *gin.Context) {
 
 	// Use the semantic remainder as the search query
 	q := parsed.Query
-	if q == "" && rawQ != "" {
+	if q == "" && parsed.Category == "" && parsed.Intent == "" && parsed.Filters.Location == "" && parsed.Filters.University == "" {
 		q = rawQ
 	}
 
