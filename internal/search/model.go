@@ -28,11 +28,14 @@ type SearchCategory struct {
 }
 
 type SearchResponse struct {
-	Items       []SearchItem       `json:"items"`
-	Category    *SearchCategory    `json:"category"`
-	CategoryKey string             `json:"categoryKey"`
-	Meta        PaginationMeta     `json:"meta"`
-	Facets      map[string]map[string]int `json:"facets,omitempty"`
+	Items           []SearchItem              `json:"items"`
+	Category        *SearchCategory           `json:"category"`
+	CategoryKey     string                    `json:"categoryKey"`
+	Meta            PaginationMeta            `json:"meta"`
+	Facets          map[string]map[string]int `json:"facets,omitempty"`
+	RetrievalErrors []string                  `json:"retrievalErrors,omitempty"`
+	IsVectorEnabled bool                      `json:"isVectorEnabled"`
+	Quality         string                    `json:"quality"` // "full", "keyword-only", "degraded", "error"
 }
 
 type PaginationMeta struct {

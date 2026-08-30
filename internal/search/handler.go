@@ -42,6 +42,41 @@ func (h *Handler) Search(c *gin.Context) {
 	ratingMin, _ := strconv.ParseFloat(c.DefaultQuery("rating_min", "0"), 64)
 	university := c.Query("university")
 
+	// Validate query length
+	if len(rawQ) == 0 {
+		c.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"message": "Empty query",
+			"data": gin.H{
+				"items":           []SearchItem{},
+				"meta":            PaginationMeta{Page: 1, Limit: limit, Total: 0, Pages: 0},
+				"category":        nil,
+				"categoryKey":     "",
+				"facets":          map[string]map[string]int{},
+				"retrievalErrors": []string{},
+				"isVectorEnabled": h.searchService.IsEmbeddingEnabled(),
+				"quality":         "success",
+			},
+		})
+		return
+	}
+
+	if len(rawQ) < 2 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "Query must be at least 2 characters",
+		})
+		return
+	}
+
+	if len(rawQ) > 256 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "Query too long (max 256 characters)",
+		})
+		return
+	}
+
 	// Run query understanding
 	parsed := queryparser.Parse(rawQ)
 
@@ -87,11 +122,14 @@ func (h *Handler) Search(c *gin.Context) {
 			"success": true,
 			"message": "Search results retrieved successfully",
 			"data": gin.H{
-				"items":       result.Items,
-				"category":    result.Category,
-				"categoryKey": result.CategoryKey,
-				"meta":        result.Meta,
-				"facets":      result.Facets,
+				"items":           result.Items,
+				"category":        result.Category,
+				"categoryKey":     result.CategoryKey,
+				"meta":            result.Meta,
+				"facets":          result.Facets,
+				"quality":         result.Quality,
+				"retrievalErrors": result.RetrievalErrors,
+				"isVectorEnabled": result.IsVectorEnabled,
 			},
 		})
 		return
@@ -156,7 +194,7 @@ func (h *Handler) Suggest(c *gin.Context) {
 		if slug == "" {
 			slug = strconv.FormatUint(uint64(item.ID), 10)
 		}
-	 entityName := retrieval.EntityToIndexName[item.Type]
+		entityName := retrieval.EntityToIndexName[item.Type]
 		if entityName == "" {
 			entityName = string(item.Type) + "s"
 		}

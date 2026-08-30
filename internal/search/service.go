@@ -50,7 +50,7 @@ func NewSearchService(
 		vecRetriever:     vecRetriever,
 		embeddingEnabled: embeddingEnabled,
 		rrf:              ranking.NewRRFScorer(60),
-		exactMatcher:     ranking.NewExactMatcher(ranking.ExactMatchConfig{
+		exactMatcher: ranking.NewExactMatcher(ranking.ExactMatchConfig{
 			TitleExact:  0.5,
 			TitlePhrase: 0.2,
 			TitlePrefix: 0.1,
@@ -63,6 +63,10 @@ func NewSearchService(
 			Blog:  ranking.EntityBoost{FreshnessBoost: 0.01},
 		}),
 	}
+}
+
+func (s *SearchService) IsEmbeddingEnabled() bool {
+	return s.embeddingEnabled
 }
 
 func (s *SearchService) Search(ctx context.Context, req HybridSearchRequest) *SearchResponse {
@@ -98,14 +102,18 @@ func (s *SearchService) Search(ctx context.Context, req HybridSearchRequest) *Se
 	meiliCh := make(chan []retrieval.Candidate, 1)
 	vecCh := make(chan []retrieval.Candidate, 1)
 	facetsCh := make(chan map[string]map[string]int, 1)
+	meiliErrCh := make(chan error, 1)
+	vecErrCh := make(chan error, 1)
 
 	go func() {
 		candidates, err := s.meiliRetriever.Search(ctx, retrievalReq)
 		if err != nil {
 			log.Printf("search: meilisearch error: %v", err)
+			meiliErrCh <- err
 			meiliCh <- nil
 			return
 		}
+		meiliErrCh <- nil
 		meiliCh <- candidates
 	}()
 
@@ -114,12 +122,15 @@ func (s *SearchService) Search(ctx context.Context, req HybridSearchRequest) *Se
 			candidates, err := s.vecRetriever.Search(ctx, retrievalReq)
 			if err != nil {
 				log.Printf("search: vector error: %v", err)
+				vecErrCh <- err
 				vecCh <- nil
 				return
 			}
+			vecErrCh <- nil
 			vecCh <- candidates
 		}()
 	} else {
+		vecErrCh <- nil
 		vecCh <- nil
 	}
 
@@ -131,6 +142,44 @@ func (s *SearchService) Search(ctx context.Context, req HybridSearchRequest) *Se
 	meiliResults := <-meiliCh
 	vecResults := <-vecCh
 	facets := <-facetsCh
+	meiliErr := <-meiliErrCh
+	vecErr := <-vecErrCh
+
+	// Track retrieval quality
+	var retrievalErrors []string
+	quality := "full"
+
+	if meiliErr != nil {
+		retrievalErrors = append(retrievalErrors, "Keyword search unavailable")
+	}
+	if vecErr != nil && s.embeddingEnabled {
+		retrievalErrors = append(retrievalErrors, "Vector search unavailable")
+	}
+
+	// If both fail, return error response
+	if meiliResults == nil && vecResults == nil && (meiliErr != nil || vecErr != nil) {
+		return &SearchResponse{
+			Items:           []SearchItem{},
+			Category:        nil,
+			CategoryKey:     "",
+			Meta:            PaginationMeta{Page: req.Page, Limit: req.Limit, Total: 0, Pages: 0},
+			Facets:          facets,
+			RetrievalErrors: retrievalErrors,
+			IsVectorEnabled: s.embeddingEnabled,
+			Quality:         "error",
+		}
+	}
+
+	// Set quality based on what's available
+	if len(retrievalErrors) > 0 {
+		if meiliResults == nil && vecResults != nil {
+			quality = "keyword-only"
+		} else if meiliResults != nil && vecResults == nil {
+			quality = "vector-only"
+		} else {
+			quality = "degraded"
+		}
+	}
 
 	merged := mergeCandidates(meiliResults, vecResults)
 	sourceRanks := buildSourceRanks(meiliResults, vecResults)
@@ -216,7 +265,10 @@ func (s *SearchService) Search(ctx context.Context, req HybridSearchRequest) *Se
 			Total: int64(total),
 			Pages: pages,
 		},
-		Facets: facets,
+		Facets:          facets,
+		RetrievalErrors: retrievalErrors,
+		IsVectorEnabled: s.embeddingEnabled,
+		Quality:         quality,
 	}
 }
 
@@ -261,15 +313,27 @@ func buildSourceRanks(meili, vec []retrieval.Candidate) map[string][]int {
 
 func applySort(candidates []retrieval.Candidate, sortBy string) {
 	switch sortBy {
+	case "relevance":
+		// Already sorted by score (default from RRF ranking)
 	case "rating_desc":
 		sort.Slice(candidates, func(i, j int) bool {
-			return candidates[i].Rating > candidates[j].Rating
+			// Sort by rating descending, then by score as tiebreaker
+			if candidates[i].Rating != candidates[j].Rating {
+				return candidates[i].Rating > candidates[j].Rating
+			}
+			return candidates[i].Score > candidates[j].Score
 		})
 	case "created_at_desc":
-		// Already in insertion order from Meilisearch (newest first by default)
+		// Note: Requires CreatedAt field in Candidate struct
+		// For now, sort by Rank (Meilisearch insertion order approximation)
+		sort.Slice(candidates, func(i, j int) bool {
+			return candidates[i].Rank < candidates[j].Rank
+		})
 	case "title_asc":
 		sort.Slice(candidates, func(i, j int) bool {
 			return candidates[i].Title < candidates[j].Title
 		})
+	default:
+		// Default to relevance
 	}
 }
