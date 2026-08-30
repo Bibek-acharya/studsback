@@ -49,16 +49,26 @@ type syncTable struct {
 }
 
 var syncTables = []syncTable{
-	{"colleges", "colleges", "id, name, full_name, description, location, affiliation, college_type, rating, image_url, featured, verified, website, created_at, updated_at, deleted_at", ""},
-	{"courses", "courses", "id, title, short_title, description, field, level, affiliation, status, created_at, updated_at, deleted_at", "status IS NOT NULL AND status NOT IN ('draft', 'pending', '')"},
+	{"colleges", "colleges", "id, name, full_name, description, location, affiliation, non_university_affiliation, college_type, rating, reviews, programs, image_url, card_image_url, banner_url, featured, verified, claimed, popular, website, created_at, updated_at, deleted_at", ""},
+	{"courses", "courses", "id, title, short_title, description, field, field_of_study, level, duration, est_fee, banner_url, colleges_count, non_university_affiliation, COALESCE((SELECT name FROM affiliations WHERE affiliations.id = courses.affiliation_id), '') AS affiliation, status, created_at, updated_at, deleted_at", "status IS NOT NULL AND status NOT IN ('draft', 'pending', '')"},
 	{"scholarships", "scholarships", "id, title, description, provider, location, scholarship_type, funding_type, status, deadline, created_at, updated_at, deleted_at", "status IS NOT NULL AND status NOT IN ('draft', 'pending', '') AND (deadline IS NULL OR deadline >= CURRENT_TIMESTAMP)"},
 	{"news", "news", "id, title, excerpt, content, category, source, image, author, published, created_at, updated_at, deleted_at", "published = true"},
 	{"events", "events", "id, title, description, excerpt, category, location, date, image, organizer, end_date, status, created_at, updated_at, deleted_at", "(status IS NULL OR status NOT IN ('past', 'completed', 'cancelled')) AND (end_date IS NULL OR end_date >= CURRENT_TIMESTAMP)"},
 	{"exams", "exams", "id, title, description, board, type, university, created_at, updated_at, deleted_at", ""},
 	{"blogs", "blogs", "id, title, excerpt, content, category, image, author, published, created_at, updated_at, deleted_at", "published = true"},
-	{"universities", "universities", "id, name, description, location, type, rating, logo, cover, verified, programs_count, colleges_count, website, status, created_at, updated_at, deleted_at", "status = 'published'"},
+	{"universities", "universities", "id, name, description, location, type, rank, rating, review_count, logo, cover, verified, popular, programs_count, colleges_count, website, status, created_at, updated_at, deleted_at", "status = 'published'"},
 	{"admission_pages", "admission_pages", "id, title, level, status, institution_name, institution_location, institution_link, created_at, updated_at, deleted_at", "status IS NOT NULL AND status NOT IN ('draft', 'pending', '')"},
-	{"institution_users", "institutions", "id, institution_name, district, affiliation, organization_type, about, logo_url, card_image_url, featured, verified, website_url, status, profile_status, deleted_at, updated_at", "profile_status = 'published' AND status = 'approved'"},
+	{"institution_users", "institutions", `id, institution_name, district, affiliation, non_university_affiliation, organization_type, about, logo_url, banner_url, card_image_url, featured, verified, claimed, college_id, website_url,
+		COALESCE((
+			SELECT ROUND(AVG(entry.value::numeric), 1)::float8
+			FROM reviews rv
+			CROSS JOIN LATERAL jsonb_each_text(rv.ratings) entry
+			WHERE rv.is_published = true AND rv.deleted_at IS NULL
+			  AND (rv.institution_id = institution_users.id OR (institution_users.college_id > 0 AND rv.college_id = institution_users.college_id))
+		), 0) AS rating,
+		(SELECT COUNT(DISTINCT rv.id) FROM reviews rv WHERE rv.is_published = true AND rv.deleted_at IS NULL AND (rv.institution_id = institution_users.id OR (institution_users.college_id > 0 AND rv.college_id = institution_users.college_id))) AS review_count,
+		(SELECT COUNT(*) FROM institution_programs ip WHERE ip.institution_id = institution_users.id AND ip.status = 'active' AND ip.deleted_at IS NULL) AS programs,
+		status, profile_status, deleted_at, updated_at`, "profile_status = 'published' AND status = 'approved'"},
 }
 
 func NewSyncWorker(db *gorm.DB, indexer *MeiliIndexer, interval time.Duration, batchSize int) *SyncWorker {

@@ -3,20 +3,32 @@ package search
 import "strings"
 
 type SearchItem struct {
-	ID              uint     `json:"id"`
-	Type            string   `json:"type"`
-	Title           string   `json:"title"`
-	Description     string   `json:"description"`
-	Image           string   `json:"image"`
-	Featured        bool     `json:"featured"`
-	Verified        bool     `json:"verified"`
-	Rating          float64  `json:"rating"`
-	InstitutionType string   `json:"institutionType"`
-	Location        string   `json:"location"`
-	University      string   `json:"university"`
-	Website         string   `json:"website"`
-	Slug            string   `json:"slug"`
-	Tags            []string `gorm:"-" json:"tags"`
+	ID                       uint     `json:"id"`
+	Type                     string   `json:"type"`
+	Title                    string   `json:"title"`
+	Description              string   `json:"description"`
+	Image                    string   `json:"image"`
+	Banner                   string   `json:"banner"`
+	Logo                     string   `json:"logo"`
+	Featured                 bool     `json:"featured"`
+	Verified                 bool     `json:"verified"`
+	Claimed                  bool     `json:"claimed"`
+	Popular                  bool     `json:"popular"`
+	Rating                   float64  `json:"rating"`
+	Reviews                  int      `json:"reviews"`
+	Programs                 int      `json:"programs"`
+	Colleges                 int      `json:"colleges"`
+	Rank                     int      `json:"rank"`
+	InstitutionType          string   `json:"institutionType"`
+	Location                 string   `json:"location"`
+	University               string   `json:"university"`
+	NonUniversityAffiliation string   `json:"nonUniversityAffiliation"`
+	Duration                 string   `json:"duration"`
+	Field                    string   `json:"field"`
+	EstimatedFee             string   `json:"estFee"`
+	Website                  string   `json:"website"`
+	Slug                     string   `json:"slug"`
+	Tags                     []string `gorm:"-" json:"tags"`
 }
 
 type SearchCategory struct {

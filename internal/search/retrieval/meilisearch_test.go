@@ -102,3 +102,50 @@ func TestBuildFiltersOnlyUsesSupportedEntityAttributes(t *testing.T) {
 		t.Fatal("expected supported college filters")
 	}
 }
+
+func TestHitToCandidatePreservesCardMetadata(t *testing.T) {
+	hit := map[string]interface{}{
+		"id":                         float64(7),
+		"institution_name":           "Example College",
+		"card_image_url":             "card.jpg",
+		"banner_url":                 "banner.jpg",
+		"logo_url":                   "logo.jpg",
+		"claimed":                    false,
+		"college_id":                 float64(42),
+		"non_university_affiliation": "CTEVT",
+	}
+
+	candidate := hitToCandidate(hit, EntityInstitution)
+	if candidate.Image != "card.jpg" || candidate.Banner != "banner.jpg" || candidate.Logo != "logo.jpg" {
+		t.Fatalf("unexpected image metadata: %#v", candidate)
+	}
+	if !candidate.Claimed {
+		t.Fatal("expected linked institution profile to be treated as claimed")
+	}
+	if candidate.NonUniversityAffiliation != "CTEVT" {
+		t.Fatalf("unexpected non-university affiliation: %q", candidate.NonUniversityAffiliation)
+	}
+}
+
+func TestHitToCandidatePreservesCourseAndUniversityMetadata(t *testing.T) {
+	course := hitToCandidate(map[string]interface{}{
+		"banner_url":     "course.jpg",
+		"duration":       "4 Years",
+		"field_of_study": "Engineering",
+		"est_fee":        "NPR 800,000",
+	}, EntityCourse)
+	if course.Banner != "course.jpg" || course.Duration != "4 Years" || course.Field != "Engineering" || course.EstimatedFee != "NPR 800,000" {
+		t.Fatalf("unexpected course metadata: %#v", course)
+	}
+
+	university := hitToCandidate(map[string]interface{}{
+		"cover":          "cover.jpg",
+		"logo":           "logo.jpg",
+		"rank":           float64(3),
+		"programs_count": float64(25),
+		"colleges_count": float64(12),
+	}, EntityUniversity)
+	if university.Banner != "cover.jpg" || university.Logo != "logo.jpg" || university.EntityRank != 3 || university.Programs != 25 || university.Colleges != 12 {
+		t.Fatalf("unexpected university metadata: %#v", university)
+	}
+}

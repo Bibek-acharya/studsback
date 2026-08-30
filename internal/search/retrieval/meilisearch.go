@@ -204,18 +204,24 @@ func hitToCandidate(hit map[string]interface{}, entity EntityType) Candidate {
 		c.Description = v
 	}
 
-	if v, ok := hit["image"].(string); ok {
-		c.Image = v
-	} else if v, ok := hit["logo"].(string); ok {
-		c.Image = v
-	} else if v, ok := hit["cover"].(string); ok {
-		c.Image = v
-	} else if v, ok := hit["image_url"].(string); ok {
-		c.Image = v
-	} else if v, ok := hit["logo_url"].(string); ok {
-		c.Image = v
-	} else if v, ok := hit["card_image_url"].(string); ok {
-		c.Image = v
+	switch entity {
+	case EntityCollege:
+		c.Image = firstString(hit, "card_image_url", "banner_url", "image_url")
+		c.Banner = firstString(hit, "banner_url", "card_image_url", "image_url")
+		c.Logo = firstString(hit, "image_url")
+	case EntityInstitution:
+		c.Image = firstString(hit, "card_image_url", "banner_url", "logo_url")
+		c.Banner = firstString(hit, "banner_url", "card_image_url")
+		c.Logo = firstString(hit, "logo_url")
+	case EntityUniversity:
+		c.Image = firstString(hit, "cover", "logo")
+		c.Banner = firstString(hit, "cover")
+		c.Logo = firstString(hit, "logo")
+	case EntityCourse:
+		c.Image = firstString(hit, "banner_url")
+		c.Banner = firstString(hit, "banner_url")
+	default:
+		c.Image = firstString(hit, "image", "cover", "image_url", "logo", "logo_url", "card_image_url")
 	}
 
 	if v, ok := hit["slug"].(string); ok {
@@ -235,6 +241,10 @@ func hitToCandidate(hit map[string]interface{}, entity EntityType) Candidate {
 	if v, ok := hit["rating"].(float64); ok {
 		c.Rating = v
 	}
+	c.Reviews = firstInt(hit, "reviews", "review_count")
+	c.Programs = firstInt(hit, "programs", "programs_count")
+	c.Colleges = firstInt(hit, "colleges", "colleges_count")
+	c.EntityRank = firstInt(hit, "rank")
 
 	if v, ok := hit["location"].(string); ok {
 		c.Location = v
@@ -282,6 +292,21 @@ func hitToCandidate(hit map[string]interface{}, entity EntityType) Candidate {
 		c.Verified = v
 	}
 
+	if v, ok := hit["claimed"].(bool); ok {
+		c.Claimed = v
+	}
+	if firstInt(hit, "college_id") > 0 {
+		c.Claimed = true
+	}
+	if v, ok := hit["popular"].(bool); ok {
+		c.Popular = v
+	}
+
+	c.NonUniversityAffiliation = firstString(hit, "non_university_affiliation")
+	c.Duration = firstString(hit, "duration")
+	c.Field = firstString(hit, "field_of_study", "field")
+	c.EstimatedFee = firstString(hit, "est_fee")
+
 	if v, ok := hit["institution_name"].(string); ok {
 		c.InstitutionName = v
 	}
@@ -292,6 +317,35 @@ func hitToCandidate(hit map[string]interface{}, entity EntityType) Candidate {
 	}
 
 	return c
+}
+
+func firstString(hit map[string]interface{}, keys ...string) string {
+	for _, key := range keys {
+		if value, ok := hit[key].(string); ok && strings.TrimSpace(value) != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func firstInt(hit map[string]interface{}, keys ...string) int {
+	for _, key := range keys {
+		switch value := hit[key].(type) {
+		case float64:
+			return int(value)
+		case float32:
+			return int(value)
+		case int:
+			return value
+		case int64:
+			return int(value)
+		case uint:
+			return int(value)
+		case uint64:
+			return int(value)
+		}
+	}
+	return 0
 }
 
 func slugify(s string) string {

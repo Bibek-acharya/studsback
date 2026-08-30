@@ -32,25 +32,37 @@ var EntityToIndexName = map[EntityType]string{
 }
 
 type Candidate struct {
-	ID              uint       `json:"id"`
-	Type            EntityType `json:"type"`
-	Title           string     `json:"title"`
-	Description     string     `json:"description,omitempty"`
-	Image           string     `json:"image,omitempty"`
-	Slug            string     `json:"slug,omitempty"`
-	Rating          float64    `json:"rating,omitempty"`
-	Location        string     `json:"location,omitempty"`
-	URL             string     `json:"url,omitempty"`
-	EntityType      string     `json:"entity_type,omitempty"`
-	InstitutionName string     `json:"institution_name,omitempty"`
-	Featured        bool       `json:"featured,omitempty"`
-	Verified        bool       `json:"verified,omitempty"`
-	Website         string     `json:"website,omitempty"`
-	University      string     `json:"university,omitempty"`
-	Rank            int        `json:"-"`
-	Score           float64    `json:"-"`
-	LexicalScore    float64    `json:"-"`
-	VectorScore     float64    `json:"-"`
+	ID                       uint       `json:"id"`
+	Type                     EntityType `json:"type"`
+	Title                    string     `json:"title"`
+	Description              string     `json:"description,omitempty"`
+	Image                    string     `json:"image,omitempty"`
+	Banner                   string     `json:"banner,omitempty"`
+	Logo                     string     `json:"logo,omitempty"`
+	Slug                     string     `json:"slug,omitempty"`
+	Rating                   float64    `json:"rating,omitempty"`
+	Reviews                  int        `json:"reviews,omitempty"`
+	Programs                 int        `json:"programs,omitempty"`
+	Colleges                 int        `json:"colleges,omitempty"`
+	EntityRank               int        `json:"entity_rank,omitempty"`
+	Location                 string     `json:"location,omitempty"`
+	URL                      string     `json:"url,omitempty"`
+	EntityType               string     `json:"entity_type,omitempty"`
+	InstitutionName          string     `json:"institution_name,omitempty"`
+	Featured                 bool       `json:"featured,omitempty"`
+	Verified                 bool       `json:"verified,omitempty"`
+	Claimed                  bool       `json:"claimed,omitempty"`
+	Popular                  bool       `json:"popular,omitempty"`
+	Website                  string     `json:"website,omitempty"`
+	University               string     `json:"university,omitempty"`
+	NonUniversityAffiliation string     `json:"non_university_affiliation,omitempty"`
+	Duration                 string     `json:"duration,omitempty"`
+	Field                    string     `json:"field,omitempty"`
+	EstimatedFee             string     `json:"estimated_fee,omitempty"`
+	Rank                     int        `json:"-"`
+	Score                    float64    `json:"-"`
+	LexicalScore             float64    `json:"-"`
+	VectorScore              float64    `json:"-"`
 }
 
 type SearchFilters struct {
