@@ -204,6 +204,7 @@ func main() {
 		&domain.Attachment{},
 		&domain.PendingUpload{},
 		&domain.OutboxEvent{},
+		&search.SearchHistory{},
 	); err != nil {
 		logger.Fatal("Failed to migrate database", "error", err)
 	} else {
@@ -343,6 +344,7 @@ func main() {
 	toolsHandler := initModule(tools.NewRepository(db), tools.NewService, tools.NewHandler)
 	universityHandler := initModule(university.NewRepository(db), university.NewService, university.NewHandler)
 	searchHandler := initSearchHandler(db)
+	searchHandler.SetHistoryRepository(search.NewSearchHistoryRepository(db))
 	chatService := chat.NewService(db)
 	chatHandler := chat.NewHandler(chatService)
 	aiService := ai.NewService(db)

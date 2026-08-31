@@ -17,6 +17,7 @@ import (
 type Handler struct {
 	searchService *SearchService
 	meiliClient   *MeiliClient
+	historyRepo   *SearchHistoryRepository
 }
 
 func NewHandler(searchService *SearchService) *Handler {
@@ -28,6 +29,10 @@ func NewHybridHandler(searchService *SearchService, meiliClient *MeiliClient) *H
 		searchService: searchService,
 		meiliClient:   meiliClient,
 	}
+}
+
+func (h *Handler) SetHistoryRepository(repo *SearchHistoryRepository) {
+	h.historyRepo = repo
 }
 
 func (h *Handler) Search(c *gin.Context) {

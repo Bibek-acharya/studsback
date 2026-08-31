@@ -14,6 +14,13 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 		v1.GET("/search/vector-status", h.GetVectorStatus)
 		v1.POST("/search/reindex", h.Reindex)
 
+		history := v1.Group("/search/history")
+		history.Use(authMW)
+		{
+			history.GET("", h.GetSearchHistory)
+			history.POST("", h.SaveSearchHistory)
+		}
+
 		admin := v1.Group("/admin/search")
 		admin.Use(authMW)
 		admin.Use(roleMW)
