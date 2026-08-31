@@ -75,7 +75,7 @@ func (r *Repository) FindCoursesFiltered(page, limit int, search, level, field, 
 	}
 
 	var courses []Course
-	err := query.Order("id desc").Offset(offset).Limit(limit).Find(&courses).Error
+	err := query.Order("LOWER(title) asc").Offset(offset).Limit(limit).Find(&courses).Error
 	return courses, total, err
 }
 
@@ -159,7 +159,9 @@ func (r *Repository) FindPublishedInstitutionProgramByID(id uint) (*InstitutionP
 
 func (r *Repository) FindCourses() ([]Course, error) {
 	var courses []Course
-	err := r.db.Where("is_global = ? AND status = ?", true, "published").Find(&courses).Error
+	err := r.db.Where("is_global = ? AND status = ?", true, "published").
+		Order("LOWER(title) asc").
+		Find(&courses).Error
 	return courses, err
 }
 
