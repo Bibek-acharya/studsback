@@ -2,6 +2,7 @@ package institution
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -322,6 +323,16 @@ func (r *Repository) FindPublicInstitutions(page, pageSize int, search, location
 	}
 	if len(course) > 0 {
 		for _, c := range course {
+			if globalCourseID, err := strconv.ParseUint(c, 10, 64); err == nil && globalCourseID > 0 {
+				query = query.Where(`EXISTS (
+					SELECT 1 FROM institution_programs
+					WHERE institution_programs.institution_id = institution_users.id
+					  AND institution_programs.global_course_id = ?
+					  AND institution_programs.status = 'active'
+					  AND institution_programs.deleted_at IS NULL
+				)`, globalCourseID)
+				continue
+			}
 			query = query.Where(`EXISTS (
 				SELECT 1 FROM jsonb_array_elements(institution_users.profile_data->'courses_data') AS c
 				WHERE c->>'name' ILIKE ? OR c->>'courseName' ILIKE ?

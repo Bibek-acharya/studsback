@@ -359,3 +359,52 @@ func seedInstitutionUser(db *gorm.DB, regNum string) *InstitutionUser {
 	db.Create(inst)
 	return inst
 }
+
+func TestFindPublicInstitutionsFiltersByGlobalCourseID(t *testing.T) {
+	db := setupServiceTestDB(t)
+	if err := db.AutoMigrate(&InstitutionUser{}, &InstitutionSettings{}, &InstitutionProgram{}); err != nil {
+		t.Fatalf("auto migrate: %v", err)
+	}
+
+	offeringInstitution := &InstitutionUser{
+		InstitutionName:    "Offering College",
+		RegistrationNumber: "REG-OFFERING",
+		Email:              "offering@college.edu",
+		Status:             "approved",
+		ProfileStatus:      "published",
+	}
+	otherInstitution := &InstitutionUser{
+		InstitutionName:    "Other College",
+		RegistrationNumber: "REG-OTHER",
+		Email:              "other-public@college.edu",
+		Status:             "approved",
+		ProfileStatus:      "published",
+	}
+	if err := db.Create(offeringInstitution).Error; err != nil {
+		t.Fatalf("create offering institution: %v", err)
+	}
+	if err := db.Create(otherInstitution).Error; err != nil {
+		t.Fatalf("create other institution: %v", err)
+	}
+
+	if err := db.Exec(
+		"INSERT INTO institution_programs (name, institution_id, global_course_id, status) VALUES (?, ?, ?, ?)",
+		"Global Course", offeringInstitution.ID, 42, "active",
+	).Error; err != nil {
+		t.Fatalf("create institution program: %v", err)
+	}
+
+	repo := NewRepository(db)
+	institutions, total, err := repo.FindPublicInstitutions(
+		1, 18, "", "", "", nil, nil, nil, nil, []string{"42"},
+	)
+	if err != nil {
+		t.Fatalf("FindPublicInstitutions failed: %v", err)
+	}
+	if total != 1 {
+		t.Fatalf("total = %d, want 1", total)
+	}
+	if len(institutions) != 1 || institutions[0].ID != offeringInstitution.ID {
+		t.Fatalf("institutions = %#v, want only institution %d", institutions, offeringInstitution.ID)
+	}
+}
