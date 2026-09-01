@@ -352,6 +352,9 @@ func (s *Service) GetMapColleges(north, south, east, west float64) ([]CollegeMap
 					if inst.LogoURL != "" {
 						dtos[i].Logo = inst.LogoURL
 					}
+					if inst.BannerURL != "" {
+						dtos[i].Banner = inst.BannerURL
+					}
 					// Get gallery from institution profile_data
 					if inst.ProfileData != nil {
 						var profileData map[string]interface{}
@@ -388,6 +391,7 @@ func (s *Service) GetMapColleges(north, south, east, west float64) ([]CollegeMap
 				District:  inst.District,
 				Province:  inst.Province,
 				Type:      inst.Type,
+				Banner:    inst.BannerURL,
 			})
 		}
 	}

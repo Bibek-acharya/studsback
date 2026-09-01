@@ -343,6 +343,7 @@ func (r *Repository) FindAllWithCoords() ([]College, error) {
 type InstitutionBasic struct {
 	CollegeID   uint
 	LogoURL     string
+	BannerURL   string
 	ProfileData *string
 }
 
@@ -351,11 +352,12 @@ func (r *Repository) FindInstitutionsByCollegeIDs(collegeIDs []uint) (map[uint]I
 	type row struct {
 		CollegeID   uint   `gorm:"column:college_id"`
 		LogoURL     string `gorm:"column:logo_url"`
+		BannerURL   string `gorm:"column:banner_url"`
 		ProfileData string `gorm:"column:profile_data"`
 	}
 	var rows []row
 	err := r.db.Table("institution_users").
-		Select("college_id, logo_url, profile_data").
+		Select("college_id, logo_url, banner_url, profile_data").
 		Where("college_id IN ?", collegeIDs).
 		Where("college_id > 0").
 		Where("deleted_at IS NULL").
@@ -368,6 +370,7 @@ func (r *Repository) FindInstitutionsByCollegeIDs(collegeIDs []uint) (map[uint]I
 		result[r.CollegeID] = InstitutionBasic{
 			CollegeID:   r.CollegeID,
 			LogoURL:     r.LogoURL,
+			BannerURL:   r.BannerURL,
 			ProfileData: &r.ProfileData,
 		}
 	}
@@ -508,12 +511,13 @@ type InstitutionMapDTO struct {
 	District  string  `json:"district,omitempty"`
 	Province  string  `json:"province,omitempty"`
 	Type      string  `json:"type,omitempty"`
+	BannerURL string  `json:"banner_url,omitempty"`
 }
 
 func (r *Repository) FindInstitutionsWithCoords() ([]InstitutionMapDTO, error) {
 	var institutions []InstitutionMapDTO
 	err := r.db.Table("institution_users").
-		Select("id, institution_name as name, latitude, longitude, COALESCE(district,'') as district, COALESCE(province,'') as province, COALESCE(organization_type,'') as type").
+		Select("id, institution_name as name, latitude, longitude, COALESCE(district,'') as district, COALESCE(province,'') as province, COALESCE(organization_type,'') as type, COALESCE(banner_url,'') as banner_url").
 		Where("latitude IS NOT NULL AND longitude IS NOT NULL").
 		Find(&institutions).Error
 	return institutions, err

@@ -7,6 +7,7 @@ type CollegeMapDTO struct {
 	Latitude  float64     `json:"latitude"`
 	Longitude float64     `json:"longitude"`
 	Logo      string      `json:"logo,omitempty"`
+	Banner    string      `json:"banner,omitempty"`
 	District  string      `json:"district,omitempty"`
 	Province  string      `json:"province,omitempty"`
 	Type      string      `json:"type,omitempty"`

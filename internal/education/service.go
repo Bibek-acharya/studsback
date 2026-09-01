@@ -2208,6 +2208,33 @@ func (s *Service) GetPublicEntrances(page, limit int, search, level, stream, sta
 		})
 	}
 
+	// Drop expired entrances so the total and pagination match what is shown.
+	// Rule mirrors the frontend: deadline (else exam date) before today is expired;
+	// entries without dates are kept, unparseable dates are dropped.
+	today := time.Now().UTC().Truncate(24 * time.Hour)
+	activeResponses := allResponses[:0]
+	for _, resp := range allResponses {
+		dateStr := resp.FormDeadline
+		if dateStr == "" {
+			dateStr = resp.ExamDate
+		}
+		if dateStr == "" {
+			activeResponses = append(activeResponses, resp)
+			continue
+		}
+		endDate, err := time.Parse("2006-01-02", dateStr)
+		if err != nil {
+			endDate, err = time.Parse(time.RFC3339, dateStr)
+		}
+		if err != nil {
+			continue
+		}
+		if !endDate.Before(today) {
+			activeResponses = append(activeResponses, resp)
+		}
+	}
+	allResponses = activeResponses
+
 	total := int64(len(allResponses))
 
 	start := (page - 1) * limit
