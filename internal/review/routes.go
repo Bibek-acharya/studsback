@@ -2,6 +2,8 @@ package review
 
 import (
 	"github.com/gin-gonic/gin"
+
+	"studsphere/backend/internal/shared/middleware"
 )
 
 func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
@@ -24,9 +26,16 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 		education := v1.Group("/education/reviews")
 		education.Use(authMW)
 		{
-			education.GET("/college/:collegeId", h.GetCollegeReviews)
 			education.GET("/university/:universityId", h.GetUniversityReviews)
 			education.POST("/:id/helpful", h.MarkHelpful)
+		}
+
+		// College reviews are public; auth is optional so the response can
+		// include the current user's own vote when logged in.
+		publicEducation := v1.Group("/education/reviews")
+		publicEducation.Use(middleware.OptionalAuth())
+		{
+			publicEducation.GET("/college/:collegeId", h.GetCollegeReviews)
 		}
 
 		university := v1.Group("/user/university-reviews")

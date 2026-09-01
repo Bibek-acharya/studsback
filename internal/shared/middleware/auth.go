@@ -82,6 +82,44 @@ func Auth() gin.HandlerFunc {
 	}
 }
 
+// OptionalAuth authenticates the user when a valid token is present but
+// lets the request through anonymously otherwise (user_id stays unset).
+func OptionalAuth() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var token string
+
+		authHeader := c.GetHeader("Authorization")
+		if authHeader != "" {
+			parts := strings.Split(authHeader, " ")
+			if len(parts) == 2 && parts[0] == "Bearer" {
+				token = parts[1]
+			}
+		}
+
+		if token == "" {
+			cookieToken, err := c.Cookie("token")
+			if err == nil && cookieToken != "" {
+				token = cookieToken
+			}
+		}
+
+		if token == "" {
+			token = c.Query("token")
+		}
+
+		if token != "" {
+			if claims, err := utils.ValidateToken(token); err == nil {
+				c.Set("user_id", claims.UserID)
+				c.Set("provider_id", claims.ProviderID)
+				c.Set("user_email", claims.Email)
+				c.Set("user_role", claims.Role)
+			}
+		}
+
+		c.Next()
+	}
+}
+
 func SetAuthCookie(c *gin.Context, token string) {
 	secure := cookieSecure(c)
 

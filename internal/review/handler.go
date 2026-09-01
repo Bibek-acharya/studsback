@@ -24,6 +24,9 @@ func NewHandler(service *Service) *Handler {
 
 func getUserID(c *gin.Context) uint {
 	userID, _ := c.Get("user_id")
+	if userID == nil {
+		return 0
+	}
 	return userID.(uint)
 }
 
