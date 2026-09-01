@@ -29,6 +29,10 @@ type ReportReviewRequest struct {
 	Reason string `json:"reason" binding:"required,min=10"`
 }
 
+type VoteReviewRequest struct {
+	Vote string `json:"vote" binding:"omitempty,oneof=up down"`
+}
+
 type ReviewResponse struct {
 	ID                uint               `json:"id"`
 	CollegeID         uint               `json:"college_id"`
@@ -52,6 +56,9 @@ type ReviewResponse struct {
 	Scholarship       *bool              `json:"scholarship"`
 	InternshipOutcome *string            `json:"internship_outcome"`
 	Email             string             `json:"email"`
+	HelpfulUpvotes    int                `json:"helpful_upvotes"`
+	HelpfulDownvotes  int                `json:"helpful_downvotes"`
+	MyVote            string             `json:"my_vote"`
 	IsVerified        bool               `json:"is_verified"`
 	IsPublished       bool               `json:"is_published"`
 	HelpfulCount      int                `json:"helpful_count"`

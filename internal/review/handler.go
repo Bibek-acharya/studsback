@@ -71,7 +71,7 @@ func (h *Handler) GetCollegeReviews(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 	instID, _ := strconv.ParseUint(c.Query("inst_id"), 10, 64)
 
-	result, err := h.service.GetCollegeReviews(uint(collegeID), uint(instID), page, limit)
+	result, err := h.service.GetCollegeReviews(uint(collegeID), uint(instID), getUserID(c), page, limit)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return
@@ -153,7 +153,14 @@ func (h *Handler) MarkHelpful(c *gin.Context) {
 		return
 	}
 
-	helpfulCount, err := h.service.MarkHelpful(uint(reviewID), userID)
+	var req VoteReviewRequest
+	_ = c.ShouldBindJSON(&req)
+	vote := req.Vote
+	if vote != "down" {
+		vote = "up"
+	}
+
+	up, down, myVote, err := h.service.VoteReview(uint(reviewID), userID, vote)
 	if err != nil {
 		if err.Error() == "review not found" {
 			response.Error(c, http.StatusNotFound, err.Error())
@@ -163,7 +170,11 @@ func (h *Handler) MarkHelpful(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, http.StatusOK, "Marked as helpful", gin.H{"helpful_count": helpfulCount})
+	response.Success(c, http.StatusOK, "Vote recorded", gin.H{
+		"helpful_upvotes":   up,
+		"helpful_downvotes": down,
+		"my_vote":           myVote,
+	})
 }
 
 func (h *Handler) ReportReview(c *gin.Context) {

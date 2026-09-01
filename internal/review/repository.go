@@ -1,6 +1,8 @@
 package review
 
 import (
+	"errors"
+
 	"gorm.io/gorm"
 )
 
@@ -176,25 +178,68 @@ func (r *Repository) Delete(id, userID uint) error {
 	return nil
 }
 
-func (r *Repository) HasMarkedHelpful(reviewID, userID uint) (bool, error) {
-	var count int64
-	err := r.db.Model(&ReviewHelpful{}).
-		Where("review_id = ? AND user_id = ?", reviewID, userID).
-		Count(&count).Error
-	return count > 0, err
-}
-
-func (r *Repository) MarkHelpful(reviewID, userID uint) error {
-	entry := &ReviewHelpful{
-		ReviewID: reviewID,
-		UserID:   userID,
+// VoteCountsForReviews returns per-review [upvotes, downvotes] derived from the votes table.
+func (r *Repository) VoteCountsForReviews(reviewIDs []uint) (map[uint][2]int, error) {
+	result := make(map[uint][2]int)
+	if len(reviewIDs) == 0 {
+		return result, nil
 	}
-	return r.db.Create(entry).Error
+	var rows []struct {
+		ReviewID uint
+		Vote     string
+		Count    int64
+	}
+	err := r.db.Model(&ReviewHelpful{}).
+		Select("review_id, vote, COUNT(*) as count").
+		Where("review_id IN ?", reviewIDs).
+		Group("review_id, vote").
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		counts := result[row.ReviewID]
+		if row.Vote == "down" {
+			counts[1] = int(row.Count)
+		} else {
+			counts[0] = int(row.Count)
+		}
+		result[row.ReviewID] = counts
+	}
+	return result, nil
 }
 
-func (r *Repository) IncrementHelpfulCount(reviewID uint) error {
-	return r.db.Model(&Review{}).Where("id = ?", reviewID).
-		UpdateColumn("helpful_count", gorm.Expr("helpful_count + 1")).Error
+func (r *Repository) UserVotesForReviews(userID uint, reviewIDs []uint) (map[uint]string, error) {
+	result := make(map[uint]string)
+	if len(reviewIDs) == 0 {
+		return result, nil
+	}
+	var rows []ReviewHelpful
+	err := r.db.Where("user_id = ? AND review_id IN ?", userID, reviewIDs).Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		result[row.ReviewID] = row.Vote
+	}
+	return result, nil
+}
+
+// ToggleVote records the user's vote; voting the same way again removes it.
+// Returns the resulting vote ("" when removed).
+func (r *Repository) ToggleVote(reviewID, userID uint, vote string) (string, error) {
+	var existing ReviewHelpful
+	err := r.db.Where("review_id = ? AND user_id = ?", reviewID, userID).First(&existing).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return vote, r.db.Create(&ReviewHelpful{ReviewID: reviewID, UserID: userID, Vote: vote}).Error
+		}
+		return "", err
+	}
+	if existing.Vote == vote {
+		return "", r.db.Delete(&existing).Error
+	}
+	return vote, r.db.Model(&existing).Update("vote", vote).Error
 }
 
 func (r *Repository) CreateReport(report *ReviewReport) error {

@@ -89,7 +89,7 @@ func (s *Service) GetUserReviews(userID uint, page, limit int) (*PaginatedReview
 	}, nil
 }
 
-func (s *Service) GetCollegeReviews(collegeID, instID uint, page, limit int) (*CollegeReviewsResponse, error) {
+func (s *Service) GetCollegeReviews(collegeID, instID, userID uint, page, limit int) (*CollegeReviewsResponse, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -131,6 +131,24 @@ func (s *Service) GetCollegeReviews(collegeID, instID uint, page, limit int) (*C
 	responses := make([]ReviewResponse, len(allReviews))
 	for i, r := range allReviews {
 		responses[i] = *toReviewResponse(&r)
+	}
+
+	reviewIDs := make([]uint, len(allReviews))
+	for i, r := range allReviews {
+		reviewIDs[i] = r.ID
+	}
+	voteCounts, err := s.repo.VoteCountsForReviews(reviewIDs)
+	if err != nil {
+		return nil, err
+	}
+	userVotes, err := s.repo.UserVotesForReviews(userID, reviewIDs)
+	if err != nil {
+		return nil, err
+	}
+	for i := range responses {
+		responses[i].HelpfulUpvotes = voteCounts[responses[i].ID][0]
+		responses[i].HelpfulDownvotes = voteCounts[responses[i].ID][1]
+		responses[i].MyVote = userVotes[responses[i].ID]
 	}
 
 	var overallRating float64
@@ -262,32 +280,27 @@ func (s *Service) DeleteReview(reviewID, userID uint) error {
 	return s.repo.Delete(reviewID, userID)
 }
 
-func (s *Service) MarkHelpful(reviewID, userID uint) (int, error) {
-	review, err := s.repo.FindByID(reviewID)
-	if err != nil {
+func (s *Service) VoteReview(reviewID, userID uint, vote string) (up, down int, myVote string, err error) {
+	if vote != "up" && vote != "down" {
+		return 0, 0, "", errors.New("invalid vote")
+	}
+	if _, err := s.repo.FindByID(reviewID); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return 0, errors.New("review not found")
+			return 0, 0, "", errors.New("review not found")
 		}
-		return 0, err
+		return 0, 0, "", err
 	}
 
-	alreadyMarked, err := s.repo.HasMarkedHelpful(reviewID, userID)
+	myVote, err = s.repo.ToggleVote(reviewID, userID, vote)
 	if err != nil {
-		return 0, err
-	}
-	if alreadyMarked {
-		return review.HelpfulCount, nil
+		return 0, 0, "", err
 	}
 
-	if err := s.repo.MarkHelpful(reviewID, userID); err != nil {
-		return 0, err
+	counts, err := s.repo.VoteCountsForReviews([]uint{reviewID})
+	if err != nil {
+		return 0, 0, "", err
 	}
-
-	if err := s.repo.IncrementHelpfulCount(reviewID); err != nil {
-		return 0, err
-	}
-
-	return review.HelpfulCount + 1, nil
+	return counts[reviewID][0], counts[reviewID][1], myVote, nil
 }
 
 func (s *Service) ReportReview(reviewID, userID uint, reason string) error {

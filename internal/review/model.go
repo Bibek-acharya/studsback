@@ -42,6 +42,7 @@ type ReviewHelpful struct {
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 	ReviewID  uint           `gorm:"index;not null" json:"review_id"`
 	UserID    uint           `gorm:"index;not null" json:"user_id"`
+	Vote      string         `gorm:"size:10;default:up;not null" json:"vote"` // up | down
 }
 
 type ReviewReport struct {

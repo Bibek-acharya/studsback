@@ -128,6 +128,7 @@ func main() {
 		&scholarship.Payment{},
 		&education.Exam{},
 		&education.Course{},
+		&education.Affiliation{},
 		&education.CollegeUniversityCourse{},
 		&education.News{},
 		&education.Event{},
