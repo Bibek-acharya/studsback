@@ -200,6 +200,8 @@ func truncateText(s string, maxChars int) string {
 	return s
 }
 
+var embeddingTablesList = []string{"colleges", "courses", "exams", "scholarships", "news", "events", "blogs", "site_pages", "institution_entrances", "institution_users", "universities", "institution_news", "institution_events", "institution_blogs", "provider_news", "provider_events", "provider_blogs", "admission_pages"}
+
 func ReindexAll() error {
 	if !IsEnabled() {
 		log.Println("Embedding service not enabled, skipping reindex")
@@ -208,7 +210,7 @@ func ReindexAll() error {
 
 	db := config.GetDB()
 	batchSize := config.AppConfig.EmbeddingBatchSize
-	tables := []string{"colleges", "courses", "exams", "scholarships", "news", "events", "blogs", "site_pages", "institution_entrances", "institution_users", "universities", "institution_news", "institution_events", "institution_blogs", "provider_news", "provider_events", "provider_blogs", "admission_pages"}
+	tables := embeddingTablesList
 
 	setProgress(ReindexProgress{Running: true, Force: false})
 	var reindexErr error
@@ -252,7 +254,7 @@ func ReindexAllForce(db *gorm.DB) error {
 	}
 
 	batchSize := config.AppConfig.EmbeddingBatchSize
-	tables := []string{"colleges", "courses", "exams", "scholarships", "news", "events", "blogs", "site_pages", "institution_entrances", "institution_users", "universities", "institution_news", "institution_events", "institution_blogs", "provider_news", "provider_events", "provider_blogs", "admission_pages"}
+	tables := embeddingTablesList
 
 	setProgress(ReindexProgress{Running: true, Force: true})
 	var reindexErr error
@@ -270,7 +272,7 @@ func ReindexAllForce(db *gorm.DB) error {
 			continue
 		}
 		log.Printf("Force reindexing embeddings for table: %s", table)
-		db.Exec(fmt.Sprintf("UPDATE %s SET embedding = NULL WHERE embedding IS NOT NULL", table))
+		db.Exec(fmt.Sprintf("UPDATE %s SET embedding = NULL, embedded_at = NULL WHERE embedding IS NOT NULL", table))
 		if err := reindexTable(db, table, batchSize); err != nil {
 			reindexErr = err
 			log.Printf("Error reindexing table %s: %v", table, err)
@@ -287,7 +289,9 @@ func reindexTable(db *gorm.DB, table string, batchSize int) error {
 		return nil
 	}
 	var total int64
-	db.Table(table).Where("embedding IS NULL AND deleted_at IS NULL").Count(&total)
+	db.Table(table).
+		Where("deleted_at IS NULL AND (embedding IS NULL OR embedded_at IS NULL OR embedded_at < updated_at)").
+		Count(&total)
 	if total == 0 {
 		log.Printf("  Table %s: no items need embedding", table)
 		return nil
@@ -305,7 +309,7 @@ func reindexTable(db *gorm.DB, table string, batchSize int) error {
 	for {
 		var rows []map[string]interface{}
 		if err := db.Table(table).
-			Where("embedding IS NULL AND deleted_at IS NULL").
+			Where("deleted_at IS NULL AND (embedding IS NULL OR embedded_at IS NULL OR embedded_at < updated_at)").
 			Select(buildSelectForTable(table)).
 			Limit(batchSize).
 			Find(&rows).Error; err != nil {
@@ -331,7 +335,7 @@ func reindexTable(db *gorm.DB, table string, batchSize int) error {
 
 			vectorStr := Float32SliceToPgVector(vec)
 			id := row["id"]
-			sql := fmt.Sprintf("UPDATE %s SET embedding = '%s'::vector WHERE id = ?", table, vectorStr)
+			sql := fmt.Sprintf("UPDATE %s SET embedding = '%s'::vector, embedded_at = now() WHERE id = ?", table, vectorStr)
 			if err := db.Exec(sql, id).Error; err != nil {
 				log.Printf("  Warning: failed to update embedding for %s id=%v: %v", table, id, err)
 				continue
@@ -344,7 +348,7 @@ func reindexTable(db *gorm.DB, table string, batchSize int) error {
 
 		processed := total - func() int64 {
 			var remaining int64
-			db.Table(table).Where("embedding IS NULL AND deleted_at IS NULL").Count(&remaining)
+			db.Table(table).Where("deleted_at IS NULL AND (embedding IS NULL OR embedded_at IS NULL OR embedded_at < updated_at)").Count(&remaining)
 			return remaining
 		}()
 		setProgress(func() ReindexProgress {

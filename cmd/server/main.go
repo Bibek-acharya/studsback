@@ -111,6 +111,9 @@ func main() {
 		}
 	}
 
+	embedding.RegisterGORMCallbacks(db)
+	embedding.StartWorker()
+
 	logger.Info("Running database migrations...")
 	if err := db.AutoMigrate(
 		&auth.User{},
@@ -219,9 +222,12 @@ func main() {
 		if err := migrations.AddUniversityAffiliations(db); err != nil {
 			logger.Fatal("Failed to run university affiliations migration", "error", err)
 		}
-		if err := migrations.AddMeilisearchSyncSupport(db); err != nil {
-			logger.Warn("Failed to run Meilisearch sync migration", "error", err)
-		}
+	if err := migrations.AddMeilisearchSyncSupport(db); err != nil {
+		logger.Warn("Failed to run Meilisearch sync migration", "error", err)
+	}
+	if err := migrations.AddEmbeddingMetadata(db); err != nil {
+		logger.Warn("Failed to run embedding metadata migration", "error", err)
+	}
 		// Cleanup dangling sub-users with provider_id = 0 from previous bug
 		if err := db.Exec("DELETE FROM provider_access_users WHERE provider_id = 0").Error; err != nil {
 			logger.Warn("Failed to cleanup dangling sub-users", "error", err)

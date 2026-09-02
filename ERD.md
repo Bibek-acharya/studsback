@@ -932,7 +932,7 @@ All tables have `provider_id` FK to `scholarship_provider_users.id`.
 
 ## 5. Tables with `embedding vector(1024)` Columns
 
-These support hybrid vector + keyword search (pgvector):
+These support hybrid vector + keyword search (pgvector). Each also carries `embedded_at TIMESTAMPTZ` (set when the embedding was generated):
 
 | Table          | Embedding Source Text                                             |
 | -------------- | ----------------------------------------------------------------- |
@@ -944,6 +944,8 @@ These support hybrid vector + keyword search (pgvector):
 | `events`       | title, description, excerpt, category, location                   |
 | `blogs`        | title, excerpt, content, category, author                         |
 | `site_pages`   | title, content                                                    |
+
+**Embedding lifecycle:** row create/update enqueues an async refresh (`embedded_at = now()` on write); the reindex job refreshes rows where `embedding IS NULL OR embedded_at IS NULL OR embedded_at < updated_at`; full retrain clears and regenerates all. Vector queries exclude `deleted_at` rows.
 
 ---
 
