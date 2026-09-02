@@ -14,15 +14,15 @@ services:
           echo "Waiting for Ollama..."
           sleep 2
         done
-        echo "Pulling nomic-embed-text..."
-        until ollama pull nomic-embed-text; do
+        echo "Pulling ryanshillington/Qwen3-Embedding-0.6B:latest..."
+        until ollama pull ryanshillington/Qwen3-Embedding-0.6B:latest; do
           echo "Model pull failed, retrying in 5s..."
           sleep 5
         done
         echo "Embedding model ready"
         wait
     healthcheck:
-      test: ["CMD-SHELL", "ollama list | grep -q nomic-embed-text"]
+      test: ["CMD-SHELL", "ollama list | grep -q ryanshillington/Qwen3-Embedding-0.6B"]
       interval: 15s
       timeout: 10s
       retries: 5
@@ -89,8 +89,8 @@ services:
       # Ollama is used only for embeddings; chat remains OpenRouter-based.
       EMBEDDING_BASE_URL: http://ollama:11434/v1
       EMBEDDING_API_KEY: ollama-local
-      EMBEDDING_MODEL: nomic-embed-text
-      VECTOR_DIMENSION: 768
+      EMBEDDING_MODEL: ryanshillington/Qwen3-Embedding-0.6B:latest
+      VECTOR_DIMENSION: 1024
     volumes:
       - ./uploads:/app/uploads
     depends_on:

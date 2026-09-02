@@ -361,7 +361,7 @@ FK to `users.id`. One user can have many entries.
 | career_fit_score   | int          | DEFAULT 5            |                          |
 | balanced_fit_score | int          | DEFAULT 5            |                          |
 | profile_tags       | jsonb        |                      |                          |
-| embedding          | vector(1536) | NULLABLE             | pgvector                 |
+| embedding          | vector(1024) | NULLABLE             | pgvector                 |
 
 **Relationships:**
 
@@ -443,7 +443,7 @@ FK to `users.id`. One user can have many entries.
 | curriculum     | jsonb                 |                       |
 | admissions     | jsonb                 |                       |
 | careers        | jsonb                 |                       |
-| embedding      | vector(1536)          | NULLABLE              |
+| embedding      | vector(1024)          | NULLABLE              |
 
 #### `exams`
 
@@ -472,7 +472,7 @@ FK to `users.id`. One user can have many entries.
 | timeline      | jsonb                 |                   |
 | notices       | jsonb                 |                   |
 | faqs          | jsonb                 |                   |
-| embedding     | vector(1536)          | NULLABLE          |
+| embedding     | vector(1024)          | NULLABLE          |
 
 #### `news`
 
@@ -489,7 +489,7 @@ FK to `users.id`. One user can have many entries.
 | read_time | varchar(255)          |
 | source    | varchar(255)          |
 | tags      | jsonb                 |
-| embedding | vector(1536) NULLABLE |
+| embedding | vector(1024) NULLABLE |
 
 #### `events`
 
@@ -509,7 +509,7 @@ FK to `users.id`. One user can have many entries.
 | interested       | int                          |
 | trending         | boolean                      |
 | featured         | boolean DEFAULT false, INDEX |
-| embedding        | vector(1536) NULLABLE        |
+| embedding        | vector(1024) NULLABLE        |
 
 #### `blogs`
 
@@ -528,7 +528,7 @@ FK to `users.id`. One user can have many entries.
 | featured  | boolean DEFAULT false |
 | published | boolean DEFAULT true  |
 | views     | int DEFAULT 0         |
-| embedding | vector(1536) NULLABLE |
+| embedding | vector(1024) NULLABLE |
 
 #### `blog_comments`
 
@@ -603,7 +603,7 @@ Public entrance exam listings accessible via `/entrances` endpoints.
 | office_address              | varchar(255)                 |                                       |
 | map_url                     | varchar(255)                 |                                       |
 | ~15 more JSONB fields       | jsonb                        | Gallery, partners, FAQ sections, etc. |
-| embedding                   | vector(1536) NULLABLE        |                                       |
+| embedding                   | vector(1024) NULLABLE        |                                       |
 
 #### `scholarship_applications`
 
@@ -869,7 +869,7 @@ All tables have `provider_id` FK to `scholarship_provider_users.id`.
 
 | Table                  | Module         | Key Columns                                                                                                           |
 | ---------------------- | -------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `site_pages`           | chat           | slug(UNIQUE), title, content, embedding(v1536)                                                                        |
+| `site_pages`           | chat           | slug(UNIQUE), title, content, embedding(v1024)                                                                        |
 | `feedback`             | feedback       | user_id, rating, experience, designation, email                                                                       |
 | `counselling_bookings` | counselling    | user_id, college, program_level, interested_course, session_mode, session_date/time, student_name/phone/email, status |
 | `admissions`           | admission      | user_id(optional), college_id, program_name/level, student_name/email/phone, status, documents(JSONB), notes          |
@@ -930,7 +930,7 @@ All tables have `provider_id` FK to `scholarship_provider_users.id`.
 
 ---
 
-## 5. Tables with `embedding vector(1536)` Columns
+## 5. Tables with `embedding vector(1024)` Columns
 
 These support hybrid vector + keyword search (pgvector):
 

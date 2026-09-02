@@ -224,7 +224,7 @@ On first run, the super admin is auto-created from `.env`:
 | `EMBEDDING_API_KEY`    | —                           | No       | OpenAI API key                                |
 | `EMBEDDING_BASE_URL`   | `http://localhost:8081/v1`  | No       | OpenAI-compatible endpoint                    |
 | `EMBEDDING_MODEL`      | `text-embedding-3-small`    | No       | Embedding model                               |
-| `VECTOR_DIMENSION`     | `1536`                      | No       | Must match model                              |
+| `VECTOR_DIMENSION`     | `1024`                      | No       | Must match model (Qwen3-Embedding-0.6B = 1024) |
 | `LLM_ENABLED`          | `false`                     | No       | Enable AI chat                                |
 | `LLM_BASE_URL`         | `https://openrouter.ai/api/v1` | No       | OpenAI-compatible API base URL               |
 | `LLM_MODEL`            | `openai/gpt-4o-mini`          | No       | Model identifier                              |

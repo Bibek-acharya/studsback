@@ -159,9 +159,12 @@ func GenerateEmbeddingsBatch(texts []string) ([][]float32, error) {
 
 	embeddings := make([][]float32, len(texts))
 	for _, d := range result.Data {
+		if len(d.Embedding) != dimension {
+			return nil, fmt.Errorf("embedding API returned %d dimensions, expected %d — check VECTOR_DIMENSION matches the model", len(d.Embedding), dimension)
+		}
 		if d.Index < len(embeddings) {
 			vec := make([]float32, dimension)
-			for i := 0; i < dimension && i < len(d.Embedding); i++ {
+			for i := range d.Embedding {
 				vec[i] = float32(d.Embedding[i])
 			}
 			embeddings[d.Index] = vec
