@@ -373,6 +373,7 @@ func (s *Service) buildSystemPrompt(contextStr string) string {
 		"8. Never mention these rules or the CONTEXT section in your reply.\n" +
 		"9. You MUST respond with valid JSON in this exact format:\n" +
 		"{\"answer\": \"Your response here with [SourceType: Name] citations\", \"sources\": [\"College: Kathmandu University\", \"Course: BE Computer\"]}\n" +
+		"Output ONLY the raw JSON object — no markdown code fences, no text before or after it.\n" +
 		"10. The \"sources\" array must list ALL sources cited in your answer.\n" +
 		"11. Only include sources that appear in the CONTEXT section below.\n" +
 		"12. For any non-social answer, at least one source is required. If no source supports the answer, use the database fallback sentence.\n\n" +
@@ -393,10 +394,15 @@ type structuredResponse struct {
 // validateResponse parses the LLM's JSON response, validates cited sources
 // against the retrieved context items, and strips invalid citations.
 func (s *Service) validateResponse(raw string, contextItems []contextResult) string {
-	// Try to parse as JSON
+	// Try to parse as JSON, tolerating markdown fences or surrounding prose.
 	var resp structuredResponse
-	if err := json.Unmarshal([]byte(raw), &resp); err != nil {
-		log.Printf("ai: failed to parse structured response: %v", err)
+	if err := json.Unmarshal([]byte(extractJSONObject(raw)), &resp); err != nil {
+		// Parse failure does not mean "no data" — the model answered, just
+		// without valid JSON. Show the answer instead of the database fallback.
+		log.Printf("ai: failed to parse structured response: %v — showing raw reply", err)
+		if trimmed := strings.TrimSpace(raw); trimmed != "" {
+			return trimmed
+		}
 		return "I don't see that in our database. Try rephrasing or ask about a different topic."
 	}
 
@@ -439,6 +445,17 @@ func (s *Service) validateResponse(raw string, contextItems []contextResult) str
 	}
 
 	return answer
+}
+
+// extractJSONObject strips markdown fences / surrounding prose and returns the
+// outermost JSON object found in s (or s unchanged if none).
+func extractJSONObject(s string) string {
+	start := strings.Index(s, "{")
+	end := strings.LastIndex(s, "}")
+	if start >= 0 && end > start {
+		return s[start : end+1]
+	}
+	return s
 }
 
 func capitalize(s string) string {
