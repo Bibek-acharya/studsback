@@ -283,6 +283,8 @@ func (s *Service) vectorSearch(vec []float32) []contextResult {
 		{"events", fmt.Sprintf("SELECT id, COALESCE(title,'') as title, COALESCE(description,'') as description, COALESCE(description,'') as content, 'event' as type, '' as url FROM events WHERE embedding IS NOT NULL AND deleted_at IS NULL AND vector_dims(embedding) = %d AND embedding <=> '%s'::vector < 1.5 ORDER BY embedding <=> '%s'::vector LIMIT 10", len(vec), vectorStr, vectorStr)},
 		{"blogs", fmt.Sprintf("SELECT id, COALESCE(title,'') as title, COALESCE(excerpt,'') as description, COALESCE(content,'') as content, 'blog' as type, '' as url FROM blogs WHERE embedding IS NOT NULL AND deleted_at IS NULL AND vector_dims(embedding) = %d AND embedding <=> '%s'::vector < 1.5 ORDER BY embedding <=> '%s'::vector LIMIT 10", len(vec), vectorStr, vectorStr)},
 		{"site_pages", fmt.Sprintf("SELECT id, COALESCE(title,'') as title, COALESCE(content,'') as description, COALESCE(content,'') as content, 'page' as type, COALESCE(slug,'') as url FROM site_pages WHERE embedding IS NOT NULL AND deleted_at IS NULL AND vector_dims(embedding) = %d AND embedding <=> '%s'::vector < 1.5 ORDER BY embedding <=> '%s'::vector LIMIT 10", len(vec), vectorStr, vectorStr)},
+		{"institution_users", fmt.Sprintf("SELECT id, COALESCE(institution_name,'') as title, COALESCE(about,'') as description, COALESCE(about,'') as content, 'institution' as type, '' as url FROM institution_users WHERE embedding IS NOT NULL AND deleted_at IS NULL AND vector_dims(embedding) = %d AND embedding <=> '%s'::vector < 1.5 ORDER BY embedding <=> '%s'::vector LIMIT 10", len(vec), vectorStr, vectorStr)},
+		{"universities", fmt.Sprintf("SELECT id, COALESCE(name,'') as title, COALESCE(description,'') as description, COALESCE(description,'') as content, 'university' as type, COALESCE(name,'') as url FROM universities WHERE embedding IS NOT NULL AND deleted_at IS NULL AND vector_dims(embedding) = %d AND embedding <=> '%s'::vector < 1.5 ORDER BY embedding <=> '%s'::vector LIMIT 10", len(vec), vectorStr, vectorStr)},
 		{"institution_entrances", fmt.Sprintf("SELECT id, COALESCE(title,'') as title, COALESCE(description,'') as description, COALESCE(description,'') as content, 'entrance' as type, COALESCE(title,'') as url FROM institution_entrances WHERE embedding IS NOT NULL AND deleted_at IS NULL AND vector_dims(embedding) = %d AND embedding <=> '%s'::vector < 1.5 ORDER BY embedding <=> '%s'::vector LIMIT 10", len(vec), vectorStr, vectorStr)},
 	}
 
@@ -406,17 +408,26 @@ func (s *Service) validateResponse(raw string, contextItems []contextResult) str
 		return "I don't see that in our database. Try rephrasing or ask about a different topic."
 	}
 
-	// Build set of valid source labels from context
-	validSources := make(map[string]bool)
+	// Build valid source labels from context; match model citations fuzzily
+	// since models paraphrase titles and whitespace.
+	validSources := make([]string, 0, len(contextItems))
 	for _, item := range contextItems {
-		label := fmt.Sprintf("%s: %s", capitalize(item.Type), item.Title)
-		validSources[label] = true
+		validSources = append(validSources, fmt.Sprintf("%s: %s", capitalize(item.Type), item.Title))
+	}
+
+	sourceMatches := func(src string) bool {
+		for _, label := range validSources {
+			if citationFuzzyMatch(src, label) {
+				return true
+			}
+		}
+		return false
 	}
 
 	// Filter sources
 	var valid []string
 	for _, src := range resp.Sources {
-		if validSources[src] {
+		if sourceMatches(src) {
 			valid = append(valid, src)
 		} else {
 			log.Printf("ai: stripping invalid source citation: %q", src)
@@ -431,7 +442,7 @@ func (s *Service) validateResponse(raw string, contextItems []contextResult) str
 	// Strip invalid citations from answer text
 	answer := resp.Answer
 	for _, src := range resp.Sources {
-		if !validSources[src] {
+		if !sourceMatches(src) {
 			// Remove [SourceType: Name] pattern
 			citation := "[" + src + "]"
 			answer = strings.ReplaceAll(answer, citation, "")
@@ -456,6 +467,33 @@ func extractJSONObject(s string) string {
 		return s[start : end+1]
 	}
 	return s
+}
+
+// citationFuzzyMatch compares a model-cited source label against a context
+// label, ignoring case, punctuation, and whitespace. Short strings require an
+// exact match to avoid false positives.
+func citationFuzzyMatch(src, label string) bool {
+	ns, nl := normalizeCitation(src), normalizeCitation(label)
+	if ns == nl {
+		return true
+	}
+	if len(ns) >= 10 && strings.Contains(nl, ns) {
+		return true
+	}
+	if len(nl) >= 10 && strings.Contains(ns, nl) {
+		return true
+	}
+	return false
+}
+
+func normalizeCitation(s string) string {
+	var b strings.Builder
+	for _, r := range strings.ToLower(s) {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }
 
 func capitalize(s string) string {
