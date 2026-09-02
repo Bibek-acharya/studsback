@@ -22,12 +22,17 @@ type OpenAIProvider struct {
 	apiKey  string
 }
 
+type openAIResponseFormat struct {
+	Type string `json:"type"`
+}
+
 type openAIStreamRequest struct {
-	Model       string    `json:"model"`
-	Messages    []Message `json:"messages"`
-	Stream      bool      `json:"stream"`
-	Temperature float64   `json:"temperature"`
-	MaxTokens   int       `json:"max_tokens"`
+	Model          string                `json:"model"`
+	Messages       []Message             `json:"messages"`
+	Stream         bool                  `json:"stream"`
+	Temperature    float64               `json:"temperature"`
+	MaxTokens      int                   `json:"max_tokens"`
+	ResponseFormat *openAIResponseFormat `json:"response_format,omitempty"`
 }
 
 type openAIStreamChunk struct {
@@ -53,7 +58,8 @@ func (p *OpenAIProvider) StreamChat(ctx context.Context, messages []Message, onT
 		return "", errors.New("LLM_API_KEY or OPENROUTER_API_KEY is not set")
 	}
 
-	body, err := json.Marshal(openAIStreamRequest{Model: p.model, Messages: messages, Stream: true, Temperature: 0.1, MaxTokens: 1024})
+	// ponytail: json_object requires a model that supports response_format — drop the field if switching to one that 400s on it
+	body, err := json.Marshal(openAIStreamRequest{Model: p.model, Messages: messages, Stream: true, Temperature: 0.1, MaxTokens: 1024, ResponseFormat: &openAIResponseFormat{Type: "json_object"}})
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal request: %w", err)
 	}
