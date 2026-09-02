@@ -73,6 +73,9 @@ func userFriendlyError(err error) string {
 	if strings.Contains(msg, "LLM service is not configured") {
 		return "Sphere AI is not configured on the server."
 	}
+	if strings.Contains(msg, "Sphere AI is busy") {
+		return "Sphere AI is busy right now. Please try again shortly."
+	}
 	return "Something went wrong. Please try again."
 }
 
