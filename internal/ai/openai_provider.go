@@ -14,14 +14,15 @@ import (
 	"time"
 )
 
-// OllamaProvider implements Provider using OpenAI-compatible /chat/completions endpoint.
-type OllamaProvider struct {
+// OpenAIProvider implements the OpenAI-compatible chat completions API.
+// It works with OpenAI, OpenRouter, and other hosted API providers.
+type OpenAIProvider struct {
 	baseURL string
 	model   string
 	apiKey  string
 }
 
-type ollamaRequest struct {
+type openAIStreamRequest struct {
 	Model       string    `json:"model"`
 	Messages    []Message `json:"messages"`
 	Stream      bool      `json:"stream"`
@@ -29,64 +30,58 @@ type ollamaRequest struct {
 	MaxTokens   int       `json:"max_tokens"`
 }
 
-type ollamaChunk struct {
+type openAIStreamChunk struct {
 	Choices []struct {
 		Delta struct {
 			Content string `json:"content"`
 		} `json:"delta"`
-		FinishReason *string `json:"finish_reason"`
 	} `json:"choices"`
 	Error *struct {
 		Message string `json:"message"`
-		Type    string `json:"type"`
 	} `json:"error,omitempty"`
 }
 
-func (p *OllamaProvider) StreamChat(ctx context.Context, messages []Message, onToken func(string)) (string, error) {
+func (p *OpenAIProvider) StreamChat(ctx context.Context, messages []Message, onToken func(string)) (string, error) {
 	baseURL := strings.TrimRight(p.baseURL, "/")
 	if baseURL == "" {
 		return "", errors.New("LLM_BASE_URL is not set")
 	}
-	url := baseURL + "/chat/completions"
+	if p.model == "" {
+		return "", errors.New("LLM_MODEL is not set")
+	}
+	if p.apiKey == "" {
+		return "", errors.New("LLM_API_KEY or OPENROUTER_API_KEY is not set")
+	}
 
-	body, err := json.Marshal(ollamaRequest{
-		Model:       p.model,
-		Messages:    messages,
-		Stream:      true,
-		Temperature: 0.1,
-		MaxTokens:   1024,
-	})
+	body, err := json.Marshal(openAIStreamRequest{Model: p.model, Messages: messages, Stream: true, Temperature: 0.1, MaxTokens: 1024})
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal request: %w", err)
 	}
-
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/chat/completions", bytes.NewReader(body))
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
-	httpReq.Header.Set("Content-Type", "application/json")
-	if p.apiKey != "" {
-		httpReq.Header.Set("Authorization", "Bearer "+p.apiKey)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+p.apiKey)
+	if strings.Contains(baseURL, "openrouter.ai") {
+		req.Header.Set("HTTP-Referer", "https://studsphere.com")
+		req.Header.Set("X-Title", "StudSphere")
 	}
 
-	client := &http.Client{Timeout: 180 * time.Second}
-	log.Printf("ai: calling LLM at %s with model %s", baseURL, p.model)
-	resp, err := client.Do(httpReq)
+	log.Printf("ai: calling OpenAI-compatible API at %s with model %s", baseURL, p.model)
+	resp, err := (&http.Client{Timeout: 180 * time.Second}).Do(req)
 	if err != nil {
-		return "", fmt.Errorf("LLM at %s is not responding: %w", baseURL, err)
+		return "", fmt.Errorf("LLM API at %s is not responding: %w", baseURL, err)
 	}
 	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		respBody, _ := io.ReadAll(resp.Body)
-		errMsg := fmt.Sprintf("LLM API returned %d: %s", resp.StatusCode, truncate(string(respBody), 300))
-		return "", errors.New(errMsg)
+		return "", fmt.Errorf("LLM API returned %d: %s", resp.StatusCode, truncate(string(respBody), 300))
 	}
 
 	var full strings.Builder
 	scanner := bufio.NewScanner(resp.Body)
 	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
-
 	for scanner.Scan() {
 		line := scanner.Text()
 		if !strings.HasPrefix(line, "data:") {
@@ -99,8 +94,7 @@ func (p *OllamaProvider) StreamChat(ctx context.Context, messages []Message, onT
 		if raw == "[DONE]" {
 			break
 		}
-
-		var chunk ollamaChunk
+		var chunk openAIStreamChunk
 		if err := json.Unmarshal([]byte(raw), &chunk); err != nil {
 			continue
 		}
@@ -108,15 +102,12 @@ func (p *OllamaProvider) StreamChat(ctx context.Context, messages []Message, onT
 			return full.String(), fmt.Errorf("LLM error: %s", chunk.Error.Message)
 		}
 		for _, choice := range chunk.Choices {
-			token := choice.Delta.Content
-			if token == "" {
-				continue
+			if choice.Delta.Content != "" {
+				onToken(choice.Delta.Content)
+				full.WriteString(choice.Delta.Content)
 			}
-			onToken(token)
-			full.WriteString(token)
 		}
 	}
-
 	if err := scanner.Err(); err != nil {
 		return full.String(), fmt.Errorf("error reading LLM stream: %w", err)
 	}

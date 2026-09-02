@@ -12,7 +12,7 @@
 | **Auth**            | JWT (stateless, no session store needed)                                         |
 | **File Storage**    | MinIO (S3-compatible, HTTP-based) or local disk                                  |
 | **Background Jobs** | Asynq (Redis-backed, goroutine-based workers)                                    |
-| **AI/LLM**          | External HTTP call to Ollama/OpenAI                                              |
+| **AI/LLM**          | External HTTP call to an OpenAI-compatible API                                   |
 | **Embedding**       | External HTTP call to OpenAI-compatible API                                      |
 | **PDF Generation**  | Chromedp (headless Chromium, heavy per invocation)                               |
 | **Server Model**    | One OS thread per request (Go goroutine, but DB queries are blocking via lib/pq) |

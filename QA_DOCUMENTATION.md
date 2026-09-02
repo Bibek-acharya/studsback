@@ -103,7 +103,7 @@ StudSphere is an education platform backend with **4 user roles**, **22 modules*
 | PostgreSQL 16 + pgvector | Primary database                 | No        |
 | Redis                    | Asynq email queue                | Yes       |
 | MinIO                    | File storage (S3-compatible)     | Yes       |
-| Ollama / OpenAI API      | Embeddings + LLM chat            | Yes       |
+| OpenAI-compatible API   | Embeddings + LLM chat            | Yes       |
 | SMTP Server              | Send OTP/welcome/approval emails | Yes       |
 | Google OAuth             | Social login                     | Yes       |
 
@@ -226,8 +226,8 @@ On first run, the super admin is auto-created from `.env`:
 | `EMBEDDING_MODEL`      | `text-embedding-3-small`    | No       | Embedding model                               |
 | `VECTOR_DIMENSION`     | `1536`                      | No       | Must match model                              |
 | `LLM_ENABLED`          | `false`                     | No       | Enable AI chat                                |
-| `LLM_BASE_URL`         | `http://localhost:11434/v1` | No       | Ollama default                                |
-| `LLM_MODEL`            | `llama3.1:8b`               | No       | Must match server                             |
+| `LLM_BASE_URL`         | `https://openrouter.ai/api/v1` | No       | OpenAI-compatible API base URL               |
+| `LLM_MODEL`            | `openai/gpt-4o-mini`          | No       | Model identifier                              |
 
 ### Minimal `.env` for QA
 

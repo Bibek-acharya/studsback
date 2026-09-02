@@ -79,8 +79,7 @@ func userFriendlyError(err error) string {
 var errClientClosed = errors.New("client closed connection")
 
 // ListModels returns the models exposed by the LLM server. Helpful for
-// debugging the model name (e.g. confirming the exact Ollama tag like
-// "llama3.1:8b") and for surfacing what's available to admins.
+// debugging the configured model and for surfacing what's available to admins.
 func (h *Handler) ListModels(c *gin.Context) {
 	if !h.service.IsEnabled() {
 		response.Error(c, http.StatusServiceUnavailable, "Sphere AI is not configured on the server")

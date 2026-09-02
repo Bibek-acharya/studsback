@@ -12,22 +12,24 @@ import (
 	"time"
 )
 
-// LLMClient provides text generation with Ollama (primary) and Gemini (fallback)
+// LLMClient provides text generation through an OpenAI-compatible API, with Gemini fallback.
 type LLMClient struct {
-	ollamaBaseURL string
-	ollamaModel   string
-	geminiAPIKey  string
-	geminiModel   string
-	httpClient    *http.Client
+	apiBaseURL   string
+	apiModel     string
+	apiKey       string
+	geminiAPIKey string
+	geminiModel  string
+	httpClient   *http.Client
 }
 
 // NewLLMClient creates a new LLM client from environment variables
 func NewLLMClient() *LLMClient {
 	return &LLMClient{
-		ollamaBaseURL: getEnv("LLM_BASE_URL", "http://localhost:11434"),
-		ollamaModel:   getEnv("LLM_MODEL", "llama3.1:8b"),
-		geminiAPIKey:  os.Getenv("GEMINI_API_KEY"),
-		geminiModel:   getEnv("GEMINI_MODEL", "gemini-2.0-flash-lite"),
+		apiBaseURL:   getEnv("LLM_BASE_URL", "https://openrouter.ai/api/v1"),
+		apiModel:     getEnv("LLM_MODEL", "openai/gpt-4o-mini"),
+		apiKey:       getEnv("LLM_API_KEY", os.Getenv("OPENROUTER_API_KEY")),
+		geminiAPIKey: os.Getenv("GEMINI_API_KEY"),
+		geminiModel:  getEnv("GEMINI_MODEL", "gemini-2.0-flash-lite"),
 		httpClient: &http.Client{
 			Timeout: 60 * time.Second,
 		},
@@ -41,10 +43,9 @@ func getEnv(key, fallback string) string {
 	return fallback
 }
 
-// GenerateSummary generates a text summary using Ollama (primary) or Gemini (fallback)
+// GenerateSummary generates a text summary using the configured API or Gemini fallback.
 func (c *LLMClient) GenerateSummary(ctx context.Context, prompt string) (string, error) {
-	// Try Ollama first
-	result, err := c.generateWithOllama(ctx, prompt)
+	result, err := c.generateWithAPI(ctx, prompt)
 	if err == nil && result != "" {
 		return result, nil
 	}
@@ -60,7 +61,7 @@ func (c *LLMClient) GenerateSummary(ctx context.Context, prompt string) (string,
 	return "", fmt.Errorf("all LLM providers failed")
 }
 
-// OpenAI-compatible request for Ollama /v1 endpoint
+// OpenAI-compatible chat completion request.
 type openAIRequest struct {
 	Model    string          `json:"model"`
 	Messages []openAIMessage `json:"messages"`
@@ -80,9 +81,9 @@ type openAIResponse struct {
 	} `json:"choices"`
 }
 
-func (c *LLMClient) generateWithOllama(ctx context.Context, prompt string) (string, error) {
+func (c *LLMClient) generateWithAPI(ctx context.Context, prompt string) (string, error) {
 	reqBody := openAIRequest{
-		Model: c.ollamaModel,
+		Model: c.apiModel,
 		Messages: []openAIMessage{
 			{Role: "user", Content: prompt},
 		},
@@ -95,17 +96,16 @@ func (c *LLMClient) generateWithOllama(ctx context.Context, prompt string) (stri
 	}
 
 	// Use OpenAI-compatible /v1/chat/completions endpoint
-	url := c.ollamaBaseURL
-	if !strings.HasSuffix(url, "/v1") {
-		url = url + "/v1"
-	}
-	url = url + "/chat/completions"
+	url := strings.TrimRight(c.apiBaseURL, "/") + "/chat/completions"
 
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
 	if err != nil {
 		return "", err
 	}
 	req.Header.Set("Content-Type", "application/json")
+	if c.apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+c.apiKey)
+	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -115,7 +115,7 @@ func (c *LLMClient) generateWithOllama(ctx context.Context, prompt string) (stri
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("ollama error %d: %s", resp.StatusCode, string(respBody))
+		return "", fmt.Errorf("LLM API error %d: %s", resp.StatusCode, string(respBody))
 	}
 
 	var openAIResp openAIResponse
@@ -124,7 +124,7 @@ func (c *LLMClient) generateWithOllama(ctx context.Context, prompt string) (stri
 	}
 
 	if len(openAIResp.Choices) == 0 {
-		return "", fmt.Errorf("ollama returned empty response")
+		return "", fmt.Errorf("LLM API returned empty response")
 	}
 
 	return openAIResp.Choices[0].Message.Content, nil

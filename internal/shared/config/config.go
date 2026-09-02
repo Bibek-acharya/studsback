@@ -49,8 +49,7 @@ type Config struct {
 	LLMEnabled bool
 	LLMBaseURL string
 	LLMModel   string
-	LLMAPIKey   string
-	LLMProvider string
+	LLMAPIKey  string
 
 	GeminiAPIKey string
 	GeminiModel  string
@@ -128,10 +127,9 @@ func Load() {
 		EmbeddingBatchSize: getEnvInt("EMBEDDING_BATCH_SIZE", 20),
 
 		LLMEnabled: getEnv("LLM_ENABLED", "false") == "true",
-		LLMBaseURL: getEnv("LLM_BASE_URL", "http://localhost:11434/v1"),
-		LLMModel:   getEnv("LLM_MODEL", "llama3.1:8b"),
-		LLMAPIKey:   getEnv("LLM_API_KEY", ""),
-		LLMProvider: getEnv("LLM_PROVIDER", "llama"),
+		LLMBaseURL: getEnv("LLM_BASE_URL", "https://openrouter.ai/api/v1"),
+		LLMModel:   getEnv("LLM_MODEL", "openai/gpt-4o-mini"),
+		LLMAPIKey:  getAPIKey(),
 
 		GeminiAPIKey: getEnv("GEMINI_API_KEY", ""),
 		GeminiModel:  getEnv("GEMINI_MODEL", "gemini-2.0-flash-lite"),
@@ -154,6 +152,13 @@ func Load() {
 		NATSURL:       getEnv("NATS_URL", "nats://localhost:4222"),
 		NATSStream:    getEnv("NATS_STREAM_NAME", "messaging"),
 	}
+}
+
+func getAPIKey() string {
+	if key := os.Getenv("LLM_API_KEY"); key != "" {
+		return key
+	}
+	return os.Getenv("OPENROUTER_API_KEY")
 }
 
 func (c *Config) EsewaGatewayURL() string {
