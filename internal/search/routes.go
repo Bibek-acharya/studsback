@@ -26,6 +26,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 		admin.Use(roleMW)
 		{
 			admin.POST("/reindex", h.Reindex)
+			admin.GET("/reindex/status", h.ReindexStatus)
 		}
 	}
 }

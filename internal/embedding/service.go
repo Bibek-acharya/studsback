@@ -20,7 +20,30 @@ import (
 var (
 	client     *http.Client
 	clientOnce sync.Once
+	progressMu sync.RWMutex
+	progress   ReindexProgress
 )
+
+type ReindexProgress struct {
+	Running   bool   `json:"running"`
+	Force     bool   `json:"force"`
+	Table     string `json:"table"`
+	Processed int64  `json:"processed"`
+	Total     int64  `json:"total"`
+	Error     string `json:"error,omitempty"`
+}
+
+func GetReindexProgress() ReindexProgress {
+	progressMu.RLock()
+	defer progressMu.RUnlock()
+	return progress
+}
+
+func setProgress(update ReindexProgress) {
+	progressMu.Lock()
+	progress = update
+	progressMu.Unlock()
+}
 
 func httpClient() *http.Client {
 	clientOnce.Do(func() {
@@ -183,6 +206,16 @@ func ReindexAll() error {
 	batchSize := config.AppConfig.EmbeddingBatchSize
 	tables := []string{"colleges", "courses", "exams", "scholarships", "news", "events", "blogs", "site_pages", "institution_entrances", "institution_users", "universities", "institution_news", "institution_events", "institution_blogs", "provider_news", "provider_events", "provider_blogs", "admission_pages"}
 
+	setProgress(ReindexProgress{Running: true, Force: false})
+	var reindexErr error
+	defer func() {
+		p := GetReindexProgress()
+		p.Running = false
+		if reindexErr != nil {
+			p.Error = reindexErr.Error()
+		}
+		setProgress(p)
+	}()
 	for _, table := range tables {
 		if !hasEmbeddingColumn(db, table) {
 			log.Printf("  Table %s: no embedding column — skipping", table)
@@ -190,6 +223,7 @@ func ReindexAll() error {
 		}
 		log.Printf("Reindexing embeddings for table: %s", table)
 		if err := reindexTable(db, table, batchSize); err != nil {
+			reindexErr = err
 			log.Printf("Error reindexing table %s: %v", table, err)
 		}
 	}
@@ -216,6 +250,16 @@ func ReindexAllForce(db *gorm.DB) error {
 	batchSize := config.AppConfig.EmbeddingBatchSize
 	tables := []string{"colleges", "courses", "exams", "scholarships", "news", "events", "blogs", "site_pages", "institution_entrances", "institution_users", "universities", "institution_news", "institution_events", "institution_blogs", "provider_news", "provider_events", "provider_blogs", "admission_pages"}
 
+	setProgress(ReindexProgress{Running: true, Force: true})
+	var reindexErr error
+	defer func() {
+		p := GetReindexProgress()
+		p.Running = false
+		if reindexErr != nil {
+			p.Error = reindexErr.Error()
+		}
+		setProgress(p)
+	}()
 	for _, table := range tables {
 		if !hasEmbeddingColumn(db, table) {
 			log.Printf("  Table %s: no embedding column — skipping (install pgvector extension)", table)
@@ -224,6 +268,7 @@ func ReindexAllForce(db *gorm.DB) error {
 		log.Printf("Force reindexing embeddings for table: %s", table)
 		db.Exec(fmt.Sprintf("UPDATE %s SET embedding = NULL WHERE embedding IS NOT NULL", table))
 		if err := reindexTable(db, table, batchSize); err != nil {
+			reindexErr = err
 			log.Printf("Error reindexing table %s: %v", table, err)
 		}
 	}
@@ -245,6 +290,13 @@ func reindexTable(db *gorm.DB, table string, batchSize int) error {
 	}
 
 	log.Printf("  Table %s: %d items to embed", table, total)
+	setProgress(func() ReindexProgress {
+		p := GetReindexProgress()
+		p.Table = table
+		p.Processed = 0
+		p.Total = total
+		return p
+	}())
 
 	for {
 		var rows []map[string]interface{}
@@ -291,6 +343,13 @@ func reindexTable(db *gorm.DB, table string, batchSize int) error {
 			db.Table(table).Where("embedding IS NULL AND deleted_at IS NULL").Count(&remaining)
 			return remaining
 		}()
+		setProgress(func() ReindexProgress {
+			p := GetReindexProgress()
+			p.Table = table
+			p.Processed = processed
+			p.Total = total
+			return p
+		}())
 		log.Printf("  Table %s: processed %d/%d", table, processed, total)
 	}
 

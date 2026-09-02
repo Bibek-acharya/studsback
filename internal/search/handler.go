@@ -223,6 +223,10 @@ func (h *Handler) Reindex(c *gin.Context) {
 		response.Success(c, http.StatusAccepted, "Embedding is not enabled. Set EMBEDDING_ENABLED=true in .env", nil)
 		return
 	}
+	if embedding.GetReindexProgress().Running {
+		response.Error(c, http.StatusConflict, "An embedding reindex is already running")
+		return
+	}
 	db := config.GetDB()
 	force := c.DefaultQuery("force", "false") == "true"
 	go func() {
@@ -241,6 +245,10 @@ func (h *Handler) Reindex(c *gin.Context) {
 		msg = "Full AI retrain started — clearing and regenerating all embeddings"
 	}
 	response.Success(c, http.StatusAccepted, msg, nil)
+}
+
+func (h *Handler) ReindexStatus(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": embedding.GetReindexProgress()})
 }
 
 func (h *Handler) GetVectorStatus(c *gin.Context) {
