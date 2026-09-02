@@ -283,6 +283,14 @@ func ReindexAllForce(db *gorm.DB) error {
 	return nil
 }
 
+func remainingStale(db *gorm.DB, table string) int64 {
+	var remaining int64
+	db.Table(table).
+		Where("deleted_at IS NULL AND (embedding IS NULL OR embedded_at IS NULL OR embedded_at < updated_at)").
+		Count(&remaining)
+	return remaining
+}
+
 func reindexTable(db *gorm.DB, table string, batchSize int) error {
 	if !hasEmbeddingColumn(db, table) {
 		log.Printf("  Table %s: no embedding column — skipping", table)
@@ -341,16 +349,18 @@ func reindexTable(db *gorm.DB, table string, batchSize int) error {
 				continue
 			}
 			updated++
+			processed := total - remainingStale(db, table)
+			setProgress(func() ReindexProgress {
+				p := GetReindexProgress()
+				p.Processed = processed
+				return p
+			}())
 		}
 		if updated == 0 {
 			return fmt.Errorf("no embeddings generated for %s; stopping to avoid retry loop", table)
 		}
 
-		processed := total - func() int64 {
-			var remaining int64
-			db.Table(table).Where("deleted_at IS NULL AND (embedding IS NULL OR embedded_at IS NULL OR embedded_at < updated_at)").Count(&remaining)
-			return remaining
-		}()
+		processed := total - remainingStale(db, table)
 		setProgress(func() ReindexProgress {
 			p := GetReindexProgress()
 			p.Table = table
