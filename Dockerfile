@@ -5,11 +5,13 @@ WORKDIR /app
 RUN apk add --no-cache gcc musl-dev git
 
 COPY go.mod go.sum ./
-RUN go mod download
+RUN --mount=type=cache,target=/go/pkg/mod go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=1 go build -o /bin/server ./cmd/server/main.go
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=1 go build -o /bin/server ./cmd/server/main.go
 
 FROM alpine:3.20
 
