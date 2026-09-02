@@ -48,7 +48,8 @@ func setProgress(update ReindexProgress) {
 func httpClient() *http.Client {
 	clientOnce.Do(func() {
 		client = &http.Client{
-			Timeout: 30 * time.Second,
+			// ponytail: CPU-only ollama takes ~60s per embedding; raise if you switch to GPU/batched requests
+			Timeout: 180 * time.Second,
 			Transport: &http.Transport{
 				MaxIdleConns:       20,
 				IdleConnTimeout:    90 * time.Second,
