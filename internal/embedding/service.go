@@ -246,14 +246,12 @@ func reindexTable(db *gorm.DB, table string, batchSize int) error {
 
 	log.Printf("  Table %s: %d items to embed", table, total)
 
-	offset := 0
 	for {
 		var rows []map[string]interface{}
 		if err := db.Table(table).
 			Where("embedding IS NULL AND deleted_at IS NULL").
 			Select(buildSelectForTable(table)).
 			Limit(batchSize).
-			Offset(offset).
 			Find(&rows).Error; err != nil {
 			return err
 		}
@@ -262,6 +260,7 @@ func reindexTable(db *gorm.DB, table string, batchSize int) error {
 			break
 		}
 
+		updated := 0
 		for _, row := range rows {
 			text := buildEmbeddingInput(table, row)
 			if text == "" {
@@ -279,11 +278,20 @@ func reindexTable(db *gorm.DB, table string, batchSize int) error {
 			sql := fmt.Sprintf("UPDATE %s SET embedding = '%s'::vector WHERE id = ?", table, vectorStr)
 			if err := db.Exec(sql, id).Error; err != nil {
 				log.Printf("  Warning: failed to update embedding for %s id=%v: %v", table, id, err)
+				continue
 			}
+			updated++
+		}
+		if updated == 0 {
+			return fmt.Errorf("no embeddings generated for %s; stopping to avoid retry loop", table)
 		}
 
-		offset += len(rows)
-		log.Printf("  Table %s: processed %d/%d", table, offset, total)
+		processed := total - func() int64 {
+			var remaining int64
+			db.Table(table).Where("embedding IS NULL AND deleted_at IS NULL").Count(&remaining)
+			return remaining
+		}()
+		log.Printf("  Table %s: processed %d/%d", table, processed, total)
 	}
 
 	return nil

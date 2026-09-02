@@ -123,8 +123,8 @@ func Load() {
 		EmbeddingEnabled:   getEnv("EMBEDDING_ENABLED", "false") == "true",
 		EmbeddingAPIKey:    getEnv("EMBEDDING_API_KEY", ""),
 		EmbeddingBaseURL:   getEnv("EMBEDDING_BASE_URL", "https://api.openai.com/v1"),
-		EmbeddingModel:     getEnv("EMBEDDING_MODEL", "text-embedding-3-small"),
-		VectorDimension:    getEnvInt("VECTOR_DIMENSION", 1536),
+		EmbeddingModel:     getEnv("EMBEDDING_MODEL", "liquid/lfm-2.5-embedding-350m:free"),
+		VectorDimension:    getEnvInt("VECTOR_DIMENSION", 1024),
 		EmbeddingBatchSize: getEnvInt("EMBEDDING_BATCH_SIZE", 20),
 
 		LLMEnabled:       getEnv("LLM_ENABLED", "false") == "true",
