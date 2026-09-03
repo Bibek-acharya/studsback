@@ -512,12 +512,13 @@ type InstitutionMapDTO struct {
 	Province  string  `json:"province,omitempty"`
 	Type      string  `json:"type,omitempty"`
 	BannerURL string  `json:"banner_url,omitempty"`
+	Phone     string  `json:"phone,omitempty"`
 }
 
 func (r *Repository) FindInstitutionsWithCoords() ([]InstitutionMapDTO, error) {
 	var institutions []InstitutionMapDTO
 	err := r.db.Table("institution_users").
-		Select("id, institution_name as name, latitude, longitude, COALESCE(district,'') as district, COALESCE(province,'') as province, COALESCE(organization_type,'') as type, COALESCE(banner_url,'') as banner_url").
+		Select("id, institution_name as name, latitude, longitude, COALESCE(district,'') as district, COALESCE(province,'') as province, COALESCE(organization_type,'') as type, COALESCE(banner_url,'') as banner_url, COALESCE(contact_phone,'') as phone").
 		Where("latitude IS NOT NULL AND longitude IS NOT NULL").
 		Find(&institutions).Error
 	return institutions, err

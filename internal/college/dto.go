@@ -14,6 +14,7 @@ type CollegeMapDTO struct {
 	Rating    float64     `json:"rating"`
 	Reviews   int         `json:"reviews"`
 	Gallery   interface{} `json:"gallery"`
+	Phone     string      `json:"phone,omitempty"`
 }
 
 type CollegeRecommendationBreakdown struct {

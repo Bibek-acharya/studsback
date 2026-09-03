@@ -392,6 +392,7 @@ func (s *Service) GetMapColleges(north, south, east, west float64) ([]CollegeMap
 				Province:  inst.Province,
 				Type:      inst.Type,
 				Banner:    inst.BannerURL,
+				Phone:     inst.Phone,
 			})
 		}
 	}
@@ -420,6 +421,7 @@ func buildCollegeMapDTOs(colleges []College) []CollegeMapDTO {
 			Rating:    c.Rating,
 			Reviews:   c.Reviews,
 			Gallery:   parseJSONField(c.Gallery, []interface{}{}),
+			Phone:     c.Phone,
 		}
 	}
 	return dtos
