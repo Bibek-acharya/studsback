@@ -817,6 +817,15 @@ func (s *Service) CreatePublicBooking(userID uint, req PublicCounsellingBookingR
 		return nil, errors.New("failed to update seat count")
 	}
 
+	_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+		EventKey:   notification.EventCounsellingBookingCreated,
+		Recipients: []notification.Ref{{Type: "institution", ID: session.InstitutionID}},
+		Data: map[string]any{
+			"student_name": booking.StudentName,
+			"when":         session.ScheduledAt.Format("Jan 2, 2006 3:04 PM"),
+		},
+	})
+
 	return booking, nil
 }
 
@@ -1743,6 +1752,15 @@ func (s *Service) UpdateAdmissionStatus(instID, id uint, req UpdateAdmissionStat
 
 	if err := s.repo.SaveAdmission(admission); err != nil {
 		return nil, err
+	}
+
+	if admission.UserID != nil {
+		_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+			EventKey:   notification.EventApplicationStatusChanged,
+			Actor:      &notification.Ref{Type: "institution", ID: instID},
+			Recipients: []notification.Ref{{Type: "user", ID: *admission.UserID}},
+			Data:       map[string]any{"program": admission.ProgramName, "status": req.Status},
+		})
 	}
 
 	return admission, nil

@@ -22,6 +22,18 @@ func (r *Repository) Create(admission *Admission) error {
 	return r.db.Create(admission).Error
 }
 
+// FindApprovedInstitutionUserID resolves the institution account that claimed
+// the college (D-Q13: silent when none exists). institution_users is owned by
+// the institution module; accessed here via raw SQL to avoid an import cycle.
+func (r *Repository) FindApprovedInstitutionUserID(collegeID uint) (uint, error) {
+	var id uint
+	err := r.db.Raw(
+		`SELECT id FROM institution_users WHERE college_id = ? AND status = 'approved' AND deleted_at IS NULL LIMIT 1`,
+		collegeID,
+	).Scan(&id).Error
+	return id, err
+}
+
 func (r *Repository) FindByUserID(userID uint) ([]Admission, error) {
 	var admissions []Admission
 	err := r.db.Where("user_id = ?", userID).Preload("College").Order("created_at DESC").Find(&admissions).Error

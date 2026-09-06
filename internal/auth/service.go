@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"studsphere/backend/internal/institution"
+	"studsphere/backend/internal/notification"
 	"studsphere/backend/internal/shared/storage"
 	"studsphere/backend/internal/shared/utils"
 
@@ -728,6 +730,13 @@ func (s *Service) ApproveScholarshipProvider(providerID uint) error {
 		return errors.New("Failed to update provider")
 	}
 
+	if notifierInstance != nil {
+		_ = notifierInstance.Notify(context.Background(), notification.NotifyRequest{
+			EventKey:   notification.EventAccountApproved,
+			Recipients: []notification.Ref{{Type: "provider", ID: provider.ID}},
+		})
+	}
+
 	if emailErr := utils.SendApprovalEmail(provider.Email, provider.ProviderName, password); emailErr != nil {
 		log.Printf("Warning: failed to send approval email to %s: %v", provider.Email, emailErr)
 	}
@@ -739,6 +748,13 @@ func (s *Service) RejectScholarshipProvider(providerID uint) error {
 	provider, err := s.repo.FindScholarshipProviderUserByID(providerID)
 	if err != nil {
 		return errors.New("Provider not found")
+	}
+
+	if notifierInstance != nil {
+		_ = notifierInstance.Notify(context.Background(), notification.NotifyRequest{
+			EventKey:   notification.EventAccountRejected,
+			Recipients: []notification.Ref{{Type: "provider", ID: provider.ID}},
+		})
 	}
 
 	if err := s.repo.DeleteScholarshipProviderUser(providerID); err != nil {
@@ -1065,6 +1081,13 @@ func (s *Service) ApproveClaimRequest(institutionID uint) error {
 		return errors.New("Failed to update institution")
 	}
 
+	if notifierInstance != nil {
+		_ = notifierInstance.Notify(context.Background(), notification.NotifyRequest{
+			EventKey:   notification.EventAccountApproved,
+			Recipients: []notification.Ref{{Type: "institution", ID: institution.ID}},
+		})
+	}
+
 	if emailErr := utils.SendApprovalEmail(institution.Email, institution.InstitutionName, password); emailErr != nil {
 		log.Printf("Warning: failed to send claim approval email to %s: %v", institution.Email, emailErr)
 	}
@@ -1155,6 +1178,13 @@ func (s *Service) RejectClaimRequest(claimID uint, reason string) error {
 		return errors.New("Failed to reject claim request")
 	}
 
+	if notifierInstance != nil {
+		_ = notifierInstance.Notify(context.Background(), notification.NotifyRequest{
+			EventKey:   notification.EventAccountRejected,
+			Recipients: []notification.Ref{{Type: "institution", ID: institution.ID}},
+		})
+	}
+
 	if emailErr := utils.SendRejectionEmail(institution.Email, institution.InstitutionName); emailErr != nil {
 		log.Printf("Warning: failed to send rejection email to %s: %v", institution.Email, emailErr)
 	}
@@ -1242,6 +1272,13 @@ func (s *Service) ApproveInstitution(institutionID uint) error {
 		return errors.New("Failed to update institution")
 	}
 
+	if notifierInstance != nil {
+		_ = notifierInstance.Notify(context.Background(), notification.NotifyRequest{
+			EventKey:   notification.EventAccountApproved,
+			Recipients: []notification.Ref{{Type: "institution", ID: institution.ID}},
+		})
+	}
+
 	if emailErr := utils.SendApprovalEmail(institution.Email, institution.InstitutionName, password); emailErr != nil {
 		log.Printf("Warning: failed to send approval email to %s: %v", institution.Email, emailErr)
 	}
@@ -1258,6 +1295,13 @@ func (s *Service) RejectInstitution(institutionID uint) error {
 	institution.Status = "rejected"
 	if err := s.repo.UpdateInstitutionUser(institution); err != nil {
 		return errors.New("Failed to update institution")
+	}
+
+	if notifierInstance != nil {
+		_ = notifierInstance.Notify(context.Background(), notification.NotifyRequest{
+			EventKey:   notification.EventAccountRejected,
+			Recipients: []notification.Ref{{Type: "institution", ID: institution.ID}},
+		})
 	}
 
 	if emailErr := utils.SendRejectionEmail(institution.Email, institution.InstitutionName); emailErr != nil {

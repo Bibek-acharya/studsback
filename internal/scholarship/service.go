@@ -1064,6 +1064,13 @@ func (s *PaymentService) ApproveBankPayment(paymentID uint, approvedBy uint, rea
 	if reason != "" {
 		payment.Status = "failed"
 		payment.RejectionReason = reason
+		if app, appErr := s.scholarshipRepo.ApplicationFindByID(payment.ApplicationID); appErr == nil && app.UserID != nil {
+			_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+				EventKey:   notification.EventScholarshipBankRejected,
+				Recipients: []notification.Ref{{Type: "user", ID: *app.UserID}},
+				Data:       map[string]any{"reason": reason},
+			})
+		}
 	} else {
 		payment.Status = "completed"
 		now := time.Now()
@@ -1137,11 +1144,15 @@ func (s *PaymentService) InitiateEsewaPayment(appID uint, amount float64) (*Esew
 	}, nil
 }
 
+// esewaStatusAPIURL is a seam so tests can point the status check at a
+// stub server instead of the real eSewa API.
+var esewaStatusAPIURL = func() string { return config.AppConfig.EsewaStatusAPIURL() }
+
 func (s *PaymentService) VerifyEsewaPayment(req EsewaVerifyRequest) (*Payment, error) {
 	cfg := config.AppConfig
 
 	apiURL := fmt.Sprintf("%s?product_code=%s&total_amount=%s&transaction_uuid=%s",
-		cfg.EsewaStatusAPIURL(), cfg.EsewaMerchantCode, req.TotalAmount, req.TransactionUUID)
+		esewaStatusAPIURL(), cfg.EsewaMerchantCode, req.TotalAmount, req.TransactionUUID)
 
 	resp, err := http.Get(apiURL)
 	if err != nil {
@@ -1167,6 +1178,7 @@ func (s *PaymentService) VerifyEsewaPayment(req EsewaVerifyRequest) (*Payment, e
 	}
 
 	if esewaResp.Status != "COMPLETE" {
+		s.notifyPaymentFailed(req.TransactionUUID)
 		return nil, fmt.Errorf("eSewa payment not completed, status: %s", esewaResp.Status)
 	}
 
@@ -1361,5 +1373,29 @@ func (s *PaymentService) createApplicationReceivedNotification(app *ScholarshipA
 		EventKey:   notification.EventApplicationReceived,
 		Recipients: []notification.Ref{{Type: "provider", ID: ps.ProviderID}},
 		Data:       map[string]any{"student_name": app.FullName, "program": ps.Title},
+	})
+}
+
+// notifyPaymentFailed tells the student their gateway payment did not go
+// through. Deduped per transaction so retries of the verify endpoint don't
+// spam the inbox.
+func (s *PaymentService) notifyPaymentFailed(transactionUUID string) {
+	payment, err := s.repo.FindByTransactionID(transactionUUID)
+	if err != nil {
+		return
+	}
+	app, err := s.scholarshipRepo.ApplicationFindByID(payment.ApplicationID)
+	if err != nil || app.UserID == nil {
+		return
+	}
+	scholarship, err := s.scholarshipRepo.FindByID(payment.ScholarshipID)
+	if err != nil || scholarship == nil {
+		return
+	}
+	_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+		EventKey:   notification.EventScholarshipPaymentFailed,
+		Recipients: []notification.Ref{{Type: "user", ID: *app.UserID}},
+		DedupeKey:  fmt.Sprintf("esewa_failed:%s", transactionUUID),
+		Data:       map[string]any{"scholarship": scholarship.Title, "slug": scholarship.Slug},
 	})
 }
