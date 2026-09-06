@@ -102,6 +102,28 @@ func TestApplicationStatusNotifiesOrgAndApplicant(t *testing.T) {
 	}
 	assertTemplates(t, org)
 	assertTemplates(t, applicant)
+
+	// Fallback branch: any status outside shortlisted/approved/rejected
+	// (under_review, pending) still emits the applicant copy — with the
+	// status key, since EventApplicationStatusChanged's template needs it.
+	if _, err := svc.UpdateApplicationStatus(1, app.ID, UpdateApplicationStatusRequest{Status: "under_review"}); err != nil {
+		t.Fatalf("update status (fallback): %v", err)
+	}
+	if len(notif.Calls) != 4 {
+		t.Fatalf("expected 4 emissions total (2 per status update), got %d: %+v", len(notif.Calls), notif.Calls)
+	}
+	fbOrg, fbApplicant := notif.Calls[2], notif.Calls[3]
+	if fbOrg.EventKey != notification.EventApplicationStatusChanged || fbOrg.Recipients[0] != (notification.Ref{Type: "provider", ID: 1}) {
+		t.Fatalf("fallback org copy wrong: %+v", fbOrg)
+	}
+	if fbApplicant.EventKey != notification.EventApplicationStatusChanged || fbApplicant.Recipients[0] != (notification.Ref{Type: "user", ID: uid}) {
+		t.Fatalf("fallback applicant copy wrong: %+v", fbApplicant)
+	}
+	if fbApplicant.Data["status"] != "under_review" {
+		t.Fatalf("fallback applicant copy missing status data: %+v", fbApplicant.Data)
+	}
+	assertTemplates(t, fbOrg)
+	assertTemplates(t, fbApplicant)
 }
 
 func TestInterviewNotifiesStudent(t *testing.T) {

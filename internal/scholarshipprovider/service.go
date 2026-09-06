@@ -1187,7 +1187,7 @@ func (s *Service) UpdateApplicationStatus(providerID, id uint, req UpdateApplica
 		_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
 			EventKey:   applicantKey,
 			Recipients: []notification.Ref{{Type: "user", ID: *application.UserID}},
-			Data:       map[string]any{"program": application.Scholarship.Title},
+			Data:       map[string]any{"program": application.Scholarship.Title, "status": req.Status},
 		})
 	}
 
