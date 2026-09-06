@@ -190,9 +190,12 @@ RETURNING *`, token, limit).Scan(&rows).Error
 	return rows, token, err
 }
 
+// CompleteOutbox marks a claimed row done — only while the caller still holds
+// a live (unexpired) lease; an expired lease counts as a lost claim so the row
+// can be reclaimed by another worker (doc 03 §3).
 func (r *Repository) CompleteOutbox(id uint, token string) error {
 	res := r.db.Model(&NotificationOutbox{}).
-		Where("id = ? AND claim_token = ?", id, token).
+		Where("id = ? AND claim_token = ? AND (lease_expires_at IS NULL OR lease_expires_at > now())", id, token).
 		Updates(map[string]any{"done": true, "lease_expires_at": nil})
 	if res.RowsAffected == 0 {
 		return fmt.Errorf("outbox claim lost (id=%d)", id)
