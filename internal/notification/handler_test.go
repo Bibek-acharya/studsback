@@ -22,7 +22,7 @@ func studentRouter(h *Handler, userID uint) *gin.Engine {
 		c.Set("provider_id", uint(0))
 		c.Next()
 	})
-	h.RegisterRoutes(r.Group("/api/v1"))
+	h.RegisterRoutes(r.Group("/api/v1"), nil)
 	return r
 }
 
@@ -178,7 +178,7 @@ func providerRouter(h *Handler, providerID uint) *gin.Engine {
 		c.Set("provider_id", providerID)
 		c.Next()
 	})
-	h.RegisterRoutes(r.Group("/api/v1"))
+	h.RegisterRoutes(r.Group("/api/v1"), nil)
 	return r
 }
 
@@ -242,7 +242,7 @@ func TestBroadcastCreatesCampaignAndFansOut(t *testing.T) {
 		c.Set("user_id", uint(1))
 		c.Next()
 	})
-	h.RegisterRoutes(r.Group("/api/v1"))
+	h.RegisterRoutes(r.Group("/api/v1"), nil)
 
 	body := `{"title":"Maintenance","body":"Sunday 02:00-04:00","link":"/news/m","audience":["all"],"idempotency_key":"maint-1"}`
 	w := httptest.NewRecorder()

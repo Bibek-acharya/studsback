@@ -1,6 +1,10 @@
 package scholarshipprovider
 
-import "github.com/gin-gonic/gin"
+import (
+	"studsphere/backend/internal/notification"
+
+	"github.com/gin-gonic/gin"
+)
 
 func RegisterPublicRoutes(r *gin.Engine, h *Handler) {
 	if h == nil {
@@ -99,9 +103,14 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			scholarshipProvider.GET("/settings", h.GetSettings)
 			scholarshipProvider.PUT("/settings", h.UpdateSettings)
 
-			scholarshipProvider.GET("/notifications", h.GetNotifications)
-			scholarshipProvider.PUT("/notifications/:id/read", h.MarkNotificationRead)
-			scholarshipProvider.PUT("/notifications/read-all", h.MarkAllNotificationsRead)
+			// Legacy provider notification routes — conflict with the
+			// notification module's proxy routes, so only register them when
+			// NOTIFICATIONS_V2 is off.
+			if !notification.V2Enabled() {
+				scholarshipProvider.GET("/notifications", h.GetNotifications)
+				scholarshipProvider.PUT("/notifications/:id/read", h.MarkNotificationRead)
+				scholarshipProvider.PUT("/notifications/read-all", h.MarkAllNotificationsRead)
+			}
 
 			scholarshipProvider.POST("/uploads", h.UploadImage)
 			scholarshipProvider.POST("/uploads/document", h.UploadDocument)

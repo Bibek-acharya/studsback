@@ -1,11 +1,23 @@
 // internal/notification/routes.go
 package notification
 
-import "github.com/gin-gonic/gin"
+import (
+	"os"
+
+	"github.com/gin-gonic/gin"
+)
+
+// V2Enabled reports whether this module owns the /api/v1/notifications*
+// routes. Default on; NOTIFICATIONS_V2=off falls back to the legacy handlers
+// (rollback path, readiness review C4). Shared by every gate so the flag has
+// one source of truth.
+func V2Enabled() bool { return os.Getenv("NOTIFICATIONS_V2") != "off" }
 
 // RegisterRoutes mounts the notification API. Single owner of route
 // registration (readiness review H1); callers gate on NOTIFICATIONS_V2.
-func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
+// superadminMW guards the broadcast endpoints (wiring-time, per Task 7);
+// nil skips the guard and is for tests only.
+func (h *Handler) RegisterRoutes(rg *gin.RouterGroup, superadminMW gin.HandlerFunc) {
 	g := rg.Group("/notifications")
 	g.GET("", h.list)
 	g.GET("/unread-count", h.unreadCount)
@@ -21,9 +33,12 @@ func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
 	pg.PUT("/:id/read", h.providerMarkRead)
 	pg.PUT("/read-all", h.providerMarkAllRead)
 
-	// Broadcast — guard with the existing superadminOnly middleware at wiring
-	// time in main.go (same pattern as auth/routes.go:56-57).
+	// Broadcast — superadmin-only via the middleware supplied at wiring time
+	// (same pattern as auth/routes.go's superadmin group).
 	bg := rg.Group("/notifications")
+	if superadminMW != nil {
+		bg.Use(superadminMW)
+	}
 	bg.POST("/broadcast", h.createBroadcast)
 	bg.GET("/broadcasts", h.listBroadcasts)
 	bg.POST("/broadcasts/:id/cancel", h.cancelBroadcast)

@@ -106,6 +106,12 @@ func main() {
 
 	db := config.GetDB()
 
+	// Bad event registry means every notification fan-out would misbehave:
+	// kill the boot (plan doc "startup validation" intent).
+	if err := notification.ValidateRegistry(); err != nil {
+		logger.Fatal("Notification event registry invalid", "error", err)
+	}
+
 	if !config.IsSQLite {
 		if err := db.Exec("CREATE EXTENSION IF NOT EXISTS vector").Error; err != nil {
 			logger.Warn("pgvector extension not available, vector search will be disabled", "error", err)
@@ -491,6 +497,22 @@ func main() {
 	// Setup messaging routes
 	api := router.Group("/api/v1")
 	messaging.SetupRoutes(api, db, redisClient, natsConn, authMW)
+
+	// Notification route ownership (NOTIFICATIONS_V2, readiness review C4):
+	// on/unset — notification module owns /api/v1/notifications* + provider
+	// proxy; off — legacy studentdashboard handlers keep the routes. Exactly
+	// one set registers per boot.
+	notificationsAPI := api.Group("")
+	notificationsAPI.Use(authMW)
+	if notification.V2Enabled() {
+		notificationHandler := notification.NewHandler(notification.NewService(db))
+		notificationHandler.RegisterRoutes(notificationsAPI, middleware.RequireRole("superadmin", "super_admin"))
+		// Outbox drain + broadcast fan-out expansion; stop func discarded for
+		// process lifetime.
+		go notification.StartPoller(db, 2*time.Second)
+	} else {
+		studentDashHandler.RegisterNotificationRoutes(notificationsAPI)
+	}
 
 	logger.Info("All routes registered", "port", config.AppConfig.Port)
 
