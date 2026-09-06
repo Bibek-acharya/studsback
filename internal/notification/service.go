@@ -242,3 +242,155 @@ func isUniqueViolation(err error) bool {
 		strings.Contains(err.Error(), "duplicate key") ||
 		strings.Contains(err.Error(), "uq_an_occurrence")
 }
+
+func (s *Service) CreateBroadcast(createdBy uint, title, body, link, priority string, audience []string, idemKey string) (*NotificationBroadcast, bool, error) {
+	valid := map[string]bool{"user": true, "institution": true, "provider": true, "all": true}
+	for _, a := range audience {
+		if !valid[a] {
+			return nil, false, fmt.Errorf("notification: invalid audience %q", a)
+		}
+	}
+	campaign := NotificationBroadcast{
+		Title: title, Body: body, Link: link, Priority: priority,
+		Audience: datatypes.JSON(mustJSON(audience)), CreatedBy: createdBy, IdempotencyKey: idemKey,
+	}
+	created := false
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		if idemKey != "" {
+			var existing NotificationBroadcast
+			err := tx.Where("created_by = ? AND idempotency_key = ?", createdBy, idemKey).First(&existing).Error
+			if err == nil {
+				campaign = existing // idempotent replay: return the original
+				return nil
+			}
+			if !errors.Is(err, gorm.ErrRecordNotFound) {
+				return err
+			}
+		}
+		if err := tx.Create(&campaign).Error; err != nil {
+			return err
+		}
+		created = true
+		return s.repo.InsertOutbox(tx, NotificationOutbox{
+			Kind:    "fanout",
+			Payload: datatypes.JSON(mustJSON(map[string]any{"broadcast_id": campaign.ID})),
+		})
+	})
+	if err != nil {
+		return nil, false, err
+	}
+	return &campaign, created, nil
+}
+
+// ExpandFanoutPending expands every un-done fanout row (poller + test entry).
+func (s *Service) ExpandFanoutPending(ctx context.Context) error {
+	var rows []NotificationOutbox
+	if err := s.db.WithContext(ctx).Where("done = false AND kind = 'fanout'").Find(&rows).Error; err != nil {
+		return err
+	}
+	for _, row := range rows {
+		if err := s.expandFanoutRow(row); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Service) expandFanoutRow(row NotificationOutbox) error {
+	var payload struct {
+		BroadcastID uint `json:"broadcast_id"`
+	}
+	_ = json.Unmarshal(row.Payload, &payload)
+	var campaign NotificationBroadcast
+	if err := s.db.First(&campaign, payload.BroadcastID).Error; err != nil {
+		return err
+	}
+	if campaign.Status != "sending" {
+		return s.repo.CompleteOutbox(row.ID, row.ClaimToken) // cancelled — nothing to fan out
+	}
+	batch := 500
+	offset := 0
+	for {
+		var targets []struct {
+			AccountType string
+			AccountID   uint
+		}
+		q := s.db.Raw(buildAudienceQuery(campaign.Audience)+` ORDER BY account_type, account_id OFFSET ? LIMIT ?`, offset, batch)
+		if err := q.Scan(&targets).Error; err != nil {
+			return err
+		}
+		if len(targets) == 0 {
+			break
+		}
+		err := s.db.Transaction(func(tx *gorm.DB) error {
+			for _, t := range targets {
+				occ := fmt.Sprintf("system.announcement:b%d:%s:%d", campaign.ID, t.AccountType, t.AccountID)
+				existing, err := s.repo.FindByOccurrenceKey(tx, t.AccountType, t.AccountID, occ)
+				if err != nil {
+					return err
+				}
+				if existing != nil {
+					continue // batch replay is harmless (doc 03 §3)
+				}
+				title, _ := ResolveTemplate(Registry[EventSystemAnnouncement].TitleTpl, map[string]any{"title": campaign.Title})
+				b, _ := ResolveTemplate(Registry[EventSystemAnnouncement].BodyTpl, map[string]any{"body": campaign.Body})
+				cid := campaign.ID
+				if err := s.repo.InsertNotifications(tx, []AccountNotification{{
+					AccountType: t.AccountType, AccountID: t.AccountID,
+					EventKey: EventSystemAnnouncement, Category: "system", Priority: campaign.Priority,
+					Title: title, Body: b, Link: campaign.Link,
+					OccurrenceKey: occ, BroadcastID: &cid, ActorType: "user", ActorID: campaign.CreatedBy,
+				}}); err != nil {
+					return err
+				}
+			}
+			return tx.Model(&NotificationBroadcast{}).Where("id = ?", campaign.ID).
+				Update("sent_count", gorm.Expr("sent_count + ?", len(targets))).Error
+		})
+		if err != nil {
+			return err
+		}
+		offset += batch
+		if len(targets) < batch {
+			break
+		}
+	}
+	s.db.Model(&NotificationBroadcast{}).Where("id = ? AND status = 'sending'", campaign.ID).Update("status", "completed")
+	return s.repo.CompleteOutbox(row.ID, row.ClaimToken)
+}
+
+// buildAudienceQuery returns the eligibility-filtered UNION for the audience
+// enum (user | institution | provider | all) — doc 04 §4c. Eligibility:
+// suspended/deletion-queued/soft-deleted excluded for every member set.
+func buildAudienceQuery(audience datatypes.JSON) string {
+	var sets []string
+	_ = json.Unmarshal(audience, &sets)
+	has := func(v string) bool {
+		for _, s := range sets {
+			if s == v {
+				return true
+			}
+		}
+		return false
+	}
+	all := has("all")
+	var parts []string
+	if all || has("user") {
+		parts = append(parts, `SELECT 'user' AS account_type, id AS account_id FROM users
+			WHERE status = 'active' AND deleted_at IS NULL AND lower(role) IN ('student','admin','superadmin','super_admin')`)
+	}
+	if all || has("institution") {
+		parts = append(parts, `SELECT 'institution' AS account_type, id AS account_id FROM institution_users
+			WHERE status = 'approved' AND deleted_at IS NULL`)
+	}
+	if all || has("provider") {
+		parts = append(parts, `SELECT 'provider' AS account_type, id AS account_id FROM scholarship_provider_users
+			WHERE status = 'approved' AND deleted_at IS NULL`)
+	}
+	return strings.Join(parts, " UNION ")
+}
+
+func mustJSON(v any) []byte {
+	b, _ := json.Marshal(v)
+	return b
+}

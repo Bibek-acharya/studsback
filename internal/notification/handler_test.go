@@ -2,10 +2,12 @@
 package notification
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -162,5 +164,121 @@ func TestArchiveOwnershipAndMissing(t *testing.T) {
 	r.ServeHTTP(w5, httptest.NewRequest(http.MethodPut, fmt.Sprintf("/api/v1/notifications/%d/unarchive", rows[1].ID), nil))
 	if w5.Code != http.StatusNotFound {
 		t.Fatalf("foreign unarchive status=%d want 404", w5.Code)
+	}
+}
+
+func providerRouter(h *Handler, providerID uint) *gin.Engine {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		c.Set("user_role", "scholarship_provider")
+		c.Set("user_id", providerID)
+		c.Set("provider_id", providerID)
+		c.Next()
+	})
+	h.RegisterRoutes(r.Group("/api/v1"))
+	return r
+}
+
+func TestProviderProxyServesLegacyShape(t *testing.T) {
+	db := testDB(t)
+	h := NewHandler(NewService(db))
+	if err := NewRepository(db).InsertNotifications(nil, []AccountNotification{
+		{AccountType: "provider", AccountID: 9, EventKey: EventApplicationReceived,
+			Category: "application", Title: "New Application Received", Body: "Rita applied."},
+	}); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	r := providerRouter(h, 9)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/v1/scholarship-providers/notifications?page=1&limit=20", nil))
+	if w.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", w.Code, w.Body.String())
+	}
+	var resp struct {
+		Data struct {
+			Notifications []map[string]any `json:"notifications"`
+			UnreadCount   int              `json:"unread_count"`
+		} `json:"data"`
+	}
+	_ = json.Unmarshal(w.Body.Bytes(), &resp)
+	item := resp.Data.Notifications[0]
+	for _, k := range []string{"provider_id", "message", "type", "read", "created_at"} {
+		if _, ok := item[k]; !ok {
+			t.Fatalf("provider legacy field %q missing", k)
+		}
+	}
+	if item["provider_id"] != float64(9) || item["message"] != "Rita applied." || resp.Data.UnreadCount != 1 {
+		t.Fatalf("proxy values wrong: %v unread=%d", item, resp.Data.UnreadCount)
+	}
+}
+
+func TestBroadcastCreatesCampaignAndFansOut(t *testing.T) {
+	db := testDB(t)
+	// The shared test DB only carries the notification tables + users. The
+	// audience query unions the institution/provider account tables — create
+	// minimal stubs when absent (real deployments have the full schema).
+	db.Exec(`CREATE TABLE IF NOT EXISTS institution_users (id bigserial PRIMARY KEY, status text, deleted_at timestamptz)`)
+	db.Exec(`CREATE TABLE IF NOT EXISTS scholarship_provider_users (id bigserial PRIMARY KEY, status text, deleted_at timestamptz)`)
+	t.Cleanup(func() {
+		db.Exec(`DROP TABLE IF EXISTS institution_users`)
+		db.Exec(`DROP TABLE IF EXISTS scholarship_provider_users`)
+	})
+	// first_name/last_name are NOT NULL without defaults in the real schema
+	// (same adaptation as TestRecipientsForRoleIncludesBothSuperadminSpellings).
+	db.Exec(`INSERT INTO users (email, first_name, last_name, role, status, created_at, updated_at) VALUES
+		('notif-u1@test.local','Notif','U1','student','active',now(),now()),
+		('notif-u2@test.local','Notif','U2','student','active',now(),now())`)
+	t.Cleanup(func() { db.Exec(`DELETE FROM users WHERE email LIKE 'notif-u%@test.local'`) })
+
+	svc := NewService(db)
+	h := NewHandler(svc)
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		c.Set("user_role", "superadmin")
+		c.Set("user_id", uint(1))
+		c.Next()
+	})
+	h.RegisterRoutes(r.Group("/api/v1"))
+
+	body := `{"title":"Maintenance","body":"Sunday 02:00-04:00","link":"/news/m","audience":["all"],"idempotency_key":"maint-1"}`
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/api/v1/notifications/broadcast", strings.NewReader(body)))
+	if w.Code != http.StatusAccepted {
+		t.Fatalf("broadcast status=%d body=%s", w.Code, w.Body.String())
+	}
+	// Same idempotency key returns the same campaign, not a second one.
+	w2 := httptest.NewRecorder()
+	r.ServeHTTP(w2, httptest.NewRequest(http.MethodPost, "/api/v1/notifications/broadcast", strings.NewReader(body)))
+	if w2.Code != http.StatusOK {
+		t.Fatalf("idempotent replay status=%d", w2.Code)
+	}
+	var first, second struct {
+		Data struct {
+			BroadcastID uint `json:"broadcast_id"`
+		} `json:"data"`
+	}
+	_ = json.Unmarshal(w.Body.Bytes(), &first)
+	_ = json.Unmarshal(w2.Body.Bytes(), &second)
+	if first.Data.BroadcastID == 0 || first.Data.BroadcastID != second.Data.BroadcastID {
+		t.Fatalf("idempotency broken: %d vs %d", first.Data.BroadcastID, second.Data.BroadcastID)
+	}
+	// Expand fan-out synchronously (the poller does this in production).
+	if err := svc.ExpandFanoutPending(context.Background()); err != nil {
+		t.Fatalf("expand: %v", err)
+	}
+	var n int64
+	db.Table("account_notifications").Where("account_type='user' AND event_key='system.announcement'").Count(&n)
+	if n != 2 {
+		t.Fatalf("fanout rows=%d want 2", n)
+	}
+	// Replay expansion — occurrence keys must make it harmless.
+	if err := svc.ExpandFanoutPending(context.Background()); err != nil {
+		t.Fatalf("re-expand: %v", err)
+	}
+	db.Table("account_notifications").Where("account_type='user' AND event_key='system.announcement'").Count(&n)
+	if n != 2 {
+		t.Fatalf("fanout replay duplicated rows: %d", n)
 	}
 }
