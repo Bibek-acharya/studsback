@@ -20,6 +20,7 @@ SELECT n.created_at, n.updated_at, 'user', n.user_id,
   'student', n.id,
   'legacy:student:' || n.id
 FROM notifications n
+WHERE n.deleted_at IS NULL
 ON CONFLICT (account_type, account_id, occurrence_key) WHERE occurrence_key <> '' AND deleted_at IS NULL DO NOTHING;
 
 -- Providers: legacy `provider_notifications` → account_notifications (provider,…)
@@ -46,4 +47,5 @@ SELECT p.created_at, p.updated_at, 'provider', p.provider_id,
   'provider', p.id,
   'legacy:provider:' || p.id
 FROM provider_notifications p
+WHERE p.deleted_at IS NULL
 ON CONFLICT (account_type, account_id, occurrence_key) WHERE occurrence_key <> '' AND deleted_at IS NULL DO NOTHING;
