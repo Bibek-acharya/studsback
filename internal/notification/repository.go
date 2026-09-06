@@ -98,15 +98,16 @@ func (r *Repository) MarkAllRead(accountType string, accountID uint) (int64, err
 	return res.RowsAffected, res.Error
 }
 
-func (r *Repository) SetArchived(accountType string, accountID, id uint, archived bool) error {
+func (r *Repository) SetArchived(accountType string, accountID, id uint, archived bool) (int64, error) {
 	var t *time.Time
 	if archived {
 		now := time.Now()
 		t = &now
 	}
-	return r.db.Model(&AccountNotification{}).
+	res := r.db.Model(&AccountNotification{}).
 		Where("account_type = ? AND account_id = ? AND id = ?", accountType, accountID, id).
-		Update("archived_at", t).Error
+		Update("archived_at", t)
+	return res.RowsAffected, res.Error
 }
 
 func (r *Repository) SoftDelete(accountType string, accountID, id uint) (int64, error) {

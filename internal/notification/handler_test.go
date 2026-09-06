@@ -3,6 +3,7 @@ package notification
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -115,5 +116,51 @@ func TestMarkReadAndReadAll(t *testing.T) {
 	r.ServeHTTP(w2, httptest.NewRequest(http.MethodPut, "/api/v1/notifications/999999/read", nil))
 	if w2.Code != http.StatusNotFound {
 		t.Fatalf("missing item status=%d want 404", w2.Code)
+	}
+}
+
+func TestArchiveOwnershipAndMissing(t *testing.T) {
+	db := testDB(t)
+	h := NewHandler(NewService(db))
+	rows := []AccountNotification{
+		{AccountType: "user", AccountID: 42, EventKey: EventAccountWelcome, Category: "account", Title: "mine"},
+		{AccountType: "institution", AccountID: 7, EventKey: EventApplicationReceived, Category: "application", Title: "foreign"},
+	}
+	if err := NewRepository(db).InsertNotifications(nil, rows); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	r := studentRouter(h, 42)
+
+	// Archive own notification → 200.
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodPut, fmt.Sprintf("/api/v1/notifications/%d/archive", rows[0].ID), nil))
+	if w.Code != http.StatusOK {
+		t.Fatalf("own archive status=%d body=%s", w.Code, w.Body.String())
+	}
+
+	// Archive a foreign account's notification → 404.
+	w2 := httptest.NewRecorder()
+	r.ServeHTTP(w2, httptest.NewRequest(http.MethodPut, fmt.Sprintf("/api/v1/notifications/%d/archive", rows[1].ID), nil))
+	if w2.Code != http.StatusNotFound {
+		t.Fatalf("foreign archive status=%d want 404", w2.Code)
+	}
+
+	// Archive a nonexistent notification → 404.
+	w3 := httptest.NewRecorder()
+	r.ServeHTTP(w3, httptest.NewRequest(http.MethodPut, "/api/v1/notifications/999999/archive", nil))
+	if w3.Code != http.StatusNotFound {
+		t.Fatalf("missing archive status=%d want 404", w3.Code)
+	}
+
+	// Unarchive own → 200; foreign unarchive → 404 too.
+	w4 := httptest.NewRecorder()
+	r.ServeHTTP(w4, httptest.NewRequest(http.MethodPut, fmt.Sprintf("/api/v1/notifications/%d/unarchive", rows[0].ID), nil))
+	if w4.Code != http.StatusOK {
+		t.Fatalf("own unarchive status=%d body=%s", w4.Code, w4.Body.String())
+	}
+	w5 := httptest.NewRecorder()
+	r.ServeHTTP(w5, httptest.NewRequest(http.MethodPut, fmt.Sprintf("/api/v1/notifications/%d/unarchive", rows[1].ID), nil))
+	if w5.Code != http.StatusNotFound {
+		t.Fatalf("foreign unarchive status=%d want 404", w5.Code)
 	}
 }

@@ -103,8 +103,13 @@ func (h *Handler) archive(archived bool) gin.HandlerFunc {
 			return
 		}
 		id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-		if err := h.svc.repo.SetArchived(at, aid, uint(id), archived); err != nil {
+		n, err := h.svc.repo.SetArchived(at, aid, uint(id), archived)
+		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		if n == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"error": "not found in your inbox"})
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"message": "ok"})
