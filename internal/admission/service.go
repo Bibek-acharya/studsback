@@ -1,24 +1,20 @@
 package admission
 
 import (
+	"context"
 	"errors"
-	"fmt"
-	"strings"
 	"time"
+
+	"studsphere/backend/internal/notification"
 )
 
-var notifyStudentFunc func(userID uint, title, message, notifType, link string)
-
-func SetNotifyStudentFunc(fn func(userID uint, title, message, notifType, link string)) {
-	notifyStudentFunc = fn
-}
-
 type Service struct {
-	repo *Repository
+	repo     *Repository
+	notifier notification.Notifier
 }
 
-func NewService(repo *Repository) *Service {
-	return &Service{repo: repo}
+func NewService(repo *Repository, notifier notification.Notifier) *Service {
+	return &Service{repo: repo, notifier: notifier}
 }
 
 func (s *Service) Create(req CreateAdmissionRequest, userID *uint) (*Admission, error) {
@@ -159,15 +155,13 @@ func (s *Service) UpdateStatus(id uint, req UpdateAdmissionStatusRequest, userID
 		return nil, errors.New("failed to update admission status")
 	}
 
-	if admission.UserID != nil && notifyStudentFunc != nil {
-		statusDisplay := strings.ReplaceAll(req.Status, "_", " ")
-		notifyStudentFunc(
-			*admission.UserID,
-			"Application Status Updated",
-			fmt.Sprintf("Your application for %s is now: %s", admission.ProgramName, statusDisplay),
-			"application",
-			"/user/dashboard/applications",
-		)
+	if admission.UserID != nil {
+		_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+			EventKey:   notification.EventApplicationStatusChanged,
+			Actor:      &notification.Ref{Type: "user", ID: userID},
+			Recipients: []notification.Ref{{Type: "user", ID: *admission.UserID}},
+			Data:       map[string]any{"program": admission.ProgramName, "status": req.Status},
+		})
 	}
 
 	return admission, nil

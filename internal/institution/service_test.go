@@ -41,7 +41,7 @@ func TestCreateProgram_GlobalCourseNotFound(t *testing.T) {
 	db := setupServiceTestDB(t)
 	repo := NewRepository(db)
 	educationRepo := education.NewRepository(db)
-	svc := NewService(repo, educationRepo, nil)
+	svc := NewService(repo, educationRepo, nil, nil)
 
 	req := CreateProgramRequest{
 		GlobalCourseID:      999,
@@ -65,7 +65,7 @@ func TestCreateProgram_GlobalCourseNotGlobal(t *testing.T) {
 	db := setupServiceTestDB(t)
 	repo := NewRepository(db)
 	educationRepo := education.NewRepository(db)
-	svc := NewService(repo, educationRepo, nil)
+	svc := NewService(repo, educationRepo, nil, nil)
 
 	course := seedGlobalCourse(db, false, "published")
 
@@ -91,7 +91,7 @@ func TestCreateProgram_GlobalCourseDraft(t *testing.T) {
 	db := setupServiceTestDB(t)
 	repo := NewRepository(db)
 	educationRepo := education.NewRepository(db)
-	svc := NewService(repo, educationRepo, nil)
+	svc := NewService(repo, educationRepo, nil, nil)
 
 	// Draft course with IsGlobal=true: FindCourseByIDOnly finds it, IsGlobal check passes
 	// but task spec validates it should still work for creating programs
@@ -123,7 +123,7 @@ func TestCreateProgram_ValidatesBeforeCreation(t *testing.T) {
 	db := setupServiceTestDB(t)
 	repo := NewRepository(db)
 	educationRepo := education.NewRepository(db)
-	svc := NewService(repo, educationRepo, nil)
+	svc := NewService(repo, educationRepo, nil, nil)
 
 	// Test that validation happens before any DB write
 	// Non-existent course should fail without attempting insert
@@ -209,7 +209,7 @@ func TestRecalculateOverrides_DetectsDescriptionDiff(t *testing.T) {
 	db := setupServiceTestDB(t)
 	repo := NewRepository(db)
 	educationRepo := education.NewRepository(db)
-	svc := NewService(repo, educationRepo, nil)
+	svc := NewService(repo, educationRepo, nil, nil)
 
 	course := seedGlobalCourseWithFields(db)
 	customDesc := "Custom description"
@@ -234,7 +234,7 @@ func TestRecalculateOverrides_DetectsBannerURLDiff(t *testing.T) {
 	db := setupServiceTestDB(t)
 	repo := NewRepository(db)
 	educationRepo := education.NewRepository(db)
-	svc := NewService(repo, educationRepo, nil)
+	svc := NewService(repo, educationRepo, nil, nil)
 
 	course := seedGlobalCourseWithFields(db)
 	customBanner := "https://custom.com/banner.png"
@@ -259,7 +259,7 @@ func TestRecalculateOverrides_DetectsCareersDiff(t *testing.T) {
 	db := setupServiceTestDB(t)
 	repo := NewRepository(db)
 	educationRepo := education.NewRepository(db)
-	svc := NewService(repo, educationRepo, nil)
+	svc := NewService(repo, educationRepo, nil, nil)
 
 	course := seedGlobalCourseWithFields(db)
 	customCareers := []education.CareerItem{
@@ -286,7 +286,7 @@ func TestRecalculateOverrides_DetectsFAQsDiff(t *testing.T) {
 	db := setupServiceTestDB(t)
 	repo := NewRepository(db)
 	educationRepo := education.NewRepository(db)
-	svc := NewService(repo, educationRepo, nil)
+	svc := NewService(repo, educationRepo, nil, nil)
 
 	course := seedGlobalCourseWithFields(db)
 	customFAQs := []education.FaqItem{
@@ -313,7 +313,7 @@ func TestRecalculateOverrides_ClearsWhenMatchingGlobal(t *testing.T) {
 	db := setupServiceTestDB(t)
 	repo := NewRepository(db)
 	educationRepo := education.NewRepository(db)
-	svc := NewService(repo, educationRepo, nil)
+	svc := NewService(repo, educationRepo, nil, nil)
 
 	course := seedGlobalCourseWithFields(db)
 	sameDesc := "Global description"
@@ -335,7 +335,7 @@ func TestRecalculateOverrides_MultipleOverrides(t *testing.T) {
 	db := setupServiceTestDB(t)
 	repo := NewRepository(db)
 	educationRepo := education.NewRepository(db)
-	svc := NewService(repo, educationRepo, nil)
+	svc := NewService(repo, educationRepo, nil, nil)
 
 	course := seedGlobalCourseWithFields(db)
 	customDesc := "Custom description"
@@ -367,7 +367,7 @@ func TestRecalculateOverrides_NoGlobalCourse(t *testing.T) {
 	db := setupServiceTestDB(t)
 	repo := NewRepository(db)
 	educationRepo := education.NewRepository(db)
-	svc := NewService(repo, educationRepo, nil)
+	svc := NewService(repo, educationRepo, nil, nil)
 
 	program := &InstitutionProgram{
 		GlobalCourseID: 0,
@@ -386,7 +386,7 @@ func TestCreateCourseRequest_Service(t *testing.T) {
 	db := setupServiceTestDB(t)
 	repo := NewRepository(db)
 	educationRepo := education.NewRepository(db)
-	svc := NewService(repo, educationRepo, nil)
+	svc := NewService(repo, educationRepo, nil, nil)
 
 	inst := seedInstitutionUser(db, "svc-001")
 
@@ -423,7 +423,7 @@ func TestGetCourseRequests(t *testing.T) {
 	db := setupServiceTestDB(t)
 	repo := NewRepository(db)
 	educationRepo := education.NewRepository(db)
-	svc := NewService(repo, educationRepo, nil)
+	svc := NewService(repo, educationRepo, nil, nil)
 
 	inst := seedInstitutionUser(db, "svc-002")
 	for i := 0; i < 3; i++ {
@@ -450,7 +450,7 @@ func TestGetAllCourseRequests(t *testing.T) {
 	db := setupServiceTestDB(t)
 	repo := NewRepository(db)
 	educationRepo := education.NewRepository(db)
-	svc := NewService(repo, educationRepo, nil)
+	svc := NewService(repo, educationRepo, nil, nil)
 
 	inst := seedInstitutionUser(db, "svc-003")
 	for i := 0; i < 5; i++ {
@@ -477,7 +477,7 @@ func TestGetCourseRequestByID(t *testing.T) {
 	db := setupServiceTestDB(t)
 	repo := NewRepository(db)
 	educationRepo := education.NewRepository(db)
-	svc := NewService(repo, educationRepo, nil)
+	svc := NewService(repo, educationRepo, nil, nil)
 
 	inst := seedInstitutionUser(db, "svc-004")
 	courseReq := seedCourseApprovalRequest(db, inst.ID, "pending")
@@ -498,7 +498,7 @@ func TestGetCourseRequestByIDAdmin(t *testing.T) {
 	db := setupServiceTestDB(t)
 	repo := NewRepository(db)
 	educationRepo := education.NewRepository(db)
-	svc := NewService(repo, educationRepo, nil)
+	svc := NewService(repo, educationRepo, nil, nil)
 
 	inst := seedInstitutionUser(db, "svc-005")
 	courseReq := seedCourseApprovalRequest(db, inst.ID, "pending")
@@ -525,7 +525,7 @@ func TestApproveCourseRequest(t *testing.T) {
 	db := setupServiceTestDB(t)
 	repo := NewRepository(db)
 	educationRepo := education.NewRepository(db)
-	svc := NewService(repo, educationRepo, nil)
+	svc := NewService(repo, educationRepo, nil, nil)
 
 	inst := seedInstitutionUser(db, "svc-006")
 	courseReq := seedCourseApprovalRequest(db, inst.ID, "pending")
@@ -570,7 +570,7 @@ func TestApproveCourseRequest_NotPending(t *testing.T) {
 	db := setupServiceTestDB(t)
 	repo := NewRepository(db)
 	educationRepo := education.NewRepository(db)
-	svc := NewService(repo, educationRepo, nil)
+	svc := NewService(repo, educationRepo, nil, nil)
 
 	inst := seedInstitutionUser(db, "svc-007")
 	courseReq := seedCourseApprovalRequest(db, inst.ID, "approved")
@@ -588,7 +588,7 @@ func TestApproveCourseRequest_NotFound(t *testing.T) {
 	db := setupServiceTestDB(t)
 	repo := NewRepository(db)
 	educationRepo := education.NewRepository(db)
-	svc := NewService(repo, educationRepo, nil)
+	svc := NewService(repo, educationRepo, nil, nil)
 
 	err := svc.ApproveCourseRequest(9999, 42)
 	if err == nil {
@@ -603,7 +603,7 @@ func TestRejectCourseRequest(t *testing.T) {
 	db := setupServiceTestDB(t)
 	repo := NewRepository(db)
 	educationRepo := education.NewRepository(db)
-	svc := NewService(repo, educationRepo, nil)
+	svc := NewService(repo, educationRepo, nil, nil)
 
 	inst := seedInstitutionUser(db, "svc-008")
 	courseReq := seedCourseApprovalRequest(db, inst.ID, "pending")
@@ -632,7 +632,7 @@ func TestRejectCourseRequest_NotPending(t *testing.T) {
 	db := setupServiceTestDB(t)
 	repo := NewRepository(db)
 	educationRepo := education.NewRepository(db)
-	svc := NewService(repo, educationRepo, nil)
+	svc := NewService(repo, educationRepo, nil, nil)
 
 	inst := seedInstitutionUser(db, "svc-009")
 	courseReq := seedCourseApprovalRequest(db, inst.ID, "rejected")
@@ -650,7 +650,7 @@ func TestRejectCourseRequest_NotFound(t *testing.T) {
 	db := setupServiceTestDB(t)
 	repo := NewRepository(db)
 	educationRepo := education.NewRepository(db)
-	svc := NewService(repo, educationRepo, nil)
+	svc := NewService(repo, educationRepo, nil, nil)
 
 	err := svc.RejectCourseRequest(9999, 42, "reason")
 	if err == nil {

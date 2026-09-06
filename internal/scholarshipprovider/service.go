@@ -1,6 +1,7 @@
 package scholarshipprovider
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,17 +12,19 @@ import (
 	"time"
 
 	"studsphere/backend/internal/emailqueue"
+	"studsphere/backend/internal/notification"
 	publicscholarship "studsphere/backend/internal/scholarship"
 
 	"golang.org/x/crypto/bcrypt"
 )
 
 type Service struct {
-	repo *Repository
+	repo     *Repository
+	notifier notification.Notifier
 }
 
-func NewService(repo *Repository) *Service {
-	return &Service{repo: repo}
+func NewService(repo *Repository, notifier notification.Notifier) *Service {
+	return &Service{repo: repo, notifier: notifier}
 }
 
 func (s *Service) GetDashboard(providerID uint) (*DashboardResponse, error) {
@@ -40,17 +43,11 @@ func (s *Service) GetDashboard(providerID uint) (*DashboardResponse, error) {
 	if err == nil {
 		isIncomplete := profile.ContactNumber == "" || profile.PANNumber == "" || profile.WebsiteURL == ""
 		if isIncomplete {
-			// Check if notification already exists
-			exists, _ := s.repo.CheckNotificationExists(providerID, "Profile Incomplete")
-			if !exists {
-				s.repo.CreateNotification(&ProviderNotification{
-					ProviderID: providerID,
-					Title:      "Profile Incomplete",
-					Message:    "Your profile is incomplete—please complete it to continue.",
-					Type:       "system",
-					Link:       "org-profile",
-				})
-			}
+			_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+				EventKey:   notification.EventAccountProfileIncomplete,
+				Recipients: []notification.Ref{{Type: "provider", ID: providerID}},
+				DedupeKey:  fmt.Sprintf("profile_incomplete:%d", providerID),
+			})
 		}
 	}
 
@@ -510,12 +507,10 @@ func (s *Service) CreateScholarship(providerID uint, req CreateScholarshipReques
 		return nil, err
 	}
 
-	s.repo.CreateNotification(&ProviderNotification{
-		ProviderID: providerID,
-		Title:      "Scholarship Created",
-		Message:    "Your scholarship has been created successfully.",
-		Type:       "scholarship",
-		Link:       "manage-scholarships",
+	_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+		EventKey:   notification.EventContentCreatedOwn,
+		Recipients: []notification.Ref{{Type: "provider", ID: providerID}},
+		Data:       map[string]any{"what": "Scholarship", "title": scholarship.Title},
 	})
 
 	return scholarship, nil
@@ -876,19 +871,10 @@ func (s *Service) UpdateScholarship(providerID, id uint, req CreateScholarshipRe
 		log.Printf("scholarshipprovider: UpdateScholarship syncPublicScholarship error: %v", err)
 	}
 
-	message := "Your scholarship draft has been updated."
-	title := "Scholarship Updated"
-	if statusToSync == "published" || statusToSync == "active" {
-		message = "Your scholarship is now live and visible in the directory."
-		title = "Scholarship Published"
-	}
-
-	s.repo.CreateNotification(&ProviderNotification{
-		ProviderID: providerID,
-		Title:      title,
-		Message:    message,
-		Type:       "scholarship",
-		Link:       "manage-scholarships",
+	_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+		EventKey:   notification.EventContentCreatedOwn,
+		Recipients: []notification.Ref{{Type: "provider", ID: providerID}},
+		Data:       map[string]any{"what": "Scholarship", "title": resolved.Title},
 	})
 
 	return &resolved, nil
@@ -1181,21 +1167,29 @@ func (s *Service) UpdateApplicationStatus(providerID, id uint, req UpdateApplica
 		return nil, err
 	}
 
-	message := fmt.Sprintf("You have %s an application.", req.Status)
-	switch req.Status {
-	case "shortlisted":
-		message = "You have shortlisted an application."
-	case "rejected":
-		message = "You have rejected an application."
-	}
-
-	s.repo.CreateNotification(&ProviderNotification{
-		ProviderID: providerID,
-		Title:      "Application Status Updated",
-		Message:    message,
-		Type:       "application",
-		Link:       "applications",
+	// Org copy: the provider's own action log.
+	_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+		EventKey:   notification.EventApplicationStatusChanged,
+		Recipients: []notification.Ref{{Type: "provider", ID: providerID}},
+		Data:       map[string]any{"program": application.Scholarship.Title, "status": req.Status},
 	})
+	// Applicant copy: status-mapped event key.
+	if application.UserID != nil {
+		applicantKey := notification.EventApplicationStatusChanged
+		switch req.Status {
+		case "shortlisted":
+			applicantKey = notification.EventApplicationShortlisted
+		case "approved":
+			applicantKey = notification.EventApplicationApproved
+		case "rejected":
+			applicantKey = notification.EventApplicationRejected
+		}
+		_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+			EventKey:   applicantKey,
+			Recipients: []notification.Ref{{Type: "user", ID: *application.UserID}},
+			Data:       map[string]any{"program": application.Scholarship.Title},
+		})
+	}
 
 	if req.Status == "rejected" && application.Email != "" {
 		reason := application.RejectionReason
@@ -1247,12 +1241,21 @@ func (s *Service) CreateInterview(providerID uint, req CreateInterviewRequest) (
 		return nil, err
 	}
 
-	s.repo.CreateNotification(&ProviderNotification{
-		ProviderID: providerID,
-		Title:      "Interview Scheduled",
-		Message:    "An interview has been scheduled.",
-		Type:       "interview",
-		Link:       "interviews",
+	scholarshipTitle := ""
+	if app, err := s.repo.GetApplicationByIDAndProvider(req.ApplicationID, providerID); err == nil {
+		scholarshipTitle = app.Scholarship.Title
+		if app.UserID != nil {
+			_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+				EventKey:   notification.EventApplicationInterviewScheduled,
+				Recipients: []notification.Ref{{Type: "user", ID: *app.UserID}},
+				Data:       map[string]any{"scholarship": scholarshipTitle},
+			})
+		}
+	}
+	_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+		EventKey:   notification.EventApplicationInterviewScheduled,
+		Recipients: []notification.Ref{{Type: "provider", ID: providerID}},
+		Data:       map[string]any{"scholarship": scholarshipTitle},
 	})
 
 	return interview, nil
@@ -1489,12 +1492,10 @@ func (s *Service) UpdateProviderProfile(providerID uint, req UpdateProfileReques
 		return nil, err
 	}
 
-	s.repo.CreateNotification(&ProviderNotification{
-		ProviderID: providerID,
-		Title:      "Profile Updated",
-		Message:    "Your profile has been updated successfully.",
-		Type:       "system",
-		Link:       "org-profile",
+	_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+		EventKey:   notification.EventContentCreatedOwn,
+		Recipients: []notification.Ref{{Type: "provider", ID: providerID}},
+		Data:       map[string]any{"what": "Profile", "title": "Org profile"},
 	})
 
 	return provider, nil
@@ -1527,12 +1528,9 @@ func (s *Service) ChangePassword(providerID uint, req ChangePasswordRequest) err
 		return err
 	}
 
-	s.repo.CreateNotification(&ProviderNotification{
-		ProviderID: providerID,
-		Title:      "Password Changed",
-		Message:    "Your password has been changed successfully.",
-		Type:       "system",
-		Link:       "settings",
+	_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+		EventKey:   notification.EventAccountPasswordChanged,
+		Recipients: []notification.Ref{{Type: "provider", ID: providerID}},
 	})
 
 	return nil
@@ -1540,6 +1538,7 @@ func (s *Service) ChangePassword(providerID uint, req ChangePasswordRequest) err
 
 func (s *Service) ChangeEmail(userID uint, isSubUser bool, req ChangeEmailRequest) error {
 	var currentPassword string
+	ownerID := userID
 
 	if isSubUser {
 		user, err := s.repo.GetAccessUserByID(userID)
@@ -1547,6 +1546,7 @@ func (s *Service) ChangeEmail(userID uint, isSubUser bool, req ChangeEmailReques
 			return err
 		}
 		currentPassword = user.Password
+		ownerID = user.ProviderID
 	} else {
 		provider, err := s.repo.GetProviderProfile(userID)
 		if err != nil {
@@ -1583,12 +1583,9 @@ func (s *Service) ChangeEmail(userID uint, isSubUser bool, req ChangeEmailReques
 	}
 
 	if err == nil {
-		s.repo.CreateNotification(&ProviderNotification{
-			ProviderID: userID,
-			Title:      "Email Updated",
-			Message:    "Your email address has been updated successfully.",
-			Type:       "system",
-			Link:       "settings",
+		_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+			EventKey:   notification.EventAccountEmailChanged,
+			Recipients: []notification.Ref{{Type: "provider", ID: ownerID}},
 		})
 	}
 	return err
@@ -1643,18 +1640,6 @@ func (s *Service) MarkAllNotificationsRead(providerID uint) error {
 	return s.repo.MarkAllNotificationsRead(providerID)
 }
 
-func (s *Service) CreateNotification(providerID uint, title, message, notifType, link string) error {
-	notification := &ProviderNotification{
-		ProviderID: providerID,
-		Title:      title,
-		Message:    message,
-		Type:       notifType,
-		Link:       link,
-	}
-
-	return s.repo.CreateNotification(notification)
-}
-
 func (s *Service) CreateNews(providerID uint, req CreateNewsRequest) (*ProviderNews, error) {
 	status := "draft"
 	if req.Status != "" {
@@ -1696,12 +1681,10 @@ func (s *Service) CreateNews(providerID uint, req CreateNewsRequest) (*ProviderN
 		return nil, err
 	}
 
-	s.repo.CreateNotification(&ProviderNotification{
-		ProviderID: providerID,
-		Title:      "News Created",
-		Message:    "A new news item has been created.",
-		Type:       "news",
-		Link:       "news-directory",
+	_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+		EventKey:   notification.EventContentCreatedOwn,
+		Recipients: []notification.Ref{{Type: "provider", ID: providerID}},
+		Data:       map[string]any{"what": "News", "title": news.Title},
 	})
 
 	return news, nil
@@ -1828,12 +1811,10 @@ func (s *Service) CreateEvent(providerID uint, req CreateEventRequest) (*Provide
 		return nil, err
 	}
 
-	s.repo.CreateNotification(&ProviderNotification{
-		ProviderID: providerID,
-		Title:      "Event Created",
-		Message:    "A new event has been created.",
-		Type:       "event",
-		Link:       "events-directory",
+	_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+		EventKey:   notification.EventContentCreatedOwn,
+		Recipients: []notification.Ref{{Type: "provider", ID: providerID}},
+		Data:       map[string]any{"what": "Event", "title": event.Name},
 	})
 
 	return event, nil
@@ -1938,12 +1919,10 @@ func (s *Service) CreateBlog(providerID uint, req CreateBlogRequest) (*ProviderB
 		return nil, err
 	}
 
-	s.repo.CreateNotification(&ProviderNotification{
-		ProviderID: providerID,
-		Title:      "Blog Created",
-		Message:    "A new blog post has been created.",
-		Type:       "blog",
-		Link:       "blog-directory",
+	_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+		EventKey:   notification.EventContentCreatedOwn,
+		Recipients: []notification.Ref{{Type: "provider", ID: providerID}},
+		Data:       map[string]any{"what": "Blog", "title": blog.Title},
 	})
 
 	return blog, nil
@@ -2025,12 +2004,10 @@ func (s *Service) CreateCalendarEvent(providerID uint, req CreateCalendarEventRe
 		return nil, err
 	}
 
-	s.repo.CreateNotification(&ProviderNotification{
-		ProviderID: providerID,
-		Title:      "Calendar Task Added",
-		Message:    "A new task has been added to your calendar.",
-		Type:       "calendar",
-		Link:       "calendar",
+	_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+		EventKey:   notification.EventContentCreatedOwn,
+		Recipients: []notification.Ref{{Type: "provider", ID: providerID}},
+		Data:       map[string]any{"what": "Calendar task", "title": event.Title},
 	})
 
 	return event, nil
@@ -2958,12 +2935,10 @@ func (s *Service) CreateAccessUser(req CreateAccessUserRequest, providerID uint)
 		return nil, err
 	}
 
-	s.repo.CreateNotification(&ProviderNotification{
-		ProviderID: providerID,
-		Title:      "Access Granted",
-		Message:    fmt.Sprintf("Access has been granted to %s.", user.Email),
-		Type:       "system",
-		Link:       "assign-access",
+	_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+		EventKey:   notification.EventAccountAccessGranted,
+		Recipients: []notification.Ref{{Type: "provider", ID: providerID}},
+		Data:       map[string]any{"email": user.Email},
 	})
 
 	return toAccessUserResponse(user), nil
@@ -3056,12 +3031,10 @@ func (s *Service) UpdateAccessUser(id uint, req UpdateAccessUserRequest) (*Acces
 func (s *Service) DeleteAccessUser(id uint, providerID uint) error {
 	user, err := s.repo.GetAccessUserByID(id)
 	if err == nil {
-		s.repo.CreateNotification(&ProviderNotification{
-			ProviderID: providerID,
-			Title:      "Access Removed",
-			Message:    fmt.Sprintf("Access has been removed from %s.", user.Email),
-			Type:       "system",
-			Link:       "assign-access",
+		_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+			EventKey:   notification.EventAccountAccessRemoved,
+			Recipients: []notification.Ref{{Type: "provider", ID: providerID}},
+			Data:       map[string]any{"email": user.Email},
 		})
 	}
 	return s.repo.DeleteAccessUser(id)

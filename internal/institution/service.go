@@ -10,24 +10,20 @@ import (
 
 	"studsphere/backend/internal/ai"
 	"studsphere/backend/internal/education"
+	"studsphere/backend/internal/notification"
 	"studsphere/backend/internal/shared/utils"
 	"studsphere/backend/internal/system"
 )
-
-var notifyStudentFunc func(userID uint, title, message, notifType, link string)
-
-func SetNotifyStudentFunc(fn func(userID uint, title, message, notifType, link string)) {
-	notifyStudentFunc = fn
-}
 
 type Service struct {
 	repo          *Repository
 	educationRepo *education.Repository
 	systemSvc     *system.Service
+	notifier      notification.Notifier
 }
 
-func NewService(repo *Repository, educationRepo *education.Repository, systemSvc *system.Service) *Service {
-	return &Service{repo: repo, educationRepo: educationRepo, systemSvc: systemSvc}
+func NewService(repo *Repository, educationRepo *education.Repository, systemSvc *system.Service, notifier notification.Notifier) *Service {
+	return &Service{repo: repo, educationRepo: educationRepo, systemSvc: systemSvc, notifier: notifier}
 }
 
 func (s *Service) GetDashboard(instID uint) (*DashboardResponse, error) {
@@ -768,14 +764,11 @@ func (s *Service) UpdateBookingStatus(instID, id uint, status, meetingLink, meet
 		return nil, err
 	}
 
-	if status == "confirmed" && notifyStudentFunc != nil {
-		sessionTitle := "Counselling Session"
-		if booking.Session.Title != "" {
-			sessionTitle = booking.Session.Title
-		}
-		notifyStudentFunc(booking.UserID, "Counselling Approved",
-			fmt.Sprintf("Your booking for '%s' has been confirmed by the institution.", sessionTitle),
-			"counselling", "")
+	if status == "confirmed" {
+		_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+			EventKey:   notification.EventCounsellingBookingConfirmed,
+			Recipients: []notification.Ref{{Type: "user", ID: booking.UserID}},
+		})
 	}
 
 	return booking, nil

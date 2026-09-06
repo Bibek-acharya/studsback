@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"studsphere/backend/internal/institution"
+	"studsphere/backend/internal/notification"
 	"studsphere/backend/internal/scholarshipprovider"
 	"studsphere/backend/internal/shared/config"
 	"studsphere/backend/internal/shared/middleware"
@@ -30,6 +31,7 @@ import (
 // OAuthStateStore stores OAuth state with redirect URLs
 var spHandler *scholarshipprovider.Handler
 var instService *institution.Service
+var notifierInstance notification.Notifier
 
 func SetScholarshipProviderHandler(h *scholarshipprovider.Handler) {
 	spHandler = h
@@ -37,6 +39,10 @@ func SetScholarshipProviderHandler(h *scholarshipprovider.Handler) {
 
 func SetInstitutionService(s *institution.Service) {
 	instService = s
+}
+
+func SetNotifier(n notification.Notifier) {
+	notifierInstance = n
 }
 
 type OAuthStateStore struct {
@@ -693,13 +699,14 @@ func (h *Handler) ScholarshipProviderLogin(c *gin.Context) {
 					if tokenErr == nil {
 						middleware.SetAuthCookie(c, token)
 
-						spHandler.GetService().CreateNotification(
-							user.ProviderID,
-							"New Login",
-							fmt.Sprintf("Access user %s logged in.", user.Name),
-							"system",
-							"assign-access",
-						)
+						if notifierInstance != nil {
+							_ = notifierInstance.Notify(c.Request.Context(), notification.NotifyRequest{
+								EventKey:   notification.EventAccountNewLogin,
+								Recipients: []notification.Ref{{Type: "provider", ID: user.ProviderID}},
+								DedupeKey:  fmt.Sprintf("new_login:%d", user.ProviderID),
+								Data:       map[string]any{"email": user.Email},
+							})
+						}
 
 						response.Success(c, 200, "Login successful", gin.H{
 							"user": gin.H{
@@ -725,23 +732,14 @@ func (h *Handler) ScholarshipProviderLogin(c *gin.Context) {
 
 	middleware.SetAuthCookie(c, result.Token)
 
-	if spHandler != nil {
+	if notifierInstance != nil {
 		if providerUser, ok := result.User.(*ScholarshipProviderUser); ok {
-			spHandler.GetService().CreateNotification(
-				providerUser.ID,
-				"New Login",
-				"You have successfully logged in.",
-				"system",
-				"sec-dashboard",
-			)
-		} else if providerUser, ok := result.User.(ScholarshipProviderUser); ok {
-			spHandler.GetService().CreateNotification(
-				providerUser.ID,
-				"New Login",
-				"You have successfully logged in.",
-				"system",
-				"sec-dashboard",
-			)
+			_ = notifierInstance.Notify(c.Request.Context(), notification.NotifyRequest{
+				EventKey:   notification.EventAccountNewLogin,
+				Recipients: []notification.Ref{{Type: "provider", ID: providerUser.ID}},
+				DedupeKey:  fmt.Sprintf("new_login:%d", providerUser.ID),
+				Data:       map[string]any{"email": providerUser.Email},
+			})
 		}
 	}
 
@@ -844,14 +842,13 @@ func (h *Handler) ScholarshipProviderGoogleCallback(c *gin.Context) {
 		return
 	}
 
-	if spHandler != nil && providerUser != nil {
-		spHandler.GetService().CreateNotification(
-			providerUser.ID,
-			"New Login",
-			"You have successfully logged in via Google.",
-			"system",
-			"sec-dashboard",
-		)
+	if notifierInstance != nil && providerUser != nil {
+		_ = notifierInstance.Notify(c.Request.Context(), notification.NotifyRequest{
+			EventKey:   notification.EventAccountNewLogin,
+			Recipients: []notification.Ref{{Type: "provider", ID: providerUser.ID}},
+			DedupeKey:  fmt.Sprintf("new_login:%d", providerUser.ID),
+			Data:       map[string]any{"email": providerUser.Email},
+		})
 	}
 
 	middleware.SetAuthCookie(c, jwtToken)

@@ -305,9 +305,11 @@ func main() {
 	logger.Info("Initializing module handlers...")
 	systemRepo := system.NewRepository(db)
 	systemSvc := system.NewService(systemRepo)
+	notificationSvc := notification.NewService(db)
 
 	institutionRepo := institution.NewRepository(db)
-	admissionHandler := initModule(admission.NewRepository(db), admission.NewService, admission.NewHandler)
+	admissionSvc := admission.NewService(admission.NewRepository(db), notificationSvc)
+	admissionHandler := admission.NewHandler(admissionSvc)
 	authHandler := initModule(auth.NewRepository(db), auth.NewService, auth.NewHandler)
 	collegeRepo := college.NewRepository(db)
 	collegeSvc := college.NewService(collegeRepo)
@@ -323,15 +325,15 @@ func main() {
 
 	forumHandler := initModule(forum.NewRepository(db), forum.NewService, forum.NewHandler)
 
-	institutionSvc := institution.NewService(institutionRepo, educationRepo, systemSvc)
+	institutionSvc := institution.NewService(institutionRepo, educationRepo, systemSvc, notificationSvc)
 	institutionHandler := institution.NewHandler(institutionSvc, systemSvc)
 
 	projectShikshaHandler := initModule(projectshiksha.NewRepository(db), projectshiksha.NewService, projectshiksha.NewHandler)
 	faqHandler := initModule(faq.NewRepository(db), faq.NewService, faq.NewHandler)
 	reviewHandler := initModule(review.NewRepository(db), review.NewService, review.NewHandler)
 	scholarshipRepo := scholarship.NewRepository(db)
-	scholarshipSvc := scholarship.NewService(scholarshipRepo, db, systemSvc)
-	scholarshipHandler := scholarship.NewHandler(scholarshipSvc, scholarship.NewPaymentService(db))
+	scholarshipSvc := scholarship.NewService(scholarshipRepo, db, systemSvc, notificationSvc)
+	scholarshipHandler := scholarship.NewHandler(scholarshipSvc, scholarship.NewPaymentService(db, notificationSvc))
 
 	go func() {
 		time.Sleep(10 * time.Second)
@@ -349,13 +351,13 @@ func main() {
 	}()
 	logger.Info("Draft application cleanup cron started")
 
-	scholarshipPHandler := initModule(scholarshipprovider.NewRepository(db), scholarshipprovider.NewService, scholarshipprovider.NewHandler)
+	scholarshipPSvc := scholarshipprovider.NewService(scholarshipprovider.NewRepository(db), notificationSvc)
+	scholarshipPHandler := scholarshipprovider.NewHandler(scholarshipPSvc)
 
 	auth.SetScholarshipProviderHandler(scholarshipPHandler)
 	auth.SetInstitutionService(institutionSvc)
+	auth.SetNotifier(notificationSvc)
 	studentDashHandler := initModule(studentdashboard.NewRepository(db), studentdashboard.NewService, studentdashboard.NewHandler)
-	admission.SetNotifyStudentFunc(studentDashHandler.GetService().CreateNotification)
-	institution.SetNotifyStudentFunc(studentDashHandler.GetService().CreateNotification)
 	systemHandler := system.NewHandler(systemSvc)
 	toolsHandler := initModule(tools.NewRepository(db), tools.NewService, tools.NewHandler)
 	universityHandler := initModule(university.NewRepository(db), university.NewService, university.NewHandler)

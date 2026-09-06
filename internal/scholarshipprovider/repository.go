@@ -548,18 +548,6 @@ func (r *Repository) MarkAllNotificationsRead(providerID uint) error {
 		Update("read", true).Error
 }
 
-func (r *Repository) CreateNotification(notification *ProviderNotification) error {
-	return r.db.Create(notification).Error
-}
-
-func (r *Repository) CheckNotificationExists(providerID uint, title string) (bool, error) {
-	var count int64
-	err := r.db.Model(&ProviderNotification{}).
-		Where("provider_id = ? AND title = ?", providerID, title).
-		Count(&count).Error
-	return count > 0, err
-}
-
 func (r *Repository) CreateNews(news *ProviderNews) error {
 	return r.db.Create(news).Error
 }

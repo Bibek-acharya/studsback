@@ -501,20 +501,6 @@ func joinRest(parts []string) string {
 	return result
 }
 
-func (r *Repository) CreateProviderNotification(providerID uint, app *ScholarshipApplication, scholarshipTitle string) error {
-	now := time.Now()
-	return r.db.Table("provider_notifications").Create(map[string]interface{}{
-		"provider_id": providerID,
-		"title":       "New Application Received",
-		"message":     fmt.Sprintf("%s submitted an application for your scholarship: %s", app.FullName, scholarshipTitle),
-		"type":        "application",
-		"link":        "applications",
-		"read":        false,
-		"created_at":  now,
-		"updated_at":  now,
-	}).Error
-}
-
 func parseGPA(gpa string) float64 {
 	if gpa == "" {
 		return 0

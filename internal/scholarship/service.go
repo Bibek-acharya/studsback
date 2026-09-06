@@ -1,6 +1,7 @@
 package scholarship
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
@@ -17,6 +18,7 @@ import (
 	"gorm.io/gorm"
 
 	"studsphere/backend/internal/emailqueue"
+	"studsphere/backend/internal/notification"
 	"studsphere/backend/internal/shared/config"
 	"studsphere/backend/internal/shared/logger"
 	"studsphere/backend/internal/shared/storage"
@@ -27,21 +29,24 @@ type Service struct {
 	repo       *Repository
 	providerDB *gorm.DB
 	systemSvc  *system.Service
+	notifier   notification.Notifier
 }
 
-func NewService(repo *Repository, providerDB *gorm.DB, systemSvc *system.Service) *Service {
-	return &Service{repo: repo, providerDB: providerDB, systemSvc: systemSvc}
+func NewService(repo *Repository, providerDB *gorm.DB, systemSvc *system.Service, notifier notification.Notifier) *Service {
+	return &Service{repo: repo, providerDB: providerDB, systemSvc: systemSvc, notifier: notifier}
 }
 
 type PaymentService struct {
 	repo            *PaymentRepository
 	scholarshipRepo *Repository
+	notifier        notification.Notifier
 }
 
-func NewPaymentService(db *gorm.DB) *PaymentService {
+func NewPaymentService(db *gorm.DB, notifier notification.Notifier) *PaymentService {
 	return &PaymentService{
 		repo:            NewPaymentRepository(db),
 		scholarshipRepo: NewRepository(db),
+		notifier:        notifier,
 	}
 }
 
@@ -527,7 +532,11 @@ func (s *Service) ApplyScholarship(scholarshipID uint, userID *uint, req Scholar
 		if !req.RequiresPayment {
 			ps, _ := s.repo.FindProviderScholarshipByID(*scholarship.ProviderScholarshipID)
 			if ps != nil {
-				_ = s.repo.CreateProviderNotification(ps.ProviderID, application, ps.Title)
+				_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+					EventKey:   notification.EventApplicationReceived,
+					Recipients: []notification.Ref{{Type: "provider", ID: ps.ProviderID}},
+					Data:       map[string]any{"student_name": application.FullName, "program": ps.Title},
+				})
 			}
 		}
 	}
@@ -1348,5 +1357,9 @@ func (s *PaymentService) createApplicationReceivedNotification(app *ScholarshipA
 	if err != nil {
 		return
 	}
-	_ = s.scholarshipRepo.CreateProviderNotification(ps.ProviderID, app, ps.Title)
+	_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+		EventKey:   notification.EventApplicationReceived,
+		Recipients: []notification.Ref{{Type: "provider", ID: ps.ProviderID}},
+		Data:       map[string]any{"student_name": app.FullName, "program": ps.Title},
+	})
 }
