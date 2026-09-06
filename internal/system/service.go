@@ -1,16 +1,20 @@
 package system
 
 import (
+	"context"
 	"errors"
 	"time"
+
+	"studsphere/backend/internal/notification"
 )
 
 type Service struct {
-	repo *Repository
+	repo     *Repository
+	notifier notification.Notifier
 }
 
-func NewService(repo *Repository) *Service {
-	return &Service{repo: repo}
+func NewService(repo *Repository, notifier notification.Notifier) *Service {
+	return &Service{repo: repo, notifier: notifier}
 }
 
 func parseTime(s string) (time.Time, error) {
@@ -42,6 +46,15 @@ func (s *Service) SubmitContactInquiry(req ContactInquiryRequest) (*ContactInqui
 
 	if err := s.repo.CreateContactInquiry(inquiry); err != nil {
 		return nil, errors.New("failed to submit inquiry")
+	}
+
+	audience, _ := s.notifier.ForRoles(context.Background(), "superadmin", "admin")
+	if len(audience) > 0 {
+		_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+			EventKey:   notification.EventSystemInquiryReceived,
+			Recipients: audience,
+			Data:       map[string]any{"name": req.Name, "email": req.Email, "subject": req.Subject},
+		})
 	}
 
 	return inquiry, nil

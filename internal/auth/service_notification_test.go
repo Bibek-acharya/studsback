@@ -7,13 +7,16 @@ import (
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 
+	"studsphere/backend/internal/college"
 	"studsphere/backend/internal/notification"
 	"studsphere/backend/internal/shared/config"
 )
 
 type captureNotifier struct {
-	Last  *notification.NotifyRequest
-	Calls []notification.NotifyRequest
+	Last     *notification.NotifyRequest
+	Calls    []notification.NotifyRequest
+	Roles    [][]string
+	Audience []notification.Ref
 }
 
 func (c *captureNotifier) Notify(_ context.Context, req notification.NotifyRequest) error {
@@ -26,8 +29,9 @@ func (c *captureNotifier) NotifyTx(ctx context.Context, _ *gorm.DB, req notifica
 	return c.Notify(ctx, req)
 }
 
-func (c *captureNotifier) ForRoles(_ context.Context, _ ...string) ([]notification.Ref, error) {
-	return nil, nil
+func (c *captureNotifier) ForRoles(_ context.Context, roles ...string) ([]notification.Ref, error) {
+	c.Roles = append(c.Roles, roles)
+	return c.Audience, nil
 }
 
 // assertTemplates enforces the missingkey=error data contract: every key
@@ -52,7 +56,7 @@ func newAuthNotificationService(t *testing.T) (*Service, *captureNotifier) {
 	if err != nil {
 		t.Fatalf("open sqlite db: %v", err)
 	}
-	if err := db.AutoMigrate(&User{}, &InstitutionUser{}, &ScholarshipProviderUser{}); err != nil {
+	if err := db.AutoMigrate(&User{}, &InstitutionUser{}, &ScholarshipProviderUser{}, &college.College{}); err != nil {
 		t.Fatalf("auto migrate: %v", err)
 	}
 	config.AppConfig = &config.Config{
@@ -198,4 +202,96 @@ func TestRejectClaimRequestNotifiesInstitution(t *testing.T) {
 	}
 
 	assertSingleRecipient(t, notif, notification.EventAccountRejected, notification.Ref{Type: "institution", ID: claim.ID})
+}
+
+func assertForRolesSuperadminAdmin(t *testing.T, notif *captureNotifier) {
+	t.Helper()
+	if len(notif.Roles) != 1 || len(notif.Roles[0]) != 2 || notif.Roles[0][0] != "superadmin" || notif.Roles[0][1] != "admin" {
+		t.Fatalf("ForRoles called with %v, want [superadmin admin]", notif.Roles)
+	}
+	if len(notif.Last.Recipients) != 1 || notif.Last.Recipients[0] != (notification.Ref{Type: "user", ID: 1}) {
+		t.Fatalf("recipients wrong: %+v", notif.Last.Recipients)
+	}
+}
+
+func TestInstitutionRegisterNotifiesSuperadmins(t *testing.T) {
+	svc, notif := newAuthNotificationService(t)
+	notif.Audience = []notification.Ref{{Type: "user", ID: 1}}
+
+	resp, err := svc.InstitutionRegister(InstitutionRegisterRequest{
+		InstitutionName:    "Test Institute",
+		RegistrationNumber: "REG-INST-REGISTER-1",
+		Email:              "inst-register@example.com",
+	})
+	if err != nil {
+		t.Fatalf("register: %v", err)
+	}
+	if resp == nil || !resp.RequiresOTP {
+		t.Fatalf("unexpected response: %+v", resp)
+	}
+
+	if notif.Last == nil || notif.Last.EventKey != notification.EventSystemInstitutionPending {
+		t.Fatalf("expected %s, got %+v", notification.EventSystemInstitutionPending, notif.Last)
+	}
+	if notif.Last.Data["name"] != "Test Institute" {
+		t.Fatalf("data wrong: %+v", notif.Last.Data)
+	}
+	assertForRolesSuperadminAdmin(t, notif)
+	assertTemplates(t, *notif.Last)
+}
+
+func TestScholarshipProviderRegisterNotifiesSuperadmins(t *testing.T) {
+	svc, notif := newAuthNotificationService(t)
+	notif.Audience = []notification.Ref{{Type: "user", ID: 1}}
+
+	resp, err := svc.ScholarshipProviderRegister(ScholarshipProviderRegisterRequest{
+		ProviderName:       "Scholarship Nepal",
+		RegistrationNumber: "REG-PROVIDER-REGISTER-1",
+		Email:              "provider-register@example.com",
+	})
+	if err != nil {
+		t.Fatalf("register: %v", err)
+	}
+	if resp == nil || !resp.RequiresOTP {
+		t.Fatalf("unexpected response: %+v", resp)
+	}
+
+	if notif.Last == nil || notif.Last.EventKey != notification.EventSystemProviderPending {
+		t.Fatalf("expected %s, got %+v", notification.EventSystemProviderPending, notif.Last)
+	}
+	if notif.Last.Data["name"] != "Scholarship Nepal" {
+		t.Fatalf("data wrong: %+v", notif.Last.Data)
+	}
+	assertForRolesSuperadminAdmin(t, notif)
+	assertTemplates(t, *notif.Last)
+}
+
+func TestClaimRegisterNotifiesSuperadmins(t *testing.T) {
+	svc, notif := newAuthNotificationService(t)
+	notif.Audience = []notification.Ref{{Type: "user", ID: 1}}
+	if err := svc.repo.db.Create(&college.College{ID: 7, Name: "Test College", Location: "Kathmandu"}).Error; err != nil {
+		t.Fatalf("seed college: %v", err)
+	}
+
+	resp, err := svc.ClaimRegister(ClaimRegisterRequest{
+		CollegeID:          7,
+		InstitutionName:    "Claimer Institute",
+		RegistrationNumber: "REG-CLAIM-REGISTER-1",
+		Email:              "claim-register@example.com",
+	})
+	if err != nil {
+		t.Fatalf("claim register: %v", err)
+	}
+	if resp == nil || !resp.RequiresOTP {
+		t.Fatalf("unexpected response: %+v", resp)
+	}
+
+	if notif.Last == nil || notif.Last.EventKey != notification.EventSystemClaimSubmitted {
+		t.Fatalf("expected %s, got %+v", notification.EventSystemClaimSubmitted, notif.Last)
+	}
+	if notif.Last.Data["college"] != "Test College" || notif.Last.Data["email"] != "claim-register@example.com" {
+		t.Fatalf("data wrong: %+v", notif.Last.Data)
+	}
+	assertForRolesSuperadminAdmin(t, notif)
+	assertTemplates(t, *notif.Last)
 }

@@ -1,6 +1,7 @@
 package forum
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,17 +10,19 @@ import (
 	"strings"
 	"time"
 
+	"studsphere/backend/internal/notification"
 	"studsphere/backend/internal/shared/utils"
 
 	"studsphere/backend/internal/shared/storage"
 )
 
 type Service struct {
-	repo *Repository
+	repo     *Repository
+	notifier notification.Notifier
 }
 
-func NewService(repo *Repository) *Service {
-	return &Service{repo: repo}
+func NewService(repo *Repository, notifier notification.Notifier) *Service {
+	return &Service{repo: repo, notifier: notifier}
 }
 
 func (s *Service) GetForumCommunities(currentUserID uint) ([]CommunityResponse, error) {
@@ -828,7 +831,20 @@ func (s *Service) ReportPost(postID, userID uint, req ReportPostRequest) error {
 		Reasons:   strings.Join(req.Reasons, ","),
 		OtherText: req.OtherText,
 	}
-	return s.repo.CreateReport(report)
+	if err := s.repo.CreateReport(report); err != nil {
+		return err
+	}
+
+	audience, _ := s.notifier.ForRoles(context.Background(), "superadmin", "admin")
+	if len(audience) > 0 {
+		_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+			EventKey:   notification.EventModerationForumReport,
+			Recipients: audience,
+			Data:       map[string]any{"kind": "post", "id": postID, "reason": strings.Join(req.Reasons, ", ")},
+		})
+	}
+
+	return nil
 }
 
 func (s *Service) NotInterested(postID, userID uint) error {

@@ -14,6 +14,9 @@ var p1Keys = []string{
 	"account.new_login", "account.profile_incomplete", "account.access_granted",
 	"account.access_removed", "account.password_changed", "account.email_changed",
 	"content.created_own", "system.announcement",
+	"system.inquiry_received", "social.review_reported", "moderation.forum_report",
+	"moderation.feedback_received", "system.claim_submitted", "system.provider_pending",
+	"system.institution_pending",
 }
 
 func TestValidateRegistryAllP1KeysPresent(t *testing.T) {

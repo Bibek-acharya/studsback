@@ -1,21 +1,25 @@
 package review
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"math"
 	"strings"
 	"time"
 
+	"studsphere/backend/internal/notification"
+
 	"gorm.io/gorm"
 )
 
 type Service struct {
-	repo *Repository
+	repo     *Repository
+	notifier notification.Notifier
 }
 
-func NewService(repo *Repository) *Service {
-	return &Service{repo: repo}
+func NewService(repo *Repository, notifier notification.Notifier) *Service {
+	return &Service{repo: repo, notifier: notifier}
 }
 
 func (s *Service) SubmitReview(userID uint, req CreateReviewRequest) (*ReviewResponse, error) {
@@ -318,7 +322,20 @@ func (s *Service) ReportReview(reviewID, userID uint, reason string) error {
 		Reason:   reason,
 	}
 
-	return s.repo.CreateReport(report)
+	if err := s.repo.CreateReport(report); err != nil {
+		return err
+	}
+
+	audience, _ := s.notifier.ForRoles(context.Background(), "superadmin", "admin")
+	if len(audience) > 0 {
+		_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+			EventKey:   notification.EventSocialReviewReported,
+			Recipients: audience,
+			Data:       map[string]any{"review_id": reviewID, "reason": reason},
+		})
+	}
+
+	return nil
 }
 
 func (s *Service) SubmitUniversityReview(userID uint, req CreateUniversityReviewRequest) (*ReviewResponse, error) {

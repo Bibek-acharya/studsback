@@ -1,15 +1,19 @@
 package feedback
 
 import (
+	"context"
 	"unicode/utf8"
+
+	"studsphere/backend/internal/notification"
 )
 
 type Service struct {
-	repo *Repository
+	repo     *Repository
+	notifier notification.Notifier
 }
 
-func NewService(repo *Repository) *Service {
-	return &Service{repo: repo}
+func NewService(repo *Repository, notifier notification.Notifier) *Service {
+	return &Service{repo: repo, notifier: notifier}
 }
 
 func (s *Service) SubmitFeedback(userID uint, req CreateFeedbackRequest) (*Feedback, error) {
@@ -23,6 +27,7 @@ func (s *Service) SubmitFeedback(userID uint, req CreateFeedbackRequest) (*Feedb
 	if err := s.repo.Create(feedback); err != nil {
 		return nil, err
 	}
+	s.notifyFeedbackReceived(s.submitterName(userID, req.Email))
 	return feedback, nil
 }
 
@@ -35,6 +40,10 @@ func (s *Service) SubmitTestimonial(req CreateTestimonialRequest) (*Feedback, er
 	if err := s.repo.Create(f); err != nil {
 		return nil, err
 	}
+	if req.Name == "" {
+		req.Name = "Anonymous"
+	}
+	s.notifyFeedbackReceived(req.Name)
 	return f, nil
 }
 
@@ -48,6 +57,7 @@ func (s *Service) SubmitAuthTestimonial(userID uint, req CreateTestimonialReques
 	if err := s.repo.Create(f); err != nil {
 		return nil, err
 	}
+	s.notifyFeedbackReceived(s.submitterName(userID, ""))
 
 	responses, err := s.buildResponse([]Feedback{*f})
 	if err != nil {
@@ -142,4 +152,28 @@ func (s *Service) ListPublicFeedback(limit int) ([]FeedbackResponse, error) {
 
 func (s *Service) HasUserSubmitted(userID uint) (bool, error) {
 	return s.repo.HasUserSubmitted(userID)
+}
+
+func (s *Service) submitterName(userID uint, fallback string) string {
+	profiles, err := s.repo.GetUserProfiles([]uint{userID})
+	if err == nil {
+		if p, ok := profiles[userID]; ok && p.FirstName != "" {
+			return p.FirstName
+		}
+	}
+	if fallback != "" {
+		return fallback
+	}
+	return "Anonymous"
+}
+
+func (s *Service) notifyFeedbackReceived(name string) {
+	audience, _ := s.notifier.ForRoles(context.Background(), "superadmin", "admin")
+	if len(audience) > 0 {
+		_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+			EventKey:   notification.EventModerationFeedback,
+			Recipients: audience,
+			Data:       map[string]any{"name": name},
+		})
+	}
 }

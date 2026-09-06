@@ -50,6 +50,13 @@ const (
 	EventAccountEmailChanged           = "account.email_changed"
 	EventContentCreatedOwn             = "content.created_own"
 	EventSystemAnnouncement            = "system.announcement"
+	EventSystemInquiryReceived         = "system.inquiry_received"
+	EventSocialReviewReported          = "social.review_reported"
+	EventModerationForumReport         = "moderation.forum_report"
+	EventModerationFeedback            = "moderation.feedback_received"
+	EventSystemClaimSubmitted          = "system.claim_submitted"
+	EventSystemProviderPending         = "system.provider_pending"
+	EventSystemInstitutionPending      = "system.institution_pending"
 )
 
 type EventDef struct {
@@ -103,6 +110,13 @@ var Registry = map[string]EventDef{
 	EventAccountEmailChanged:           ev(EventAccountEmailChanged, "account", PriorityCritical, "Email Updated", "Your email was changed.", "", RecipientExplicit),
 	EventContentCreatedOwn:             ev(EventContentCreatedOwn, "content", PriorityLow, "{{.what}} Created", "Your {{.what}} \"{{.title}}\" was created.", "", RecipientExplicit),
 	EventSystemAnnouncement:            ev(EventSystemAnnouncement, "system", PriorityCritical, "{{.title}}", "{{.body}}", "{{.link}}", RecipientExplicit),
+	EventSystemInquiryReceived:         ev(EventSystemInquiryReceived, "moderation", PriorityNormal, "New Inquiry", "{{.name}} ({{.email}}): {{.subject}}", "", RecipientRole),
+	EventSocialReviewReported:          ev(EventSocialReviewReported, "moderation", PriorityNormal, "Review Reported", "Review #{{.review_id}} reported: {{.reason}}", "", RecipientRole),
+	EventModerationForumReport:         ev(EventModerationForumReport, "moderation", PriorityNormal, "Forum Content Reported", "{{.kind}} #{{.id}} reported: {{.reason}}", "", RecipientRole),
+	EventModerationFeedback:            ev(EventModerationFeedback, "moderation", PriorityLow, "New Feedback", "Feedback received from {{.name}}.", "", RecipientRole),
+	EventSystemClaimSubmitted:          ev(EventSystemClaimSubmitted, "moderation", PriorityNormal, "College Claim Submitted", "{{.college}} claimed by {{.email}}.", "", RecipientRole),
+	EventSystemProviderPending:         ev(EventSystemProviderPending, "moderation", PriorityNormal, "Provider Pending Approval", "{{.name}} registered and awaits approval.", "", RecipientRole),
+	EventSystemInstitutionPending:      ev(EventSystemInstitutionPending, "moderation", PriorityNormal, "Institution Pending Approval", "{{.name}} registered and awaits approval.", "", RecipientRole),
 }
 
 // DedupeWinOr returns the registry dedupe window or the provided default.
@@ -143,7 +157,9 @@ func ValidateRegistry() error {
 		EventCounsellingBookingRescheduled, EventAccountWelcome, EventAccountApprovalPending, EventAccountApproved,
 		EventAccountRejected, EventAccountNewLogin, EventAccountProfileIncomplete, EventAccountAccessGranted,
 		EventAccountAccessRemoved, EventAccountPasswordChanged, EventAccountEmailChanged, EventContentCreatedOwn,
-		EventSystemAnnouncement} {
+		EventSystemAnnouncement, EventSystemInquiryReceived, EventSocialReviewReported,
+		EventModerationForumReport, EventModerationFeedback, EventSystemClaimSubmitted,
+		EventSystemProviderPending, EventSystemInstitutionPending} {
 		if _, ok := Registry[k]; !ok {
 			return fmt.Errorf("constant %s missing from Registry", k)
 		}

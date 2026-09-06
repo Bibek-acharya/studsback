@@ -74,7 +74,7 @@ func TestSubmitUniversityReviewPersistsSeparateProsAndCons(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	service := NewService(NewRepository(db))
+	service := NewService(NewRepository(db), &captureNotifier{})
 	created, err := service.SubmitUniversityReview(user.ID, CreateUniversityReviewRequest{
 		UniversityID: 7,
 		Rating:       4,
@@ -120,7 +120,7 @@ func TestUpdateUniversityReview(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	service := NewService(NewRepository(db))
+	service := NewService(NewRepository(db), &captureNotifier{})
 	if _, err := service.SubmitUniversityReview(user.ID, CreateUniversityReviewRequest{
 		UniversityID: 7,
 		Rating:       4,
@@ -179,7 +179,7 @@ func TestUpdateUniversityReviewChangesOnlySuppliedFields(t *testing.T) {
 	}
 
 	pros := "Outstanding faculty"
-	updated, err := NewService(NewRepository(db)).UpdateUniversityReview(user.ID, 7, UpdateUniversityReviewRequest{Pros: &pros})
+	updated, err := NewService(NewRepository(db), &captureNotifier{}).UpdateUniversityReview(user.ID, 7, UpdateUniversityReviewRequest{Pros: &pros})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -223,7 +223,7 @@ func TestIsDuplicateReviewError(t *testing.T) {
 func TestUpdateUniversityReviewHandlerRejectsEmptyBody(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
-	service := NewService(nil)
+	service := NewService(nil, &captureNotifier{})
 	handler := NewHandler(service)
 	router.PUT("/api/v1/user/university-reviews/:universityId", func(c *gin.Context) {
 		c.Set("user_id", uint(1))
@@ -263,7 +263,7 @@ func TestUpdateUniversityReviewTranslatesSaveNotFound(t *testing.T) {
 	if err := db.Create(&user).Error; err != nil {
 		t.Fatal(err)
 	}
-	service := NewService(NewRepository(db))
+	service := NewService(NewRepository(db), &captureNotifier{})
 	created, err := service.SubmitUniversityReview(user.ID, CreateUniversityReviewRequest{
 		UniversityID: 7,
 		Rating:       4,

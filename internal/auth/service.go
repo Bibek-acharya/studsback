@@ -584,6 +584,17 @@ func (s *Service) InstitutionRegister(req InstitutionRegisterRequest) (*Register
 
 	utils.StoreOTP(req.Email, otp, institutionUser)
 
+	if notifierInstance != nil {
+		audience, _ := notifierInstance.ForRoles(context.Background(), "superadmin", "admin")
+		if len(audience) > 0 {
+			_ = notifierInstance.Notify(context.Background(), notification.NotifyRequest{
+				EventKey:   notification.EventSystemInstitutionPending,
+				Recipients: audience,
+				Data:       map[string]any{"name": institutionUser.InstitutionName},
+			})
+		}
+	}
+
 	return &RegisterResponse{
 		Email:       institutionUser.Email,
 		RequiresOTP: true,
@@ -695,6 +706,17 @@ func (s *Service) ScholarshipProviderRegister(req ScholarshipProviderRegisterReq
 	}
 
 	utils.StoreOTP(req.Email, otp, providerUser)
+
+	if notifierInstance != nil {
+		audience, _ := notifierInstance.ForRoles(context.Background(), "superadmin", "admin")
+		if len(audience) > 0 {
+			_ = notifierInstance.Notify(context.Background(), notification.NotifyRequest{
+				EventKey:   notification.EventSystemProviderPending,
+				Recipients: audience,
+				Data:       map[string]any{"name": providerUser.ProviderName},
+			})
+		}
+	}
 
 	return &RegisterResponse{
 		Email:       providerUser.Email,
@@ -1162,6 +1184,21 @@ func (s *Service) ClaimRegister(req ClaimRegisterRequest) (*RegisterResponse, er
 		return nil, errors.New("Failed to generate OTP")
 	}
 	utils.StoreOTP(req.Email, otp, institutionUser)
+
+	if notifierInstance != nil {
+		audience, _ := notifierInstance.ForRoles(context.Background(), "superadmin", "admin")
+		if len(audience) > 0 {
+			collegeName := fmt.Sprintf("college #%d", req.CollegeID)
+			if c, err := s.repo.FindCollegeByID(req.CollegeID); err == nil && c.Name != "" {
+				collegeName = c.Name
+			}
+			_ = notifierInstance.Notify(context.Background(), notification.NotifyRequest{
+				EventKey:   notification.EventSystemClaimSubmitted,
+				Recipients: audience,
+				Data:       map[string]any{"college": collegeName, "email": req.Email},
+			})
+		}
+	}
 
 	return &RegisterResponse{Email: req.Email, RequiresOTP: true}, nil
 }

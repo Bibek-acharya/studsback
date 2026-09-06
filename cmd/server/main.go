@@ -304,8 +304,8 @@ func main() {
 
 	logger.Info("Initializing module handlers...")
 	systemRepo := system.NewRepository(db)
-	systemSvc := system.NewService(systemRepo)
 	notificationSvc := notification.NewService(db)
+	systemSvc := system.NewService(systemRepo, notificationSvc)
 
 	institutionRepo := institution.NewRepository(db)
 	admissionSvc := admission.NewService(admission.NewRepository(db), notificationSvc)
@@ -321,16 +321,16 @@ func main() {
 	educationSvc := education.NewService(educationRepo, instProgramAdapter, systemSvc)
 	educationHandler := education.NewHandler(educationSvc)
 
-	feedbackHandler := initModule(feedback.NewRepository(db), feedback.NewService, feedback.NewHandler)
+	feedbackHandler := feedback.NewHandler(feedback.NewService(feedback.NewRepository(db), notificationSvc))
 
-	forumHandler := initModule(forum.NewRepository(db), forum.NewService, forum.NewHandler)
+	forumHandler := forum.NewHandler(forum.NewService(forum.NewRepository(db), notificationSvc))
 
 	institutionSvc := institution.NewService(institutionRepo, educationRepo, systemSvc, notificationSvc)
 	institutionHandler := institution.NewHandler(institutionSvc, systemSvc)
 
 	projectShikshaHandler := initModule(projectshiksha.NewRepository(db), projectshiksha.NewService, projectshiksha.NewHandler)
 	faqHandler := initModule(faq.NewRepository(db), faq.NewService, faq.NewHandler)
-	reviewHandler := initModule(review.NewRepository(db), review.NewService, review.NewHandler)
+	reviewHandler := review.NewHandler(review.NewService(review.NewRepository(db), notificationSvc))
 	scholarshipRepo := scholarship.NewRepository(db)
 	scholarshipSvc := scholarship.NewService(scholarshipRepo, db, systemSvc, notificationSvc)
 	scholarshipHandler := scholarship.NewHandler(scholarshipSvc, scholarship.NewPaymentService(db, notificationSvc))
