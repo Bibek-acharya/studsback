@@ -42,7 +42,7 @@ type AccountNotification struct {
 func (AccountNotification) TableName() string { return "account_notifications" }
 
 type NotificationOutbox struct {
-	ID             uint           `gorm:"primarykey"`
+	ID             uint `gorm:"primarykey"`
 	CreatedAt      time.Time
 	AvailableAt    time.Time
 	ClaimedAt      *time.Time
@@ -59,7 +59,7 @@ type NotificationOutbox struct {
 func (NotificationOutbox) TableName() string { return "notification_outbox" }
 
 type NotificationBroadcast struct {
-	ID               uint           `gorm:"primarykey"`
+	ID               uint `gorm:"primarykey"`
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
 	Title            string         `gorm:"size:200;not null"`
@@ -77,11 +77,11 @@ type NotificationBroadcast struct {
 }
 
 type NotificationDedupeLease struct {
-	ID              uint      `gorm:"primarykey"`
+	ID              uint `gorm:"primarykey"`
 	CreatedAt       time.Time
-	AccountType     string    `gorm:"size:20;not null"`
-	AccountID       uint      `gorm:"not null"`
-	DedupeKey       string    `gorm:"size:200;not null"`
+	AccountType     string `gorm:"size:20;not null"`
+	AccountID       uint   `gorm:"not null"`
+	DedupeKey       string `gorm:"size:200;not null"`
 	NotificationID  *uint
 	ExpiresAt       time.Time `gorm:"index"`
 	SupersededCount int       `gorm:"default:0"`
