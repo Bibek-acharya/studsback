@@ -57,3 +57,6 @@ Thumbs.db
 
 # SDD worktrees (isolated implementation workspaces)
 .worktrees/
+
+# SDD review packages (scratch)
+.superpowers/
