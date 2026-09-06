@@ -54,3 +54,6 @@ go.work
 .DS_Store
 Thumbs.db
 /docs/
+
+# SDD worktrees (isolated implementation workspaces)
+.worktrees/
