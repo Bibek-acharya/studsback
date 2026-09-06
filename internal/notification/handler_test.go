@@ -171,8 +171,10 @@ func providerRouter(h *Handler, providerID uint) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	r.Use(func(c *gin.Context) {
+		// Distinct values (real middleware sets user_id = users-table ID,
+		// provider_id = claims.ProviderID) prove the proxy scopes by provider_id.
 		c.Set("user_role", "scholarship_provider")
-		c.Set("user_id", providerID)
+		c.Set("user_id", providerID*10)
 		c.Set("provider_id", providerID)
 		c.Next()
 	})

@@ -163,7 +163,7 @@ func toItem(r AccountNotification, accountType string, accountID uint) Notificat
 func (h *Handler) providerList(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
-	rows, total, unread, err := h.svc.repo.ListInbox("provider", c.GetUint("user_id"), page, limit, "", false, false)
+	rows, total, unread, err := h.svc.repo.ListInbox("provider", c.GetUint("provider_id"), page, limit, "", false, false)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -183,7 +183,7 @@ func (h *Handler) providerList(c *gin.Context) {
 
 func (h *Handler) providerMarkRead(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	n, err := h.svc.repo.MarkRead("provider", c.GetUint("user_id"), uint(id))
+	n, err := h.svc.repo.MarkRead("provider", c.GetUint("provider_id"), uint(id))
 	if err != nil || n == 0 {
 		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 		return
@@ -192,7 +192,7 @@ func (h *Handler) providerMarkRead(c *gin.Context) {
 }
 
 func (h *Handler) providerMarkAllRead(c *gin.Context) {
-	n, err := h.svc.repo.MarkAllRead("provider", c.GetUint("user_id"))
+	n, err := h.svc.repo.MarkAllRead("provider", c.GetUint("provider_id"))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
