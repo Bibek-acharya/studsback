@@ -71,52 +71,55 @@ type EventDef struct {
 	DedupeWin     time.Duration
 	ReNudge       bool
 	RecipientKind string
+	EmailDefault  bool   // true = email channel ON by default (doc 06 per-event channels)
+	EmailTmpl     string // emailqueue template id; "" = generic render from Title/Body
 }
 
-func ev(key, category, priority, title, body, link, recipientKind string) EventDef {
+func ev(key, category, priority, title, body, link, recipientKind string, emailDefault bool, emailTmpl string) EventDef {
 	return EventDef{Key: key, Category: category, Priority: priority,
-		TitleTpl: title, BodyTpl: body, LinkTpl: link, RecipientKind: recipientKind}
+		TitleTpl: title, BodyTpl: body, LinkTpl: link, RecipientKind: recipientKind,
+		EmailDefault: emailDefault, EmailTmpl: emailTmpl}
 }
 
 // P1 keys. Email defaults are inert until P2 (no email channel in P1).
 // Full registry incl. P2 keys: docs/notification-system/06-notification-taxonomy.md
 var Registry = map[string]EventDef{
-	EventApplicationReceived:           ev(EventApplicationReceived, "application", PriorityNormal, "New Application Received", "{{if .student_name}}{{.student_name}} applied{{else}}A new application was received{{end}}{{if .program}} for {{.program}}{{end}}.", "", RecipientExplicit),
-	EventApplicationStatusChanged:      ev(EventApplicationStatusChanged, "application", PriorityCritical, "Application Status Updated", "Your application{{if .program}} for {{.program}}{{end}} moved to {{.status}}.", "/user/dashboard/applications", RecipientExplicit),
-	EventApplicationSubmitted:          ev(EventApplicationSubmitted, "application", PriorityNormal, "Application Submitted", "Your application was submitted successfully.", "/user/dashboard/applications", RecipientExplicit),
-	EventApplicationInterviewScheduled: ev(EventApplicationInterviewScheduled, "scholarship", PriorityCritical, "Interview Scheduled", "An interview has been scheduled for your application{{if .scholarship}} for {{.scholarship}}{{end}}.", "/user/dashboard/applications", RecipientExplicit),
-	EventApplicationShortlisted:        ev(EventApplicationShortlisted, "application", PriorityCritical, "Application Shortlisted", "Congratulations — your application{{if .program}} for {{.program}}{{end}} was shortlisted.", "/user/dashboard/applications", RecipientExplicit),
-	EventApplicationApproved:           ev(EventApplicationApproved, "application", PriorityCritical, "Application Approved", "Your application{{if .program}} for {{.program}}{{end}} was approved.", "/user/dashboard/applications", RecipientExplicit),
-	EventApplicationRejected:           ev(EventApplicationRejected, "application", PriorityCritical, "Application Update", "Your application{{if .program}} for {{.program}}{{end}} was not successful this time.", "/user/dashboard/applications", RecipientExplicit),
-	EventScholarshipAdmitCardReady:     ev(EventScholarshipAdmitCardReady, "scholarship", PriorityCritical, "Admit Card Ready", "Your admit card is ready to download.", "/user/dashboard/applications", RecipientExplicit),
-	EventScholarshipPaymentReceived:    ev(EventScholarshipPaymentReceived, "scholarship", PriorityCritical, "Payment Received", "Payment confirmed for {{.scholarship}}.", "", RecipientExplicit),
-	EventScholarshipPaymentFailed:      ev(EventScholarshipPaymentFailed, "scholarship", PriorityCritical, "Payment Failed", "Your payment for {{.scholarship}} did not go through. Please retry.", "/scholarship-pay/{{.slug}}", RecipientExplicit),
-	EventScholarshipBankApproved:       ev(EventScholarshipBankApproved, "scholarship", PriorityCritical, "Bank Payment Approved", "Your bank payment was approved. Your admit card has been issued.", "/user/dashboard/applications", RecipientExplicit),
-	EventScholarshipBankRejected:       ev(EventScholarshipBankRejected, "scholarship", PriorityCritical, "Bank Payment Rejected", "Your bank payment was rejected{{if .reason}}: {{.reason}}{{end}}.", "/user/dashboard/applications", RecipientExplicit),
-	EventScholarshipBankReceipt:        ev(EventScholarshipBankReceipt, "scholarship", PriorityNormal, "Bank Receipt Submitted", "A bank receipt was uploaded for {{.scholarship}}.", "", RecipientExplicit),
-	EventCounsellingBookingCreated:     ev(EventCounsellingBookingCreated, "counselling", PriorityNormal, "New Counselling Booking", "{{if .student_name}}{{.student_name}} requested a session{{else}}A new session was requested{{end}}{{if .when}} on {{.when}}{{end}}.", "", RecipientExplicit),
-	EventCounsellingBookingConfirmed:   ev(EventCounsellingBookingConfirmed, "counselling", PriorityNormal, "Counselling Confirmed", "Your counselling session was confirmed.", "/user/dashboard", RecipientExplicit),
-	EventCounsellingBookingCancelled:   ev(EventCounsellingBookingCancelled, "counselling", PriorityCritical, "Counselling Cancelled", "Your counselling session was cancelled.", "/user/dashboard", RecipientExplicit),
-	EventCounsellingBookingRescheduled: ev(EventCounsellingBookingRescheduled, "counselling", PriorityCritical, "Counselling Rescheduled", "Your counselling session was moved{{if .when}} to {{.when}}{{end}}.", "/user/dashboard", RecipientExplicit),
-	EventAccountWelcome:                ev(EventAccountWelcome, "account", PriorityNormal, "Welcome to StudsSphere", "Your account is ready.", "/user/dashboard", RecipientExplicit),
-	EventAccountApprovalPending:        ev(EventAccountApprovalPending, "account", PriorityNormal, "Account Under Review", "Your registration is being reviewed. We will notify you once approved.", "", RecipientExplicit),
-	EventAccountApproved:               ev(EventAccountApproved, "account", PriorityCritical, "Account Approved", "Your account has been approved. Welcome!", "", RecipientExplicit),
-	EventAccountRejected:               ev(EventAccountRejected, "account", PriorityCritical, "Account Not Approved", "Your account was not approved.", "", RecipientExplicit),
-	EventAccountNewLogin:               ev(EventAccountNewLogin, "account", PriorityNormal, "New Login", "Access user {{.email}} logged in.", "", RecipientExplicit),
-	EventAccountProfileIncomplete:      ev(EventAccountProfileIncomplete, "account", PriorityLow, "Profile Incomplete", "Complete your profile to appear in more results.", "", RecipientExplicit),
-	EventAccountAccessGranted:          ev(EventAccountAccessGranted, "account", PriorityNormal, "Access Granted", "Access has been granted to {{.email}}.", "", RecipientExplicit),
-	EventAccountAccessRemoved:          ev(EventAccountAccessRemoved, "account", PriorityNormal, "Access Removed", "Access was removed for {{.email}}.", "", RecipientExplicit),
-	EventAccountPasswordChanged:        ev(EventAccountPasswordChanged, "account", PriorityCritical, "Password Changed", "Your password was changed.", "", RecipientExplicit),
-	EventAccountEmailChanged:           ev(EventAccountEmailChanged, "account", PriorityCritical, "Email Updated", "Your email was changed.", "", RecipientExplicit),
-	EventContentCreatedOwn:             ev(EventContentCreatedOwn, "content", PriorityLow, "{{.what}} Created", "Your {{.what}} \"{{.title}}\" was created.", "", RecipientExplicit),
-	EventSystemAnnouncement:            ev(EventSystemAnnouncement, "system", PriorityCritical, "{{.title}}", "{{.body}}", "{{.link}}", RecipientExplicit),
-	EventSystemInquiryReceived:         ev(EventSystemInquiryReceived, "moderation", PriorityNormal, "New Inquiry", "{{.name}} ({{.email}}): {{.subject}}", "", RecipientRole),
-	EventSocialReviewReported:          ev(EventSocialReviewReported, "moderation", PriorityNormal, "Review Reported", "Review #{{.review_id}} reported: {{.reason}}", "", RecipientRole),
-	EventModerationForumReport:         ev(EventModerationForumReport, "moderation", PriorityNormal, "Forum Content Reported", "{{.kind}} #{{.id}} reported: {{.reason}}", "", RecipientRole),
-	EventModerationFeedback:            ev(EventModerationFeedback, "moderation", PriorityLow, "New Feedback", "Feedback received from {{.name}}.", "", RecipientRole),
-	EventSystemClaimSubmitted:          ev(EventSystemClaimSubmitted, "moderation", PriorityNormal, "College Claim Submitted", "{{.college}} claimed by {{.email}}.", "", RecipientRole),
-	EventSystemProviderPending:         ev(EventSystemProviderPending, "moderation", PriorityNormal, "Provider Pending Approval", "{{.name}} registered and awaits approval.", "", RecipientRole),
-	EventSystemInstitutionPending:      ev(EventSystemInstitutionPending, "moderation", PriorityNormal, "Institution Pending Approval", "{{.name}} registered and awaits approval.", "", RecipientRole),
+	EventApplicationReceived:           ev(EventApplicationReceived, "application", PriorityNormal, "New Application Received", "{{if .student_name}}{{.student_name}} applied{{else}}A new application was received{{end}}{{if .program}} for {{.program}}{{end}}.", "", RecipientExplicit, false, ""),
+	EventApplicationStatusChanged:      ev(EventApplicationStatusChanged, "application", PriorityCritical, "Application Status Updated", "Your application{{if .program}} for {{.program}}{{end}} moved to {{.status}}.", "/user/dashboard/applications", RecipientExplicit, true, ""),
+	EventApplicationSubmitted:          ev(EventApplicationSubmitted, "application", PriorityNormal, "Application Submitted", "Your application was submitted successfully.", "/user/dashboard/applications", RecipientExplicit, false, ""),
+	EventApplicationInterviewScheduled: ev(EventApplicationInterviewScheduled, "scholarship", PriorityCritical, "Interview Scheduled", "An interview has been scheduled for your application{{if .scholarship}} for {{.scholarship}}{{end}}.", "/user/dashboard/applications", RecipientExplicit, true, ""),
+	EventApplicationShortlisted:        ev(EventApplicationShortlisted, "application", PriorityCritical, "Application Shortlisted", "Congratulations — your application{{if .program}} for {{.program}}{{end}} was shortlisted.", "/user/dashboard/applications", RecipientExplicit, true, ""),
+	EventApplicationApproved:           ev(EventApplicationApproved, "application", PriorityCritical, "Application Approved", "Your application{{if .program}} for {{.program}}{{end}} was approved.", "/user/dashboard/applications", RecipientExplicit, true, ""),
+	EventApplicationRejected:           ev(EventApplicationRejected, "application", PriorityCritical, "Application Update", "Your application{{if .program}} for {{.program}}{{end}} was not successful this time.", "/user/dashboard/applications", RecipientExplicit, true, ""),
+	EventScholarshipAdmitCardReady:     ev(EventScholarshipAdmitCardReady, "scholarship", PriorityCritical, "Admit Card Ready", "Your admit card is ready to download.", "/user/dashboard/applications", RecipientExplicit, true, ""),
+	EventScholarshipPaymentReceived:    ev(EventScholarshipPaymentReceived, "scholarship", PriorityCritical, "Payment Received", "Payment confirmed for {{.scholarship}}.", "", RecipientExplicit, true, ""),
+	EventScholarshipPaymentFailed:      ev(EventScholarshipPaymentFailed, "scholarship", PriorityCritical, "Payment Failed", "Your payment for {{.scholarship}} did not go through. Please retry.", "/scholarship-pay/{{.slug}}", RecipientExplicit, true, ""),
+	EventScholarshipBankApproved:       ev(EventScholarshipBankApproved, "scholarship", PriorityCritical, "Bank Payment Approved", "Your bank payment was approved. Your admit card has been issued.", "/user/dashboard/applications", RecipientExplicit, true, ""),
+	EventScholarshipBankRejected:       ev(EventScholarshipBankRejected, "scholarship", PriorityCritical, "Bank Payment Rejected", "Your bank payment was rejected{{if .reason}}: {{.reason}}{{end}}.", "/user/dashboard/applications", RecipientExplicit, true, ""),
+	EventScholarshipBankReceipt:        ev(EventScholarshipBankReceipt, "scholarship", PriorityNormal, "Bank Receipt Submitted", "A bank receipt was uploaded for {{.scholarship}}.", "", RecipientExplicit, true, ""),
+	EventCounsellingBookingCreated:     ev(EventCounsellingBookingCreated, "counselling", PriorityNormal, "New Counselling Booking", "{{if .student_name}}{{.student_name}} requested a session{{else}}A new session was requested{{end}}{{if .when}} on {{.when}}{{end}}.", "", RecipientExplicit, false, ""),
+	EventCounsellingBookingConfirmed:   ev(EventCounsellingBookingConfirmed, "counselling", PriorityNormal, "Counselling Confirmed", "Your counselling session was confirmed.", "/user/dashboard", RecipientExplicit, true, ""),
+	EventCounsellingBookingCancelled:   ev(EventCounsellingBookingCancelled, "counselling", PriorityCritical, "Counselling Cancelled", "Your counselling session was cancelled.", "/user/dashboard", RecipientExplicit, true, ""),
+	EventCounsellingBookingRescheduled: ev(EventCounsellingBookingRescheduled, "counselling", PriorityCritical, "Counselling Rescheduled", "Your counselling session was moved{{if .when}} to {{.when}}{{end}}.", "/user/dashboard", RecipientExplicit, true, ""),
+	EventAccountWelcome:                ev(EventAccountWelcome, "account", PriorityNormal, "Welcome to StudsSphere", "Your account is ready.", "/user/dashboard", RecipientExplicit, true, "welcome"),
+	EventAccountApprovalPending:        ev(EventAccountApprovalPending, "account", PriorityNormal, "Account Under Review", "Your registration is being reviewed. We will notify you once approved.", "", RecipientExplicit, false, ""),
+	EventAccountApproved:               ev(EventAccountApproved, "account", PriorityCritical, "Account Approved", "Your account has been approved. Welcome!", "", RecipientExplicit, true, ""),
+	EventAccountRejected:               ev(EventAccountRejected, "account", PriorityCritical, "Account Not Approved", "Your account was not approved.", "", RecipientExplicit, true, ""),
+	EventAccountNewLogin:               ev(EventAccountNewLogin, "account", PriorityNormal, "New Login", "Access user {{.email}} logged in.", "", RecipientExplicit, false, ""),
+	EventAccountProfileIncomplete:      ev(EventAccountProfileIncomplete, "account", PriorityLow, "Profile Incomplete", "Complete your profile to appear in more results.", "", RecipientExplicit, false, ""),
+	EventAccountAccessGranted:          ev(EventAccountAccessGranted, "account", PriorityNormal, "Access Granted", "Access has been granted to {{.email}}.", "", RecipientExplicit, false, ""),
+	EventAccountAccessRemoved:          ev(EventAccountAccessRemoved, "account", PriorityNormal, "Access Removed", "Access was removed for {{.email}}.", "", RecipientExplicit, false, ""),
+	EventAccountPasswordChanged:        ev(EventAccountPasswordChanged, "account", PriorityCritical, "Password Changed", "Your password was changed.", "", RecipientExplicit, true, ""),
+	EventAccountEmailChanged:           ev(EventAccountEmailChanged, "account", PriorityCritical, "Email Updated", "Your email was changed.", "", RecipientExplicit, true, ""),
+	EventContentCreatedOwn:             ev(EventContentCreatedOwn, "content", PriorityLow, "{{.what}} Created", "Your {{.what}} \"{{.title}}\" was created.", "", RecipientExplicit, false, ""),
+	EventSystemAnnouncement:            ev(EventSystemAnnouncement, "system", PriorityCritical, "{{.title}}", "{{.body}}", "{{.link}}", RecipientExplicit, false, ""),
+	EventSystemInquiryReceived:         ev(EventSystemInquiryReceived, "moderation", PriorityNormal, "New Inquiry", "{{.name}} ({{.email}}): {{.subject}}", "", RecipientRole, true, ""),
+	EventSocialReviewReported:          ev(EventSocialReviewReported, "moderation", PriorityNormal, "Review Reported", "Review #{{.review_id}} reported: {{.reason}}", "", RecipientRole, true, ""),
+	EventModerationForumReport:         ev(EventModerationForumReport, "moderation", PriorityNormal, "Forum Content Reported", "{{.kind}} #{{.id}} reported: {{.reason}}", "", RecipientRole, true, ""),
+	EventModerationFeedback:            ev(EventModerationFeedback, "moderation", PriorityLow, "New Feedback", "Feedback received from {{.name}}.", "", RecipientRole, false, ""),
+	EventSystemClaimSubmitted:          ev(EventSystemClaimSubmitted, "moderation", PriorityNormal, "College Claim Submitted", "{{.college}} claimed by {{.email}}.", "", RecipientRole, false, ""),
+	EventSystemProviderPending:         ev(EventSystemProviderPending, "moderation", PriorityNormal, "Provider Pending Approval", "{{.name}} registered and awaits approval.", "", RecipientRole, false, ""),
+	EventSystemInstitutionPending:      ev(EventSystemInstitutionPending, "moderation", PriorityNormal, "Institution Pending Approval", "{{.name}} registered and awaits approval.", "", RecipientRole, false, ""),
 }
 
 // DedupeWinOr returns the registry dedupe window or the provided default.

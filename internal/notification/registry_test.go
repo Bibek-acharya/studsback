@@ -47,6 +47,18 @@ func TestUnknownKeyFailsLookup(t *testing.T) {
 	}
 }
 
+func TestRegistryEmailDefaults(t *testing.T) {
+	if err := ValidateRegistry(); err != nil {
+		t.Fatal(err)
+	}
+	for key, def := range Registry {
+		_ = def.EmailDefault // bool is always "set"
+		if key == EventAccountWelcome && def.EmailTmpl == "" {
+			t.Errorf("%s: expected EmailTmpl set for welcome email", key)
+		}
+	}
+}
+
 func TestCriticalKeysAreCritical(t *testing.T) {
 	for _, key := range []string{"application.status_changed", "application.interview_scheduled",
 		"scholarship.payment_failed", "counselling.booking_cancelled", "account.approved"} {
