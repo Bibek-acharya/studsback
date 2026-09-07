@@ -229,3 +229,35 @@ func TestProcessTaskSkipsPrefOff(t *testing.T) {
 		t.Errorf("expected skipped, got %s", delivery.Status)
 	}
 }
+
+func TestReopenExpiredDeliveriesSweep(t *testing.T) {
+	db := testDB(t)
+	repo := NewRepository(db)
+
+	inbox := AccountNotification{
+		AccountType: "user", AccountID: 42, EventKey: EventApplicationStatusChanged,
+		Category: "application", Title: "t", Body: "b",
+	}
+	db.Create(&inbox)
+	db.Create(&NotificationDelivery{
+		NotificationID: &inbox.ID, DeliveryKind: "notification",
+		DeliveryKey: fmt.Sprintf("%d:email", inbox.ID),
+		AccountType: "user", AccountID: 42, Channel: "email",
+		Status: "dispatching", CorrelationID: "corr-sweep",
+	})
+	// Simulate a crashed worker: lease already expired.
+	db.Exec(`UPDATE notification_deliveries SET dispatch_expires_at = now() - interval '1 minute'`)
+
+	n, err := repo.ReopenExpiredDeliveries()
+	if err != nil || n != 1 {
+		t.Fatalf("reopen: %v %d", err, n)
+	}
+	var d NotificationDelivery
+	db.Where("correlation_id = ?", "corr-sweep").First(&d)
+	if d.Status != "pending" {
+		t.Errorf("expected pending after sweep, got %s", d.Status)
+	}
+	if d.DispatchExpiresAt != nil {
+		t.Error("expected dispatch_expires_at cleared")
+	}
+}
