@@ -1,4 +1,6 @@
--- migrations/20260903-notification-backfill.sql
+-- migrations/20260903-03-notification-backfill.sql
+-- Applies AFTER tables (…-01) and indexes (…-02): its ON CONFLICT target
+-- needs uq_an_occurrence from the indexes file.
 -- Students: legacy `notifications` → account_notifications (user,…)
 -- Note: the ON CONFLICT predicate must imply uq_an_occurrence's predicate,
 -- which is `occurrence_key <> '' AND deleted_at IS NULL`.

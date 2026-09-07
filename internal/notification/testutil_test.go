@@ -28,8 +28,8 @@ func testDB(t *testing.T) *gorm.DB {
 	// Apply the shipped SQL migrations so tests verify the real schema —
 	// AutoMigrate cannot create the composite/partial indexes below.
 	for _, f := range []string{
-		"../../migrations/20260903-notification-tables.sql",
-		"../../migrations/20260903-notification-indexes.sql",
+		"../../migrations/20260903-01-notification-tables.sql",
+		"../../migrations/20260903-02-notification-indexes.sql",
 	} {
 		sql, err := os.ReadFile(f)
 		if err != nil {
