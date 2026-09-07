@@ -312,6 +312,45 @@ func (r *Repository) EmailForAccount(accountType string, accountID uint) (string
 	}
 }
 
+// ClaimDelivery CAS: pending → dispatching with a reservation lease.
+// Returns false if the row is no longer pending (already claimed/skipped).
+func (r *Repository) ClaimDelivery(id uint, token string, expiry time.Duration) (bool, error) {
+	res := r.db.Exec(`UPDATE notification_deliveries
+		SET status = 'dispatching', dispatch_expires_at = now() + make_interval(secs => ?),
+		    attempts = attempts + 1
+		WHERE id = ? AND status = 'pending'`,
+		expiry.Seconds(), id)
+	return res.RowsAffected > 0, res.Error
+}
+
+// CompleteDelivery sets a delivery's terminal status (handed_off | failed |
+// skipped) or reverts it to pending; sent_at is stamped on hand-off.
+func (r *Repository) CompleteDelivery(id uint, status string, errMsg string) error {
+	updates := map[string]any{"status": status, "error": errMsg}
+	if status == "handed_off" {
+		updates["sent_at"] = time.Now()
+	}
+	return r.db.Model(&NotificationDelivery{}).Where("id = ?", id).Updates(updates).Error
+}
+
+// ReopenExpiredDeliveries resets dispatching rows whose lease expired → pending
+// (recovery sweep for crashed workers).
+func (r *Repository) ReopenExpiredDeliveries() (int64, error) {
+	res := r.db.Exec(`UPDATE notification_deliveries
+		SET status = 'pending', dispatch_expires_at = NULL
+		WHERE status = 'dispatching' AND dispatch_expires_at < now()`)
+	return res.RowsAffected, res.Error
+}
+
+// PendingDeliveriesForOutbox returns pending/stale-dispatching email deliveries
+// for the given correlation IDs (one NotifyRequest correlation per outbox row).
+func (r *Repository) PendingDeliveriesForOutbox(correlationIDs []string) ([]NotificationDelivery, error) {
+	var deliveries []NotificationDelivery
+	err := r.db.Where(`channel = 'email' AND status IN ('pending', 'dispatching')
+		AND correlation_id IN (?)`, correlationIDs).Find(&deliveries).Error
+	return deliveries, err
+}
+
 func clampInt(v, lo, hi int) int {
 	if v < lo {
 		return lo

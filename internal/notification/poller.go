@@ -38,6 +38,8 @@ func startPoller(svc *Service, interval time.Duration) (stop func()) {
 }
 
 func tick(svc *Service) {
+	// Recovery sweep: re-open expired delivery reservations (crashed workers).
+	_, _ = svc.repo.ReopenExpiredDeliveries()
 	rows, token, err := svc.repo.ClaimDueOutbox(50)
 	if err != nil || len(rows) == 0 {
 		return

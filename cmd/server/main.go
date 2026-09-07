@@ -283,6 +283,11 @@ func main() {
 		// This must happen before StartWorker so the handler is registered on the mux.
 		emailqueue.RegisterHandler(emailqueue.TypeSendAdmitCard, scholarship.HandleAdmitCardTask)
 
+		// Notification worker handlers: outbox dispatch → email delivery.
+		notification.InitWorker(notification.NewService(db), notification.NewRepository(db), db)
+		emailqueue.RegisterHandler(notification.TaskTypeProcess, notification.HandleProcessTask)
+		emailqueue.RegisterHandler(notification.TaskTypeEmailDeliver, notification.HandleEmailDeliverTask)
+
 		go func() {
 			if err := emailqueue.StartWorker(); err != nil {
 				logger.Error("Failed to start email worker", "error", err)
