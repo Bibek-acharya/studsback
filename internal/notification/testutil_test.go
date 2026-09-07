@@ -41,6 +41,26 @@ func testDB(t *testing.T) *gorm.DB {
 			t.Fatalf("apply migration %s: %v", f, err)
 		}
 	}
+	// Account tables the tests seed or query (audience UNION, ForRoles,
+	// EmailForAccount). The real models live in packages that import
+	// notification (auth, institution, scholarshipprovider) — AutoMigrating
+	// them here would be an import cycle, hence minimal SQL twins.
+	db.Exec(`CREATE TABLE IF NOT EXISTS users (
+		id bigserial PRIMARY KEY,
+		email text,
+		first_name text,
+		last_name text,
+		role text DEFAULT 'student',
+		status text DEFAULT 'active',
+		deleted_at timestamptz,
+		created_at timestamptz,
+		updated_at timestamptz)`)
+	db.Exec(`CREATE TABLE IF NOT EXISTS institution_users (
+		id bigserial PRIMARY KEY,
+		status text, deleted_at timestamptz)`)
+	db.Exec(`CREATE TABLE IF NOT EXISTS scholarship_provider_users (
+		id bigserial PRIMARY KEY,
+		status text, deleted_at timestamptz)`)
 	t.Cleanup(func() {
 		db.Exec(`TRUNCATE account_notifications, notification_outbox, notification_broadcasts, notification_dedupe_leases, notification_preferences, notification_deliveries`)
 	})

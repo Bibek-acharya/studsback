@@ -217,15 +217,9 @@ func TestProviderProxyServesLegacyShape(t *testing.T) {
 
 func TestBroadcastCreatesCampaignAndFansOut(t *testing.T) {
 	db := testDB(t)
-	// The shared test DB only carries the notification tables + users. The
-	// audience query unions the institution/provider account tables — create
-	// minimal stubs when absent (real deployments have the full schema).
-	// Never DROP them: other packages' tests share this DSN and use the real
-	// tables. This test only reads the stubs, so no row cleanup is needed.
-	db.Exec(`CREATE TABLE IF NOT EXISTS institution_users (id bigserial PRIMARY KEY, status text, deleted_at timestamptz)`)
-	db.Exec(`CREATE TABLE IF NOT EXISTS scholarship_provider_users (id bigserial PRIMARY KEY, status text, deleted_at timestamptz)`)
-	// first_name/last_name are NOT NULL without defaults in the real schema
-	// (same adaptation as TestRecipientsForRoleIncludesBothSuperadminSpellings).
+	// The audience query unions the institution/provider account tables —
+	// minimal stubs are created by testDB (this test only reads them, so no
+	// row cleanup is needed).
 	db.Exec(`INSERT INTO users (email, first_name, last_name, role, status, created_at, updated_at) VALUES
 		('notif-u1@test.local','Notif','U1','student','active',now(),now()),
 		('notif-u2@test.local','Notif','U2','student','active',now(),now())`)

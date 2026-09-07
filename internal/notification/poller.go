@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	TaskTypeProcess     = "notification:process"
+	TaskTypeProcess      = "notification:process"
 	TaskTypeEmailDeliver = "email:deliver"
 )
 

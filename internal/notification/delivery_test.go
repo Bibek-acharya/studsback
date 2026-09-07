@@ -307,7 +307,7 @@ func TestReopenExpiredDeliveriesSweep(t *testing.T) {
 		Status: "dispatching", CorrelationID: "corr-sweep",
 	})
 	// Simulate a crashed worker: lease already expired.
-	db.Exec(`UPDATE notification_deliveries SET dispatch_expires_at = now() - interval '1 minute'`)
+	db.Exec(`UPDATE notification_deliveries SET dispatch_expires_at = now() - interval '1 minute' WHERE correlation_id = 'corr-sweep'`)
 
 	n, err := repo.ReopenExpiredDeliveries()
 	if err != nil || n != 1 {

@@ -63,10 +63,8 @@ func TestLeaseExpiryReclaimsAbandonedRow(t *testing.T) {
 // expand the campaign's audience and only then mark the row done.
 func TestPollerExpandsFanoutRow(t *testing.T) {
 	db := testDB(t)
-	// Audience stubs — same adaptation as TestBroadcastCreatesCampaignAndFansOut
-	// (the shared test DB only carries the notification tables + users).
-	db.Exec(`CREATE TABLE IF NOT EXISTS institution_users (id bigserial PRIMARY KEY, status text, deleted_at timestamptz)`)
-	db.Exec(`CREATE TABLE IF NOT EXISTS scholarship_provider_users (id bigserial PRIMARY KEY, status text, deleted_at timestamptz)`)
+	// Account stubs come from testDB (same adaptation as
+	// TestBroadcastCreatesCampaignAndFansOut).
 	db.Exec(`INSERT INTO users (email, first_name, last_name, role, status, created_at, updated_at) VALUES
 		('poller-fan@test.local','Poller','Fan','student','active',now(),now())`)
 	t.Cleanup(func() { db.Exec(`DELETE FROM users WHERE email = 'poller-fan@test.local'`) })
