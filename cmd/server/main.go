@@ -217,6 +217,7 @@ func main() {
 		&search.SearchHistory{},
 		notification.AccountNotification{}, notification.NotificationOutbox{},
 		notification.NotificationBroadcast{}, notification.NotificationDedupeLease{},
+		notification.NotificationPreference{},
 		notification.PublicNotification{},
 	); err != nil {
 		logger.Fatal("Failed to migrate database", "error", err)

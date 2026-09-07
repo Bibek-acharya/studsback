@@ -21,3 +21,20 @@ func TestSchemaHasRequiredTablesAndIndexes(t *testing.T) {
 		}
 	}
 }
+
+func TestSchemaHasPreferencesTable(t *testing.T) {
+	db := testDB(t)
+	var count int64
+	db.Raw(`SELECT count(*) FROM information_schema.tables
+		WHERE table_name = 'notification_preferences'`).Scan(&count)
+	if count != 1 {
+		t.Fatal("missing notification_preferences table")
+	}
+	// verify unique index
+	var idxCount int64
+	db.Raw(`SELECT count(*) FROM pg_indexes
+		WHERE tablename = 'notification_preferences' AND indexname = 'uq_pref'`).Scan(&idxCount)
+	if idxCount != 1 {
+		t.Fatal("missing uq_pref index")
+	}
+}

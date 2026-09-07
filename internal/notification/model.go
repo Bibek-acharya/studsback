@@ -87,6 +87,18 @@ type NotificationDedupeLease struct {
 	SupersededCount int       `gorm:"default:0"`
 }
 
+type NotificationPreference struct {
+	ID        uint      `gorm:"primarykey"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	AccountType string `gorm:"size:20;not null"`
+	AccountID   uint   `gorm:"not null"`
+	PrefKey     string `gorm:"size:100;not null"` // event key, "category:*", or "*"
+	InApp       *bool                            // nil = inherit
+	Email       *bool                            // nil = inherit
+	Realtime    *bool                            // nil = inherit
+}
+
 // PublicNotification is the public banner (system notifications) model.
 // Moved here from internal/system (Task 13); system references it via a type
 // alias. No TableName method — GORM's default pluralization keeps the
