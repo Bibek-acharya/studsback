@@ -103,6 +103,52 @@ func TestEsewaFailureNotifiesStudent(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
+			"status":           "CANCELED",
+			"total_amount":     "100",
+			"transaction_uuid": pay.TransactionID,
+		})
+	}))
+	defer ts.Close()
+	origURL := esewaStatusAPIURL
+	esewaStatusAPIURL = func() string { return ts.URL }
+	defer func() { esewaStatusAPIURL = origURL }()
+
+	config.AppConfig = &config.Config{}
+
+	notif := &captureNotifier{}
+	svc := NewPaymentService(db, notif)
+
+	if _, err := svc.VerifyEsewaPayment(EsewaVerifyRequest{
+		ApplicationID:   app.ID,
+		TransactionUUID: pay.TransactionID,
+		TotalAmount:     "100",
+		ProductCode:     "EPAYTEST",
+		Status:          "CANCELED",
+	}); err == nil {
+		t.Fatal("expected verify error for non-COMPLETE status")
+	}
+
+	if notif.Last == nil || notif.Last.EventKey != notification.EventScholarshipPaymentFailed {
+		t.Fatalf("expected %s, got %+v", notification.EventScholarshipPaymentFailed, notif.Last)
+	}
+	if len(notif.Last.Recipients) != 1 || notif.Last.Recipients[0] != (notification.Ref{Type: "user", ID: 7}) {
+		t.Fatalf("recipient wrong: %+v", notif.Last.Recipients)
+	}
+	if notif.Last.Data["slug"] != sch.Slug {
+		t.Fatalf("slug data wrong: %+v", notif.Last.Data)
+	}
+	assertTemplates(t, *notif.Last)
+}
+
+// TestEsewaPendingDoesNotNotifyStudent: an in-flight transaction (PENDING) is
+// not a failure — no payment_failed emission while the poller re-verifies it.
+func TestEsewaPendingDoesNotNotifyStudent(t *testing.T) {
+	db := newPaymentTestDB(t)
+	_, app, pay := seedPaymentScenario(t, db)
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
 			"status":           "PENDING",
 			"total_amount":     "100",
 			"transaction_uuid": pay.TransactionID,
@@ -128,16 +174,9 @@ func TestEsewaFailureNotifiesStudent(t *testing.T) {
 		t.Fatal("expected verify error for non-COMPLETE status")
 	}
 
-	if notif.Last == nil || notif.Last.EventKey != notification.EventScholarshipPaymentFailed {
-		t.Fatalf("expected %s, got %+v", notification.EventScholarshipPaymentFailed, notif.Last)
+	if len(notif.Calls) != 0 {
+		t.Fatalf("PENDING must not emit payment_failed, got %+v", notif.Calls)
 	}
-	if len(notif.Last.Recipients) != 1 || notif.Last.Recipients[0] != (notification.Ref{Type: "user", ID: 7}) {
-		t.Fatalf("recipient wrong: %+v", notif.Last.Recipients)
-	}
-	if notif.Last.Data["slug"] != sch.Slug {
-		t.Fatalf("slug data wrong: %+v", notif.Last.Data)
-	}
-	assertTemplates(t, *notif.Last)
 }
 
 func TestBankRejectionNotifiesStudent(t *testing.T) {

@@ -1148,6 +1148,17 @@ func (s *PaymentService) InitiateEsewaPayment(appID uint, amount float64) (*Esew
 // stub server instead of the real eSewa API.
 var esewaStatusAPIURL = func() string { return config.AppConfig.EsewaStatusAPIURL() }
 
+// esewaFailureStatuses are eSewa's explicit terminal-failure statuses from
+// the epay v2 status API. COMPLETE is success; everything else (PENDING,
+// AMBIGUOUS, …) stays in-flight — no payment_failed emission for those.
+var esewaFailureStatuses = map[string]bool{
+	"FAILED":    true,
+	"NOT_FOUND": true,
+	"CANCELED":  true,
+	"FULL_REV":  true,
+	"PART_REV":  true,
+}
+
 func (s *PaymentService) VerifyEsewaPayment(req EsewaVerifyRequest) (*Payment, error) {
 	cfg := config.AppConfig
 
@@ -1178,7 +1189,11 @@ func (s *PaymentService) VerifyEsewaPayment(req EsewaVerifyRequest) (*Payment, e
 	}
 
 	if esewaResp.Status != "COMPLETE" {
-		s.notifyPaymentFailed(req.TransactionUUID)
+		// Only explicit terminal failures notify — PENDING/AMBIGUOUS are
+		// in-flight (the pending-payment poller re-verifies them later).
+		if esewaFailureStatuses[esewaResp.Status] {
+			s.notifyPaymentFailed(req.TransactionUUID)
+		}
 		return nil, fmt.Errorf("eSewa payment not completed, status: %s", esewaResp.Status)
 	}
 
