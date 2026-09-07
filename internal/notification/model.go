@@ -99,6 +99,25 @@ type NotificationPreference struct {
 	Realtime    *bool                            // nil = inherit
 }
 
+type NotificationDelivery struct {
+	ID                uint           `gorm:"primarykey"`
+	CreatedAt         time.Time
+	NotificationID    *uint          `gorm:"index"`
+	DigestBatchID     *uint          `gorm:"index"`
+	DeliveryKind      string         `gorm:"size:20;not null"` // notification | digest | anonymous
+	DeliveryKey       string         `gorm:"size:200;not null"`
+	AccountType       string         `gorm:"size:20;not null"`
+	AccountID         uint
+	Channel           string         `gorm:"size:20;not null"` // email | realtime | push
+	Status            string         `gorm:"size:20;not null;default:'pending'"`
+	DispatchExpiresAt *time.Time     `gorm:"index"`
+	Attempts          int            `gorm:"default:0"`
+	Error             string         `gorm:"type:text"`
+	SentAt            *time.Time
+	Meta              datatypes.JSON `json:"-"`
+	CorrelationID     string         `gorm:"size:64;index"`
+}
+
 // PublicNotification is the public banner (system notifications) model.
 // Moved here from internal/system (Task 13); system references it via a type
 // alias. No TableName method — GORM's default pluralization keeps the

@@ -47,3 +47,31 @@ func TestSchemaHasPreferencesTable(t *testing.T) {
 		t.Fatal("missing uq_pref index")
 	}
 }
+
+func TestSchemaHasDeliveriesTable(t *testing.T) {
+	db := testDB(t)
+	var count int64
+	db.Raw(`SELECT count(*) FROM information_schema.tables
+		WHERE table_name = 'notification_deliveries'`).Scan(&count)
+	if count != 1 {
+		t.Fatal("missing notification_deliveries table")
+	}
+	// Verify partial unique indexes
+	for _, idx := range []string{"uq_del_notification", "uq_del_digest", "uq_del_anonymous"} {
+		var idxCount int64
+		db.Raw(`SELECT count(*) FROM pg_indexes
+			WHERE tablename = 'notification_deliveries' AND indexname = ?`, idx).Scan(&idxCount)
+		if idxCount != 1 {
+			t.Errorf("missing index %s", idx)
+		}
+	}
+	// Verify CHECK constraint
+	var chkCount int64
+	db.Raw(`SELECT count(*) FROM information_schema.table_constraints
+		WHERE table_name = 'notification_deliveries'
+		AND constraint_name = 'chk_del_subject'
+		AND constraint_type = 'CHECK'`).Scan(&chkCount)
+	if chkCount != 1 {
+		t.Error("missing chk_del_subject CHECK constraint")
+	}
+}

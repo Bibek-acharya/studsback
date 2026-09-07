@@ -22,7 +22,7 @@ func testDB(t *testing.T) *gorm.DB {
 	if err != nil {
 		t.Fatalf("open test db: %v", err)
 	}
-	if err := db.AutoMigrate(&AccountNotification{}, &NotificationOutbox{}, &NotificationBroadcast{}, &NotificationDedupeLease{}, &NotificationPreference{}); err != nil {
+	if err := db.AutoMigrate(&AccountNotification{}, &NotificationOutbox{}, &NotificationBroadcast{}, &NotificationDedupeLease{}, &NotificationPreference{}, &NotificationDelivery{}); err != nil {
 		t.Fatalf("automigrate: %v", err)
 	}
 	// Apply the shipped SQL migrations so tests verify the real schema —
@@ -31,6 +31,7 @@ func testDB(t *testing.T) *gorm.DB {
 		"../../migrations/20260903-01-notification-tables.sql",
 		"../../migrations/20260903-02-notification-indexes.sql",
 		"../../migrations/20260907-01-notification-preferences.sql",
+		"../../migrations/20260907-02-notification-deliveries.sql",
 	} {
 		sql, err := os.ReadFile(f)
 		if err != nil {
@@ -41,7 +42,7 @@ func testDB(t *testing.T) *gorm.DB {
 		}
 	}
 	t.Cleanup(func() {
-		db.Exec(`TRUNCATE account_notifications, notification_outbox, notification_broadcasts, notification_dedupe_leases, notification_preferences`)
+		db.Exec(`TRUNCATE account_notifications, notification_outbox, notification_broadcasts, notification_dedupe_leases, notification_preferences, notification_deliveries`)
 	})
 	return db
 }

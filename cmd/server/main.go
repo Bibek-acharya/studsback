@@ -218,6 +218,7 @@ func main() {
 		notification.AccountNotification{}, notification.NotificationOutbox{},
 		notification.NotificationBroadcast{}, notification.NotificationDedupeLease{},
 		notification.NotificationPreference{},
+		notification.NotificationDelivery{},
 		notification.PublicNotification{},
 	); err != nil {
 		logger.Fatal("Failed to migrate database", "error", err)
