@@ -64,9 +64,8 @@ func testDBAdmission(t *testing.T) *gorm.DB {
 	if err := db.AutoMigrate(&Admission{}, &College{}, &institutionUsersRow{}); err != nil {
 		t.Fatalf("automigrate: %v", err)
 	}
-	t.Cleanup(func() {
-		db.Exec(`TRUNCATE admissions, colleges, institution_users`)
-	})
+	// No TRUNCATE here: the test DB is shared across packages running in
+	// parallel. Each test deletes exactly the rows it created.
 	return db
 }
 
@@ -86,6 +85,7 @@ func seedAdmission(t *testing.T, db *gorm.DB) *Admission {
 	if err := db.Create(app).Error; err != nil {
 		t.Fatalf("seed admission: %v", err)
 	}
+	t.Cleanup(func() { db.Exec(`DELETE FROM admissions WHERE id = ?`, app.ID) })
 	return app
 }
 
@@ -134,18 +134,24 @@ func TestCreateNotifiesCollegeInstitution(t *testing.T) {
 	if err := db.Create(&institutionUsersRow{ID: 42, Email: "inst@example.com", Status: "approved", CollegeID: 3, Claimed: true}).Error; err != nil {
 		t.Fatalf("seed institution user: %v", err)
 	}
+	t.Cleanup(func() {
+		db.Exec(`DELETE FROM colleges WHERE id = 3`)
+		db.Exec(`DELETE FROM institution_users WHERE id = 42`)
+	})
 
 	uid := uint(7)
-	if _, err := svc.Create(CreateAdmissionRequest{
+	adm, err := svc.Create(CreateAdmissionRequest{
 		CollegeID:    3,
 		ProgramName:  "BSc Computer Science",
 		ProgramLevel: "Bachelor",
 		StudentName:  "Test Student",
 		StudentEmail: "student@example.com",
 		StudentPhone: "9800000000",
-	}, &uid); err != nil {
+	}, &uid)
+	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
+	t.Cleanup(func() { db.Exec(`DELETE FROM admissions WHERE id = ?`, adm.ID) })
 
 	if notif.Last == nil || notif.Last.EventKey != notification.EventApplicationReceived {
 		t.Fatalf("expected %s, got %+v", notification.EventApplicationReceived, notif.Last)
@@ -164,18 +170,21 @@ func TestCreateSkipsNotifyWithoutClaimedInstitution(t *testing.T) {
 	if err := db.Create(&College{ID: 4, Name: "Unclaimed College"}).Error; err != nil {
 		t.Fatalf("seed college: %v", err)
 	}
+	t.Cleanup(func() { db.Exec(`DELETE FROM colleges WHERE id = 4`) })
 
 	uid := uint(7)
-	if _, err := svc.Create(CreateAdmissionRequest{
+	adm, err := svc.Create(CreateAdmissionRequest{
 		CollegeID:    4,
 		ProgramName:  "BSc Computer Science",
 		ProgramLevel: "Bachelor",
 		StudentName:  "Test Student",
 		StudentEmail: "student@example.com",
 		StudentPhone: "9800000000",
-	}, &uid); err != nil {
+	}, &uid)
+	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
+	t.Cleanup(func() { db.Exec(`DELETE FROM admissions WHERE id = ?`, adm.ID) })
 
 	if len(notif.Calls) != 0 {
 		t.Fatalf("expected no emission for college without approved institution, got %+v", notif.Calls)

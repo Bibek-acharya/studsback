@@ -220,12 +220,10 @@ func TestBroadcastCreatesCampaignAndFansOut(t *testing.T) {
 	// The shared test DB only carries the notification tables + users. The
 	// audience query unions the institution/provider account tables — create
 	// minimal stubs when absent (real deployments have the full schema).
+	// Never DROP them: other packages' tests share this DSN and use the real
+	// tables. This test only reads the stubs, so no row cleanup is needed.
 	db.Exec(`CREATE TABLE IF NOT EXISTS institution_users (id bigserial PRIMARY KEY, status text, deleted_at timestamptz)`)
 	db.Exec(`CREATE TABLE IF NOT EXISTS scholarship_provider_users (id bigserial PRIMARY KEY, status text, deleted_at timestamptz)`)
-	t.Cleanup(func() {
-		db.Exec(`DROP TABLE IF EXISTS institution_users`)
-		db.Exec(`DROP TABLE IF EXISTS scholarship_provider_users`)
-	})
 	// first_name/last_name are NOT NULL without defaults in the real schema
 	// (same adaptation as TestRecipientsForRoleIncludesBothSuperadminSpellings).
 	db.Exec(`INSERT INTO users (email, first_name, last_name, role, status, created_at, updated_at) VALUES
