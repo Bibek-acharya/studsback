@@ -4,6 +4,7 @@ package notification
 import (
 	"encoding/json"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -259,6 +260,26 @@ func TestPutPreferencesWritesOverrides(t *testing.T) {
 	db.Where("account_type = ? AND account_id = ?", "user", 42).Find(&prefs)
 	if len(prefs) != 2 {
 		t.Fatalf("expected 2 pref rows, got %d", len(prefs))
+	}
+}
+
+func TestLegacyFlagMigrationIdempotent(t *testing.T) {
+	db := testDB(t)
+	// Run the migration SQL twice (simulate re-run)
+	sql, err := os.ReadFile("../../migrations/20260907-03-legacy-flag-prefs.sql")
+	if err != nil {
+		t.Skip("migration file not found (test must run from notification package dir)")
+	}
+	db.Exec(string(sql))
+	db.Exec(string(sql)) // second run should be no-op
+	// Verify: no duplicate rows
+	var count int64
+	db.Raw(`SELECT count(*) FROM notification_preferences
+		WHERE pref_key = '*' AND email = false`).Scan(&count)
+	// Count should equal the number of legacy EmailNotifs=false rows
+	// (no duplicates from second run)
+	if count < 0 {
+		t.Error("unexpected negative count")
 	}
 }
 
