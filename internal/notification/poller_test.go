@@ -15,9 +15,11 @@ func TestPollerClaimsAndCompletesDueRows(t *testing.T) {
 	db := testDB(t)
 	svc := NewService(db)
 	// Fake enqueuer so dispatch row enqueue succeeds (no real Redis in tests).
-	svc.SetEnqueuer(fakeEnqueuer(func(task *asynq.Task, opts ...asynq.Option) (*asynq.TaskInfo, error) {
+	origEnqueue := EnqueueFunc
+	t.Cleanup(func() { EnqueueFunc = origEnqueue })
+	svc.SetEnqueuer(func(task *asynq.Task, opts ...asynq.Option) (*asynq.TaskInfo, error) {
 		return &asynq.TaskInfo{ID: "test"}, nil
-	}))
+	})
 	if err := NewRepository(db).InsertOutbox(nil, NotificationOutbox{Kind: "dispatch", Payload: []byte(`{}`)}); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
@@ -108,19 +110,18 @@ func TestPollerExpandsFanoutRow(t *testing.T) {
 	}
 }
 
-func fakeEnqueuer(fn func(task *asynq.Task, opts ...asynq.Option) (*asynq.TaskInfo, error)) func(task *asynq.Task, opts ...asynq.Option) (*asynq.TaskInfo, error) {
-	return fn
-}
-
 func TestDispatchRowEnqueuesProcessTask(t *testing.T) {
 	db := testDB(t)
 	svc := NewService(db)
 
+	origEnqueue := EnqueueFunc
+	t.Cleanup(func() { EnqueueFunc = origEnqueue })
+
 	var enqueued []*asynq.Task
-	svc.SetEnqueuer(fakeEnqueuer(func(task *asynq.Task, opts ...asynq.Option) (*asynq.TaskInfo, error) {
+	svc.SetEnqueuer(func(task *asynq.Task, opts ...asynq.Option) (*asynq.TaskInfo, error) {
 		enqueued = append(enqueued, task)
 		return &asynq.TaskInfo{ID: task.Type()}, nil
-	}))
+	})
 
 	payload := mustJSON(NotifyRequest{
 		EventKey:   EventApplicationStatusChanged,
@@ -152,9 +153,12 @@ func TestDispatchRowEnqueueFailureReturnsError(t *testing.T) {
 	db := testDB(t)
 	svc := NewService(db)
 
-	svc.SetEnqueuer(fakeEnqueuer(func(task *asynq.Task, opts ...asynq.Option) (*asynq.TaskInfo, error) {
+	origEnqueue := EnqueueFunc
+	t.Cleanup(func() { EnqueueFunc = origEnqueue })
+
+	svc.SetEnqueuer(func(task *asynq.Task, opts ...asynq.Option) (*asynq.TaskInfo, error) {
 		return nil, errors.New("redis connection refused")
-	}))
+	})
 
 	payload := mustJSON(NotifyRequest{
 		EventKey:   EventApplicationStatusChanged,
