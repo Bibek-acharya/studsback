@@ -55,4 +55,8 @@ func (h *Handler) RegisterRoutes(rg *gin.RouterGroup, superadminMW gin.HandlerFu
 	sg.GET("/all", h.listAllPublicNotifications)
 	sg.PUT("/:id", h.updatePublicNotification)
 	sg.DELETE("/:id", h.deletePublicNotification)
+
+	// Preferences — per-account preference management (Task 4).
+	rg.GET("/notifications/preferences", h.GetPreferences)
+	rg.PUT("/notifications/preferences", h.UpdatePreferences)
 }

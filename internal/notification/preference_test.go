@@ -2,7 +2,12 @@
 package notification
 
 import (
+	"encoding/json"
+	"net/http/httptest"
+	"strings"
 	"testing"
+
+	"github.com/gin-gonic/gin"
 )
 
 func TestPreferenceResolution(t *testing.T) {
@@ -190,5 +195,69 @@ func TestDeletePreference(t *testing.T) {
 	prefs, _ := repo.GetPreferences("user", 50)
 	if len(prefs) != 0 {
 		t.Fatalf("expected 0 prefs after delete, got %d", len(prefs))
+	}
+}
+
+func TestGetPreferencesReturnsGroups(t *testing.T) {
+	db := testDB(t)
+	svc := NewService(db)
+	h := NewHandler(svc)
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.GET("/notifications/preferences", func(c *gin.Context) {
+		c.Set("user_id", uint(42))
+		c.Set("user_role", "student")
+		h.GetPreferences(c)
+	})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/notifications/preferences", nil)
+	r.ServeHTTP(w, req)
+
+	if w.Code != 200 {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var resp map[string]any
+	json.Unmarshal(w.Body.Bytes(), &resp)
+	data := resp["data"].(map[string]any)
+	groups := data["groups"].([]any)
+	if len(groups) == 0 {
+		t.Error("expected non-empty groups for student role")
+	}
+	// Verify group structure has key, label, in_app, email, overridden
+	g := groups[0].(map[string]any)
+	for _, k := range []string{"key", "label", "in_app", "email", "overridden"} {
+		if _, ok := g[k]; !ok {
+			t.Errorf("group missing field %q", k)
+		}
+	}
+}
+
+func TestPutPreferencesWritesOverrides(t *testing.T) {
+	db := testDB(t)
+	svc := NewService(db)
+	h := NewHandler(svc)
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.PUT("/notifications/preferences", func(c *gin.Context) {
+		c.Set("user_id", uint(42))
+		c.Set("user_role", "student")
+		h.UpdatePreferences(c)
+	})
+
+	body := `{"overrides":[{"pref_key":"content:*","email":false}],"global":{"email":true}}`
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/notifications/preferences", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+
+	if w.Code != 200 {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	// Verify rows written
+	var prefs []NotificationPreference
+	db.Where("account_type = ? AND account_id = ?", "user", 42).Find(&prefs)
+	if len(prefs) != 2 {
+		t.Fatalf("expected 2 pref rows, got %d", len(prefs))
 	}
 }

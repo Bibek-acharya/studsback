@@ -72,3 +72,34 @@ type PublicNotificationResponse struct {
 	Color     string `json:"color"`
 	BgColor   string `json:"bg_color"`
 }
+
+// --- Preferences API DTOs (Task 4) ---
+
+type PreferenceGroup struct {
+	Key       string `json:"key"`
+	Label     string `json:"label"`
+	InApp     bool   `json:"in_app"`
+	Email     bool   `json:"email"`
+	Overridden bool  `json:"overridden"`
+}
+
+type GlobalPreferences struct {
+	InApp *bool `json:"in_app,omitempty"`
+	Email *bool `json:"email,omitempty"`
+}
+
+type OverrideEntry struct {
+	PrefKey string `json:"pref_key"`
+	InApp   *bool  `json:"in_app,omitempty"`
+	Email   *bool  `json:"email,omitempty"`
+}
+
+type PreferencesResponse struct {
+	Groups  []PreferenceGroup `json:"groups"`
+	Global  GlobalPreferences `json:"global"`
+}
+
+type UpdatePreferencesRequest struct {
+	Overrides []OverrideEntry  `json:"overrides"`
+	Global    *GlobalPreferences `json:"global,omitempty"`
+}

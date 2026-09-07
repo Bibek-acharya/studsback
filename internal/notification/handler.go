@@ -384,3 +384,117 @@ func (h *Handler) deletePublicNotification(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "deleted"})
 }
+
+// roleCategoryGroups maps each role to its available preference groups and
+// the registry categories that map to each group key (doc 06 §12).
+var roleCategoryGroups = map[string][]struct {
+	Key       string
+	Label     string
+	Categories []string
+}{
+	"student": {
+		{Key: "applications", Label: "Applications", Categories: []string{"application"}},
+		{Key: "scholarships", Label: "Scholarships", Categories: []string{"scholarship"}},
+		{Key: "counselling", Label: "Counselling", Categories: []string{"counselling"}},
+		{Key: "messages", Label: "Messages", Categories: []string{"account"}},
+		{Key: "content", Label: "Content & Events", Categories: []string{"content"}},
+		{Key: "system", Label: "System", Categories: []string{"system"}},
+	},
+	"institution": {
+		{Key: "applications", Label: "Applications", Categories: []string{"application"}},
+		{Key: "counselling", Label: "Counselling", Categories: []string{"counselling"}},
+		{Key: "content", Label: "Content", Categories: []string{"content"}},
+		{Key: "community", Label: "Community", Categories: []string{"moderation"}},
+		{Key: "system", Label: "System", Categories: []string{"system"}},
+	},
+	"provider": {
+		{Key: "applications", Label: "Applications", Categories: []string{"application"}},
+		{Key: "scholarships", Label: "Scholarships", Categories: []string{"scholarship"}},
+		{Key: "content", Label: "Content", Categories: []string{"content"}},
+		{Key: "messages", Label: "Messages", Categories: []string{"account"}},
+		{Key: "system", Label: "System", Categories: []string{"system"}},
+	},
+	"superadmin": {
+		{Key: "system", Label: "System", Categories: []string{"system"}},
+		{Key: "moderation", Label: "Moderation", Categories: []string{"moderation"}},
+	},
+}
+
+func (h *Handler) GetPreferences(c *gin.Context) {
+	at, aid, ok := identity(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	role, _ := c.Get("user_role")
+	roleStr, _ := role.(string)
+
+	groupDefs := roleCategoryGroups[roleStr]
+	if len(groupDefs) == 0 {
+		groupDefs = roleCategoryGroups["student"] // fallback
+	}
+
+	effective, global, err := h.svc.EffectivePreferences(Ref{Type: at, ID: aid})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Index category → effective group.
+	catMap := make(map[string]PrefGroup, len(effective))
+	for _, g := range effective {
+		catMap[g.Category] = g
+	}
+
+	groups := make([]PreferenceGroup, 0, len(groupDefs))
+	for _, def := range groupDefs {
+		var inApp, email bool
+		overridden := false
+		for _, cat := range def.Categories {
+			if g, ok := catMap[cat]; ok {
+				if g.InApp != nil {
+					inApp = *g.InApp
+				}
+				if g.Email != nil {
+					email = *g.Email
+				}
+				overridden = g.InApp != nil || g.Email != nil
+			}
+		}
+		groups = append(groups, PreferenceGroup{
+			Key: def.Key, Label: def.Label,
+			InApp: inApp, Email: email, Overridden: overridden,
+		})
+	}
+
+	resp := PreferencesResponse{Groups: groups, Global: GlobalPreferences{
+		InApp: global.InApp, Email: global.Email,
+	}}
+	c.JSON(http.StatusOK, gin.H{"data": resp})
+}
+
+func (h *Handler) UpdatePreferences(c *gin.Context) {
+	at, aid, ok := identity(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	var req UpdatePreferencesRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	overrides := make([]PrefOverride, len(req.Overrides))
+	for i, o := range req.Overrides {
+		overrides[i] = PrefOverride{PrefKey: o.PrefKey, InApp: o.InApp, Email: o.Email}
+	}
+	var global *PrefGlobal
+	if req.Global != nil {
+		global = &PrefGlobal{InApp: req.Global.InApp, Email: req.Global.Email}
+	}
+	if err := h.svc.UpdatePreferences(Ref{Type: at, ID: aid}, overrides, global); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "ok"})
+}
