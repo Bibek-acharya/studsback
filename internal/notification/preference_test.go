@@ -261,3 +261,24 @@ func TestPutPreferencesWritesOverrides(t *testing.T) {
 		t.Fatalf("expected 2 pref rows, got %d", len(prefs))
 	}
 }
+
+func TestGetPreferencesUnknownRoleReturns403(t *testing.T) {
+	db := testDB(t)
+	svc := NewService(db)
+	h := NewHandler(svc)
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.GET("/notifications/preferences", func(c *gin.Context) {
+		c.Set("user_id", uint(42))
+		c.Set("user_role", "unknown_role")
+		h.GetPreferences(c)
+	})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/notifications/preferences", nil)
+	r.ServeHTTP(w, req)
+
+	if w.Code != 403 {
+		t.Fatalf("expected 403, got %d: %s", w.Code, w.Body.String())
+	}
+}

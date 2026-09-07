@@ -421,17 +421,19 @@ var roleCategoryGroups = map[string][]struct {
 }
 
 func (h *Handler) GetPreferences(c *gin.Context) {
+	role, _ := c.Get("user_role")
+	roleStr, _ := role.(string)
+
+	groupDefs, ok := roleCategoryGroups[roleStr]
+	if !ok {
+		c.JSON(http.StatusForbidden, gin.H{"error": "unsupported role"})
+		return
+	}
+
 	at, aid, ok := identity(c)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
-	}
-	role, _ := c.Get("user_role")
-	roleStr, _ := role.(string)
-
-	groupDefs := roleCategoryGroups[roleStr]
-	if len(groupDefs) == 0 {
-		groupDefs = roleCategoryGroups["student"] // fallback
 	}
 
 	effective, global, err := h.svc.EffectivePreferences(Ref{Type: at, ID: aid})
