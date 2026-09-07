@@ -93,9 +93,11 @@ func HandleProcessTask(ctx context.Context, task *asynq.Task) error {
 		})
 		deliverTask := asynq.NewTask(TaskTypeEmailDeliver, deliverPayload, asynq.TaskID(deliverTaskID))
 		if _, err := EnqueueFunc(deliverTask, asynq.MaxRetry(3)); err != nil {
-			// Enqueue failed → back to pending (the poller/outbox retries).
+			// Revert to pending and propagate: asynq retries the process task
+			// (the outbox row is already done); the retry re-finds this row
+			// while still pending — handed_off rows are status-filtered out.
 			_ = repo.CompleteDelivery(d.ID, "pending", err.Error())
-			continue
+			return fmt.Errorf("enqueue email:deliver %s: %w", d.DeliveryKey, err)
 		}
 
 		_ = repo.CompleteDelivery(d.ID, "handed_off", "")

@@ -4,6 +4,7 @@ package notification
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -188,12 +189,20 @@ func TestProcessTaskSkipsPrefOff(t *testing.T) {
 	InitWorker(svc, NewRepository(db), db)
 	origEnqueue := EnqueueFunc
 	t.Cleanup(func() { EnqueueFunc = origEnqueue; InitWorker(nil, nil, nil) })
+	var enqueued []*asynq.Task
 	svc.SetEnqueuer(fakeEnqueuer(func(task *asynq.Task, opts ...asynq.Option) (*asynq.TaskInfo, error) {
+		enqueued = append(enqueued, task)
 		return &asynq.TaskInfo{ID: task.Type()}, nil
 	}))
 
-	// Seed: user, inbox, outbox, delivery already skipped at emission.
+	// Seed: user with email pref OFF, inbox, outbox, delivery pending
+	// (pref turned off after emission — the dispatch-time re-check must skip).
 	seedUser42(t, db)
+	boolPtr := func(b bool) *bool { return &b }
+	db.Create(&NotificationPreference{
+		AccountType: "user", AccountID: 42,
+		PrefKey: "*", Email: boolPtr(false),
+	})
 	inbox := AccountNotification{
 		AccountType: "user", AccountID: 42,
 		EventKey: EventApplicationStatusChanged, Category: "application",
@@ -213,7 +222,7 @@ func TestProcessTaskSkipsPrefOff(t *testing.T) {
 		NotificationID: &inbox.ID, DeliveryKind: "notification",
 		DeliveryKey: fmt.Sprintf("%d:email", inbox.ID),
 		AccountType: "user", AccountID: 42, Channel: "email",
-		Status: "skipped", // already skipped at emission
+		Status: "pending",
 	}
 	db.Create(&delivery)
 
@@ -223,10 +232,62 @@ func TestProcessTaskSkipsPrefOff(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Verify: delivery stays skipped, no enqueue.
+	// Verify: pref re-check flips the delivery to skipped, no enqueue.
 	db.First(&delivery, delivery.ID)
 	if delivery.Status != "skipped" {
 		t.Errorf("expected skipped, got %s", delivery.Status)
+	}
+	if len(enqueued) != 0 {
+		t.Errorf("expected no email:deliver tasks, got %d", len(enqueued))
+	}
+}
+
+func TestProcessTaskEnqueueFailureReturnsError(t *testing.T) {
+	db := testDB(t)
+	svc := NewService(db)
+	InitWorker(svc, NewRepository(db), db)
+	origEnqueue := EnqueueFunc
+	t.Cleanup(func() { EnqueueFunc = origEnqueue; InitWorker(nil, nil, nil) })
+	svc.SetEnqueuer(fakeEnqueuer(func(task *asynq.Task, opts ...asynq.Option) (*asynq.TaskInfo, error) {
+		return nil, errors.New("redis connection refused")
+	}))
+
+	seedUser42(t, db)
+	inbox := AccountNotification{
+		AccountType: "user", AccountID: 42,
+		EventKey: EventApplicationStatusChanged, Category: "application",
+		Priority: "normal", Title: "test", Body: "test",
+	}
+	db.Create(&inbox)
+	corrID := uuid.New().String()
+	outbox := NotificationOutbox{
+		Kind: "dispatch",
+		Payload: datatypes.JSON(mustJSON(NotifyRequest{
+			EventKey:      EventApplicationStatusChanged,
+			Recipients:    []Ref{{Type: "user", ID: 42}},
+			Data:          map[string]any{"program": "CS", "status": "shortlisted"},
+			CorrelationID: corrID,
+		})),
+	}
+	db.Create(&outbox)
+	delivery := NotificationDelivery{
+		NotificationID: &inbox.ID, DeliveryKind: "notification",
+		DeliveryKey: fmt.Sprintf("%d:email", inbox.ID),
+		AccountType: "user", AccountID: 42, Channel: "email",
+		Status: "pending", CorrelationID: corrID,
+	}
+	db.Create(&delivery)
+
+	payload, _ := json.Marshal(map[string]any{"outbox_id": outbox.ID})
+	task := asynq.NewTask(TaskTypeProcess, payload)
+	err := HandleProcessTask(context.Background(), task)
+	if err == nil {
+		t.Fatal("expected error so asynq retries the process task")
+	}
+	// Verify: delivery reverted to pending (retryable on the next process run).
+	db.First(&delivery, delivery.ID)
+	if delivery.Status != "pending" {
+		t.Errorf("expected pending after enqueue failure, got %s", delivery.Status)
 	}
 }
 
