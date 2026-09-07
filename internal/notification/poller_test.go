@@ -2,15 +2,22 @@
 package notification
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 	"time"
 
+	"github.com/hibiken/asynq"
 	"gorm.io/datatypes"
 )
 
 func TestPollerClaimsAndCompletesDueRows(t *testing.T) {
 	db := testDB(t)
+	svc := NewService(db)
+	// Fake enqueuer so dispatch row enqueue succeeds (no real Redis in tests).
+	svc.SetEnqueuer(fakeEnqueuer(func(task *asynq.Task, opts ...asynq.Option) (*asynq.TaskInfo, error) {
+		return &asynq.TaskInfo{ID: "test"}, nil
+	}))
 	if err := NewRepository(db).InsertOutbox(nil, NotificationOutbox{Kind: "dispatch", Payload: []byte(`{}`)}); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
@@ -98,5 +105,68 @@ func TestPollerExpandsFanoutRow(t *testing.T) {
 	}
 	if !out.Done {
 		t.Fatal("fanout outbox row not marked done after tick")
+	}
+}
+
+func fakeEnqueuer(fn func(task *asynq.Task, opts ...asynq.Option) (*asynq.TaskInfo, error)) func(task *asynq.Task, opts ...asynq.Option) (*asynq.TaskInfo, error) {
+	return fn
+}
+
+func TestDispatchRowEnqueuesProcessTask(t *testing.T) {
+	db := testDB(t)
+	svc := NewService(db)
+
+	var enqueued []*asynq.Task
+	svc.SetEnqueuer(fakeEnqueuer(func(task *asynq.Task, opts ...asynq.Option) (*asynq.TaskInfo, error) {
+		enqueued = append(enqueued, task)
+		return &asynq.TaskInfo{ID: task.Type()}, nil
+	}))
+
+	payload := mustJSON(NotifyRequest{
+		EventKey:   EventApplicationStatusChanged,
+		Recipients: []Ref{{Type: "user", ID: 42}},
+		Data:       map[string]any{"program": "CS", "status": "shortlisted"},
+	})
+	db.Create(&NotificationOutbox{
+		Kind:    "dispatch",
+		Payload: datatypes.JSON(payload),
+	})
+
+	var outbox NotificationOutbox
+	db.Last(&outbox)
+
+	err := dispatchOutboxRow(svc, outbox)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(enqueued) != 1 {
+		t.Fatalf("expected 1 enqueued task, got %d", len(enqueued))
+	}
+	if enqueued[0].Type() != TaskTypeProcess {
+		t.Errorf("expected type %s, got %s", TaskTypeProcess, enqueued[0].Type())
+	}
+}
+
+func TestDispatchRowEnqueueFailureReturnsError(t *testing.T) {
+	db := testDB(t)
+	svc := NewService(db)
+
+	svc.SetEnqueuer(fakeEnqueuer(func(task *asynq.Task, opts ...asynq.Option) (*asynq.TaskInfo, error) {
+		return nil, errors.New("redis connection refused")
+	}))
+
+	payload := mustJSON(NotifyRequest{
+		EventKey:   EventApplicationStatusChanged,
+		Recipients: []Ref{{Type: "user", ID: 42}},
+		Data:       map[string]any{"program": "CS", "status": "shortlisted"},
+	})
+	db.Create(&NotificationOutbox{Kind: "dispatch", Payload: datatypes.JSON(payload)})
+	var outbox NotificationOutbox
+	db.Last(&outbox)
+
+	err := dispatchOutboxRow(svc, outbox)
+	if err == nil {
+		t.Fatal("expected error on enqueue failure")
 	}
 }

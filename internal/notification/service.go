@@ -10,8 +10,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/hibiken/asynq"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
+	"studsphere/backend/internal/emailqueue"
 )
 
 type Ref struct {
@@ -40,6 +42,24 @@ type Notifier interface {
 type Service struct {
 	repo *Repository
 	db   *gorm.DB
+}
+
+// EnqueueFunc is the function used to enqueue Asynq tasks. Defaults to
+// emailqueue.Queue.Enqueue. Tests inject a fake via SetEnqueuer.
+var EnqueueFunc func(task *asynq.Task, opts ...asynq.Option) (*asynq.TaskInfo, error)
+
+func init() {
+	EnqueueFunc = func(task *asynq.Task, opts ...asynq.Option) (*asynq.TaskInfo, error) {
+		if emailqueue.Queue == nil {
+			return nil, fmt.Errorf("asynq not initialized")
+		}
+		return emailqueue.Queue.Enqueue(task, opts...)
+	}
+}
+
+// SetEnqueuer overrides the enqueue function (for tests).
+func (s *Service) SetEnqueuer(fn func(task *asynq.Task, opts ...asynq.Option) (*asynq.TaskInfo, error)) {
+	EnqueueFunc = fn
 }
 
 // PrefGroup holds effective channel values for a notification category.

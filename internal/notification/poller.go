@@ -2,9 +2,17 @@
 package notification
 
 import (
+	"encoding/json"
+	"fmt"
 	"time"
 
+	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
+)
+
+const (
+	TaskTypeProcess     = "notification:process"
+	TaskTypeEmailDeliver = "email:deliver"
 )
 
 // StartPoller runs the lease-claim loop until stop() is called.
@@ -52,13 +60,23 @@ func tick(svc *Service) {
 
 // dispatchOutboxRow processes one claimed row. Fanout rows expand their
 // campaign's audience through the service (occurrence keys make replays
-// harmless); dispatch/anonymous_email rows are complete at emission and P2
-// replaces their no-op with email delivery (doc 12 §2).
+// harmless); dispatch rows enqueue a notification:process task; anonymous_email
+// is a P3 no-op seam.
 func dispatchOutboxRow(svc *Service, row NotificationOutbox) error {
 	if row.Kind == "fanout" {
 		return svc.expandFanoutRow(row)
 	}
-	return nil
+	if row.Kind == "anonymous_email" {
+		return nil // P3 seam — transactional email dispatch not routed through outbox yet
+	}
+	taskID := fmt.Sprintf("%s:%d", TaskTypeProcess, row.ID)
+	payload, err := json.Marshal(map[string]any{"outbox_id": row.ID})
+	if err != nil {
+		return fmt.Errorf("marshal process payload: %w", err)
+	}
+	task := asynq.NewTask(TaskTypeProcess, payload, asynq.TaskID(taskID))
+	_, err = EnqueueFunc(task, asynq.MaxRetry(3), asynq.Timeout(10*time.Minute))
+	return err
 }
 
 func backoffSeconds(attempts int) float64 {
