@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
@@ -138,12 +139,15 @@ func (s *Service) NotifyTx(ctx context.Context, tx *gorm.DB, req NotifyRequest) 
 	if req.Data == nil {
 		req.Data = map[string]any{}
 	}
+	if req.CorrelationID == "" {
+		req.CorrelationID = uuid.New().String()
+	}
 	payload, _ := json.Marshal(req)
 	now := time.Now()
 
 	for _, rec := range req.Recipients {
 		if def.Transactional {
-			continue // email-only class: never an inbox row (P2 sends the email)
+			continue // Transactional events handled by their own email paths; notification deliveries only for inbox-bearing events.
 		}
 		if req.DedupeKey != "" {
 			leaseID, nid, inserted, err := s.repo.AcquireLease(tx, rec.Type, rec.ID, req.DedupeKey, def.DedupeWinOr(24*time.Hour))
@@ -175,6 +179,9 @@ func (s *Service) NotifyTx(ctx context.Context, tx *gorm.DB, req NotifyRequest) 
 					return err
 				}
 			}
+			if err := s.createDelivery(tx, def, req, rec, &row.ID); err != nil {
+				return err
+			}
 			continue
 		}
 		if req.OccurrenceKey != "" {
@@ -196,6 +203,9 @@ func (s *Service) NotifyTx(ctx context.Context, tx *gorm.DB, req NotifyRequest) 
 			}
 			return err
 		}
+		if err := s.createDelivery(tx, def, req, rec, &row.ID); err != nil {
+			return err
+		}
 	}
 
 	return s.repo.InsertOutbox(tx, NotificationOutbox{
@@ -203,6 +213,39 @@ func (s *Service) NotifyTx(ctx context.Context, tx *gorm.DB, req NotifyRequest) 
 		Payload:       datatypes.JSON(payload),
 		OccurrenceKey: req.OccurrenceKey,
 	})
+}
+
+// createDelivery creates a pending or skipped email delivery row for the
+// recipient. No row is created when the event's EmailDefault is false AND
+// the recipient has email off via preferences (no delivery to track).
+func (s *Service) createDelivery(tx *gorm.DB, def EventDef, req NotifyRequest, rec Ref, notificationID *uint) error {
+	_, emailEnabled, err := s.ResolveChannels(rec, req.EventKey)
+	if err != nil {
+		return fmt.Errorf("notification: resolve channels: %w", err)
+	}
+	if !def.EmailDefault && !emailEnabled {
+		return nil // email not relevant — no delivery row
+	}
+	status := "pending"
+	if !emailEnabled {
+		status = "skipped"
+	}
+	deliveryKey := fmt.Sprintf("%d:email", *notificationID)
+	if err := s.repo.InsertDelivery(tx, NotificationDelivery{
+		NotificationID: notificationID,
+		DeliveryKind:   "notification",
+		DeliveryKey:    deliveryKey,
+		AccountType:    rec.Type,
+		AccountID:      rec.ID,
+		Channel:        "email",
+		Status:         status,
+		CorrelationID:  req.CorrelationID,
+	}); err != nil {
+		if !isUniqueViolation(err) {
+			return fmt.Errorf("notification: delivery: %w", err)
+		}
+	}
+	return nil
 }
 
 func (s *Service) refreshRow(tx *gorm.DB, notificationID uint, def EventDef, req NotifyRequest) error {

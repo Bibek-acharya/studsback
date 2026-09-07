@@ -248,6 +248,13 @@ func (r *Repository) SoftDeletePublicNotification(id uint) (int64, error) {
 	return res.RowsAffected, res.Error
 }
 
+func (r *Repository) InsertDelivery(tx *gorm.DB, d NotificationDelivery) error {
+	if tx == nil {
+		tx = r.db
+	}
+	return tx.Create(&d).Error
+}
+
 func (r *Repository) UpsertPreference(pref NotificationPreference) error {
 	// Build assignment map for only non-nil fields (sparse upsert).
 	assignments := map[string]interface{}{
