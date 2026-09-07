@@ -44,3 +44,29 @@ func TestBroadcastRequiresSuperadmin(t *testing.T) {
 		t.Fatalf("non-superadmin broadcast status=%d body=%s", w.Code, w.Body.String())
 	}
 }
+
+// The public banner admin verbs on /system/notifications must reject
+// non-superadmins at the route level, same as the broadcast endpoints.
+func TestBannerAdminRequiresSuperadmin(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		c.Set("user_role", "student")
+		c.Set("user_id", uint(1))
+		c.Next()
+	})
+	NewHandler(nil).RegisterRoutes(r.Group("/api/v1"), middleware.RequireRole("superadmin", "super_admin"))
+
+	for _, tc := range []struct{ method, path string }{
+		{http.MethodPost, "/api/v1/system/notifications"},
+		{http.MethodGet, "/api/v1/system/notifications/all"},
+		{http.MethodPut, "/api/v1/system/notifications/1"},
+		{http.MethodDelete, "/api/v1/system/notifications/1"},
+	} {
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, httptest.NewRequest(tc.method, tc.path, strings.NewReader(`{}`)))
+		if w.Code != http.StatusForbidden {
+			t.Fatalf("%s %s status=%d want 403", tc.method, tc.path, w.Code)
+		}
+	}
+}

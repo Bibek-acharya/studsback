@@ -213,6 +213,41 @@ func newToken() string {
 	return hex.EncodeToString(b)
 }
 
+func (r *Repository) CreatePublicNotification(n *PublicNotification) error {
+	return r.db.Create(n).Error
+}
+
+func (r *Repository) FindPublicNotificationByID(id uint) (*PublicNotification, error) {
+	var n PublicNotification
+	if err := r.db.First(&n, id).Error; err != nil {
+		return nil, err
+	}
+	return &n, nil
+}
+
+func (r *Repository) UpdatePublicNotification(id uint, updates map[string]interface{}) (*PublicNotification, error) {
+	n, err := r.FindPublicNotificationByID(id)
+	if err != nil {
+		return nil, err
+	}
+	if err := r.db.Model(n).Updates(updates).Error; err != nil {
+		return nil, err
+	}
+	return r.FindPublicNotificationByID(id)
+}
+
+// ListAllPublicNotifications returns every non-deleted banner, active or not.
+func (r *Repository) ListAllPublicNotifications() ([]PublicNotification, error) {
+	var rows []PublicNotification
+	err := r.db.Order("created_at desc").Find(&rows).Error
+	return rows, err
+}
+
+func (r *Repository) SoftDeletePublicNotification(id uint) (int64, error) {
+	res := r.db.Delete(&PublicNotification{}, id)
+	return res.RowsAffected, res.Error
+}
+
 func clampInt(v, lo, hi int) int {
 	if v < lo {
 		return lo

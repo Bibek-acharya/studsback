@@ -86,3 +86,22 @@ type NotificationDedupeLease struct {
 	ExpiresAt       time.Time `gorm:"index"`
 	SupersededCount int       `gorm:"default:0"`
 }
+
+// PublicNotification is the public banner (system notifications) model.
+// Moved here from internal/system (Task 13); system references it via a type
+// alias. No TableName method — GORM's default pluralization keeps the
+// historical public_notifications table.
+type PublicNotification struct {
+	ID        uint           `gorm:"primarykey" json:"id"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+	Title     string         `gorm:"not null" json:"title"`
+	Message   string         `gorm:"type:text" json:"message"`
+	Type      string         `gorm:"default:'info'" json:"type"`
+	Link      string         `json:"link"`
+	Active    bool           `gorm:"default:true;index" json:"active"`
+	Icon      string         `json:"icon"`
+	Color     string         `json:"color"`
+	BgColor   string         `json:"bg_color"`
+}

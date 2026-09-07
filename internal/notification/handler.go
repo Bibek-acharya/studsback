@@ -2,10 +2,12 @@
 package notification
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 const timeRFC3339 = "2006-01-02T15:04:05Z07:00"
@@ -248,4 +250,137 @@ func (h *Handler) cancelBroadcast(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "cancelled"})
+}
+
+// ToPublicNotificationResponse maps a banner to the public shape (moved from
+// the system module, Task 13 — the guest GET serves the identical JSON).
+func ToPublicNotificationResponse(n *PublicNotification) PublicNotificationResponse {
+	return PublicNotificationResponse{
+		ID:        n.ID,
+		CreatedAt: n.CreatedAt.Format("2006-01-02T15:04:05Z"),
+		Title:     n.Title,
+		Message:   n.Message,
+		Type:      n.Type,
+		Link:      n.Link,
+		Icon:      n.Icon,
+		Color:     n.Color,
+		BgColor:   n.BgColor,
+	}
+}
+
+type publicNotificationRequest struct {
+	Title   string `json:"title"`
+	Message string `json:"message"`
+	Type    string `json:"type"`
+	Link    string `json:"link"`
+	Icon    string `json:"icon"`
+	Color   string `json:"color"`
+	BgColor string `json:"bg_color"`
+	Active  *bool  `json:"active"`
+}
+
+func (h *Handler) createPublicNotification(c *gin.Context) {
+	var req publicNotificationRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if req.Title == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "title is required"})
+		return
+	}
+	notifType := req.Type
+	if notifType == "" {
+		notifType = "info"
+	}
+	n := &PublicNotification{
+		Title:   req.Title,
+		Message: req.Message,
+		Type:    notifType,
+		Link:    req.Link,
+		Active:  true,
+		Icon:    req.Icon,
+		Color:   req.Color,
+		BgColor: req.BgColor,
+	}
+	if err := h.svc.repo.CreatePublicNotification(n); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"data": ToPublicNotificationResponse(n), "message": "created"})
+}
+
+func (h *Handler) updatePublicNotification(c *gin.Context) {
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	var req publicNotificationRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	updates := map[string]interface{}{}
+	if req.Title != "" {
+		updates["title"] = req.Title
+	}
+	if req.Message != "" {
+		updates["message"] = req.Message
+	}
+	if req.Type != "" {
+		updates["type"] = req.Type
+	}
+	if req.Link != "" {
+		updates["link"] = req.Link
+	}
+	if req.Icon != "" {
+		updates["icon"] = req.Icon
+	}
+	if req.Color != "" {
+		updates["color"] = req.Color
+	}
+	if req.BgColor != "" {
+		updates["bg_color"] = req.BgColor
+	}
+	if req.Active != nil {
+		updates["active"] = *req.Active
+	}
+	if len(updates) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "no fields to update"})
+		return
+	}
+	n, err := h.svc.repo.UpdatePublicNotification(uint(id), updates)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": ToPublicNotificationResponse(n), "message": "updated"})
+}
+
+func (h *Handler) listAllPublicNotifications(c *gin.Context) {
+	rows, err := h.svc.repo.ListAllPublicNotifications()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	out := make([]PublicNotificationResponse, 0, len(rows))
+	for i := range rows {
+		out = append(out, ToPublicNotificationResponse(&rows[i]))
+	}
+	c.JSON(http.StatusOK, gin.H{"data": out, "message": "ok"})
+}
+
+func (h *Handler) deletePublicNotification(c *gin.Context) {
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	n, err := h.svc.repo.SoftDeletePublicNotification(uint(id))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if n == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "deleted"})
 }

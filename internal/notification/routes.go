@@ -42,4 +42,17 @@ func (h *Handler) RegisterRoutes(rg *gin.RouterGroup, superadminMW gin.HandlerFu
 	bg.POST("/broadcast", h.createBroadcast)
 	bg.GET("/broadcasts", h.listBroadcasts)
 	bg.POST("/broadcasts/:id/cancel", h.cancelBroadcast)
+
+	// Public banner admin CRUD (Task 13) — same /system/notifications path
+	// family as the system module's public GET (method-disjoint, so no Gin
+	// route conflict). Superadmin-only via the middleware supplied at wiring
+	// time; nil skips the guard and is for tests only.
+	sg := rg.Group("/system/notifications")
+	if superadminMW != nil {
+		sg.Use(superadminMW)
+	}
+	sg.POST("", h.createPublicNotification)
+	sg.GET("/all", h.listAllPublicNotifications)
+	sg.PUT("/:id", h.updatePublicNotification)
+	sg.DELETE("/:id", h.deletePublicNotification)
 }

@@ -204,7 +204,6 @@ func main() {
 		&auth.InstitutionSubscription{},
 		&system.Ad{},
 		&system.CarouselSlide{},
-		&system.PublicNotification{},
 		&chat.SitePage{},
 		&feedback.Feedback{},
 		&faq.FAQCategory{},
@@ -218,6 +217,7 @@ func main() {
 		&search.SearchHistory{},
 		notification.AccountNotification{}, notification.NotificationOutbox{},
 		notification.NotificationBroadcast{}, notification.NotificationDedupeLease{},
+		notification.PublicNotification{},
 	); err != nil {
 		logger.Fatal("Failed to migrate database", "error", err)
 	} else {

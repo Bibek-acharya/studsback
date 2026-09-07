@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"studsphere/backend/internal/notification"
 	"studsphere/backend/internal/shared/response"
 
 	"github.com/gin-gonic/gin"
@@ -402,7 +403,7 @@ func (h *Handler) GetPublicNotifications(c *gin.Context) {
 
 	responses := make([]PublicNotificationResponse, len(notifications))
 	for i, n := range notifications {
-		responses[i] = toPublicNotificationResponse(&n)
+		responses[i] = notification.ToPublicNotificationResponse(&n)
 	}
 
 	response.Success(c, http.StatusOK, "Notifications retrieved successfully", responses)
@@ -466,19 +467,5 @@ func toCarouselSlideResponse(slide *CarouselSlide) CarouselSlideResponse {
 		Active:      slide.Active,
 		CreatedAt:   slide.CreatedAt.Format("2006-01-02T15:04:05Z"),
 		UpdatedAt:   slide.UpdatedAt.Format("2006-01-02T15:04:05Z"),
-	}
-}
-
-func toPublicNotificationResponse(n *PublicNotification) PublicNotificationResponse {
-	return PublicNotificationResponse{
-		ID:        n.ID,
-		CreatedAt: n.CreatedAt.Format("2006-01-02T15:04:05Z"),
-		Title:     n.Title,
-		Message:   n.Message,
-		Type:      n.Type,
-		Link:      n.Link,
-		Icon:      n.Icon,
-		Color:     n.Color,
-		BgColor:   n.BgColor,
 	}
 }

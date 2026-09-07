@@ -58,3 +58,17 @@ type ProviderListResponse struct {
 	UnreadCount   int                        `json:"unread_count"`
 	Meta          InboxMeta                  `json:"meta"`
 }
+
+// PublicNotificationResponse is the public banner shape. The system module
+// aliases this type so the guest GET keeps serving the identical JSON.
+type PublicNotificationResponse struct {
+	ID        uint   `json:"id"`
+	CreatedAt string `json:"created_at"`
+	Title     string `json:"title"`
+	Message   string `json:"message"`
+	Type      string `json:"type"`
+	Link      string `json:"link"`
+	Icon      string `json:"icon"`
+	Color     string `json:"color"`
+	BgColor   string `json:"bg_color"`
+}

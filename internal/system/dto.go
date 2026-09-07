@@ -1,5 +1,7 @@
 package system
 
+import "studsphere/backend/internal/notification"
+
 type ContactInquiryRequest struct {
 	Name          string `json:"name" binding:"required"`
 	Email         string `json:"email" binding:"required,email"`
@@ -95,14 +97,6 @@ type CarouselSlideResponse struct {
 	UpdatedAt   string `json:"updated_at"`
 }
 
-type PublicNotificationResponse struct {
-	ID        uint   `json:"id"`
-	CreatedAt string `json:"created_at"`
-	Title     string `json:"title"`
-	Message   string `json:"message"`
-	Type      string `json:"type"`
-	Link      string `json:"link"`
-	Icon      string `json:"icon"`
-	Color     string `json:"color"`
-	BgColor   string `json:"bg_color"`
-}
+// PublicNotificationResponse moved to internal/notification (Task 13); the
+// alias keeps the guest GET's response shape byte-identical.
+type PublicNotificationResponse = notification.PublicNotificationResponse
