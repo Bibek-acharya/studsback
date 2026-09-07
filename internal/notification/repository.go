@@ -248,6 +248,63 @@ func (r *Repository) SoftDeletePublicNotification(id uint) (int64, error) {
 	return res.RowsAffected, res.Error
 }
 
+func (r *Repository) UpsertPreference(pref NotificationPreference) error {
+	// Build assignment map for only non-nil fields (sparse upsert).
+	assignments := map[string]interface{}{
+		"updated_at": time.Now(),
+	}
+	if pref.InApp != nil {
+		assignments["in_app"] = pref.InApp
+	}
+	if pref.Email != nil {
+		assignments["email"] = pref.Email
+	}
+	if pref.Realtime != nil {
+		assignments["realtime"] = pref.Realtime
+	}
+	return r.db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "account_type"}, {Name: "account_id"}, {Name: "pref_key"}},
+		DoUpdates: clause.Assignments(assignments),
+	}).Create(&pref).Error
+}
+
+func (r *Repository) GetPreferences(accountType string, accountID uint) ([]NotificationPreference, error) {
+	var prefs []NotificationPreference
+	err := r.db.Where("account_type = ? AND account_id = ?", accountType, accountID).Find(&prefs).Error
+	return prefs, err
+}
+
+func (r *Repository) DeletePreference(accountType string, accountID uint, prefKey string) error {
+	return r.db.Where("account_type = ? AND account_id = ? AND pref_key = ?",
+		accountType, accountID, prefKey).Delete(&NotificationPreference{}).Error
+}
+
+// EmailForAccount returns the email address for an account.
+func (r *Repository) EmailForAccount(accountType string, accountID uint) (string, error) {
+	switch accountType {
+	case "user":
+		var u struct{ Email string }
+		if err := r.db.Raw("SELECT email FROM users WHERE id = ?", accountID).Scan(&u).Error; err != nil {
+			return "", err
+		}
+		return u.Email, nil
+	case "institution":
+		var u struct{ Email string }
+		if err := r.db.Raw("SELECT email FROM institution_users WHERE id = ?", accountID).Scan(&u).Error; err != nil {
+			return "", err
+		}
+		return u.Email, nil
+	case "provider":
+		var u struct{ Email string }
+		if err := r.db.Raw("SELECT email FROM scholarship_provider_users WHERE id = ?", accountID).Scan(&u).Error; err != nil {
+			return "", err
+		}
+		return u.Email, nil
+	default:
+		return "", fmt.Errorf("notification: unsupported account type %q", accountType)
+	}
+}
+
 func clampInt(v, lo, hi int) int {
 	if v < lo {
 		return lo

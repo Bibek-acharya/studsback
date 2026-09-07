@@ -41,6 +41,29 @@ type Service struct {
 	db   *gorm.DB
 }
 
+// PrefGroup holds effective channel values for a notification category.
+type PrefGroup struct {
+	Category string `json:"category"`
+	InApp    *bool  `json:"in_app,omitempty"`
+	Email    *bool  `json:"email,omitempty"`
+	Realtime *bool  `json:"realtime,omitempty"`
+}
+
+// PrefGlobal holds the global wildcard (*) channel overrides.
+type PrefGlobal struct {
+	InApp    *bool `json:"in_app,omitempty"`
+	Email    *bool `json:"email,omitempty"`
+	Realtime *bool `json:"realtime,omitempty"`
+}
+
+// PrefOverride is a sparse preference update for a single pref key.
+type PrefOverride struct {
+	PrefKey  string `json:"pref_key"`
+	InApp    *bool  `json:"in_app,omitempty"`
+	Email    *bool  `json:"email,omitempty"`
+	Realtime *bool  `json:"realtime,omitempty"`
+}
+
 func NewService(db *gorm.DB) *Service { return &Service{repo: NewRepository(db), db: db} }
 
 // ForRoles resolves active accounts by role — audience rules (doc 03 §3).
@@ -232,6 +255,135 @@ func humanizeKey(key string) string {
 		b[0] = []rune(strings.ToUpper(string(b[0])))[0]
 	}
 	return string(b)
+}
+
+// ResolveChannels returns the effective in-app and email delivery decisions
+// for a recipient and event key, per doc 12 §8 resolution algorithm.
+// Critical-priority events force in_app=true (doc 15 D-Q5).
+func (s *Service) ResolveChannels(rec Ref, eventKey string) (inApp bool, email bool, err error) {
+	def, ok := Registry[eventKey]
+	if !ok {
+		return false, false, fmt.Errorf("notification: unknown event key %q", eventKey)
+	}
+
+	prefs, err := s.repo.GetPreferences(rec.Type, rec.ID)
+	if err != nil {
+		return false, false, err
+	}
+
+	prefMap := make(map[string]NotificationPreference, len(prefs))
+	for _, p := range prefs {
+		prefMap[p.PrefKey] = p
+	}
+
+	resolveChannel := func(ch string, defaultVal bool) bool {
+		keys := []string{eventKey, def.Category + ":*", "*"}
+		for _, k := range keys {
+			if p, ok := prefMap[k]; ok {
+				var val *bool
+				switch ch {
+				case "in_app":
+					val = p.InApp
+				case "email":
+					val = p.Email
+				}
+				if val != nil {
+					return *val
+				}
+			}
+		}
+		return defaultVal
+	}
+
+	inApp = resolveChannel("in_app", true)
+	email = resolveChannel("email", def.EmailDefault)
+
+	if def.Priority == PriorityCritical {
+		inApp = true
+	}
+
+	return inApp, email, nil
+}
+
+// EffectivePreferences returns per-category group values and global overrides
+// for the given account. Groups are derived from distinct registry categories.
+func (s *Service) EffectivePreferences(rec Ref) ([]PrefGroup, PrefGlobal, error) {
+	prefs, err := s.repo.GetPreferences(rec.Type, rec.ID)
+	if err != nil {
+		return nil, PrefGlobal{}, err
+	}
+
+	prefMap := make(map[string]NotificationPreference, len(prefs))
+	for _, p := range prefs {
+		prefMap[p.PrefKey] = p
+	}
+
+	// Collect distinct categories from registry.
+	catSet := map[string]bool{}
+	for _, def := range Registry {
+		catSet[def.Category] = true
+	}
+
+	// Compute category email defaults (first event in category wins).
+	catEmailDefault := map[string]bool{}
+	for _, def := range Registry {
+		if _, ok := catEmailDefault[def.Category]; !ok {
+			catEmailDefault[def.Category] = def.EmailDefault
+		}
+	}
+
+	// Build global.
+	var global PrefGlobal
+	if g, ok := prefMap["*"]; ok {
+		global = PrefGlobal{InApp: g.InApp, Email: g.Email, Realtime: g.Realtime}
+	}
+
+	// Build groups.
+	groups := make([]PrefGroup, 0, len(catSet))
+	for cat := range catSet {
+		grp := PrefGroup{Category: cat}
+		catKey := cat + ":*"
+		if c, ok := prefMap[catKey]; ok {
+			grp.InApp = c.InApp
+			grp.Email = c.Email
+			grp.Realtime = c.Realtime
+		}
+		// Fill nil channels from global.
+		if grp.InApp == nil {
+			grp.InApp = global.InApp
+		}
+		if grp.Email == nil {
+			grp.Email = global.Email
+		}
+		if grp.Realtime == nil {
+			grp.Realtime = global.Realtime
+		}
+		groups = append(groups, grp)
+	}
+
+	return groups, global, nil
+}
+
+// UpdatePreferences sparse-upserts preference overrides and optionally the
+// global row. Nil fields remain NULL in the database (not overwritten).
+func (s *Service) UpdatePreferences(rec Ref, overrides []PrefOverride, global *PrefGlobal) error {
+	for _, o := range overrides {
+		if err := s.repo.UpsertPreference(NotificationPreference{
+			AccountType: rec.Type, AccountID: rec.ID, PrefKey: o.PrefKey,
+			InApp: o.InApp, Email: o.Email, Realtime: o.Realtime,
+		}); err != nil {
+			return err
+		}
+	}
+	if global != nil {
+		if err := s.repo.UpsertPreference(NotificationPreference{
+			AccountType: rec.Type, AccountID: rec.ID, PrefKey: "*",
+			InApp: global.InApp, Email: global.Email, Realtime: global.Realtime,
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func isUniqueViolation(err error) bool {
