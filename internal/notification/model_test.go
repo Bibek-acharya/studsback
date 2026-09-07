@@ -30,6 +30,15 @@ func TestSchemaHasPreferencesTable(t *testing.T) {
 	if count != 1 {
 		t.Fatal("missing notification_preferences table")
 	}
+	// verify columns
+	for _, col := range []string{"account_type", "account_id", "pref_key", "in_app", "email", "realtime"} {
+		var colCount int64
+		db.Raw(`SELECT count(*) FROM information_schema.columns
+			WHERE table_name = 'notification_preferences' AND column_name = ?`, col).Scan(&colCount)
+		if colCount != 1 {
+			t.Fatalf("missing column %s", col)
+		}
+	}
 	// verify unique index
 	var idxCount int64
 	db.Raw(`SELECT count(*) FROM pg_indexes
