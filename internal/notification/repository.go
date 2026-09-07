@@ -198,10 +198,13 @@ func (r *Repository) CompleteOutbox(id uint, token string) error {
 	res := r.db.Model(&NotificationOutbox{}).
 		Where("id = ? AND claim_token = ? AND (lease_expires_at IS NULL OR lease_expires_at > now())", id, token).
 		Updates(map[string]any{"done": true, "lease_expires_at": nil})
+	if res.Error != nil {
+		return res.Error
+	}
 	if res.RowsAffected == 0 {
 		return fmt.Errorf("outbox claim lost (id=%d)", id)
 	}
-	return res.Error
+	return nil
 }
 
 func newToken() string {

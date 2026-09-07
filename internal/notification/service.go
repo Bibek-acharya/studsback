@@ -323,6 +323,7 @@ func (s *Service) expandFanoutRow(row NotificationOutbox) error {
 			break
 		}
 		err := s.db.Transaction(func(tx *gorm.DB) error {
+			inserted := 0
 			for _, t := range targets {
 				occ := fmt.Sprintf("system.announcement:b%d:%s:%d", campaign.ID, t.AccountType, t.AccountID)
 				existing, err := s.repo.FindByOccurrenceKey(tx, t.AccountType, t.AccountID, occ)
@@ -343,9 +344,11 @@ func (s *Service) expandFanoutRow(row NotificationOutbox) error {
 				}}); err != nil {
 					return err
 				}
+				inserted++
 			}
+			// Only actual inserts count — occurrence-skipped targets don't.
 			return tx.Model(&NotificationBroadcast{}).Where("id = ?", campaign.ID).
-				Update("sent_count", gorm.Expr("sent_count + ?", len(targets))).Error
+				Update("sent_count", gorm.Expr("sent_count + ?", inserted)).Error
 		})
 		if err != nil {
 			return err
@@ -355,7 +358,10 @@ func (s *Service) expandFanoutRow(row NotificationOutbox) error {
 			break
 		}
 	}
-	s.db.Model(&NotificationBroadcast{}).Where("id = ? AND status = 'sending'", campaign.ID).Update("status", "completed")
+	if err := s.db.Model(&NotificationBroadcast{}).Where("id = ? AND status = 'sending'", campaign.ID).
+		Update("status", "completed").Error; err != nil {
+		return err // propagate: a failed write leaves the row claimable for retry
+	}
 	return s.repo.CompleteOutbox(row.ID, row.ClaimToken)
 }
 
