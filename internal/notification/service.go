@@ -421,6 +421,17 @@ func (s *Service) EffectivePreferences(rec Ref) ([]PrefGroup, PrefGlobal, error)
 		if grp.Realtime == nil {
 			grp.Realtime = global.Realtime
 		}
+		// Fall back to the dispatch-time defaults so the effective view
+		// matches ResolveChannels when no pref rows exist: email per the
+		// registry's category default, in-app on (non-transactional events).
+		if grp.Email == nil {
+			v := catEmailDefault[cat]
+			grp.Email = &v
+		}
+		if grp.InApp == nil {
+			v := true
+			grp.InApp = &v
+		}
 		groups = append(groups, grp)
 	}
 

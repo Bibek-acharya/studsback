@@ -420,11 +420,30 @@ var roleCategoryGroups = map[string][]struct {
 	},
 }
 
+// normalizeRoleGroup maps JWT role claims (auth/service.go spellings) to the
+// roleCategoryGroups key (doc 06 §12): student/admin → student groups,
+// superadmin/super_admin → superadmin, scholarship_provider[_subuser] →
+// provider. Empty/unknown roles return "" (caller responds 403).
+func normalizeRoleGroup(role string) string {
+	switch role {
+	case "student", "admin":
+		return "student"
+	case "institution":
+		return "institution"
+	case "scholarship_provider", "scholarship_provider_subuser":
+		return "provider"
+	case "superadmin", "super_admin":
+		return "superadmin"
+	default:
+		return ""
+	}
+}
+
 func (h *Handler) GetPreferences(c *gin.Context) {
 	role, _ := c.Get("user_role")
 	roleStr, _ := role.(string)
 
-	groupDefs, ok := roleCategoryGroups[roleStr]
+	groupDefs, ok := roleCategoryGroups[normalizeRoleGroup(roleStr)]
 	if !ok {
 		c.JSON(http.StatusForbidden, gin.H{"error": "unsupported role"})
 		return
@@ -476,6 +495,12 @@ func (h *Handler) GetPreferences(c *gin.Context) {
 }
 
 func (h *Handler) UpdatePreferences(c *gin.Context) {
+	role, _ := c.Get("user_role")
+	roleStr, _ := role.(string)
+	if normalizeRoleGroup(roleStr) == "" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "unsupported role"})
+		return
+	}
 	at, aid, ok := identity(c)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})

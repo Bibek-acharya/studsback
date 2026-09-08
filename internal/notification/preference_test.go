@@ -303,3 +303,151 @@ func TestGetPreferencesUnknownRoleReturns403(t *testing.T) {
 		t.Fatalf("expected 403, got %d: %s", w.Code, w.Body.String())
 	}
 }
+
+// groupKeysFromResponse extracts the group keys from a preferences response.
+func groupKeysFromResponse(t *testing.T, body []byte) []string {
+	t.Helper()
+	var resp map[string]any
+	if err := json.Unmarshal(body, &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	data := resp["data"].(map[string]any)
+	groups := data["groups"].([]any)
+	keys := make([]string, 0, len(groups))
+	for _, g := range groups {
+		keys = append(keys, g.(map[string]any)["key"].(string))
+	}
+	return keys
+}
+
+func TestGetPreferencesProviderClaimSeesProviderGroups(t *testing.T) {
+	db := testDB(t)
+	svc := NewService(db)
+	h := NewHandler(svc)
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.GET("/notifications/preferences", func(c *gin.Context) {
+		c.Set("user_id", uint(7))
+		c.Set("provider_id", uint(0))
+		c.Set("user_role", "scholarship_provider")
+		h.GetPreferences(c)
+	})
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest("GET", "/notifications/preferences", nil))
+	if w.Code != 200 {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	want := []string{"applications", "scholarships", "content", "messages", "system"}
+	got := groupKeysFromResponse(t, w.Body.Bytes())
+	if len(got) != len(want) {
+		t.Fatalf("expected provider groups %v, got %v", want, got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("expected provider groups %v, got %v", want, got)
+		}
+	}
+}
+
+func TestGetPreferencesSuperAdminUnderscoreClaim(t *testing.T) {
+	db := testDB(t)
+	svc := NewService(db)
+	h := NewHandler(svc)
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.GET("/notifications/preferences", func(c *gin.Context) {
+		c.Set("user_id", uint(42))
+		c.Set("provider_id", uint(0))
+		c.Set("user_role", "super_admin")
+		h.GetPreferences(c)
+	})
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest("GET", "/notifications/preferences", nil))
+	if w.Code != 200 {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	want := []string{"system", "moderation"}
+	got := groupKeysFromResponse(t, w.Body.Bytes())
+	if len(got) != len(want) {
+		t.Fatalf("expected superadmin groups %v, got %v", want, got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("expected superadmin groups %v, got %v", want, got)
+		}
+	}
+}
+
+func TestPutPreferencesUnknownRoleReturns403(t *testing.T) {
+	db := testDB(t)
+	svc := NewService(db)
+	h := NewHandler(svc)
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.PUT("/notifications/preferences", func(c *gin.Context) {
+		c.Set("user_id", uint(42))
+		c.Set("provider_id", uint(0))
+		c.Set("user_role", "unknown_role")
+		h.UpdatePreferences(c)
+	})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/notifications/preferences",
+		strings.NewReader(`{"global":{"email":false}}`))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+
+	if w.Code != 403 {
+		t.Fatalf("expected 403, got %d: %s", w.Code, w.Body.String())
+	}
+	var count int64
+	db.Model(&NotificationPreference{}).Where("account_id = ?", 42).Count(&count)
+	if count != 0 {
+		t.Errorf("unknown role must not write pref rows, got %d", count)
+	}
+}
+
+func TestEffectivePreferencesFallsBackToDispatchDefaults(t *testing.T) {
+	db := testDB(t)
+	svc := NewService(db)
+	boolPtr := func(b bool) *bool { return &b }
+	rec := Ref{Type: "user", ID: 4242}
+
+	// Zero pref rows: the application group must render the same defaults
+	// dispatch resolves (email per registry, in-app on) — not silent-off.
+	groups, _, err := svc.EffectivePreferences(rec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var app *PrefGroup
+	for i := range groups {
+		if groups[i].Category == "application" {
+			app = &groups[i]
+		}
+	}
+	if app == nil {
+		t.Fatal("application group missing")
+	}
+	if app.InApp == nil || !*app.InApp {
+		t.Errorf("expected in_app=true (registry default), got %v", app.InApp)
+	}
+	if app.Email == nil || !*app.Email {
+		t.Errorf("expected email=true (category email default), got %v", app.Email)
+	}
+
+	// Global override wins over the category default.
+	if err := svc.UpdatePreferences(rec, nil, &PrefGlobal{Email: boolPtr(false)}); err != nil {
+		t.Fatal(err)
+	}
+	groups, _, err = svc.EffectivePreferences(rec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, g := range groups {
+		if g.Category == "application" && (g.Email == nil || *g.Email) {
+			t.Error("expected email=false (global override beats category default)")
+		}
+	}
+}
