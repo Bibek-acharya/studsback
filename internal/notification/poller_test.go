@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -243,9 +244,12 @@ func TestSweepRekicksStuckPendingDelivery(t *testing.T) {
 	if kicked == nil {
 		t.Fatal("sweep did not re-enqueue a process task for the stuck delivery")
 	}
-	wantID := fmt.Sprintf("%s:%d", TaskTypeProcess, outbox.ID)
-	if kicked.id != wantID {
-		t.Errorf("expected task ID %s, got %s", wantID, kicked.id)
+	// Collision-free ID: starts with the process prefix + outbox row, but a
+	// unique re-kick suffix — the original (archived) task permanently owns
+	// the bare notification:process:<outbox_id> ID.
+	wantPrefix := fmt.Sprintf("%s:%d:rekick:", TaskTypeProcess, outbox.ID)
+	if !strings.HasPrefix(kicked.id, wantPrefix) {
+		t.Errorf("expected re-kick task ID with prefix %s, got %s", wantPrefix, kicked.id)
 	}
 
 	// Synthetic second process run: the delivery hands off.

@@ -88,9 +88,14 @@ func rekickStuckPending(svc *Service) {
 		if err != nil {
 			continue
 		}
+		// Collision-free ID: asynq archives keep the task hash key forever,
+		// so the original (retry-exhausted) task still owns
+		// notification:process:<outbox_id> — a deterministic re-kick ID
+		// would ErrTaskIDConflict forever. Duplicates are harmless (the
+		// process handler filters by delivery status).
 		_, _ = EnqueueFunc(
 			asynq.NewTask(TaskTypeProcess, payload),
-			asynq.TaskID(fmt.Sprintf("%s:%d", TaskTypeProcess, outbox.ID)),
+			asynq.TaskID(fmt.Sprintf("%s:%d:rekick:%d", TaskTypeProcess, outbox.ID, time.Now().UnixNano())),
 			asynq.MaxRetry(25), asynq.Timeout(10*time.Minute))
 	}
 }
