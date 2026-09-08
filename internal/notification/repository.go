@@ -342,6 +342,18 @@ func (r *Repository) ReopenExpiredDeliveries() (int64, error) {
 	return res.RowsAffected, res.Error
 }
 
+// StuckPendingDeliveries returns email deliveries that have sat pending longer
+// than beforeMinutes — their process task exhausted its retries and nothing
+// else will hand them off (the poller's stranded-pending sweep re-kicks them).
+func (r *Repository) StuckPendingDeliveries(beforeMinutes int) ([]NotificationDelivery, error) {
+	var rows []NotificationDelivery
+	err := r.db.Raw(`SELECT d.* FROM notification_deliveries d
+		WHERE d.channel = 'email' AND d.status = 'pending'
+		  AND d.created_at < now() - make_interval(mins => ?)`,
+		beforeMinutes).Scan(&rows).Error
+	return rows, err
+}
+
 // PendingDeliveriesForOutbox returns pending/stale-dispatching email deliveries
 // for the given correlation IDs (one NotifyRequest correlation per outbox row).
 func (r *Repository) PendingDeliveriesForOutbox(correlationIDs []string) ([]NotificationDelivery, error) {

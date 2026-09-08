@@ -2,11 +2,13 @@
 package notification
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"gorm.io/datatypes"
 )
@@ -116,8 +118,10 @@ func TestDispatchRowEnqueuesProcessTask(t *testing.T) {
 	t.Cleanup(func() { EnqueueFunc = origEnqueue })
 
 	var enqueued []*asynq.Task
+	var lastOpts []asynq.Option
 	svc.SetEnqueuer(func(task *asynq.Task, opts ...asynq.Option) (*asynq.TaskInfo, error) {
 		enqueued = append(enqueued, task)
+		lastOpts = opts
 		return &asynq.TaskInfo{ID: task.Type()}, nil
 	})
 
@@ -145,6 +149,11 @@ func TestDispatchRowEnqueuesProcessTask(t *testing.T) {
 	if enqueued[0].Type() != TaskTypeProcess {
 		t.Errorf("expected type %s, got %s", TaskTypeProcess, enqueued[0].Type())
 	}
+	// Deterministic TaskID: retries must dedupe on the outbox row.
+	wantID := fmt.Sprintf("%s:%d", TaskTypeProcess, outbox.ID)
+	if got := taskIDFromOpts(lastOpts); got != wantID {
+		t.Errorf("expected task ID %s, got %s", wantID, got)
+	}
 }
 
 func TestDispatchRowEnqueueFailureReturnsError(t *testing.T) {
@@ -170,5 +179,82 @@ func TestDispatchRowEnqueueFailureReturnsError(t *testing.T) {
 	err := dispatchOutboxRow(svc, outbox)
 	if err == nil {
 		t.Fatal("expected error on enqueue failure")
+	}
+}
+
+// TestSweepRekicksStuckPendingDelivery: a pending delivery whose process task
+// exhausted its retries is stranded — the poller sweep must re-enqueue the
+// original notification:process task so the delivery can hand off.
+func TestSweepRekicksStuckPendingDelivery(t *testing.T) {
+	db := testDB(t)
+	svc := NewService(db)
+	InitWorker(svc, NewRepository(db), db)
+	origEnqueue := EnqueueFunc
+	t.Cleanup(func() { EnqueueFunc = origEnqueue; InitWorker(nil, nil, nil) })
+
+	type enq struct {
+		task *asynq.Task
+		id   string
+	}
+	var enqueued []enq
+	svc.SetEnqueuer(func(task *asynq.Task, opts ...asynq.Option) (*asynq.TaskInfo, error) {
+		enqueued = append(enqueued, enq{task, taskIDFromOpts(opts)})
+		return &asynq.TaskInfo{ID: task.Type()}, nil
+	})
+
+	seedUser42(t, db)
+	corrID := uuid.New().String()
+	inbox := AccountNotification{
+		AccountType: "user", AccountID: 42,
+		EventKey: EventApplicationStatusChanged, Category: "application",
+		Priority: "normal", Title: "t", Body: "b",
+		OccurrenceKey: "application.status_changed:sweep-occ",
+	}
+	db.Create(&inbox)
+	outbox := NotificationOutbox{
+		Kind: "dispatch", Done: true,
+		OccurrenceKey: "application.status_changed:sweep-occ",
+		Payload: datatypes.JSON(mustJSON(NotifyRequest{
+			EventKey:      EventApplicationStatusChanged,
+			Recipients:    []Ref{{Type: "user", ID: 42}},
+			Data:          map[string]any{"program": "CS", "status": "shortlisted"},
+			CorrelationID: corrID,
+		})),
+	}
+	db.Create(&outbox)
+	delivery := NotificationDelivery{
+		NotificationID: &inbox.ID, DeliveryKind: "notification",
+		DeliveryKey: fmt.Sprintf("%d:email", inbox.ID),
+		AccountType: "user", AccountID: 42, Channel: "email",
+		Status: "pending", CorrelationID: corrID,
+	}
+	db.Create(&delivery)
+	// The process task burned its retries a while ago.
+	db.Exec(`UPDATE notification_deliveries SET created_at = now() - interval '11 minutes' WHERE id = ?`, delivery.ID)
+
+	tick(svc)
+
+	var kicked *enq
+	for i := range enqueued {
+		if enqueued[i].task.Type() == TaskTypeProcess {
+			kicked = &enqueued[i]
+		}
+	}
+	if kicked == nil {
+		t.Fatal("sweep did not re-enqueue a process task for the stuck delivery")
+	}
+	wantID := fmt.Sprintf("%s:%d", TaskTypeProcess, outbox.ID)
+	if kicked.id != wantID {
+		t.Errorf("expected task ID %s, got %s", wantID, kicked.id)
+	}
+
+	// Synthetic second process run: the delivery hands off.
+	if err := HandleProcessTask(context.Background(), kicked.task); err != nil {
+		t.Fatal(err)
+	}
+	var d NotificationDelivery
+	db.First(&d, delivery.ID)
+	if d.Status != "handed_off" {
+		t.Errorf("expected handed_off after re-kick process run, got %s", d.Status)
 	}
 }

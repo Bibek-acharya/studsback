@@ -91,8 +91,8 @@ func HandleProcessTask(ctx context.Context, task *asynq.Task) error {
 			"account_type": d.AccountType,
 			"account_id":   d.AccountID,
 		})
-		deliverTask := asynq.NewTask(TaskTypeEmailDeliver, deliverPayload, asynq.TaskID(deliverTaskID))
-		if _, err := EnqueueFunc(deliverTask, asynq.MaxRetry(3)); err != nil {
+		deliverTask := asynq.NewTask(TaskTypeEmailDeliver, deliverPayload)
+		if _, err := EnqueueFunc(deliverTask, asynq.TaskID(deliverTaskID), asynq.MaxRetry(25)); err != nil {
 			// Revert to pending and propagate: asynq retries the process task
 			// (the outbox row is already done); the retry re-finds this row
 			// while still pending — handed_off rows are status-filtered out.

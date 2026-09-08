@@ -17,6 +17,19 @@ import (
 // fakeEnqueuer is the SetEnqueuer signature alias used by worker tests.
 type fakeEnqueuer = func(task *asynq.Task, opts ...asynq.Option) (*asynq.TaskInfo, error)
 
+// taskIDFromOpts extracts the deterministic asynq task ID from enqueue
+// options (asynq.Task has no ID accessor in v0.24.1).
+func taskIDFromOpts(opts []asynq.Option) string {
+	for _, o := range opts {
+		if o.Type() == asynq.TaskIDOpt {
+			if v, ok := o.Value().(string); ok {
+				return v
+			}
+		}
+	}
+	return ""
+}
+
 // seedUser42 inserts the fixture recipient and cleans it up afterwards —
 // an uncleaned active user leaks into broadcast audience tests (shared DB).
 func seedUser42(t *testing.T, db *gorm.DB) {
@@ -125,8 +138,10 @@ func TestProcessTaskHandOffsEmail(t *testing.T) {
 
 	// Install fake enqueuer to capture email:deliver tasks.
 	var enqueued []*asynq.Task
+	var lastOpts []asynq.Option
 	svc.SetEnqueuer(fakeEnqueuer(func(task *asynq.Task, opts ...asynq.Option) (*asynq.TaskInfo, error) {
 		enqueued = append(enqueued, task)
+		lastOpts = opts
 		return &asynq.TaskInfo{ID: task.Type()}, nil
 	}))
 
@@ -180,6 +195,11 @@ func TestProcessTaskHandOffsEmail(t *testing.T) {
 	}
 	if enqueued[0].Type() != TaskTypeEmailDeliver {
 		t.Errorf("expected %s, got %s", TaskTypeEmailDeliver, enqueued[0].Type())
+	}
+	// Deterministic TaskID: retries must dedupe on the delivery key.
+	wantID := fmt.Sprintf("%s:%s", TaskTypeEmailDeliver, delivery.DeliveryKey)
+	if got := taskIDFromOpts(lastOpts); got != wantID {
+		t.Errorf("expected task ID %s, got %s", wantID, got)
 	}
 }
 

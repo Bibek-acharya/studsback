@@ -41,22 +41,57 @@ func tick(svc *Service) {
 	// Recovery sweep: re-open expired delivery reservations (crashed workers).
 	_, _ = svc.repo.ReopenExpiredDeliveries()
 	rows, token, err := svc.repo.ClaimDueOutbox(50)
-	if err != nil || len(rows) == 0 {
+	if err == nil {
+		for _, row := range rows {
+			if err := dispatchOutboxRow(svc, row); err != nil {
+				// Retry with backoff: release the claim, push available_at out.
+				svc.repo.db.Exec(`UPDATE notification_outbox
+					SET last_error = ?, available_at = now() + make_interval(secs => ?),
+					    claimed_at = NULL, lease_expires_at = NULL
+					WHERE id = ? AND claim_token = ?`,
+					err.Error(), backoffSeconds(row.Attempts), row.ID, token)
+				continue
+			}
+			if err := svc.repo.CompleteOutbox(row.ID, token); err != nil {
+				_ = err // claim lost — another worker finished it (doc 03 §3)
+			}
+		}
+	}
+	// Stranded-pending sweep: re-kick dispatch work for deliveries whose
+	// process task exhausted its retries and never handed off.
+	rekickStuckPending(svc)
+}
+
+// rekickStuckPending re-enqueues the original notification:process task for
+// email deliveries stuck pending beyond the window — their process task
+// burned all retries, so nothing else will hand them off. An enqueue that
+// hits a live TaskID collision (task still queued) fails: skipped, harmless.
+func rekickStuckPending(svc *Service) {
+	deliveries, err := svc.repo.StuckPendingDeliveries(10)
+	if err != nil {
 		return
 	}
-	for _, row := range rows {
-		if err := dispatchOutboxRow(svc, row); err != nil {
-			// Retry with backoff: release the claim, push available_at out.
-			svc.repo.db.Exec(`UPDATE notification_outbox
-				SET last_error = ?, available_at = now() + make_interval(secs => ?),
-				    claimed_at = NULL, lease_expires_at = NULL
-				WHERE id = ? AND claim_token = ?`,
-				err.Error(), backoffSeconds(row.Attempts), row.ID, token)
+	for _, d := range deliveries {
+		if d.NotificationID == nil {
 			continue
 		}
-		if err := svc.repo.CompleteOutbox(row.ID, token); err != nil {
-			_ = err // claim lost — another worker finished it (doc 03 §3)
+		var n AccountNotification
+		if err := svc.db.First(&n, *d.NotificationID).Error; err != nil || n.OccurrenceKey == "" {
+			continue // no occurrence key → no outbox row to re-kick
 		}
+		var outbox NotificationOutbox
+		if err := svc.db.Where("kind = 'dispatch' AND occurrence_key = ?", n.OccurrenceKey).
+			Order("id DESC").First(&outbox).Error; err != nil {
+			continue
+		}
+		payload, err := json.Marshal(map[string]any{"outbox_id": outbox.ID})
+		if err != nil {
+			continue
+		}
+		_, _ = EnqueueFunc(
+			asynq.NewTask(TaskTypeProcess, payload),
+			asynq.TaskID(fmt.Sprintf("%s:%d", TaskTypeProcess, outbox.ID)),
+			asynq.MaxRetry(25), asynq.Timeout(10*time.Minute))
 	}
 }
 
@@ -76,8 +111,8 @@ func dispatchOutboxRow(svc *Service, row NotificationOutbox) error {
 	if err != nil {
 		return fmt.Errorf("marshal process payload: %w", err)
 	}
-	task := asynq.NewTask(TaskTypeProcess, payload, asynq.TaskID(taskID))
-	_, err = EnqueueFunc(task, asynq.MaxRetry(3), asynq.Timeout(10*time.Minute))
+	task := asynq.NewTask(TaskTypeProcess, payload)
+	_, err = EnqueueFunc(task, asynq.TaskID(taskID), asynq.MaxRetry(25), asynq.Timeout(10*time.Minute))
 	return err
 }
 
