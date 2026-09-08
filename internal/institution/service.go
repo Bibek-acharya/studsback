@@ -738,7 +738,23 @@ func (s *Service) DeleteCounsellingSession(instID, id uint) error {
 	if err != nil {
 		return errors.New("session not found")
 	}
-	return s.repo.DeleteCounsellingSession(session)
+	if err := s.repo.DeleteCounsellingSession(session); err != nil {
+		return err
+	}
+
+	bookings, err := s.repo.FindActiveBookingsBySession(session.ID)
+	if err != nil || len(bookings) == 0 {
+		return nil
+	}
+	when := session.ScheduledAt.Format("Jan 2, 2006 3:04 PM")
+	for _, booking := range bookings {
+		_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+			EventKey:   notification.EventCounsellingSessionCancelled,
+			Recipients: []notification.Ref{{Type: "user", ID: booking.UserID}},
+			Data:       map[string]any{"when": when},
+		})
+	}
+	return nil
 }
 
 func (s *Service) UpdateBookingStatus(instID, id uint, status, meetingLink, meetingPlatform string) (*InstitutionCounsellingBooking, error) {

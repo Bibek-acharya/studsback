@@ -3,6 +3,7 @@ package scholarship
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -57,7 +58,7 @@ func newPaymentTestDB(t *testing.T) *gorm.DB {
 	if err != nil {
 		t.Fatalf("open sqlite db: %v", err)
 	}
-	if err := db.AutoMigrate(&Scholarship{}, &ScholarshipApplication{}, &Payment{}); err != nil {
+	if err := db.AutoMigrate(&Scholarship{}, &ScholarshipApplication{}, &Payment{}, &ProviderScholarship{}); err != nil {
 		t.Fatalf("auto migrate: %v", err)
 	}
 	return db
@@ -201,5 +202,173 @@ func TestBankRejectionNotifiesStudent(t *testing.T) {
 	if len(notif.Last.Recipients) != 1 || notif.Last.Recipients[0] != (notification.Ref{Type: "user", ID: 7}) {
 		t.Fatalf("recipient wrong: %+v", notif.Last.Recipients)
 	}
+	if notif.Last.DedupeKey != fmt.Sprintf("bank_rejected:%d", pay.ID) {
+		t.Fatalf("dedupe key wrong: %q", notif.Last.DedupeKey)
+	}
 	assertTemplates(t, *notif.Last)
+}
+
+// stubEsewaServer points the status-check seam at a stub returning status.
+func stubEsewaServer(t *testing.T, status, transactionUUID string) {
+	t.Helper()
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"status":           status,
+			"total_amount":     "100",
+			"transaction_uuid": transactionUUID,
+		})
+	}))
+	t.Cleanup(ts.Close)
+	origURL := esewaStatusAPIURL
+	esewaStatusAPIURL = func() string { return ts.URL }
+	t.Cleanup(func() { esewaStatusAPIURL = origURL })
+	config.AppConfig = &config.Config{}
+	t.Cleanup(func() { config.AppConfig = nil })
+}
+
+// seedProviderPipeline attaches a provider-owned scholarship mirror to sch so
+// emissions can resolve the provider org (scholarship_provider_users row id).
+func seedProviderPipeline(t *testing.T, db *gorm.DB, sch *Scholarship) *ProviderScholarship {
+	t.Helper()
+	ps := &ProviderScholarship{ID: 900, ProviderID: 55, Title: sch.Title}
+	if err := db.Create(ps).Error; err != nil {
+		t.Fatalf("seed provider scholarship: %v", err)
+	}
+	sch.ProviderScholarshipID = &ps.ID
+	if err := db.Save(sch).Error; err != nil {
+		t.Fatalf("attach provider pipeline: %v", err)
+	}
+	t.Cleanup(func() { db.Delete(ps) })
+	return ps
+}
+
+// TestEsewaCompleteNotifiesStudentAndProvider: the terminal COMPLETE handler
+// sends the payment receipt copy to the student and, because a provider
+// pipeline owns this scholarship, to the provider org too.
+func TestEsewaCompleteNotifiesStudentAndProvider(t *testing.T) {
+	db := newPaymentTestDB(t)
+	sch, app, pay := seedPaymentScenario(t, db)
+	ps := seedProviderPipeline(t, db, sch)
+	stubEsewaServer(t, "COMPLETE", pay.TransactionID)
+
+	notif := &captureNotifier{}
+	svc := NewPaymentService(db, notif)
+
+	if _, err := svc.VerifyEsewaPayment(EsewaVerifyRequest{
+		ApplicationID:   app.ID,
+		TransactionUUID: pay.TransactionID,
+		TotalAmount:     "100",
+		ProductCode:     "EPAYTEST",
+		Status:          "COMPLETE",
+	}); err != nil {
+		t.Fatalf("verify: %v", err)
+	}
+
+	var student, provider *notification.NotifyRequest
+	for i := range notif.Calls {
+		switch notif.Calls[i].Recipients[0].Type {
+		case "user":
+			student = &notif.Calls[i]
+		case "provider":
+			provider = &notif.Calls[i]
+		}
+	}
+	if student == nil || provider == nil {
+		t.Fatalf("expected student + provider copies, got %+v", notif.Calls)
+	}
+	if student.Recipients[0] != (notification.Ref{Type: "user", ID: 7}) {
+		t.Fatalf("student recipient wrong: %+v", student.Recipients)
+	}
+	if provider.Recipients[0] != (notification.Ref{Type: "provider", ID: ps.ProviderID}) {
+		t.Fatalf("provider recipient wrong: %+v", provider.Recipients)
+	}
+	for _, req := range []*notification.NotifyRequest{student, provider} {
+		if req.Data["slug"] != sch.Slug || req.Data["scholarship"] != sch.Title {
+			t.Fatalf("data wrong: %+v", req.Data)
+		}
+		assertTemplates(t, *req)
+	}
+}
+
+// TestEsewaCompleteSkipsProviderWithoutPipeline: admin/institution-created
+// scholarships have no provider inbox — student copy only.
+func TestEsewaCompleteSkipsProviderWithoutPipeline(t *testing.T) {
+	db := newPaymentTestDB(t)
+	_, app, pay := seedPaymentScenario(t, db)
+	stubEsewaServer(t, "COMPLETE", pay.TransactionID)
+
+	notif := &captureNotifier{}
+	svc := NewPaymentService(db, notif)
+
+	if _, err := svc.VerifyEsewaPayment(EsewaVerifyRequest{
+		ApplicationID:   app.ID,
+		TransactionUUID: pay.TransactionID,
+		TotalAmount:     "100",
+		ProductCode:     "EPAYTEST",
+		Status:          "COMPLETE",
+	}); err != nil {
+		t.Fatalf("verify: %v", err)
+	}
+
+	if len(notif.Calls) != 1 {
+		t.Fatalf("expected only the student copy, got %+v", notif.Calls)
+	}
+	if notif.Calls[0].Recipients[0] != (notification.Ref{Type: "user", ID: 7}) {
+		t.Fatalf("recipient wrong: %+v", notif.Calls[0].Recipients)
+	}
+	assertTemplates(t, notif.Calls[0])
+}
+
+// TestBankReceiptNotifiesProvider: a student's bank-receipt upload notifies
+// the provider org whose pipeline owns the scholarship.
+func TestBankReceiptNotifiesProvider(t *testing.T) {
+	db := newPaymentTestDB(t)
+	sch, _, pay := seedPaymentScenario(t, db)
+	ps := seedProviderPipeline(t, db, sch)
+	pay.Method = "bank"
+	if err := db.Save(pay).Error; err != nil {
+		t.Fatalf("update payment: %v", err)
+	}
+
+	notif := &captureNotifier{}
+	svc := NewPaymentService(db, notif)
+
+	if err := svc.UploadBankReceipt(pay.ID, "https://example.com/receipt.png"); err != nil {
+		t.Fatalf("upload receipt: %v", err)
+	}
+
+	if len(notif.Calls) != 1 {
+		t.Fatalf("expected 1 emission, got %+v", notif.Calls)
+	}
+	req := notif.Calls[0]
+	if req.EventKey != notification.EventScholarshipBankReceipt {
+		t.Fatalf("expected %s, got %+v", notification.EventScholarshipBankReceipt, req)
+	}
+	if req.Recipients[0] != (notification.Ref{Type: "provider", ID: ps.ProviderID}) {
+		t.Fatalf("recipient wrong: %+v", req.Recipients)
+	}
+	assertTemplates(t, req)
+}
+
+// TestBankReceiptWithoutPipelineEmitsNothing: no provider pipeline → no
+// provider org to notify (receipt review falls back to the manual queue).
+func TestBankReceiptWithoutPipelineEmitsNothing(t *testing.T) {
+	db := newPaymentTestDB(t)
+	_, _, pay := seedPaymentScenario(t, db)
+	pay.Method = "bank"
+	if err := db.Save(pay).Error; err != nil {
+		t.Fatalf("update payment: %v", err)
+	}
+
+	notif := &captureNotifier{}
+	svc := NewPaymentService(db, notif)
+
+	if err := svc.UploadBankReceipt(pay.ID, "https://example.com/receipt.png"); err != nil {
+		t.Fatalf("upload receipt: %v", err)
+	}
+
+	if len(notif.Calls) != 0 {
+		t.Fatalf("expected no emission without a provider pipeline, got %+v", notif.Calls)
+	}
 }

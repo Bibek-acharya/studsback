@@ -128,6 +128,67 @@ func TestCreatePublicBookingNotifiesInstitution(t *testing.T) {
 	assertTemplates(t, *notif.Last)
 }
 
+// TestDeleteCounsellingSessionNotifiesBookedStudents: deleting a session that
+// has active (pending/confirmed) bookings notifies each booked student; a
+// cancelled booking stays silent.
+func TestDeleteCounsellingSessionNotifiesBookedStudents(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open sqlite db: %v", err)
+	}
+	if err := db.AutoMigrate(&InstitutionCounsellingSession{}, &InstitutionCounsellingBooking{}); err != nil {
+		t.Fatalf("auto migrate: %v", err)
+	}
+
+	notif := &captureNotifier{}
+	svc := NewService(NewRepository(db), education.NewRepository(db), nil, notif)
+
+	session := &InstitutionCounsellingSession{
+		InstitutionID: 5,
+		Title:         "Career Guidance",
+		ScheduledAt:   time.Date(2026, 9, 10, 14, 0, 0, 0, time.UTC),
+		MaxSeats:      10,
+		Status:        "scheduled",
+	}
+	if err := db.Create(session).Error; err != nil {
+		t.Fatalf("seed session: %v", err)
+	}
+	for _, b := range []InstitutionCounsellingBooking{
+		{SessionID: session.ID, UserID: 7, Status: "pending"},
+		{SessionID: session.ID, UserID: 8, Status: "confirmed"},
+		{SessionID: session.ID, UserID: 9, Status: "cancelled"},
+	} {
+		if err := db.Create(&b).Error; err != nil {
+			t.Fatalf("seed booking: %v", err)
+		}
+	}
+
+	if err := svc.DeleteCounsellingSession(5, session.ID); err != nil {
+		t.Fatalf("delete session: %v", err)
+	}
+
+	if len(notif.Calls) != 2 {
+		t.Fatalf("expected 2 emissions (active bookings only), got %d: %+v", len(notif.Calls), notif.Calls)
+	}
+	seen := map[uint]bool{}
+	for _, req := range notif.Calls {
+		if req.EventKey != notification.EventCounsellingSessionCancelled {
+			t.Fatalf("expected %s, got %+v", notification.EventCounsellingSessionCancelled, req)
+		}
+		if len(req.Recipients) != 1 || req.Recipients[0].Type != "user" {
+			t.Fatalf("recipient wrong: %+v", req.Recipients)
+		}
+		seen[req.Recipients[0].ID] = true
+		if req.Data["when"] != "Sep 10, 2026 2:00 PM" {
+			t.Fatalf("when data wrong: %+v", req.Data)
+		}
+		assertTemplates(t, req)
+	}
+	if !seen[7] || !seen[8] || seen[9] {
+		t.Fatalf("wrong recipients: %+v", notif.Calls)
+	}
+}
+
 // testDBInstitutionPostgres skips (never fails) without a Postgres DSN — the
 // admission-status path resolves the college via a jsonb query that only
 // PostgreSQL supports. Set TEST_DATABASE_DSN to run it.

@@ -160,6 +160,17 @@ func TestCreateNotifiesCollegeInstitution(t *testing.T) {
 		t.Fatalf("recipient wrong: %+v", notif.Last.Recipients)
 	}
 	assertTemplates(t, *notif.Last)
+	if len(notif.Calls) != 2 {
+		t.Fatalf("expected 2 emissions (submitted + received), got %d: %+v", len(notif.Calls), notif.Calls)
+	}
+	sub := notif.Calls[0]
+	if sub.EventKey != notification.EventApplicationSubmitted {
+		t.Fatalf("first emission must be %s, got %+v", notification.EventApplicationSubmitted, sub)
+	}
+	if len(sub.Recipients) != 1 || sub.Recipients[0] != (notification.Ref{Type: "user", ID: uid}) {
+		t.Fatalf("submitted recipient wrong: %+v", sub.Recipients)
+	}
+	assertTemplates(t, sub)
 }
 
 func TestCreateSkipsNotifyWithoutClaimedInstitution(t *testing.T) {
@@ -186,7 +197,58 @@ func TestCreateSkipsNotifyWithoutClaimedInstitution(t *testing.T) {
 	}
 	t.Cleanup(func() { db.Exec(`DELETE FROM admissions WHERE id = ?`, adm.ID) })
 
-	if len(notif.Calls) != 0 {
-		t.Fatalf("expected no emission for college without approved institution, got %+v", notif.Calls)
+	// The student confirmation still fires; only the institution copy is
+	// skipped for a college without an approved institution (D-Q13).
+	if len(notif.Calls) != 1 || notif.Calls[0].EventKey != notification.EventApplicationSubmitted {
+		t.Fatalf("expected only application.submitted, got %+v", notif.Calls)
 	}
+	if notif.Calls[0].Recipients[0].Type == "institution" {
+		t.Fatalf("no institution copy expected, got %+v", notif.Calls[0])
+	}
+}
+
+// TestCreatePendingInstitutionStillNotifiesStudent is the D-Q13 row: a
+// claimed-but-unapproved college gets no institution copy, but the applicant
+// still receives the application.submitted confirmation.
+func TestCreatePendingInstitutionStillNotifiesStudent(t *testing.T) {
+	db := testDBAdmission(t)
+	notif := &captureNotifier{}
+	svc := NewService(NewRepository(db), notif)
+
+	if err := db.Create(&College{ID: 5, Name: "Pending College"}).Error; err != nil {
+		t.Fatalf("seed college: %v", err)
+	}
+	if err := db.Create(&institutionUsersRow{ID: 43, Email: "pending@example.com", Status: "pending", CollegeID: 5, Claimed: true}).Error; err != nil {
+		t.Fatalf("seed institution user: %v", err)
+	}
+	t.Cleanup(func() {
+		db.Exec(`DELETE FROM colleges WHERE id = 5`)
+		db.Exec(`DELETE FROM institution_users WHERE id = 43`)
+	})
+
+	uid := uint(7)
+	adm, err := svc.Create(CreateAdmissionRequest{
+		CollegeID:    5,
+		ProgramName:  "BSc Computer Science",
+		ProgramLevel: "Bachelor",
+		StudentName:  "Test Student",
+		StudentEmail: "student@example.com",
+		StudentPhone: "9800000000",
+	}, &uid)
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	t.Cleanup(func() { db.Exec(`DELETE FROM admissions WHERE id = ?`, adm.ID) })
+
+	if len(notif.Calls) != 1 {
+		t.Fatalf("expected only the student confirmation, got %+v", notif.Calls)
+	}
+	sub := notif.Calls[0]
+	if sub.EventKey != notification.EventApplicationSubmitted {
+		t.Fatalf("expected %s, got %+v", notification.EventApplicationSubmitted, sub)
+	}
+	if len(sub.Recipients) != 1 || sub.Recipients[0] != (notification.Ref{Type: "user", ID: uid}) {
+		t.Fatalf("recipient wrong: %+v", sub.Recipients)
+	}
+	assertTemplates(t, sub)
 }

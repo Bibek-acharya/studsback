@@ -51,6 +51,14 @@ func (s *Service) Create(req CreateAdmissionRequest, userID *uint) (*Admission, 
 		return nil, errors.New("failed to create admission application")
 	}
 
+	if admission.UserID != nil {
+		_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+			EventKey:   notification.EventApplicationSubmitted,
+			Recipients: []notification.Ref{{Type: "user", ID: *admission.UserID}},
+			Data:       map[string]any{"program": admission.ProgramName},
+		})
+	}
+
 	if instUserID, err := s.repo.FindApprovedInstitutionUserID(admission.CollegeID); err == nil && instUserID != 0 {
 		_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
 			EventKey:   notification.EventApplicationReceived,

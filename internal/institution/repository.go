@@ -475,6 +475,16 @@ func (r *Repository) DeleteCounsellingSession(session *InstitutionCounsellingSes
 	return r.db.Delete(session).Error
 }
 
+// FindActiveBookingsBySession returns bookings that still expect the session
+// (pending/confirmed) so the institution can be told they need re-booking.
+func (r *Repository) FindActiveBookingsBySession(sessionID uint) ([]InstitutionCounsellingBooking, error) {
+	var bookings []InstitutionCounsellingBooking
+	err := r.db.
+		Where("session_id = ? AND status IN ('pending','confirmed') AND user_id IS NOT NULL", sessionID).
+		Find(&bookings).Error
+	return bookings, err
+}
+
 func (r *Repository) FindCounsellingBookingsByInstitution(instID uint) ([]InstitutionCounsellingBooking, error) {
 	var bookings []InstitutionCounsellingBooking
 	err := r.db.

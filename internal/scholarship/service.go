@@ -994,6 +994,7 @@ func (s *PaymentService) ProcessSuccessfulPayment(paymentID uint, transactionID 
 	}
 
 	s.createApplicationReceivedNotification(app, payment.ScholarshipID)
+	s.notifyPaymentReceived(payment)
 
 	return s.sendAdmitCard(app, payment)
 }
@@ -1052,6 +1053,7 @@ func (s *PaymentService) UploadBankReceipt(paymentID uint, receiptURL string) er
 		s.scholarshipRepo.UpdateProviderApplicationStatus(app.ID, "pending")
 		s.createApplicationReceivedNotification(app, payment.ScholarshipID)
 	}
+	s.notifyBankReceiptSubmitted(payment)
 
 	return nil
 }
@@ -1064,13 +1066,6 @@ func (s *PaymentService) ApproveBankPayment(paymentID uint, approvedBy uint, rea
 	if reason != "" {
 		payment.Status = "failed"
 		payment.RejectionReason = reason
-		if app, appErr := s.scholarshipRepo.ApplicationFindByID(payment.ApplicationID); appErr == nil && app.UserID != nil {
-			_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
-				EventKey:   notification.EventScholarshipBankRejected,
-				Recipients: []notification.Ref{{Type: "user", ID: *app.UserID}},
-				Data:       map[string]any{"reason": reason},
-			})
-		}
 	} else {
 		payment.Status = "completed"
 		now := time.Now()
@@ -1088,7 +1083,21 @@ func (s *PaymentService) ApproveBankPayment(paymentID uint, approvedBy uint, rea
 
 		s.sendAdmitCard(app, payment)
 	}
-	return s.repo.Update(payment)
+	if err := s.repo.Update(payment); err != nil {
+		return err
+	}
+
+	if reason != "" {
+		if app, appErr := s.scholarshipRepo.ApplicationFindByID(payment.ApplicationID); appErr == nil && app.UserID != nil {
+			_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+				EventKey:   notification.EventScholarshipBankRejected,
+				Recipients: []notification.Ref{{Type: "user", ID: *app.UserID}},
+				DedupeKey:  fmt.Sprintf("bank_rejected:%d", payment.ID),
+				Data:       map[string]any{"reason": reason},
+			})
+		}
+	}
+	return nil
 }
 
 func (s *PaymentService) InitiateEsewaPayment(appID uint, amount float64) (*EsewaInitiateResponse, error) {
@@ -1220,6 +1229,7 @@ func (s *PaymentService) VerifyEsewaPayment(req EsewaVerifyRequest) (*Payment, e
 		s.scholarshipRepo.UpdateProviderApplicationStatus(app.ID, "pending")
 
 		s.createApplicationReceivedNotification(app, payment.ScholarshipID)
+		s.notifyPaymentReceived(payment)
 
 		if err := s.sendAdmitCard(app, payment); err != nil {
 			log.Printf("esewa: failed to send admit card: %v", err)
@@ -1288,6 +1298,7 @@ func (s *PaymentService) VerifyPendingEsewaPayments() *VerifySummary {
 				}
 			}(app, &p)
 		}
+		s.notifyPaymentReceived(&p)
 
 		summary.Verified++
 	}
@@ -1388,6 +1399,61 @@ func (s *PaymentService) createApplicationReceivedNotification(app *ScholarshipA
 		EventKey:   notification.EventApplicationReceived,
 		Recipients: []notification.Ref{{Type: "provider", ID: ps.ProviderID}},
 		Data:       map[string]any{"student_name": app.FullName, "program": ps.Title},
+	})
+}
+
+// notifyPaymentReceived sends the receipt copy to the student and, when a
+// provider pipeline owns the scholarship, to the provider org. Deduped per
+// payment: the verify endpoint, the pending-poll and the legacy confirm path
+// can all reach the terminal transition for the same payment row.
+// Provider Ref targets a scholarship_provider_users row id (M5, doc 12 §3).
+func (s *PaymentService) notifyPaymentReceived(payment *Payment) {
+	scholarship, err := s.scholarshipRepo.FindByID(payment.ScholarshipID)
+	if err != nil || scholarship == nil {
+		return
+	}
+	dedupe := fmt.Sprintf("esewa_paid:%d", payment.ID)
+	data := map[string]any{"scholarship": scholarship.Title, "slug": scholarship.Slug}
+	if payment.UserID != nil {
+		_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+			EventKey:   notification.EventScholarshipPaymentReceived,
+			Recipients: []notification.Ref{{Type: "user", ID: *payment.UserID}},
+			DedupeKey:  dedupe,
+			Data:       data,
+		})
+	}
+	// Provider copy only when the scholarship flows through a provider
+	// pipeline (mirror row exists); admin/institution-created scholarships
+	// have no provider inbox (D-Q13 analog).
+	if scholarship.ProviderScholarshipID != nil {
+		ps, err := s.scholarshipRepo.FindProviderScholarshipByID(*scholarship.ProviderScholarshipID)
+		if err == nil {
+			_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+				EventKey:   notification.EventScholarshipPaymentReceived,
+				Recipients: []notification.Ref{{Type: "provider", ID: ps.ProviderID}},
+				DedupeKey:  dedupe,
+				Data:       data,
+			})
+		}
+	}
+}
+
+// notifyBankReceiptSubmitted tells the provider org a bank receipt awaits
+// review. In-app only (registry EmailDefault=false); skipped when no provider
+// pipeline owns the scholarship.
+func (s *PaymentService) notifyBankReceiptSubmitted(payment *Payment) {
+	scholarship, err := s.scholarshipRepo.FindByID(payment.ScholarshipID)
+	if err != nil || scholarship == nil || scholarship.ProviderScholarshipID == nil {
+		return
+	}
+	ps, err := s.scholarshipRepo.FindProviderScholarshipByID(*scholarship.ProviderScholarshipID)
+	if err != nil {
+		return
+	}
+	_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+		EventKey:   notification.EventScholarshipBankReceipt,
+		Recipients: []notification.Ref{{Type: "provider", ID: ps.ProviderID}},
+		Data:       map[string]any{"scholarship": scholarship.Title},
 	})
 }
 
