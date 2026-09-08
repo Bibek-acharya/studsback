@@ -50,13 +50,33 @@ const (
 	EventAccountEmailChanged           = "account.email_changed"
 	EventContentCreatedOwn             = "content.created_own"
 	EventSystemAnnouncement            = "system.announcement"
-	EventSystemInquiryReceived         = "system.inquiry_received"
 	EventSocialReviewReported          = "social.review_reported"
 	EventModerationForumReport         = "moderation.forum_report"
 	EventModerationFeedback            = "moderation.feedback_received"
 	EventSystemClaimSubmitted          = "system.claim_submitted"
 	EventSystemProviderPending         = "system.provider_pending"
 	EventSystemInstitutionPending      = "system.institution_pending"
+	EventSystemInquiryReceived         = "system.inquiry_received"
+	EventAccountNewDeviceLogin         = "account.new_device_login"
+	EventAccountSuspended              = "account.suspended"
+	EventAccountReinstated             = "account.reinstated"
+	EventAccountDeletionScheduled      = "account.deletion_scheduled"
+	EventAccountDeletionCancelled      = "account.deletion_cancelled"
+	EventAccountTotpChanged            = "account.totp_changed"
+	EventScholarshipDeadlineReminder   = "scholarship.deadline_reminder"
+	EventScholarshipExamReminder       = "scholarship.exam_reminder"
+	EventCounsellingSessionCancelled   = "counselling.session_cancelled"
+	EventSocialNewFollower             = "social.new_follower"
+	EventSocialReviewReceived          = "social.review_received"
+	EventSocialForumReply              = "social.forum_reply"
+	EventSocialInviteAccepted          = "social.invite_accepted"
+	EventSocialReviewModerated         = "social.review_moderated"
+	EventSocialForumModerated          = "social.forum_moderated"
+	EventMessageOfflineFallback        = "message.offline_fallback"
+	EventJobsApplicationReceived       = "jobs.application_received"
+	EventJobsStatusChanged             = "jobs.status_changed"
+	EventProjectshikshaStatusChanged   = "projectshiksha.status_changed"
+	EventPaymentSubscriptionRecorded   = "payment.subscription_recorded"
 )
 
 type EventDef struct {
@@ -102,7 +122,7 @@ var Registry = map[string]EventDef{
 	EventCounsellingBookingCancelled:   ev(EventCounsellingBookingCancelled, "counselling", PriorityCritical, "Counselling Cancelled", "Your counselling session was cancelled.", "/user/dashboard", RecipientExplicit, true, ""),
 	EventCounsellingBookingRescheduled: ev(EventCounsellingBookingRescheduled, "counselling", PriorityCritical, "Counselling Rescheduled", "Your counselling session was moved{{if .when}} to {{.when}}{{end}}.", "/user/dashboard", RecipientExplicit, true, ""),
 	EventAccountWelcome:                ev(EventAccountWelcome, "account", PriorityNormal, "Welcome to StudsSphere", "Your account is ready.", "/user/dashboard", RecipientExplicit, true, "welcome"),
-	EventAccountApprovalPending:        ev(EventAccountApprovalPending, "account", PriorityNormal, "Account Under Review", "Your registration is being reviewed. We will notify you once approved.", "", RecipientExplicit, false, ""),
+	EventAccountApprovalPending:        ev(EventAccountApprovalPending, "account", PriorityNormal, "StudSphere — Application Received", "Hi {{.name}}, we received your {{.kind}} registration. Our team will review it and email you the decision.", "", RecipientExplicit, true, ""),
 	EventAccountApproved:               ev(EventAccountApproved, "account", PriorityCritical, "Account Approved", "Your account has been approved. Welcome!", "", RecipientExplicit, true, ""),
 	EventAccountRejected:               ev(EventAccountRejected, "account", PriorityCritical, "Account Not Approved", "Your account was not approved.", "", RecipientExplicit, true, ""),
 	EventAccountNewLogin:               ev(EventAccountNewLogin, "account", PriorityNormal, "New Login", "Access user {{.email}} logged in.", "", RecipientExplicit, false, ""),
@@ -120,6 +140,41 @@ var Registry = map[string]EventDef{
 	EventSystemClaimSubmitted:          ev(EventSystemClaimSubmitted, "moderation", PriorityNormal, "College Claim Submitted", "{{.college}} claimed by {{.email}}.", "", RecipientRole, false, ""),
 	EventSystemProviderPending:         ev(EventSystemProviderPending, "moderation", PriorityNormal, "Provider Pending Approval", "{{.name}} registered and awaits approval.", "", RecipientRole, false, ""),
 	EventSystemInstitutionPending:      ev(EventSystemInstitutionPending, "moderation", PriorityNormal, "Institution Pending Approval", "{{.name}} registered and awaits approval.", "", RecipientRole, false, ""),
+
+	// P2 keys (docs/notification-system/06-notification-taxonomy.md). All RecipientExplicit.
+	EventAccountNewDeviceLogin:       ev(EventAccountNewDeviceLogin, "account", PriorityLow, "New Device Login", "Your account was just signed in from a new device ({{.email}}). If this wasn't you, change your password.", "/user/security", RecipientExplicit, true, ""),
+	EventAccountSuspended:            ev(EventAccountSuspended, "account", PriorityCritical, "Account Suspended", "Your account has been suspended. Contact support if you believe this is a mistake.", "", RecipientExplicit, true, ""),
+	EventAccountReinstated:           ev(EventAccountReinstated, "account", PriorityNormal, "Account Reinstated", "Good news — your account has been reinstated. Welcome back!", "", RecipientExplicit, true, ""),
+	EventAccountDeletionScheduled:    ev(EventAccountDeletionScheduled, "account", PriorityCritical, "Account Deletion Scheduled", "Your account is scheduled for deletion. It will be deleted in 14 days. Sign in to cancel.", "", RecipientExplicit, true, ""),
+	EventAccountDeletionCancelled:    ev(EventAccountDeletionCancelled, "account", PriorityLow, "Deletion Cancelled", "Your account deletion request was cancelled. Your account is safe.", "/user/settings", RecipientExplicit, false, ""),
+	EventAccountTotpChanged:          ev(EventAccountTotpChanged, "account", PriorityCritical, "2FA Changed", "Two-factor authentication settings for your account were changed.", "/user/security", RecipientExplicit, true, ""),
+	EventScholarshipDeadlineReminder: ev(EventScholarshipDeadlineReminder, "scholarship", PriorityNormal, "Deadline Approaching", "{{.scholarship}} closes on {{.deadline}}.", "/scholarship-pay/{{.slug}}", RecipientExplicit, true, ""),
+	EventScholarshipExamReminder:     ev(EventScholarshipExamReminder, "scholarship", PriorityNormal, "Exam Reminder", "Your {{.scholarship}} exam is coming up. Review your admit card.", "/user/dashboard/admit-card", RecipientExplicit, true, ""),
+	EventCounsellingSessionCancelled: ev(EventCounsellingSessionCancelled, "counselling", PriorityCritical, "Session Cancelled", "The session on {{.when}} was cancelled by the institution.", "/user/counselling", RecipientExplicit, true, ""),
+	EventSocialNewFollower:           ev(EventSocialNewFollower, "social", PriorityLow, "New Follower", "{{.name}} started following you.", "/followers", RecipientExplicit, false, ""),
+	EventSocialReviewReceived:        ev(EventSocialReviewReceived, "social", PriorityNormal, "New Review", "{{.name}} left{{if .rating}} a {{.rating}}-star{{end}} review.", "/reviews", RecipientExplicit, false, ""),
+	EventSocialForumReply:            ev(EventSocialForumReply, "social", PriorityNormal, "New Reply", "{{.name}} replied to your post.", "/campus-forum/post/{{.post_id}}", RecipientExplicit, false, ""),
+	EventSocialInviteAccepted:        ev(EventSocialInviteAccepted, "social", PriorityLow, "Invite Accepted", "{{.name}} {{.response}} your calendar invite.", "/user/calendar", RecipientExplicit, false, ""),
+	EventSocialReviewModerated:       ev(EventSocialReviewModerated, "social", PriorityNormal, "Review Removed", "Your review was removed by a moderator.", "", RecipientExplicit, true, ""),
+	EventSocialForumModerated:        ev(EventSocialForumModerated, "social", PriorityNormal, "Content Removed", "Your forum content was removed by a moderator.", "/campus-forum", RecipientExplicit, true, ""),
+	EventMessageOfflineFallback:      ev(EventMessageOfflineFallback, "message", PriorityNormal, "New Message", "You have a new message from {{.name}}.", "/messages/{{.conversation_id}}", RecipientExplicit, false, ""),
+	EventJobsApplicationReceived:     ev(EventJobsApplicationReceived, "moderation", PriorityNormal, "New Job Application", "{{.name}} applied: {{.title}}.", "", RecipientExplicit, false, ""),
+	EventJobsStatusChanged:           ev(EventJobsStatusChanged, "account", PriorityNormal, "Application Update", "Your application for {{.job_title}} moved to {{.status}}.", "/careers", RecipientExplicit, true, ""),
+	EventProjectshikshaStatusChanged: ev(EventProjectshikshaStatusChanged, "account", PriorityNormal, "Application Update", "Your ProjectShiksha application status: {{.status}}.", "/projectshiksha", RecipientExplicit, true, ""),
+	EventPaymentSubscriptionRecorded: ev(EventPaymentSubscriptionRecorded, "account", PriorityNormal, "Subscription Recorded", "Institution subscription for plan \"{{.plan}}\" was recorded.", "", RecipientExplicit, true, ""),
+}
+
+// ev() has no Transactional/DedupeWin params; set P2 attrs that differ from
+// defaults here (email-only class per doc 06; Task 6 relies on the 1h window).
+func init() {
+	def := Registry[EventAccountApprovalPending]
+	def.Transactional = true
+	Registry[EventAccountApprovalPending] = def
+	for _, k := range []string{EventAccountNewDeviceLogin, EventMessageOfflineFallback} {
+		def := Registry[k]
+		def.DedupeWin = time.Hour
+		Registry[k] = def
+	}
 }
 
 // DedupeWinOr returns the registry dedupe window or the provided default.
@@ -162,7 +217,14 @@ func ValidateRegistry() error {
 		EventAccountAccessRemoved, EventAccountPasswordChanged, EventAccountEmailChanged, EventContentCreatedOwn,
 		EventSystemAnnouncement, EventSystemInquiryReceived, EventSocialReviewReported,
 		EventModerationForumReport, EventModerationFeedback, EventSystemClaimSubmitted,
-		EventSystemProviderPending, EventSystemInstitutionPending} {
+		EventSystemProviderPending, EventSystemInstitutionPending,
+		EventAccountNewDeviceLogin, EventAccountSuspended, EventAccountReinstated,
+		EventAccountDeletionScheduled, EventAccountDeletionCancelled, EventAccountTotpChanged,
+		EventScholarshipDeadlineReminder, EventScholarshipExamReminder, EventCounsellingSessionCancelled,
+		EventSocialNewFollower, EventSocialReviewReceived, EventSocialForumReply,
+		EventSocialInviteAccepted, EventSocialReviewModerated, EventSocialForumModerated,
+		EventMessageOfflineFallback, EventJobsApplicationReceived, EventJobsStatusChanged,
+		EventProjectshikshaStatusChanged, EventPaymentSubscriptionRecorded} {
 		if _, ok := Registry[k]; !ok {
 			return fmt.Errorf("constant %s missing from Registry", k)
 		}

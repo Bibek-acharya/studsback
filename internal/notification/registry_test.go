@@ -1,6 +1,9 @@
 package notification
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 var p1Keys = []string{
 	"application.received", "application.status_changed", "application.submitted",
@@ -19,6 +22,21 @@ var p1Keys = []string{
 	"system.institution_pending",
 }
 
+// P2 keys from docs/notification-system/06-notification-taxonomy.md (Task 1).
+// application.submitted, scholarship.payment_received and account.approval_pending
+// already exist from P1; only their def attributes were updated.
+var p2Keys = []string{
+	"account.new_device_login", "account.suspended", "account.reinstated",
+	"account.deletion_scheduled", "account.deletion_cancelled", "account.totp_changed",
+	"scholarship.deadline_reminder", "scholarship.exam_reminder",
+	"counselling.session_cancelled",
+	"social.new_follower", "social.review_received", "social.forum_reply",
+	"social.invite_accepted", "social.review_moderated", "social.forum_moderated",
+	"message.offline_fallback",
+	"jobs.application_received", "jobs.status_changed",
+	"projectshiksha.status_changed", "payment.subscription_recorded",
+}
+
 func TestValidateRegistryAllP1KeysPresent(t *testing.T) {
 	if err := ValidateRegistry(); err != nil {
 		t.Fatalf("registry invalid: %v", err)
@@ -26,6 +44,46 @@ func TestValidateRegistryAllP1KeysPresent(t *testing.T) {
 	for _, key := range p1Keys {
 		if _, ok := Registry[key]; !ok {
 			t.Errorf("missing P1 registry key %q", key)
+		}
+	}
+	for _, key := range p2Keys {
+		if _, ok := Registry[key]; !ok {
+			t.Errorf("missing P2 registry key %q", key)
+		}
+	}
+}
+
+func TestRegistryP2Attributes(t *testing.T) {
+	if err := ValidateRegistry(); err != nil {
+		t.Fatal(err)
+	}
+	if def := Registry[EventAccountApprovalPending]; !def.Transactional || !def.EmailDefault {
+		t.Errorf("account.approval_pending must be Transactional+EmailDefault, got %+v", def)
+	}
+	for _, key := range []string{"account.new_device_login", "message.offline_fallback"} {
+		if Registry[key].DedupeWin != time.Hour {
+			t.Errorf("%s must have DedupeWin 1h, got %v", key, Registry[key].DedupeWin)
+		}
+	}
+	critical := map[string]bool{"account.suspended": true, "account.deletion_scheduled": true,
+		"account.totp_changed": true, "scholarship.payment_received": true,
+		"counselling.session_cancelled": true}
+	for key, want := range critical {
+		got := Registry[key].Priority == PriorityCritical
+		if got != want {
+			t.Errorf("%s critical=%v want %v", key, got, want)
+		}
+	}
+	// social.* and message.* categories must be registered and validate.
+	for _, cat := range []string{"social", "message"} {
+		found := false
+		for _, def := range Registry {
+			if def.Category == cat {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("no registry entry for category %q", cat)
 		}
 	}
 }
