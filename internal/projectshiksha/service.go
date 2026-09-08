@@ -1,6 +1,7 @@
 package projectshiksha
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
@@ -11,17 +12,19 @@ import (
 	"net/http"
 	"time"
 
+	"studsphere/backend/internal/notification"
 	"studsphere/backend/internal/shared/config"
 )
 
 // Service handles business logic for Project Shiksha
 type Service struct {
-	repo *Repository
+	repo     *Repository
+	notifier notification.Notifier
 }
 
 // NewService creates a new service instance
-func NewService(repo *Repository) *Service {
-	return &Service{repo: repo}
+func NewService(repo *Repository, notifier notification.Notifier) *Service {
+	return &Service{repo: repo, notifier: notifier}
 }
 
 // CreateApplication creates a new scholarship application
@@ -68,6 +71,16 @@ func (s *Service) CreateApplication(req CreateApplicationRequest) (*ShikshaAppli
 		return nil, err
 	}
 
+	if s.notifier != nil {
+		if audience, _ := s.notifier.ForRoles(context.Background(), "superadmin"); len(audience) > 0 {
+			_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+				EventKey:   notification.EventSystemInquiryReceived,
+				Recipients: audience,
+				Data:       map[string]any{"name": req.FullName, "email": req.Email, "subject": "Project Shiksha Application"},
+			})
+		}
+	}
+
 	return app, nil
 }
 
@@ -94,12 +107,36 @@ func (s *Service) UpdateApplicationStatus(id uint, status string) error {
 		"accepted":      true,
 		"rejected":      true,
 	}
-	
+
 	if !validStatuses[status] {
 		return fmt.Errorf("invalid status")
 	}
-	
-	return s.repo.UpdateApplicationStatus(id, status)
+
+	app, err := s.repo.GetApplicationByID(id)
+	if err != nil {
+		return fmt.Errorf("application not found")
+	}
+
+	if err := s.repo.UpdateApplicationStatus(id, status); err != nil {
+		return err
+	}
+
+	s.notifyApplicant(app, status)
+	return nil
+}
+
+// notifyApplicant emits projectshiksha.status_changed to the applicant's
+// account; applications without a linked user (guests) are skipped — the
+// email-only path for account-less applicants is a P3 seam.
+func (s *Service) notifyApplicant(app *ShikshaApplication, status string) {
+	if s.notifier == nil || app.UserID == nil {
+		return
+	}
+	_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+		EventKey:   notification.EventProjectshikshaStatusChanged,
+		Recipients: []notification.Ref{{Type: "user", ID: *app.UserID}},
+		Data:       map[string]any{"status": status},
+	})
 }
 
 // ProcessPayment processes a payment for an application
@@ -146,6 +183,10 @@ func (s *Service) ProcessPayment(appID uint, method string, amount float64, tran
 
 	if err := s.repo.UpdateApplication(app); err != nil {
 		return nil, err
+	}
+
+	if method == "khalti" {
+		s.notifyApplicant(app, app.PaymentStatus)
 	}
 
 	if payment.Status != "pending" {
@@ -271,6 +312,8 @@ func (s *Service) VerifyEsewaPayment(req EsewaVerifyRequest) (*ShikshaPayment, e
 		return nil, err
 	}
 
+	s.notifyApplicant(app, app.PaymentStatus)
+
 	return payment, nil
 }
 
@@ -311,7 +354,13 @@ func (s *Service) VerifyBankPayment(paymentID uint, verified bool, verifiedBy ui
 		return err
 	}
 
-	return s.repo.UpdateApplication(app)
+	if err := s.repo.UpdateApplication(app); err != nil {
+		return err
+	}
+
+	s.notifyApplicant(app, app.PaymentStatus)
+
+	return nil
 }
 
 // UploadPaymentScreenshot handles bank payment screenshot upload

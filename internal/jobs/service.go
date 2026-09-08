@@ -1,28 +1,31 @@
 package jobs
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math"
 	"time"
 
 	"studsphere/backend/internal/emailqueue"
+	"studsphere/backend/internal/notification"
 	"studsphere/backend/internal/shared/storage"
 
 	"gorm.io/gorm"
 )
 
 type Service struct {
-	repo *Repository
-	db   *gorm.DB
+	repo     *Repository
+	db       *gorm.DB
+	notifier notification.Notifier
 }
 
-func NewService(repo *Repository) *Service {
-	return &Service{repo: repo}
+func NewService(repo *Repository, notifier notification.Notifier) *Service {
+	return &Service{repo: repo, notifier: notifier}
 }
 
-func NewServiceWithDB(repo *Repository, db *gorm.DB) *Service {
-	return &Service{repo: repo, db: db}
+func NewServiceWithDB(repo *Repository, db *gorm.DB, notifier notification.Notifier) *Service {
+	return &Service{repo: repo, db: db, notifier: notifier}
 }
 
 func (s *Service) CreateJob(req CreateJobRequest) (*Job, error) {
@@ -236,6 +239,17 @@ func (s *Service) SubmitApplication(jobID uint, fullName, email, phone, resumeUR
 	if err := s.repo.CreateApplication(app); err != nil {
 		return nil, errors.New("failed to submit application")
 	}
+
+	if s.notifier != nil {
+		if audience, _ := s.notifier.ForRoles(context.Background(), "superadmin", "admin"); len(audience) > 0 {
+			_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+				EventKey:   notification.EventJobsApplicationReceived,
+				Recipients: audience,
+				Data:       map[string]any{"name": fullName, "title": job.Title},
+			})
+		}
+	}
+
 	return app, nil
 }
 
@@ -283,6 +297,9 @@ func (s *Service) UpdateApplicationStatus(id uint, req UpdateApplicantStatusRequ
 	if err := s.repo.UpdateApplication(app); err != nil {
 		return nil, errors.New("failed to update application status")
 	}
+
+	s.notifyApplicant(app)
+
 	return app, nil
 }
 
@@ -300,7 +317,39 @@ func (s *Service) UpdateApplicationNotes(id uint, notes string) (*JobApplication
 	return app, nil
 }
 
+// notifyApplicant emits jobs.status_changed to the applicant's account.
+// Applicants are guests identified only by email, so the emission resolves
+// their account by email and skips when they have none (anonymous email
+// delivery is a P3 seam).
+func (s *Service) notifyApplicant(app *JobApplication) {
+	if s.notifier == nil {
+		return
+	}
+	uid, err := s.repo.FindUserIDByEmail(app.Email)
+	if err != nil || uid == 0 {
+		return
+	}
+	_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+		EventKey:   notification.EventJobsStatusChanged,
+		Recipients: []notification.Ref{{Type: "user", ID: uid}},
+		Data:       map[string]any{"job_title": app.Job.Title, "status": app.Status},
+	})
+}
+
 func (s *Service) SendApplicantEmail(id uint, req SendApplicantEmailRequest) error {
+	if req.UpdateStatus != "" {
+		// The status-change email rides the notification pipeline
+		// (jobs.status_changed, EmailDefault) instead of the old manual send
+		// here — the manual call would double-email now that the pipeline
+		// emails on its own.
+		app, err := s.repo.FindApplicationByID(id)
+		if err != nil {
+			return fmt.Errorf("application not found")
+		}
+		_, err = s.UpdateApplicationStatus(id, UpdateApplicantStatusRequest{Status: req.UpdateStatus, Notes: app.Notes})
+		return err
+	}
+
 	app, err := s.repo.FindApplicationByID(id)
 	if err != nil {
 		return fmt.Errorf("application not found")
@@ -308,13 +357,6 @@ func (s *Service) SendApplicantEmail(id uint, req SendApplicantEmailRequest) err
 
 	if err := emailqueue.EnqueueGenericEmail(app.Email, req.Subject, req.Body); err != nil {
 		return fmt.Errorf("failed to enqueue email: %w", err)
-	}
-
-	if req.UpdateStatus != "" {
-		app.Status = req.UpdateStatus
-		if err := s.repo.UpdateApplication(app); err != nil {
-			return fmt.Errorf("email sent but failed to update status: %w", err)
-		}
 	}
 
 	return nil

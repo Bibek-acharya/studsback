@@ -168,3 +168,14 @@ func (r *Repository) ApplicationExists(jobID uint, email string) bool {
 	r.db.Model(&JobApplication{}).Where("job_id = ? AND email = ?", jobID, email).Count(&count)
 	return count > 0
 }
+
+// FindUserIDByEmail resolves the applicant's account — job applicants are
+// guests identified only by email, so a status notification can only be
+// delivered when they registered with the same address.
+func (r *Repository) FindUserIDByEmail(email string) (uint, error) {
+	var row struct {
+		ID uint
+	}
+	err := r.db.Raw(`SELECT id FROM users WHERE lower(email) = lower(?) AND deleted_at IS NULL LIMIT 1`, email).Scan(&row).Error
+	return row.ID, err
+}

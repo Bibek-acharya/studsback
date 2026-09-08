@@ -1,17 +1,21 @@
 package counselling
 
 import (
+	"context"
 	"errors"
 	"slices"
 	"sort"
+
+	"studsphere/backend/internal/notification"
 )
 
 type Service struct {
-	repo *Repository
+	repo     *Repository
+	notifier notification.Notifier
 }
 
-func NewService(repo *Repository) *Service {
-	return &Service{repo: repo}
+func NewService(repo *Repository, notifier notification.Notifier) *Service {
+	return &Service{repo: repo, notifier: notifier}
 }
 
 func (s *Service) CreateBooking(userID uint, req CreateCounsellingBookingRequest) (*CounsellingBooking, error) {
@@ -40,6 +44,18 @@ func (s *Service) CreateBooking(userID uint, req CreateCounsellingBookingRequest
 
 	if err := s.repo.Create(booking); err != nil {
 		return nil, errors.New("failed to create counselling booking")
+	}
+
+	// No counsellor role exists yet (doc 15 Q2) — platform bookings queue to
+	// the superadmin audience.
+	if s.notifier != nil {
+		if audience, _ := s.notifier.ForRoles(context.Background(), "superadmin"); len(audience) > 0 {
+			_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+				EventKey:   notification.EventCounsellingBookingCreated,
+				Recipients: audience,
+				Data:       map[string]any{"student_name": req.StudentName, "when": req.SessionDate + " " + req.SessionTime},
+			})
+		}
 	}
 
 	return booking, nil

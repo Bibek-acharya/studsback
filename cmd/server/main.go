@@ -321,7 +321,7 @@ func main() {
 	collegeRepo := college.NewRepository(db)
 	collegeSvc := college.NewService(collegeRepo)
 	collegeHandler := college.NewHandler(collegeSvc, institutionRepo)
-	counsellingHandler := initModule(counselling.NewRepository(db), counselling.NewService, counselling.NewHandler)
+	counsellingHandler := counselling.NewHandler(counselling.NewService(counselling.NewRepository(db), notificationSvc))
 
 	educationRepo := education.NewRepository(db)
 	instProgramAdapter := &instProgramRepoAdapter{repo: institutionRepo}
@@ -335,7 +335,7 @@ func main() {
 	institutionSvc := institution.NewService(institutionRepo, educationRepo, systemSvc, notificationSvc)
 	institutionHandler := institution.NewHandler(institutionSvc, systemSvc)
 
-	projectShikshaHandler := initModule(projectshiksha.NewRepository(db), projectshiksha.NewService, projectshiksha.NewHandler)
+	projectShikshaHandler := projectshiksha.NewHandler(projectshiksha.NewService(projectshiksha.NewRepository(db), notificationSvc))
 	faqHandler := initModule(faq.NewRepository(db), faq.NewService, faq.NewHandler)
 	reviewHandler := review.NewHandler(review.NewService(review.NewRepository(db), notificationSvc))
 	scholarshipRepo := scholarship.NewRepository(db)
@@ -378,7 +378,7 @@ func main() {
 	followRepo := follow.NewRepository(db)
 	followService := follow.NewService(followRepo, notificationSvc)
 	followHandler := follow.NewHandler(followService)
-	jobsHandler := jobs.NewHandler(jobs.NewServiceWithDB(jobs.NewRepository(db), db))
+	jobsHandler := jobs.NewHandler(jobs.NewServiceWithDB(jobs.NewRepository(db), db, notificationSvc))
 	logger.Info("All module handlers initialized")
 
 	logger.Info("Setting up router...")
