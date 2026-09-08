@@ -1,6 +1,7 @@
 package education
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"mime/multipart"
@@ -8,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"studsphere/backend/internal/notification"
 	"studsphere/backend/internal/shared/slug"
 	"studsphere/backend/internal/shared/utils"
 	"studsphere/backend/internal/system"
@@ -40,10 +42,11 @@ type Service struct {
 	repo      *Repository
 	instRepo  InstitutionProgramRepo
 	systemSvc *system.Service
+	notifier  notification.Notifier
 }
 
-func NewService(repo *Repository, instRepo InstitutionProgramRepo, systemSvc *system.Service) *Service {
-	return &Service{repo: repo, instRepo: instRepo, systemSvc: systemSvc}
+func NewService(repo *Repository, instRepo InstitutionProgramRepo, systemSvc *system.Service, notifier notification.Notifier) *Service {
+	return &Service{repo: repo, instRepo: instRepo, systemSvc: systemSvc, notifier: notifier}
 }
 
 func (s *Service) resolveAffiliationName(course *Course) string {
@@ -1766,6 +1769,19 @@ func (s *Service) CreateBlogComment(input BlogCommentInput) (*BlogCommentRespons
 	if err := s.repo.CreateBlogComment(comment); err != nil {
 		fmt.Printf("[ERROR] CreateBlogComment repo call failed: %v\n", err)
 		return nil, err
+	}
+
+	// Blog comments are an inquiry variant — queue them to the admin
+	// audience (same key and data shape as the contact-form inquiry).
+	if s.notifier != nil {
+		audience, _ := s.notifier.ForRoles(context.Background(), "superadmin", "admin")
+		if len(audience) > 0 {
+			_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+				EventKey:   notification.EventSystemInquiryReceived,
+				Recipients: audience,
+				Data:       map[string]any{"name": input.Author, "email": "", "subject": blog.Title},
+			})
+		}
 	}
 
 	return &BlogCommentResponse{

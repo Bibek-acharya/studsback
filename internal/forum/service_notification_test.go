@@ -89,3 +89,180 @@ func TestReportPostNotifiesSuperadmins(t *testing.T) {
 	}
 	assertTemplates(t, *notif.Last)
 }
+
+func seedUsers(t *testing.T, db *gorm.DB) {
+	t.Helper()
+	for _, u := range []User{
+		{ID: 1, Email: "author@example.com", FirstName: "Post", LastName: "Author"},
+		{ID: 2, Email: "commenter@example.com", FirstName: "Bob", LastName: "Reply"},
+		{ID: 3, Email: "parent@example.com", FirstName: "Pat", LastName: "Parent"},
+	} {
+		if err := db.Create(&u).Error; err != nil {
+			t.Fatalf("seed user %d: %v", u.ID, err)
+		}
+	}
+}
+
+func TestCommentOnPostNotifiesPostAuthor(t *testing.T) {
+	db := testDBForum(t)
+	seedUsers(t, db)
+	notif := &captureNotifier{}
+	svc := NewService(NewRepository(db), notif)
+	post := ForumPost{UserID: 1, Title: "T", Content: "C", Category: "General"}
+	if err := db.Create(&post).Error; err != nil {
+		t.Fatalf("seed post: %v", err)
+	}
+
+	if _, err := svc.CreateForumComment(post.ID, 2, CreateCommentRequest{Content: "Nice"}); err != nil {
+		t.Fatalf("comment: %v", err)
+	}
+
+	if notif.Last == nil || notif.Last.EventKey != notification.EventSocialForumReply {
+		t.Fatalf("expected %s, got %+v", notification.EventSocialForumReply, notif.Last)
+	}
+	if len(notif.Last.Recipients) != 1 || notif.Last.Recipients[0] != (notification.Ref{Type: "user", ID: 1}) {
+		t.Fatalf("recipients wrong: %+v", notif.Last.Recipients)
+	}
+	if notif.Last.Data["name"] != "Bob Reply" || notif.Last.Data["post_id"] != post.ID {
+		t.Fatalf("data wrong: %+v", notif.Last.Data)
+	}
+	assertTemplates(t, *notif.Last)
+}
+
+func TestReplyToCommentNotifiesParentAuthor(t *testing.T) {
+	db := testDBForum(t)
+	seedUsers(t, db)
+	notif := &captureNotifier{}
+	svc := NewService(NewRepository(db), notif)
+	post := ForumPost{UserID: 1, Title: "T", Content: "C", Category: "General"}
+	if err := db.Create(&post).Error; err != nil {
+		t.Fatalf("seed post: %v", err)
+	}
+	parent := &ForumComment{PostID: post.ID, UserID: 3, Content: "Parent"}
+	if err := db.Create(parent).Error; err != nil {
+		t.Fatalf("seed parent: %v", err)
+	}
+
+	if _, err := svc.CreateForumComment(post.ID, 2, CreateCommentRequest{Content: "Reply", ParentID: &parent.ID}); err != nil {
+		t.Fatalf("reply: %v", err)
+	}
+
+	if notif.Last == nil || notif.Last.EventKey != notification.EventSocialForumReply {
+		t.Fatalf("expected %s, got %+v", notification.EventSocialForumReply, notif.Last)
+	}
+	if len(notif.Last.Recipients) != 1 || notif.Last.Recipients[0] != (notification.Ref{Type: "user", ID: 3}) {
+		t.Fatalf("recipients wrong: %+v", notif.Last.Recipients)
+	}
+	assertTemplates(t, *notif.Last)
+}
+
+func TestSelfCommentNoNotification(t *testing.T) {
+	db := testDBForum(t)
+	seedUsers(t, db)
+	notif := &captureNotifier{}
+	svc := NewService(NewRepository(db), notif)
+	post := ForumPost{UserID: 1, Title: "T", Content: "C", Category: "General"}
+	if err := db.Create(&post).Error; err != nil {
+		t.Fatalf("seed post: %v", err)
+	}
+
+	// Author comments on their own post — never notifies.
+	if _, err := svc.CreateForumComment(post.ID, 1, CreateCommentRequest{Content: "Self"}); err != nil {
+		t.Fatalf("comment: %v", err)
+	}
+	if len(notif.Calls) != 0 {
+		t.Fatalf("expected no emissions, got %+v", notif.Calls)
+	}
+}
+
+func TestSelfReplyNoNotification(t *testing.T) {
+	db := testDBForum(t)
+	seedUsers(t, db)
+	notif := &captureNotifier{}
+	svc := NewService(NewRepository(db), notif)
+	post := ForumPost{UserID: 1, Title: "T", Content: "C", Category: "General"}
+	if err := db.Create(&post).Error; err != nil {
+		t.Fatalf("seed post: %v", err)
+	}
+	parent := &ForumComment{PostID: post.ID, UserID: 2, Content: "Parent"}
+	if err := db.Create(parent).Error; err != nil {
+		t.Fatalf("seed parent: %v", err)
+	}
+
+	// Replying to your own comment — never notifies.
+	if _, err := svc.CreateForumComment(post.ID, 2, CreateCommentRequest{Content: "Self reply", ParentID: &parent.ID}); err != nil {
+		t.Fatalf("reply: %v", err)
+	}
+	if len(notif.Calls) != 0 {
+		t.Fatalf("expected no emissions, got %+v", notif.Calls)
+	}
+}
+
+func TestAdminDeletePostNotifiesOwner(t *testing.T) {
+	db := testDBForum(t)
+	seedUsers(t, db)
+	notif := &captureNotifier{}
+	svc := NewService(NewRepository(db), notif)
+	post := ForumPost{UserID: 1, Title: "T", Content: "C", Category: "General"}
+	if err := db.Create(&post).Error; err != nil {
+		t.Fatalf("seed post: %v", err)
+	}
+
+	if err := svc.AdminDeleteForumPost(post.ID); err != nil {
+		t.Fatalf("admin delete: %v", err)
+	}
+
+	if notif.Last == nil || notif.Last.EventKey != notification.EventSocialForumModerated {
+		t.Fatalf("expected %s, got %+v", notification.EventSocialForumModerated, notif.Last)
+	}
+	if len(notif.Last.Recipients) != 1 || notif.Last.Recipients[0] != (notification.Ref{Type: "user", ID: 1}) {
+		t.Fatalf("recipients wrong: %+v", notif.Last.Recipients)
+	}
+	assertTemplates(t, *notif.Last)
+}
+
+func TestAdminDeleteCommentNotifiesOwner(t *testing.T) {
+	db := testDBForum(t)
+	seedUsers(t, db)
+	notif := &captureNotifier{}
+	svc := NewService(NewRepository(db), notif)
+	post := ForumPost{UserID: 1, Title: "T", Content: "C", Category: "General"}
+	if err := db.Create(&post).Error; err != nil {
+		t.Fatalf("seed post: %v", err)
+	}
+	comment := &ForumComment{PostID: post.ID, UserID: 2, Content: "Target"}
+	if err := db.Create(comment).Error; err != nil {
+		t.Fatalf("seed comment: %v", err)
+	}
+
+	if _, err := svc.AdminDeleteForumComment(comment.ID); err != nil {
+		t.Fatalf("admin delete comment: %v", err)
+	}
+
+	if notif.Last == nil || notif.Last.EventKey != notification.EventSocialForumModerated {
+		t.Fatalf("expected %s, got %+v", notification.EventSocialForumModerated, notif.Last)
+	}
+	if len(notif.Last.Recipients) != 1 || notif.Last.Recipients[0] != (notification.Ref{Type: "user", ID: 2}) {
+		t.Fatalf("recipients wrong: %+v", notif.Last.Recipients)
+	}
+	assertTemplates(t, *notif.Last)
+}
+
+func TestReportPostAppendsOtherText(t *testing.T) {
+	db := testDBForum(t)
+	seedUsers(t, db)
+	notif := &captureNotifier{Audience: []notification.Ref{{Type: "user", ID: 1}}}
+	svc := NewService(NewRepository(db), notif)
+	post := ForumPost{UserID: 1, Title: "T", Content: "C", Category: "General"}
+	if err := db.Create(&post).Error; err != nil {
+		t.Fatalf("seed post: %v", err)
+	}
+
+	if err := svc.ReportPost(post.ID, 2, ReportPostRequest{Reasons: []string{"Spam"}, OtherText: "custom detail"}); err != nil {
+		t.Fatalf("report: %v", err)
+	}
+	if notif.Last == nil || notif.Last.Data["reason"] != "Spam; custom detail" {
+		t.Fatalf("reason wrong: %+v", notif.Last)
+	}
+	assertTemplates(t, *notif.Last)
+}

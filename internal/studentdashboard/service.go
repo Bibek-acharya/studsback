@@ -1,19 +1,22 @@
 package studentdashboard
 
 import (
+	"context"
 	"errors"
 	"time"
 
 	"studsphere/backend/internal/auth"
+	"studsphere/backend/internal/notification"
 	"studsphere/backend/internal/shared/logger"
 )
 
 type Service struct {
-	repo *Repository
+	repo     *Repository
+	notifier notification.Notifier
 }
 
-func NewService(repo *Repository) *Service {
-	return &Service{repo: repo}
+func NewService(repo *Repository, notifier notification.Notifier) *Service {
+	return &Service{repo: repo, notifier: notifier}
 }
 
 func parseTime(s string) (time.Time, error) {
@@ -137,6 +140,8 @@ func (s *Service) AcceptInvite(inviteID, userID uint) (*SphereInvite, error) {
 		return nil, err
 	}
 
+	s.notifyInviter(invite, userID, "accepted")
+
 	return invite, nil
 }
 
@@ -154,7 +159,29 @@ func (s *Service) DeclineInvite(inviteID, userID uint) (*SphereInvite, error) {
 		return nil, err
 	}
 
+	s.notifyInviter(invite, userID, "declined")
+
 	return invite, nil
+}
+
+// notifyInviter tells the inviting institution that the invitee responded.
+// Only a claimed + approved institution has an inbox identity (D-Q13: silent
+// otherwise). The inviter is resolved via institution_users.college_id.
+func (s *Service) notifyInviter(invite *SphereInvite, userID uint, response string) {
+	if s.notifier == nil || invite.InstitutionID == 0 {
+		return
+	}
+	if instUserID, err := s.repo.ApprovedInstitutionUserID(invite.InstitutionID); err == nil && instUserID != 0 {
+		data := map[string]any{"name": "Someone", "response": response}
+		if name, err := s.repo.UserNameByID(userID); err == nil && name != "" {
+			data["name"] = name
+		}
+		_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+			EventKey:   notification.EventSocialInviteAccepted,
+			Recipients: []notification.Ref{{Type: "institution", ID: instUserID}},
+			Data:       data,
+		})
+	}
 }
 
 func (s *Service) SaveInvite(inviteID, userID uint) (*SphereInvite, error) {

@@ -1,10 +1,12 @@
 package studentdashboard
 
 import (
+	"strings"
+	"time"
+
 	"studsphere/backend/internal/admission"
 	"studsphere/backend/internal/auth"
 	"studsphere/backend/internal/scholarship"
-	"time"
 
 	"gorm.io/gorm"
 )
@@ -74,6 +76,32 @@ func (r *Repository) GetInviteByID(inviteID uint, userID uint) (*SphereInvite, e
 		return nil, err
 	}
 	return &invite, nil
+}
+
+// ApprovedInstitutionUserID resolves the institution account that claimed the
+// college (D-Q13: silent when none exists). institution_users is owned by the
+// institution module; accessed via raw SQL to avoid an import cycle.
+func (r *Repository) ApprovedInstitutionUserID(collegeID uint) (uint, error) {
+	var id uint
+	err := r.db.Raw(
+		`SELECT id FROM institution_users WHERE college_id = ? AND status = 'approved' AND deleted_at IS NULL LIMIT 1`,
+		collegeID,
+	).Scan(&id).Error
+	return id, err
+}
+
+// UserNameByID resolves a display name from the users table (owned by the
+// auth module; accessed via raw SQL to avoid an import cycle).
+func (r *Repository) UserNameByID(userID uint) (string, error) {
+	var row struct{ FirstName, LastName string }
+	err := r.db.Raw(
+		`SELECT first_name, last_name FROM users WHERE id = ? AND deleted_at IS NULL LIMIT 1`,
+		userID,
+	).Scan(&row).Error
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(strings.Join([]string{row.FirstName, row.LastName}, " ")), nil
 }
 
 func (r *Repository) UpdateInviteStatus(invite *SphereInvite, status string) error {

@@ -325,7 +325,7 @@ func main() {
 
 	educationRepo := education.NewRepository(db)
 	instProgramAdapter := &instProgramRepoAdapter{repo: institutionRepo}
-	educationSvc := education.NewService(educationRepo, instProgramAdapter, systemSvc)
+	educationSvc := education.NewService(educationRepo, instProgramAdapter, systemSvc, notificationSvc)
 	educationHandler := education.NewHandler(educationSvc)
 
 	feedbackHandler := feedback.NewHandler(feedback.NewService(feedback.NewRepository(db), notificationSvc))
@@ -364,7 +364,7 @@ func main() {
 	auth.SetScholarshipProviderHandler(scholarshipPHandler)
 	auth.SetInstitutionService(institutionSvc)
 	auth.SetNotifier(notificationSvc)
-	studentDashHandler := initModule(studentdashboard.NewRepository(db), studentdashboard.NewService, studentdashboard.NewHandler)
+	studentDashHandler := studentdashboard.NewHandler(studentdashboard.NewService(studentdashboard.NewRepository(db), notificationSvc))
 	systemHandler := system.NewHandler(systemSvc)
 	toolsHandler := initModule(tools.NewRepository(db), tools.NewService, tools.NewHandler)
 	universityHandler := initModule(university.NewRepository(db), university.NewService, university.NewHandler)
@@ -376,7 +376,7 @@ func main() {
 	aiHandler := ai.NewHandler(aiService)
 	locationHandler := location.NewHandler(location.NewService())
 	followRepo := follow.NewRepository(db)
-	followService := follow.NewService(followRepo)
+	followService := follow.NewService(followRepo, notificationSvc)
 	followHandler := follow.NewHandler(followService)
 	jobsHandler := jobs.NewHandler(jobs.NewServiceWithDB(jobs.NewRepository(db), db))
 	logger.Info("All module handlers initialized")

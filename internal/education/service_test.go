@@ -134,7 +134,7 @@ func TestResolveCourse_ReturnsMergedData(t *testing.T) {
 	db := setupServiceTestDB(t)
 	seedServiceData(db)
 	repo := NewRepository(db)
-	svc := NewService(repo, &testInstProgramRepo{db: repo.db}, nil)
+	svc := NewService(repo, &testInstProgramRepo{db: repo.db}, nil, nil)
 
 	var course Course
 	db.Where("title = ?", "BSc Computer Science").First(&course)
@@ -190,7 +190,7 @@ func TestResolveCourse_AppliesOverrides(t *testing.T) {
 	db := setupServiceTestDB(t)
 	seedServiceData(db)
 	repo := NewRepository(db)
-	svc := NewService(repo, &testInstProgramRepo{db: repo.db}, nil)
+	svc := NewService(repo, &testInstProgramRepo{db: repo.db}, nil, nil)
 
 	var course Course
 	db.Where("title = ?", "BSc Computer Science").First(&course)
@@ -218,7 +218,7 @@ func TestResolveCourse_NullifiedFields(t *testing.T) {
 	db := setupServiceTestDB(t)
 	seedServiceData(db)
 	repo := NewRepository(db)
-	svc := NewService(repo, &testInstProgramRepo{db: repo.db}, nil)
+	svc := NewService(repo, &testInstProgramRepo{db: repo.db}, nil, nil)
 
 	var course Course
 	db.Where("title = ?", "BSc Computer Science").First(&course)
@@ -248,7 +248,7 @@ func TestResolveCourse_ProgramNotFound(t *testing.T) {
 	db := setupServiceTestDB(t)
 	seedServiceData(db)
 	repo := NewRepository(db)
-	svc := NewService(repo, &testInstProgramRepo{db: repo.db}, nil)
+	svc := NewService(repo, &testInstProgramRepo{db: repo.db}, nil, nil)
 
 	var course Course
 	db.Where("title = ?", "BSc Computer Science").First(&course)
@@ -263,7 +263,7 @@ func TestResolveCourse_CourseNotFound(t *testing.T) {
 	db := setupServiceTestDB(t)
 	seedServiceData(db)
 	repo := NewRepository(db)
-	svc := NewService(repo, &testInstProgramRepo{db: repo.db}, nil)
+	svc := NewService(repo, &testInstProgramRepo{db: repo.db}, nil, nil)
 
 	_, err := svc.ResolveCourse(999, 10)
 	if err == nil {
@@ -275,7 +275,7 @@ func TestGetCoursesByLevel_Delegates(t *testing.T) {
 	db := setupServiceTestDB(t)
 	seedServiceData(db)
 	repo := NewRepository(db)
-	svc := NewService(repo, &testInstProgramRepo{db: repo.db}, nil)
+	svc := NewService(repo, &testInstProgramRepo{db: repo.db}, nil, nil)
 
 	courses, total, err := svc.GetCoursesByLevel("Bachelor", 1, 10)
 	if err != nil {
@@ -293,7 +293,7 @@ func TestGetCoursesByAffiliation_Delegates(t *testing.T) {
 	db := setupServiceTestDB(t)
 	seedServiceData(db)
 	repo := NewRepository(db)
-	svc := NewService(repo, &testInstProgramRepo{db: repo.db}, nil)
+	svc := NewService(repo, &testInstProgramRepo{db: repo.db}, nil, nil)
 
 	var aff Affiliation
 	db.Where("name = ?", "Tribhuvan University").First(&aff)
@@ -314,7 +314,7 @@ func TestGetSecondaryCourses_Delegates(t *testing.T) {
 	db := setupServiceTestDB(t)
 	seedServiceData(db)
 	repo := NewRepository(db)
-	svc := NewService(repo, &testInstProgramRepo{db: repo.db}, nil)
+	svc := NewService(repo, &testInstProgramRepo{db: repo.db}, nil, nil)
 
 	courses, total, err := svc.GetSecondaryCourses(1, 10)
 	if err != nil {
@@ -376,7 +376,7 @@ func TestResolveAffiliationName_FromAffiliationID(t *testing.T) {
 	db := setupServiceTestDB(t)
 	seedServiceData(db)
 	repo := NewRepository(db)
-	svc := NewService(repo, &testInstProgramRepo{db: repo.db}, nil)
+	svc := NewService(repo, &testInstProgramRepo{db: repo.db}, nil, nil)
 
 	var course Course
 	db.Where("title = ?", "BSc Computer Science").First(&course)
@@ -390,7 +390,7 @@ func TestResolveAffiliationName_FromAffiliationID(t *testing.T) {
 func TestResolveAffiliationName_NonUniversityAffiliation(t *testing.T) {
 	db := setupServiceTestDB(t)
 	repo := NewRepository(db)
-	svc := NewService(repo, &testInstProgramRepo{db: repo.db}, nil)
+	svc := NewService(repo, &testInstProgramRepo{db: repo.db}, nil, nil)
 
 	course := &Course{
 		Title:                    "+2 Science",
@@ -406,7 +406,7 @@ func TestResolveAffiliationName_NonUniversityAffiliation(t *testing.T) {
 func TestResolveAffiliationName_NilAffiliationID(t *testing.T) {
 	db := setupServiceTestDB(t)
 	repo := NewRepository(db)
-	svc := NewService(repo, &testInstProgramRepo{db: repo.db}, nil)
+	svc := NewService(repo, &testInstProgramRepo{db: repo.db}, nil, nil)
 
 	course := &Course{Title: "Test", Level: "+2"}
 	name := svc.resolveAffiliationName(course)
@@ -419,7 +419,7 @@ func TestGetEducationCourses_PopulatesAffiliation(t *testing.T) {
 	db := setupServiceTestDB(t)
 	seedServiceData(db)
 	repo := NewRepository(db)
-	svc := NewService(repo, &testInstProgramRepo{db: repo.db}, nil)
+	svc := NewService(repo, &testInstProgramRepo{db: repo.db}, nil, nil)
 
 	courses, err := svc.GetEducationCourses()
 	if err != nil {
@@ -451,7 +451,7 @@ func TestGetEducationCourseByID_PopulatesAffiliation(t *testing.T) {
 	db := setupServiceTestDB(t)
 	seedServiceData(db)
 	repo := NewRepository(db)
-	svc := NewService(repo, &testInstProgramRepo{db: repo.db}, nil)
+	svc := NewService(repo, &testInstProgramRepo{db: repo.db}, nil, nil)
 
 	var course Course
 	db.Where("title = ?", "BSc Computer Science").First(&course)
@@ -469,7 +469,7 @@ func TestSearchGlobalCourses_PopulatesAffiliation(t *testing.T) {
 	db := setupServiceTestDB(t)
 	seedServiceData(db)
 	repo := NewRepository(db)
-	svc := NewService(repo, &testInstProgramRepo{db: repo.db}, nil)
+	svc := NewService(repo, &testInstProgramRepo{db: repo.db}, nil, nil)
 
 	courses, err := svc.SearchGlobalCourses("")
 	if err != nil {

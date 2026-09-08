@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"math"
+	"strconv"
 	"strings"
 	"time"
 
@@ -57,6 +58,27 @@ func (s *Service) SubmitReview(userID uint, req CreateReviewRequest) (*ReviewRes
 
 	if review.CollegeID > 0 {
 		_ = s.repo.UpdateCollegeRating(review.CollegeID)
+
+		// Only a claimed + approved institution has an inbox identity (D-Q13:
+		// silent otherwise). "rating" is supplied only when an overall rating
+		// exists — the registry body guards with {{if .rating}}.
+		if instUserID, err := s.repo.ApprovedInstitutionUserID(review.CollegeID); err == nil && instUserID != 0 {
+			data := map[string]any{"name": "Someone"}
+			if name, err := s.repo.UserNameByID(review.UserID); err == nil && name != "" {
+				data["name"] = name
+			}
+			ratings := make(map[string]float64)
+			if json.Unmarshal(review.Ratings, &ratings) == nil {
+				if overall, ok := ratings["overall"]; ok {
+					data["rating"] = strconv.FormatFloat(overall, 'f', -1, 64)
+				}
+			}
+			_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+				EventKey:   notification.EventSocialReviewReceived,
+				Recipients: []notification.Ref{{Type: "institution", ID: instUserID}},
+				Data:       data,
+			})
+		}
 	}
 
 	return toReviewResponse(review), nil
@@ -529,7 +551,18 @@ func (s *Service) updateUniversityRating(universityID uint) {
 
 // Admin methods for managing reviews
 func (s *Service) AdminDeleteReview(reviewID uint) error {
-	return s.repo.AdminDeleteReview(reviewID)
+	review, err := s.repo.FindByID(reviewID)
+	if err != nil {
+		return err
+	}
+	if err := s.repo.AdminDeleteReview(reviewID); err != nil {
+		return err
+	}
+	_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+		EventKey:   notification.EventSocialReviewModerated,
+		Recipients: []notification.Ref{{Type: "user", ID: review.UserID}},
+	})
+	return nil
 }
 
 func (s *Service) AdminGetAllReviews(page, limit int) (*PaginatedReviewsResponse, error) {

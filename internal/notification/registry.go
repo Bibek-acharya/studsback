@@ -152,7 +152,7 @@ var Registry = map[string]EventDef{
 	EventScholarshipExamReminder:     ev(EventScholarshipExamReminder, "scholarship", PriorityNormal, "Exam Reminder", "Your {{.scholarship}} exam is coming up. Review your admit card.", "/user/dashboard/admit-card", RecipientExplicit, true, ""),
 	EventCounsellingSessionCancelled: ev(EventCounsellingSessionCancelled, "counselling", PriorityCritical, "Session Cancelled", "The session on {{.when}} was cancelled by the institution.", "/user/counselling", RecipientExplicit, true, ""),
 	EventSocialNewFollower:           ev(EventSocialNewFollower, "social", PriorityLow, "New Follower", "{{.name}} started following you.", "/followers", RecipientExplicit, false, ""),
-	EventSocialReviewReceived:        ev(EventSocialReviewReceived, "social", PriorityNormal, "New Review", "{{.name}} left{{if .rating}} a {{.rating}}-star{{end}} review.", "/reviews", RecipientExplicit, false, ""),
+	EventSocialReviewReceived:        ev(EventSocialReviewReceived, "social", PriorityNormal, "New Review", "{{.name}} left{{if index . \"rating\"}} a {{.rating}}-star{{end}} review.", "/reviews", RecipientExplicit, false, ""),
 	EventSocialForumReply:            ev(EventSocialForumReply, "social", PriorityNormal, "New Reply", "{{.name}} replied to your post.", "/campus-forum/post/{{.post_id}}", RecipientExplicit, false, ""),
 	EventSocialInviteAccepted:        ev(EventSocialInviteAccepted, "social", PriorityLow, "Invite Accepted", "{{.name}} {{.response}} your calendar invite.", "/user/calendar", RecipientExplicit, false, ""),
 	EventSocialReviewModerated:       ev(EventSocialReviewModerated, "social", PriorityNormal, "Review Removed", "Your review was removed by a moderator.", "", RecipientExplicit, true, ""),

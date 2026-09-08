@@ -503,6 +503,11 @@ func (s *Service) AdminDeleteForumPost(postID uint) error {
 		return errors.New("failed to delete post")
 	}
 
+	_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+		EventKey:   notification.EventSocialForumModerated,
+		Recipients: []notification.Ref{{Type: "user", ID: post.UserID}},
+	})
+
 	return nil
 }
 
@@ -633,6 +638,27 @@ func (s *Service) CreateForumComment(postID uint, userID uint, req CreateComment
 	comment, err := s.repo.GetCommentByID(comment.ID)
 	if err != nil {
 		return nil, errors.New("failed to fetch created comment")
+	}
+
+	// Notify the post author (top-level comment) or the parent-comment author
+	// (reply). A self-comment or self-reply never notifies.
+	recipientID := uint(0)
+	if req.ParentID != nil {
+		if parent, err := s.repo.GetCommentByID(*req.ParentID); err == nil {
+			recipientID = parent.UserID
+		}
+	} else if post, err := s.repo.GetPostByID(postID); err == nil {
+		recipientID = post.UserID
+	}
+	if recipientID != 0 && recipientID != userID {
+		_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+			EventKey:   notification.EventSocialForumReply,
+			Recipients: []notification.Ref{{Type: "user", ID: recipientID}},
+			Data: map[string]any{
+				"name":    strings.TrimSpace(comment.User.FirstName + " " + comment.User.LastName),
+				"post_id": postID,
+			},
+		})
 	}
 
 	resp := mapCommentToResponse(*comment)
@@ -837,10 +863,17 @@ func (s *Service) ReportPost(postID, userID uint, req ReportPostRequest) error {
 
 	audience, _ := s.notifier.ForRoles(context.Background(), "superadmin", "admin")
 	if len(audience) > 0 {
+		reason := strings.Join(req.Reasons, ", ")
+		if req.OtherText != "" {
+			if reason != "" {
+				reason += "; "
+			}
+			reason += req.OtherText
+		}
 		_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
 			EventKey:   notification.EventModerationForumReport,
 			Recipients: audience,
-			Data:       map[string]any{"kind": "post", "id": postID, "reason": strings.Join(req.Reasons, ", ")},
+			Data:       map[string]any{"kind": "post", "id": postID, "reason": reason},
 		})
 	}
 
@@ -904,10 +937,18 @@ func (s *Service) GetAdminPostComments(postID uint) ([]CommentResponse, error) {
 }
 
 func (s *Service) AdminDeleteForumComment(commentID uint) (int64, error) {
+	comment, err := s.repo.GetCommentByID(commentID)
+	if err != nil {
+		return 0, errors.New("comment not found")
+	}
 	_, deleted, err := s.repo.DeleteCommentTree(commentID)
 	if err != nil {
 		return 0, errors.New("comment not found")
 	}
+	_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+		EventKey:   notification.EventSocialForumModerated,
+		Recipients: []notification.Ref{{Type: "user", ID: comment.UserID}},
+	})
 	return deleted, nil
 }
 
