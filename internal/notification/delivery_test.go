@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -401,6 +402,110 @@ func TestFanoutExpansionLinksEmailDeliveries(t *testing.T) {
 	db.First(&d42, d42.ID)
 	if d42.Status != "handed_off" {
 		t.Errorf("expected handed_off after process run, got %s", d42.Status)
+	}
+}
+
+// TestFanoutReplayOfCompletedCampaignRescuesDeliveries: a fanout row whose
+// campaign is already completed (crash after the completed update but before
+// the process task was enqueued) must still enqueue its process task on
+// replay — the re-kick sweep can't rescue fanout deliveries (kind='dispatch'
+// lookup), so this is their only path off pending.
+func TestFanoutReplayOfCompletedCampaignRescuesDeliveries(t *testing.T) {
+	db := testDB(t)
+	svc := NewService(db)
+	InitWorker(svc, NewRepository(db), db)
+	origEnqueue := EnqueueFunc
+	t.Cleanup(func() { EnqueueFunc = origEnqueue; InitWorker(nil, nil, nil) })
+
+	var enqueued []*asynq.Task
+	svc.SetEnqueuer(fakeEnqueuer(func(task *asynq.Task, opts ...asynq.Option) (*asynq.TaskInfo, error) {
+		enqueued = append(enqueued, task)
+		return &asynq.TaskInfo{ID: task.Type()}, nil
+	}))
+
+	seedUser42(t, db)
+	boolPtr := func(b bool) *bool { return &b }
+	db.Create(&NotificationPreference{
+		AccountType: "user", AccountID: 42,
+		PrefKey: EventSystemAnnouncement, Email: boolPtr(true),
+	})
+
+	// Campaign already marked completed by the interrupted run.
+	campaign := NotificationBroadcast{
+		Title: "Maintenance", Body: "Sunday 02:00-04:00", Priority: "critical",
+		Audience: datatypes.JSON(`["user"]`), Status: "completed", CreatedBy: 1,
+	}
+	if err := db.Create(&campaign).Error; err != nil {
+		t.Fatalf("seed campaign: %v", err)
+	}
+	if err := NewRepository(db).InsertOutbox(nil, NotificationOutbox{
+		Kind:    "fanout",
+		Payload: datatypes.JSON(fmt.Sprintf(`{"broadcast_id":%d}`, campaign.ID)),
+	}); err != nil {
+		t.Fatalf("seed outbox: %v", err)
+	}
+	var fanout NotificationOutbox
+	db.Where("kind = 'fanout'").Last(&fanout)
+
+	// Deliveries left pending by the interrupted run (inbox already expanded).
+	inbox := AccountNotification{
+		AccountType: "user", AccountID: 42,
+		EventKey: EventSystemAnnouncement, Category: "system",
+		Priority: "critical", Title: "Maintenance", Body: "Sunday 02:00-04:00",
+	}
+	db.Create(&inbox)
+	db.Create(&NotificationDelivery{
+		NotificationID: &inbox.ID, DeliveryKind: "notification",
+		DeliveryKey: fmt.Sprintf("%d:email", inbox.ID),
+		AccountType: "user", AccountID: 42, Channel: "email",
+		Status:        "pending",
+		CorrelationID: fmt.Sprintf("fanout:%d", fanout.ID),
+	})
+
+	tick(svc) // synchronous poller pass replays the fanout row
+
+	var kicked *asynq.Task
+	for _, task := range enqueued {
+		if task.Type() == TaskTypeProcess {
+			kicked = task
+		}
+	}
+	if kicked == nil {
+		t.Fatal("replay of completed-campaign fanout row did not enqueue the process task")
+	}
+	if err := HandleProcessTask(context.Background(), kicked); err != nil {
+		t.Fatal(err)
+	}
+	var d NotificationDelivery
+	db.Where("correlation_id = ?", fmt.Sprintf("fanout:%d", fanout.ID)).First(&d)
+	if d.Status != "handed_off" {
+		t.Errorf("expected stranded delivery handed_off after rescue, got %s", d.Status)
+	}
+}
+
+func TestRenderEmailSkipsTemplateLinkWhenEmpty(t *testing.T) {
+	def := ev(EventSystemAnnouncement, "system", PriorityCritical, "s", "b", "{{.link}}", RecipientExplicit, false, "")
+	subject, body, err := renderEmail(def, NotifyRequest{EventKey: EventSystemAnnouncement})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if subject != "s" || body == "" {
+		t.Fatalf("unexpected render: %q %q", subject, body)
+	}
+	if strings.Contains(body, `<a href`) {
+		t.Errorf("empty link must not render an anchor, got %q", body)
+	}
+	if strings.Contains(body, "{{") {
+		t.Errorf("template placeholder leaked into body: %q", body)
+	}
+	// Static links still render the anchor.
+	def.LinkTpl = "/user/announcements"
+	_, body, err = renderEmail(def, NotifyRequest{EventKey: EventSystemAnnouncement})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(body, `<a href="/user/announcements"`) {
+		t.Errorf("static link must render an anchor, got %q", body)
 	}
 }
 

@@ -553,7 +553,14 @@ func (s *Service) expandFanoutRow(row NotificationOutbox) error {
 		return err
 	}
 	if campaign.Status != "sending" {
-		return s.repo.CompleteOutbox(row.ID, row.ClaimToken) // cancelled — nothing to fan out
+		// Cancelled campaigns have no deliveries — the process task no-ops.
+		// Crash-replays of completed campaigns still carry pending deliveries
+		// from the interrupted run: rescue them here (the re-kick sweep can't
+		// — fanout rows don't match its kind='dispatch' lookup).
+		if err := enqueueProcess(row.ID, true); err != nil {
+			return err
+		}
+		return s.repo.CompleteOutbox(row.ID, row.ClaimToken)
 	}
 	def := Registry[EventSystemAnnouncement]
 	fanReq := fanoutNotifyRequest(row.ID, &campaign)

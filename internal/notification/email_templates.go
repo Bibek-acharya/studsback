@@ -4,6 +4,7 @@ package notification
 import (
 	"fmt"
 	"html"
+	"strings"
 )
 
 // renderEmail renders subject and HTML body for an email delivery.
@@ -32,6 +33,8 @@ func renderEmail(def EventDef, req NotifyRequest) (string, string, error) {
 	link := def.LinkTpl
 	if req.Link != "" {
 		link = req.Link
+	} else if strings.Contains(def.LinkTpl, "{{") {
+		link = "" // unresolved template — drop the link rather than render {{.link}}
 	}
 	htmlBody := fmt.Sprintf("<p>%s</p>", html.EscapeString(body))
 	if link != "" {
