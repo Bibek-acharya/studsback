@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"studsphere/backend/internal/emailqueue"
 	"studsphere/backend/internal/institution"
 	"studsphere/backend/internal/notification"
 	"studsphere/backend/internal/shared/storage"
@@ -39,6 +40,16 @@ func (s *Service) emailExistsAcrossTypes(email string) bool {
 	}
 	_, err = s.repo.FindScholarshipProviderUserByEmail(email)
 	return err == nil
+}
+
+// approvalPendingEmail renders the transactional approval_pending email
+// (subject + body) from the registry templates. Sent directly via
+// emailqueue — pipeline-free per doc 06 (no delivery row).
+func approvalPendingEmail(name, kind string) (string, string) {
+	def := notification.Registry[notification.EventAccountApprovalPending]
+	subject, _ := notification.ResolveTemplate(def.TitleTpl, map[string]any{"name": name, "kind": kind})
+	body, _ := notification.ResolveTemplate(def.BodyTpl, map[string]any{"name": name, "kind": kind})
+	return subject, body
 }
 
 func (s *Service) Register(req RegisterRequest) (*RegisterResponse, error) {
@@ -173,6 +184,17 @@ func (s *Service) CreateOrUpdateSession(userID uint, ipAddress, userAgent, locat
 		}
 		if err := s.repo.CreateUserSession(session); err != nil {
 			log.Printf("auth: failed to create session for user %d: %v", userID, err)
+		} else if notifierInstance != nil {
+			email := ""
+			if u, ferr := s.repo.FindUserByID(userID); ferr == nil {
+				email = u.Email
+			}
+			_ = notifierInstance.Notify(context.Background(), notification.NotifyRequest{
+				EventKey:   notification.EventAccountNewDeviceLogin,
+				Recipients: []notification.Ref{{Type: "user", ID: userID}},
+				Data:       map[string]any{"email": email},
+				DedupeKey:  fmt.Sprintf("new_device:%d", userID),
+			})
 		}
 	}
 }
@@ -270,6 +292,28 @@ func (s *Service) VerifyOTP(email, otp string) (*LoginResponse, error) {
 			return nil, errors.New("Failed to create scholarship provider account")
 		}
 
+		if notifierInstance != nil {
+			_ = notifierInstance.Notify(context.Background(), notification.NotifyRequest{
+				EventKey:   notification.EventAccountWelcome,
+				Recipients: []notification.Ref{{Type: "provider", ID: providerUser.ID}},
+				Data:       map[string]any{"first_name": providerUser.ProviderName},
+			})
+		}
+
+		if notifierInstance != nil {
+			audience, _ := notifierInstance.ForRoles(context.Background(), "superadmin", "admin")
+			if len(audience) > 0 {
+				_ = notifierInstance.Notify(context.Background(), notification.NotifyRequest{
+					EventKey:   notification.EventSystemProviderPending,
+					Recipients: audience,
+					Data:       map[string]any{"name": providerUser.ProviderName},
+				})
+			}
+		}
+
+		subject, html := approvalPendingEmail(providerUser.ProviderName, "provider")
+		_ = emailqueue.EnqueueGenericEmail(providerUser.Email, subject, html)
+
 		return &LoginResponse{
 			User:  providerUser,
 			Token: "",
@@ -291,6 +335,28 @@ func (s *Service) VerifyOTP(email, otp string) (*LoginResponse, error) {
 		}
 		_ = s.repo.CreateInstitutionSettings(&settings)
 
+		if notifierInstance != nil {
+			_ = notifierInstance.Notify(context.Background(), notification.NotifyRequest{
+				EventKey:   notification.EventAccountWelcome,
+				Recipients: []notification.Ref{{Type: "institution", ID: institutionUser.ID}},
+				Data:       map[string]any{"first_name": institutionUser.InstitutionName},
+			})
+		}
+
+		if institutionUser.CollegeID == 0 && notifierInstance != nil {
+			audience, _ := notifierInstance.ForRoles(context.Background(), "superadmin", "admin")
+			if len(audience) > 0 {
+				_ = notifierInstance.Notify(context.Background(), notification.NotifyRequest{
+					EventKey:   notification.EventSystemInstitutionPending,
+					Recipients: audience,
+					Data:       map[string]any{"name": institutionUser.InstitutionName},
+				})
+			}
+		}
+
+		subject, html := approvalPendingEmail(institutionUser.InstitutionName, "institution")
+		_ = emailqueue.EnqueueGenericEmail(institutionUser.Email, subject, html)
+
 		return &LoginResponse{
 			User:  institutionUser,
 			Token: "",
@@ -308,6 +374,14 @@ func (s *Service) VerifyOTP(email, otp string) (*LoginResponse, error) {
 
 	if err := s.repo.CreateUser(&user); err != nil {
 		return nil, errors.New("Failed to create user")
+	}
+
+	if notifierInstance != nil {
+		_ = notifierInstance.Notify(context.Background(), notification.NotifyRequest{
+			EventKey:   notification.EventAccountWelcome,
+			Recipients: []notification.Ref{{Type: "user", ID: user.ID}},
+			Data:       map[string]any{"first_name": user.FirstName},
+		})
 	}
 
 	token, err := utils.GenerateToken(user.ID, user.Email, user.Role, 0)
@@ -584,17 +658,6 @@ func (s *Service) InstitutionRegister(req InstitutionRegisterRequest) (*Register
 
 	utils.StoreOTP(req.Email, otp, institutionUser)
 
-	if notifierInstance != nil {
-		audience, _ := notifierInstance.ForRoles(context.Background(), "superadmin", "admin")
-		if len(audience) > 0 {
-			_ = notifierInstance.Notify(context.Background(), notification.NotifyRequest{
-				EventKey:   notification.EventSystemInstitutionPending,
-				Recipients: audience,
-				Data:       map[string]any{"name": institutionUser.InstitutionName},
-			})
-		}
-	}
-
 	return &RegisterResponse{
 		Email:       institutionUser.Email,
 		RequiresOTP: true,
@@ -706,17 +769,6 @@ func (s *Service) ScholarshipProviderRegister(req ScholarshipProviderRegisterReq
 	}
 
 	utils.StoreOTP(req.Email, otp, providerUser)
-
-	if notifierInstance != nil {
-		audience, _ := notifierInstance.ForRoles(context.Background(), "superadmin", "admin")
-		if len(audience) > 0 {
-			_ = notifierInstance.Notify(context.Background(), notification.NotifyRequest{
-				EventKey:   notification.EventSystemProviderPending,
-				Recipients: audience,
-				Data:       map[string]any{"name": providerUser.ProviderName},
-			})
-		}
-	}
 
 	return &RegisterResponse{
 		Email:       providerUser.Email,
@@ -987,7 +1039,18 @@ func (s *Service) RecordInstitutionPayment(institutionID uint, paymentDate time.
 		Remarks:           remarks,
 	}
 
-	return s.repo.CreateOrUpdateSubscription(sub)
+	if err := s.repo.CreateOrUpdateSubscription(sub); err != nil {
+		return err
+	}
+
+	if notifierInstance != nil {
+		_ = notifierInstance.Notify(context.Background(), notification.NotifyRequest{
+			EventKey:   notification.EventPaymentSubscriptionRecorded,
+			Recipients: []notification.Ref{{Type: "institution", ID: institutionID}},
+			Data:       map[string]any{"plan": remarks},
+		})
+	}
+	return nil
 }
 
 func (s *Service) ToggleInstitutionFeatured(institutionID uint) error {
@@ -1270,14 +1333,34 @@ func (s *Service) SuspendUser(userID uint) error {
 	if user.Role != "student" {
 		return errors.New("can only suspend student users")
 	}
-	return s.repo.UpdateUserStatus(userID, "suspended")
+	if err := s.repo.UpdateUserStatus(userID, "suspended"); err != nil {
+		return err
+	}
+
+	if notifierInstance != nil {
+		_ = notifierInstance.Notify(context.Background(), notification.NotifyRequest{
+			EventKey:   notification.EventAccountSuspended,
+			Recipients: []notification.Ref{{Type: "user", ID: userID}},
+		})
+	}
+	return nil
 }
 
 func (s *Service) ReinstateUser(userID uint) error {
 	if _, err := s.repo.FindUserByID(userID); err != nil {
 		return errors.New("user not found")
 	}
-	return s.repo.UpdateUserStatus(userID, "active")
+	if err := s.repo.UpdateUserStatus(userID, "active"); err != nil {
+		return err
+	}
+
+	if notifierInstance != nil {
+		_ = notifierInstance.Notify(context.Background(), notification.NotifyRequest{
+			EventKey:   notification.EventAccountReinstated,
+			Recipients: []notification.Ref{{Type: "user", ID: userID}},
+		})
+	}
+	return nil
 }
 
 func (s *Service) GetUserDetail(userID uint) (*User, error) {
@@ -1707,7 +1790,17 @@ func (s *Service) EnableTOTP(userID uint, code string) error {
 
 	user.TOTPEnabled = true
 	user.TOTPVerified = true
-	return s.repo.SaveUser(user)
+	if err := s.repo.SaveUser(user); err != nil {
+		return err
+	}
+
+	if notifierInstance != nil {
+		_ = notifierInstance.Notify(context.Background(), notification.NotifyRequest{
+			EventKey:   notification.EventAccountTotpChanged,
+			Recipients: []notification.Ref{{Type: "user", ID: userID}},
+		})
+	}
+	return nil
 }
 
 func (s *Service) DisableTOTP(userID uint, password, code string) error {
@@ -1730,7 +1823,17 @@ func (s *Service) DisableTOTP(userID uint, password, code string) error {
 	user.TOTPEnabled = false
 	user.TOTPVerified = false
 	user.TOTPSecret = ""
-	return s.repo.SaveUser(user)
+	if err := s.repo.SaveUser(user); err != nil {
+		return err
+	}
+
+	if notifierInstance != nil {
+		_ = notifierInstance.Notify(context.Background(), notification.NotifyRequest{
+			EventKey:   notification.EventAccountTotpChanged,
+			Recipients: []notification.Ref{{Type: "user", ID: userID}},
+		})
+	}
+	return nil
 }
 
 func (s *Service) DeactivateAccount(userID uint) error {
@@ -1753,6 +1856,13 @@ func (s *Service) QueueDeletion(userID uint) (*time.Time, error) {
 	if err := s.repo.SaveUser(user); err != nil {
 		return nil, err
 	}
+
+	if notifierInstance != nil {
+		_ = notifierInstance.Notify(context.Background(), notification.NotifyRequest{
+			EventKey:   notification.EventAccountDeletionScheduled,
+			Recipients: []notification.Ref{{Type: "user", ID: userID}},
+		})
+	}
 	return &deletionDate, nil
 }
 
@@ -1762,7 +1872,17 @@ func (s *Service) CancelDeletion(userID uint) error {
 		return errors.New("User not found")
 	}
 	user.ScheduledDeletionAt = nil
-	return s.repo.SaveUser(user)
+	if err := s.repo.SaveUser(user); err != nil {
+		return err
+	}
+
+	if notifierInstance != nil {
+		_ = notifierInstance.Notify(context.Background(), notification.NotifyRequest{
+			EventKey:   notification.EventAccountDeletionCancelled,
+			Recipients: []notification.Ref{{Type: "user", ID: userID}},
+		})
+	}
+	return nil
 }
 
 func (s *Service) GetDeletionStatus(userID uint) (*DeletionStatusResponse, error) {
