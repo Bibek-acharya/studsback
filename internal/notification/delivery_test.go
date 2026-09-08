@@ -311,6 +311,99 @@ func TestProcessTaskEnqueueFailureReturnsError(t *testing.T) {
 	}
 }
 
+// TestFanoutExpansionLinksEmailDeliveries: fanout expansion must create email
+// delivery rows for email-eligible recipients (synthetic system.announcement
+// request) and enqueue the fanout row's process task, so the worker email
+// stage covers fanout-expanded inbox rows end to end.
+func TestFanoutExpansionLinksEmailDeliveries(t *testing.T) {
+	db := testDB(t)
+	svc := NewService(db)
+	InitWorker(svc, NewRepository(db), db)
+	origEnqueue := EnqueueFunc
+	t.Cleanup(func() { EnqueueFunc = origEnqueue; InitWorker(nil, nil, nil) })
+
+	var enqueued []*asynq.Task
+	var lastOpts []asynq.Option
+	svc.SetEnqueuer(fakeEnqueuer(func(task *asynq.Task, opts ...asynq.Option) (*asynq.TaskInfo, error) {
+		enqueued = append(enqueued, task)
+		lastOpts = opts
+		return &asynq.TaskInfo{ID: task.Type()}, nil
+	}))
+
+	// User 42 opts email in for announcements; user 43 has no pref and the
+	// announcement event is email-off by default → no delivery row for them.
+	seedUser42(t, db)
+	db.Exec(`INSERT INTO users (id, email, first_name, last_name, role, status, created_at, updated_at)
+		VALUES (43, 'fan43@test.local', 'Fan', 'Two', 'student', 'active', now(), now())
+		ON CONFLICT (id) DO NOTHING`)
+	t.Cleanup(func() { db.Exec(`DELETE FROM users WHERE id = 43`) })
+	boolPtr := func(b bool) *bool { return &b }
+	db.Create(&NotificationPreference{
+		AccountType: "user", AccountID: 42,
+		PrefKey: EventSystemAnnouncement, Email: boolPtr(true),
+	})
+
+	campaign := NotificationBroadcast{
+		Title: "Maintenance", Body: "Sunday 02:00-04:00", Priority: "critical",
+		Audience: datatypes.JSON(`["user"]`), Status: "sending", CreatedBy: 1,
+	}
+	if err := db.Create(&campaign).Error; err != nil {
+		t.Fatalf("seed campaign: %v", err)
+	}
+	if err := NewRepository(db).InsertOutbox(nil, NotificationOutbox{
+		Kind:    "fanout",
+		Payload: datatypes.JSON(fmt.Sprintf(`{"broadcast_id":%d}`, campaign.ID)),
+	}); err != nil {
+		t.Fatalf("seed outbox: %v", err)
+	}
+	var fanout NotificationOutbox
+	db.Where("kind = 'fanout'").Last(&fanout)
+
+	if err := svc.ExpandFanoutPending(context.Background()); err != nil {
+		t.Fatalf("expand: %v", err)
+	}
+
+	// The fanout row's process task is enqueued with its deterministic ID.
+	if len(enqueued) != 1 || enqueued[0].Type() != TaskTypeProcess {
+		t.Fatalf("expected 1 process task, got %d tasks", len(enqueued))
+	}
+	wantID := fmt.Sprintf("%s:%d", TaskTypeProcess, fanout.ID)
+	if got := taskIDFromOpts(lastOpts); got != wantID {
+		t.Errorf("expected task ID %s, got %s", wantID, got)
+	}
+
+	// User 42 (email pref on): pending delivery correlated to the fanout row.
+	var d42 NotificationDelivery
+	if err := db.Where("account_type = 'user' AND account_id = 42 AND channel = 'email'").
+		First(&d42).Error; err != nil {
+		t.Fatalf("expected delivery for user 42: %v", err)
+	}
+	if d42.Status != "pending" {
+		t.Errorf("expected pending, got %s", d42.Status)
+	}
+	if d42.CorrelationID != fmt.Sprintf("fanout:%d", fanout.ID) {
+		t.Errorf("expected correlation fanout:%d, got %s", fanout.ID, d42.CorrelationID)
+	}
+	if d42.NotificationID == nil || d42.DeliveryKey != fmt.Sprintf("%d:email", *d42.NotificationID) {
+		t.Errorf("expected inbox-keyed delivery key, got %s", d42.DeliveryKey)
+	}
+	// User 43 (no pref): no delivery row.
+	var n int64
+	db.Model(&NotificationDelivery{}).Where("account_id = 43").Count(&n)
+	if n != 0 {
+		t.Errorf("expected no delivery for email-default-off recipient, got %d", n)
+	}
+
+	// End to end: the worker process run for the fanout row hands off.
+	if err := HandleProcessTask(context.Background(), enqueued[0]); err != nil {
+		t.Fatal(err)
+	}
+	db.First(&d42, d42.ID)
+	if d42.Status != "handed_off" {
+		t.Errorf("expected handed_off after process run, got %s", d42.Status)
+	}
+}
+
 func TestReopenExpiredDeliveriesSweep(t *testing.T) {
 	db := testDB(t)
 	repo := NewRepository(db)

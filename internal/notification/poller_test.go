@@ -66,6 +66,14 @@ func TestLeaseExpiryReclaimsAbandonedRow(t *testing.T) {
 // expand the campaign's audience and only then mark the row done.
 func TestPollerExpandsFanoutRow(t *testing.T) {
 	db := testDB(t)
+	svc := NewService(db)
+	// Expansion enqueues the fanout row's process task — stub the enqueuer
+	// (no real Redis in tests).
+	origEnqueue := EnqueueFunc
+	t.Cleanup(func() { EnqueueFunc = origEnqueue })
+	svc.SetEnqueuer(func(task *asynq.Task, opts ...asynq.Option) (*asynq.TaskInfo, error) {
+		return &asynq.TaskInfo{ID: "test"}, nil
+	})
 	// Account stubs come from testDB (same adaptation as
 	// TestBroadcastCreatesCampaignAndFansOut).
 	db.Exec(`INSERT INTO users (email, first_name, last_name, role, status, created_at, updated_at) VALUES

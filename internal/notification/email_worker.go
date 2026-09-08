@@ -45,7 +45,19 @@ func HandleProcessTask(ctx context.Context, task *asynq.Task) error {
 	}
 
 	var req NotifyRequest
-	if err := json.Unmarshal(outbox.Payload, &req); err != nil {
+	if outbox.Kind == "fanout" {
+		var bp struct {
+			BroadcastID uint `json:"broadcast_id"`
+		}
+		if err := json.Unmarshal(outbox.Payload, &bp); err != nil {
+			return fmt.Errorf("unmarshal broadcast payload: %w", err)
+		}
+		var campaign NotificationBroadcast
+		if err := db.First(&campaign, bp.BroadcastID).Error; err != nil {
+			return fmt.Errorf("load broadcast: %w", err)
+		}
+		req = fanoutNotifyRequest(outbox.ID, &campaign)
+	} else if err := json.Unmarshal(outbox.Payload, &req); err != nil {
 		return fmt.Errorf("unmarshal notify request: %w", err)
 	}
 

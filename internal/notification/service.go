@@ -530,6 +530,19 @@ func (s *Service) ExpandFanoutPending(ctx context.Context) error {
 	return nil
 }
 
+// fanoutNotifyRequest synthesizes the email-path NotifyRequest for a fanout
+// outbox row: the campaign carries no event key of its own, so deliveries ride
+// the system.announcement definition and correlate to the fanout row's
+// process task (prefs re-checked at dispatch time like any other event).
+func fanoutNotifyRequest(fanoutRowID uint, campaign *NotificationBroadcast) NotifyRequest {
+	return NotifyRequest{
+		EventKey:      EventSystemAnnouncement,
+		Link:          campaign.Link,
+		CorrelationID: fmt.Sprintf("fanout:%d", fanoutRowID),
+		Data:          map[string]any{"title": campaign.Title, "body": campaign.Body, "link": campaign.Link},
+	}
+}
+
 func (s *Service) expandFanoutRow(row NotificationOutbox) error {
 	var payload struct {
 		BroadcastID uint `json:"broadcast_id"`
@@ -542,6 +555,8 @@ func (s *Service) expandFanoutRow(row NotificationOutbox) error {
 	if campaign.Status != "sending" {
 		return s.repo.CompleteOutbox(row.ID, row.ClaimToken) // cancelled — nothing to fan out
 	}
+	def := Registry[EventSystemAnnouncement]
+	fanReq := fanoutNotifyRequest(row.ID, &campaign)
 	batch := 500
 	offset := 0
 	for {
@@ -567,8 +582,8 @@ func (s *Service) expandFanoutRow(row NotificationOutbox) error {
 				if existing != nil {
 					continue // batch replay is harmless (doc 03 §3)
 				}
-				title, _ := ResolveTemplate(Registry[EventSystemAnnouncement].TitleTpl, map[string]any{"title": campaign.Title})
-				b, _ := ResolveTemplate(Registry[EventSystemAnnouncement].BodyTpl, map[string]any{"body": campaign.Body})
+				title, _ := ResolveTemplate(def.TitleTpl, fanReq.Data)
+				b, _ := ResolveTemplate(def.BodyTpl, fanReq.Data)
 				cid := campaign.ID
 				if err := s.repo.InsertNotifications(tx, []AccountNotification{{
 					AccountType: t.AccountType, AccountID: t.AccountID,
@@ -576,6 +591,9 @@ func (s *Service) expandFanoutRow(row NotificationOutbox) error {
 					Title: title, Body: b, Link: campaign.Link,
 					OccurrenceKey: occ, BroadcastID: &cid, ActorType: "user", ActorID: campaign.CreatedBy,
 				}}); err != nil {
+					return err
+				}
+				if err := s.createDelivery(tx, def, fanReq, Ref{Type: t.AccountType, ID: t.AccountID}, &row.ID); err != nil {
 					return err
 				}
 				inserted++
@@ -595,6 +613,13 @@ func (s *Service) expandFanoutRow(row NotificationOutbox) error {
 	if err := s.db.Model(&NotificationBroadcast{}).Where("id = ? AND status = 'sending'", campaign.ID).
 		Update("status", "completed").Error; err != nil {
 		return err // propagate: a failed write leaves the row claimable for retry
+	}
+	// Hand the fanout row's email path to the worker (deliveries created above
+	// correlate to this task). Collisions tolerated: a crash after enqueue but
+	// before CompleteOutbox replays expansion idempotently and must not wedge
+	// the row on an already-queued/archived task ID.
+	if err := enqueueProcess(row.ID, true); err != nil {
+		return err
 	}
 	return s.repo.CompleteOutbox(row.ID, row.ClaimToken)
 }

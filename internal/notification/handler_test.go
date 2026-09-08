@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/hibiken/asynq"
 )
 
 func studentRouter(h *Handler, userID uint) *gin.Engine {
@@ -226,6 +227,12 @@ func TestBroadcastCreatesCampaignAndFansOut(t *testing.T) {
 	t.Cleanup(func() { db.Exec(`DELETE FROM users WHERE email LIKE 'notif-u%@test.local'`) })
 
 	svc := NewService(db)
+	// Expansion enqueues the fanout row's process task — stub the enqueuer.
+	origEnqueue := EnqueueFunc
+	t.Cleanup(func() { EnqueueFunc = origEnqueue })
+	svc.SetEnqueuer(func(task *asynq.Task, opts ...asynq.Option) (*asynq.TaskInfo, error) {
+		return &asynq.TaskInfo{ID: "test"}, nil
+	})
 	h := NewHandler(svc)
 	gin.SetMode(gin.TestMode)
 	r := gin.New()

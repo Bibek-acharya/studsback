@@ -57,10 +57,15 @@ func testDB(t *testing.T) *gorm.DB {
 		updated_at timestamptz)`)
 	db.Exec(`CREATE TABLE IF NOT EXISTS institution_users (
 		id bigserial PRIMARY KEY,
+		email text,
 		status text, deleted_at timestamptz)`)
 	db.Exec(`CREATE TABLE IF NOT EXISTS scholarship_provider_users (
 		id bigserial PRIMARY KEY,
+		email text,
 		status text, deleted_at timestamptz)`)
+	// Pre-existing test DBs may have the twins without the email column.
+	db.Exec(`ALTER TABLE institution_users ADD COLUMN IF NOT EXISTS email text`)
+	db.Exec(`ALTER TABLE scholarship_provider_users ADD COLUMN IF NOT EXISTS email text`)
 	t.Cleanup(func() {
 		db.Exec(`TRUNCATE account_notifications, notification_outbox, notification_broadcasts, notification_dedupe_leases, notification_preferences, notification_deliveries`)
 	})

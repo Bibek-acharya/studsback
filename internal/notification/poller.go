@@ -3,6 +3,7 @@ package notification
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -111,13 +112,27 @@ func dispatchOutboxRow(svc *Service, row NotificationOutbox) error {
 	if row.Kind == "anonymous_email" {
 		return nil // P3 seam — transactional email dispatch not routed through outbox yet
 	}
-	taskID := fmt.Sprintf("%s:%d", TaskTypeProcess, row.ID)
-	payload, err := json.Marshal(map[string]any{"outbox_id": row.ID})
+	return enqueueProcess(row.ID, false)
+}
+
+// enqueueProcess enqueues the notification:process task for an outbox row.
+// The deterministic ID dedups concurrent/retry enqueues; when the caller
+// tolerates an ID conflict (task already queued, or archived after a run —
+// e.g. fanout expansion resuming after a crash between enqueue and
+// CompleteOutbox) the conflict is not an error: the existing task did or
+// will do the work.
+func enqueueProcess(outboxID uint, collidableTaskIDOK bool) error {
+	payload, err := json.Marshal(map[string]any{"outbox_id": outboxID})
 	if err != nil {
 		return fmt.Errorf("marshal process payload: %w", err)
 	}
 	task := asynq.NewTask(TaskTypeProcess, payload)
-	_, err = EnqueueFunc(task, asynq.TaskID(taskID), asynq.MaxRetry(25), asynq.Timeout(10*time.Minute))
+	_, err = EnqueueFunc(task,
+		asynq.TaskID(fmt.Sprintf("%s:%d", TaskTypeProcess, outboxID)),
+		asynq.MaxRetry(25), asynq.Timeout(10*time.Minute))
+	if err != nil && collidableTaskIDOK && errors.Is(err, asynq.ErrTaskIDConflict) {
+		return nil
+	}
 	return err
 }
 
