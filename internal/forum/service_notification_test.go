@@ -266,3 +266,33 @@ func TestReportPostAppendsOtherText(t *testing.T) {
 	}
 	assertTemplates(t, *notif.Last)
 }
+
+func TestReplyNameFallbackToSomeone(t *testing.T) {
+	db := testDBForum(t)
+	if err := db.AutoMigrate(&User{}); err != nil {
+		t.Fatalf("auto migrate users: %v", err)
+	}
+	// Author + a commenter whose names are entirely blank.
+	for _, u := range []User{{ID: 1, Email: "author@example.com"}, {ID: 2, Email: "anon@example.com"}} {
+		if err := db.Create(&u).Error; err != nil {
+			t.Fatalf("seed user %d: %v", u.ID, err)
+		}
+	}
+	notif := &captureNotifier{}
+	svc := NewService(NewRepository(db), notif)
+	post := ForumPost{UserID: 1, Title: "T", Content: "C", Category: "General"}
+	if err := db.Create(&post).Error; err != nil {
+		t.Fatalf("seed post: %v", err)
+	}
+
+	if _, err := svc.CreateForumComment(post.ID, 2, CreateCommentRequest{Content: "Nice"}); err != nil {
+		t.Fatalf("comment: %v", err)
+	}
+	if notif.Last == nil {
+		t.Fatal("no emission")
+	}
+	if notif.Last.Data["name"] != "Someone" {
+		t.Fatalf("name fallback wrong: %+v", notif.Last.Data)
+	}
+	assertTemplates(t, *notif.Last)
+}

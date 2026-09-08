@@ -651,11 +651,15 @@ func (s *Service) CreateForumComment(postID uint, userID uint, req CreateComment
 		recipientID = post.UserID
 	}
 	if recipientID != 0 && recipientID != userID {
+		replyName := strings.TrimSpace(comment.User.FirstName + " " + comment.User.LastName)
+		if replyName == "" {
+			replyName = "Someone"
+		}
 		_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
 			EventKey:   notification.EventSocialForumReply,
 			Recipients: []notification.Ref{{Type: "user", ID: recipientID}},
 			Data: map[string]any{
-				"name":    strings.TrimSpace(comment.User.FirstName + " " + comment.User.LastName),
+				"name":    replyName,
 				"post_id": postID,
 			},
 		})

@@ -47,8 +47,15 @@ func (s *Service) emailExistsAcrossTypes(email string) bool {
 // emailqueue — pipeline-free per doc 06 (no delivery row).
 func approvalPendingEmail(name, kind string) (string, string) {
 	def := notification.Registry[notification.EventAccountApprovalPending]
-	subject, _ := notification.ResolveTemplate(def.TitleTpl, map[string]any{"name": name, "kind": kind})
-	body, _ := notification.ResolveTemplate(def.BodyTpl, map[string]any{"name": name, "kind": kind})
+	data := map[string]any{"name": name, "kind": kind}
+	subject, err := notification.ResolveTemplate(def.TitleTpl, data)
+	if err != nil {
+		log.Printf("Warning: failed to render approval_pending subject for %s: %v", name, err)
+	}
+	body, err := notification.ResolveTemplate(def.BodyTpl, data)
+	if err != nil {
+		log.Printf("Warning: failed to render approval_pending body for %s: %v", name, err)
+	}
 	return subject, body
 }
 
@@ -312,7 +319,9 @@ func (s *Service) VerifyOTP(email, otp string) (*LoginResponse, error) {
 		}
 
 		subject, html := approvalPendingEmail(providerUser.ProviderName, "provider")
-		_ = emailqueue.EnqueueGenericEmail(providerUser.Email, subject, html)
+		if emailErr := emailqueue.EnqueueGenericEmail(providerUser.Email, subject, html); emailErr != nil {
+			log.Printf("Warning: failed to enqueue approval_pending email to %s: %v", providerUser.Email, emailErr)
+		}
 
 		return &LoginResponse{
 			User:  providerUser,
@@ -355,7 +364,9 @@ func (s *Service) VerifyOTP(email, otp string) (*LoginResponse, error) {
 		}
 
 		subject, html := approvalPendingEmail(institutionUser.InstitutionName, "institution")
-		_ = emailqueue.EnqueueGenericEmail(institutionUser.Email, subject, html)
+		if emailErr := emailqueue.EnqueueGenericEmail(institutionUser.Email, subject, html); emailErr != nil {
+			log.Printf("Warning: failed to enqueue approval_pending email to %s: %v", institutionUser.Email, emailErr)
+		}
 
 		return &LoginResponse{
 			User:  institutionUser,
