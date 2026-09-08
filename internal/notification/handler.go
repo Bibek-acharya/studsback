@@ -388,8 +388,8 @@ func (h *Handler) deletePublicNotification(c *gin.Context) {
 // roleCategoryGroups maps each role to its available preference groups and
 // the registry categories that map to each group key (doc 06 §12).
 var roleCategoryGroups = map[string][]struct {
-	Key       string
-	Label     string
+	Key        string
+	Label      string
 	Categories []string
 }{
 	"student": {

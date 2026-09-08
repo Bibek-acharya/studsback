@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -387,11 +388,18 @@ func (s *Service) EffectivePreferences(rec Ref) ([]PrefGroup, PrefGlobal, error)
 		catSet[def.Category] = true
 	}
 
-	// Compute category email defaults (first event in category wins).
+	// Compute category email defaults (deterministic: iterate sorted event
+	// keys, first in category wins — map iteration order would flake the
+	// rendered default between runs).
+	keys := make([]string, 0, len(Registry))
+	for k := range Registry {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
 	catEmailDefault := map[string]bool{}
-	for _, def := range Registry {
-		if _, ok := catEmailDefault[def.Category]; !ok {
-			catEmailDefault[def.Category] = def.EmailDefault
+	for _, k := range keys {
+		if _, ok := catEmailDefault[Registry[k].Category]; !ok {
+			catEmailDefault[Registry[k].Category] = Registry[k].EmailDefault
 		}
 	}
 
