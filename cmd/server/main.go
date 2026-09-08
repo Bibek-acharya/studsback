@@ -505,7 +505,7 @@ func main() {
 
 	// Setup messaging routes
 	api := router.Group("/api/v1")
-	messaging.SetupRoutes(api, db, redisClient, natsConn, authMW)
+	messaging.SetupRoutes(api, db, redisClient, natsConn, authMW, notificationSvc)
 
 	// Notification route ownership (NOTIFICATIONS_V2, readiness review C4):
 	// on/unset — notification module owns /api/v1/notifications* + provider

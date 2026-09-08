@@ -1,12 +1,20 @@
 package application
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"time"
 	"studsphere/backend/internal/messaging/domain"
 	"studsphere/backend/internal/messaging/repository"
+	"studsphere/backend/internal/notification"
 )
+
+// PresenceChecker is the narrow slice of messaging/presence the message
+// service needs (doc 12 §6) — injected to avoid importing the hub.
+type PresenceChecker interface {
+	IsOnline(userType string, userID uint) (bool, error)
+}
 
 type MessageService interface {
 	SendMessage(conversationID uint, senderType string, senderID uint, content, clientMessageID string, attachmentIDs []uint) (*domain.Message, error)
@@ -21,6 +29,8 @@ type messageService struct {
 	conversationRepo repository.ConversationRepository
 	attachmentRepo   repository.AttachmentRepository
 	outboxRepo       repository.OutboxRepository
+	presence         PresenceChecker
+	notifier         notification.Notifier
 }
 
 func NewMessageService(
@@ -29,6 +39,8 @@ func NewMessageService(
 	cr repository.ConversationRepository,
 	ar repository.AttachmentRepository,
 	or repository.OutboxRepository,
+	presence PresenceChecker,
+	notifier notification.Notifier,
 ) MessageService {
 	return &messageService{
 		messageRepo:      mr,
@@ -36,6 +48,8 @@ func NewMessageService(
 		conversationRepo: cr,
 		attachmentRepo:   ar,
 		outboxRepo:       or,
+		presence:         presence,
+		notifier:         notifier,
 	}
 }
 
@@ -87,7 +101,53 @@ func (s *messageService) SendMessage(conversationID uint, senderType string, sen
 		fmt.Printf("failed to create outbox event: %v\n", err)
 	}
 
+	s.notifyOfflineFallback(conversationID, senderType, senderID)
+
 	return message, nil
+}
+
+// notifyOfflineFallback nudges offline conversation participants about a new
+// message (doc 12 §6). The 1h dedupe window on message.offline_fallback
+// collapses a burst of messages into one emission.
+func (s *messageService) notifyOfflineFallback(conversationID uint, senderType string, senderID uint) {
+	if s.notifier == nil || s.presence == nil {
+		return
+	}
+	participants, err := s.participantRepo.GetByConversation(conversationID)
+	if err != nil {
+		return
+	}
+	var actor *notification.Ref
+	if t, _, ok := notification.ResolveAccount(senderType, senderID, 0); ok {
+		actor = &notification.Ref{Type: t, ID: senderID}
+	}
+	for _, p := range participants {
+		if p.ParticipantType == senderType && p.ParticipantID == senderID {
+			continue // the sender is never a recipient
+		}
+		recType, _, ok := notification.ResolveAccount(p.ParticipantType, p.ParticipantID, 0)
+		if !ok {
+			continue // guest/unknown — no inbox identity (doc 03 §4)
+		}
+		online, err := s.presence.IsOnline(p.ParticipantType, p.ParticipantID)
+		if err != nil || online {
+			continue
+		}
+		name := "Someone"
+		if n, err := s.participantRepo.DisplayName(senderType, senderID); err == nil && n != "" {
+			name = n
+		}
+		_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+			EventKey:   notification.EventMessageOfflineFallback,
+			Actor:      actor,
+			Recipients: []notification.Ref{{Type: recType, ID: p.ParticipantID}},
+			Data: map[string]any{
+				"name":            name,
+				"conversation_id": conversationID,
+			},
+			DedupeKey: fmt.Sprintf("offline_msg:%d-%d", conversationID, p.ParticipantID),
+		})
+	}
 }
 
 func (s *messageService) EditMessage(messageID uint, senderType string, senderID uint, content string) error {

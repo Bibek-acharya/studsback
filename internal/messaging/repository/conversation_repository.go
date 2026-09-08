@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"time"
+
 	"studsphere/backend/internal/messaging/domain"
 
 	"gorm.io/gorm"
@@ -75,7 +77,7 @@ func (r *conversationRepo) UpdateLastMessage(id uint, messageID uint, preview st
 	return r.db.Model(&domain.Conversation{}).Where("id = ?", id).
 		Updates(map[string]interface{}{
 			"last_message_id":      messageID,
-			"last_message_at":      gorm.Expr("NOW()"),
+			"last_message_at":      time.Now(),
 			"last_message_preview": preview,
 		}).Error
 }

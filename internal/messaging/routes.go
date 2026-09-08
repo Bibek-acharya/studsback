@@ -12,11 +12,12 @@ import (
 	"studsphere/backend/internal/messaging/events"
 	"studsphere/backend/internal/messaging/presence"
 	"studsphere/backend/internal/messaging/repository"
+	"studsphere/backend/internal/notification"
 	httpHandler "studsphere/backend/internal/messaging/transport/http"
 	ws "studsphere/backend/internal/messaging/transport/websocket"
 )
 
-func SetupRoutes(router *gin.RouterGroup, db *gorm.DB, redis *redis.Client, nats *nats.Conn, authMiddleware gin.HandlerFunc) {
+func SetupRoutes(router *gin.RouterGroup, db *gorm.DB, redis *redis.Client, nats *nats.Conn, authMiddleware gin.HandlerFunc, notifier notification.Notifier) {
 	// Repositories
 	conversationRepo := repository.NewConversationRepository(db)
 	messageRepo := repository.NewMessageRepository(db)
@@ -24,15 +25,15 @@ func SetupRoutes(router *gin.RouterGroup, db *gorm.DB, redis *redis.Client, nats
 	attachmentRepo := repository.NewAttachmentRepository(db)
 	outboxRepo := repository.NewOutboxRepository(db)
 
+	// Presence
+	presenceService := presence.NewPresenceService(redis)
+
 	// Services
 	conversationService := application.NewConversationService(conversationRepo, participantRepo, messageRepo, attachmentRepo)
-	messageService := application.NewMessageService(messageRepo, participantRepo, conversationRepo, attachmentRepo, outboxRepo)
+	messageService := application.NewMessageService(messageRepo, participantRepo, conversationRepo, attachmentRepo, outboxRepo, presenceService, notifier)
 	readService := application.NewReadService(participantRepo, messageRepo, outboxRepo)
 	_ = application.NewTypingService(redis)
 	uploadService := application.NewUploadService(attachmentRepo)
-
-	// Presence
-	presenceService := presence.NewPresenceService(redis)
 
 	// Events (optional — only if NATS is available)
 	var eventPublisher events.EventPublisher
