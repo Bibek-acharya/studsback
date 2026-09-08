@@ -76,11 +76,11 @@ type PublicNotificationResponse struct {
 // --- Preferences API DTOs (Task 4) ---
 
 type PreferenceGroup struct {
-	Key       string `json:"key"`
-	Label     string `json:"label"`
-	InApp     bool   `json:"in_app"`
-	Email     bool   `json:"email"`
-	Overridden bool  `json:"overridden"`
+	Key        string `json:"key"`
+	Label      string `json:"label"`
+	InApp      bool   `json:"in_app"`
+	Email      bool   `json:"email"`
+	Overridden bool   `json:"overridden"`
 }
 
 type GlobalPreferences struct {
@@ -95,11 +95,11 @@ type OverrideEntry struct {
 }
 
 type PreferencesResponse struct {
-	Groups  []PreferenceGroup `json:"groups"`
-	Global  GlobalPreferences `json:"global"`
+	Groups []PreferenceGroup `json:"groups"`
+	Global GlobalPreferences `json:"global"`
 }
 
 type UpdatePreferencesRequest struct {
-	Overrides []OverrideEntry  `json:"overrides"`
+	Overrides []OverrideEntry    `json:"overrides"`
 	Global    *GlobalPreferences `json:"global,omitempty"`
 }

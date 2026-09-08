@@ -88,31 +88,31 @@ type NotificationDedupeLease struct {
 }
 
 type NotificationPreference struct {
-	ID        uint      `gorm:"primarykey"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID          uint `gorm:"primarykey"`
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 	AccountType string `gorm:"size:20;not null"`
 	AccountID   uint   `gorm:"not null"`
 	PrefKey     string `gorm:"size:100;not null"` // event key, "category:*", or "*"
-	InApp       *bool                            // nil = inherit
-	Email       *bool                            // nil = inherit
-	Realtime    *bool                            // nil = inherit
+	InApp       *bool  // nil = inherit
+	Email       *bool  // nil = inherit
+	Realtime    *bool  // nil = inherit
 }
 
 type NotificationDelivery struct {
-	ID                uint           `gorm:"primarykey"`
+	ID                uint `gorm:"primarykey"`
 	CreatedAt         time.Time
-	NotificationID    *uint          `gorm:"index"`
-	DigestBatchID     *uint          `gorm:"index"`
-	DeliveryKind      string         `gorm:"size:20;not null"` // notification | digest | anonymous
-	DeliveryKey       string         `gorm:"size:200;not null"`
-	AccountType       string         `gorm:"size:20;not null"`
+	NotificationID    *uint  `gorm:"index"`
+	DigestBatchID     *uint  `gorm:"index"`
+	DeliveryKind      string `gorm:"size:20;not null"` // notification | digest | anonymous
+	DeliveryKey       string `gorm:"size:200;not null"`
+	AccountType       string `gorm:"size:20;not null"`
 	AccountID         uint
-	Channel           string         `gorm:"size:20;not null"` // email | realtime | push
-	Status            string         `gorm:"size:20;not null;default:'pending'"`
-	DispatchExpiresAt *time.Time     `gorm:"index"`
-	Attempts          int            `gorm:"default:0"`
-	Error             string         `gorm:"type:text"`
+	Channel           string     `gorm:"size:20;not null"` // email | realtime | push
+	Status            string     `gorm:"size:20;not null;default:'pending'"`
+	DispatchExpiresAt *time.Time `gorm:"index"`
+	Attempts          int        `gorm:"default:0"`
+	Error             string     `gorm:"type:text"`
 	SentAt            *time.Time
 	Meta              datatypes.JSON `json:"-"`
 	CorrelationID     string         `gorm:"size:64;index"`
