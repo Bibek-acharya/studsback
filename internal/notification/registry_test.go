@@ -65,6 +65,9 @@ func TestRegistryP2Attributes(t *testing.T) {
 			t.Errorf("%s must have DedupeWin 1h, got %v", key, Registry[key].DedupeWin)
 		}
 	}
+	if def := Registry[EventScholarshipPaymentReceived]; def.LinkTpl != "/scholarship-pay/{{.slug}}" {
+		t.Errorf("scholarship.payment_received link must be /scholarship-pay/{{.slug}}, got %q", def.LinkTpl)
+	}
 	critical := map[string]bool{"account.suspended": true, "account.deletion_scheduled": true,
 		"account.totp_changed": true, "scholarship.payment_received": true,
 		"counselling.session_cancelled": true}
