@@ -1035,7 +1035,19 @@ func (s *Service) UpdateDisputeStatus(providerID uint, applicationID uint, statu
 	}
 
 	payment.DisputeStatus = status
-	return s.repo.UpdatePayment(payment)
+	if err := s.repo.UpdatePayment(payment); err != nil {
+		return err
+	}
+
+	// Doc 07 dispute variant tells the student their dispute status moved.
+	if application.UserID != nil {
+		_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+			EventKey:   notification.EventApplicationStatusChanged,
+			Recipients: []notification.Ref{{Type: "user", ID: *application.UserID}},
+			Data:       map[string]any{"program": application.Scholarship.Title, "status": status},
+		})
+	}
+	return nil
 }
 
 func (s *Service) sendAdmitCard(application *ProviderApplication, payment *publicscholarship.Payment) {
@@ -2873,7 +2885,23 @@ func (s *Service) UpdateReview(providerID, id uint, req CreateReviewRequest) (*P
 }
 
 func (s *Service) DeleteReview(providerID, id uint) error {
-	return s.repo.DeleteReview(id, providerID)
+	review, err := s.repo.GetReviewByIDAndProvider(id, providerID)
+	if err != nil {
+		return err
+	}
+	if err := s.repo.DeleteReview(id, providerID); err != nil {
+		return err
+	}
+	// Doc 07 tells the reviewer their review was removed by a moderator.
+	// provider_reviews rows carry no reviewer account unless one was linked
+	// at creation; skip when the reviewer can't be resolved.
+	if s.notifier != nil && review.UserID != nil && *review.UserID != 0 {
+		_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+			EventKey:   notification.EventSocialReviewModerated,
+			Recipients: []notification.Ref{{Type: "user", ID: *review.UserID}},
+		})
+	}
+	return nil
 }
 
 func toAccessUserResponse(user *ProviderAccessUser) *AccessUserResponse {

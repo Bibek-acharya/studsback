@@ -909,6 +909,13 @@ func (s *Service) CreateInstitution(req CreateInstitutionRequest) (*InstitutionU
 		return nil, err
 	}
 
+	if notifierInstance != nil {
+		_ = notifierInstance.Notify(context.Background(), notification.NotifyRequest{
+			EventKey:   notification.EventAccountApproved,
+			Recipients: []notification.Ref{{Type: "institution", ID: institutionUser.ID}},
+		})
+	}
+
 	return &institutionUser, nil
 }
 

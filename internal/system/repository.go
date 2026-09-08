@@ -51,6 +51,15 @@ func (r *Repository) FindContactInquiryByID(id uint) (*ContactInquiry, error) {
 	return &inquiry, nil
 }
 
+// UserIDByEmail resolves a registered user account from the inquiry email
+// (owned by the auth module; raw SQL to avoid an import cycle). Guests
+// resolve to 0 and skip the reply notification.
+func (r *Repository) UserIDByEmail(email string) (uint, error) {
+	var id uint
+	err := r.db.Raw(`SELECT id FROM users WHERE email = ? AND deleted_at IS NULL LIMIT 1`, email).Scan(&id).Error
+	return id, err
+}
+
 func (r *Repository) UpdateContactInquiryStatus(id uint, status string) (*ContactInquiry, error) {
 	inquiry, err := r.FindContactInquiryByID(id)
 	if err != nil {

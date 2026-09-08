@@ -484,6 +484,10 @@ type ProviderReview struct {
 	Pros       string    `gorm:"type:text" json:"pros"`
 	Cons       string    `gorm:"type:text" json:"cons"`
 	Status     string    `gorm:"default:'published'" json:"status"`
+	// Reviewer's user account, set only when the review was written by a
+	// registered user. No backend creation site links a user today, so the
+	// moderation emission on delete stays data-dependent until one exists.
+	UserID     *uint     `gorm:"index" json:"user_id,omitempty"`
 }
 
 type ProviderVolunteer struct {

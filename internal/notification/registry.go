@@ -57,6 +57,7 @@ const (
 	EventSystemProviderPending         = "system.provider_pending"
 	EventSystemInstitutionPending      = "system.institution_pending"
 	EventSystemInquiryReceived         = "system.inquiry_received"
+	EventSystemInquiryReplied          = "system.inquiry_replied"
 	EventAccountNewDeviceLogin         = "account.new_device_login"
 	EventAccountSuspended              = "account.suspended"
 	EventAccountReinstated             = "account.reinstated"
@@ -133,6 +134,7 @@ var Registry = map[string]EventDef{
 	EventAccountEmailChanged:           ev(EventAccountEmailChanged, "account", PriorityCritical, "Email Updated", "Your email was changed.", "", RecipientExplicit, true, ""),
 	EventContentCreatedOwn:             ev(EventContentCreatedOwn, "content", PriorityLow, "{{.what}} Created", "Your {{.what}} \"{{.title}}\" was created.", "", RecipientExplicit, false, ""),
 	EventSystemAnnouncement:            ev(EventSystemAnnouncement, "system", PriorityCritical, "{{.title}}", "{{.body}}", "{{.link}}", RecipientExplicit, false, ""),
+	EventSystemInquiryReplied:          ev(EventSystemInquiryReplied, "system", PriorityNormal, "Inquiry Update", "Response received regarding your inquiry: {{.subject}}", "/user/inquiries", RecipientExplicit, true, ""),
 	EventSystemInquiryReceived:         ev(EventSystemInquiryReceived, "moderation", PriorityNormal, "New Inquiry", "{{.name}} ({{.email}}): {{.subject}}", "", RecipientRole, false, ""),
 	EventSocialReviewReported:          ev(EventSocialReviewReported, "moderation", PriorityNormal, "Review Reported", "Review #{{.review_id}} reported: {{.reason}}", "", RecipientRole, false, ""),
 	EventModerationForumReport:         ev(EventModerationForumReport, "moderation", PriorityNormal, "Forum Content Reported", "{{.kind}} #{{.id}} reported: {{.reason}}", "", RecipientRole, false, ""),
@@ -215,7 +217,7 @@ func ValidateRegistry() error {
 		EventCounsellingBookingRescheduled, EventAccountWelcome, EventAccountApprovalPending, EventAccountApproved,
 		EventAccountRejected, EventAccountNewLogin, EventAccountProfileIncomplete, EventAccountAccessGranted,
 		EventAccountAccessRemoved, EventAccountPasswordChanged, EventAccountEmailChanged, EventContentCreatedOwn,
-		EventSystemAnnouncement, EventSystemInquiryReceived, EventSocialReviewReported,
+		EventSystemAnnouncement, EventSystemInquiryReceived, EventSystemInquiryReplied, EventSocialReviewReported,
 		EventModerationForumReport, EventModerationFeedback, EventSystemClaimSubmitted,
 		EventSystemProviderPending, EventSystemInstitutionPending,
 		EventAccountNewDeviceLogin, EventAccountSuspended, EventAccountReinstated,

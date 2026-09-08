@@ -90,3 +90,62 @@ func TestSubmitContactInquiryNotifiesSuperadmins(t *testing.T) {
 	}
 	assertTemplates(t, *notif.Last)
 }
+
+// usersRow is a projection of auth.User covering only the columns the
+// inquirer-account lookup touches. Kept local to avoid importing the auth
+// module.
+type usersRow struct {
+	ID        uint           `gorm:"primarykey" json:"id"`
+	Email     string         `gorm:"index" json:"email"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+func (usersRow) TableName() string { return "users" }
+
+func seedInquirer(t *testing.T, db *gorm.DB, id uint, email string) {
+	t.Helper()
+	if err := db.Create(&usersRow{ID: id, Email: email}).Error; err != nil {
+		t.Fatalf("seed user: %v", err)
+	}
+}
+
+func TestUpdateContactInquiryStatusNotifiesRegisteredInquirer(t *testing.T) {
+	db := testDBSystem(t)
+	db.AutoMigrate(&usersRow{})
+	seedInquirer(t, db, 5, "ann@example.com")
+	notif := &captureNotifier{}
+	svc := NewService(NewRepository(db), notif)
+
+	db.Create(&ContactInquiry{Name: "Ann", Email: "ann@example.com", Subject: "Admission question", Status: "new"})
+
+	_, err := svc.UpdateContactInquiryStatus(1, "resolved")
+	if err != nil {
+		t.Fatalf("update status: %v", err)
+	}
+
+	if notif.Last == nil || notif.Last.EventKey != notification.EventSystemInquiryReplied {
+		t.Fatalf("expected %s, got %+v", notification.EventSystemInquiryReplied, notif.Last)
+	}
+	if len(notif.Last.Recipients) != 1 || notif.Last.Recipients[0] != (notification.Ref{Type: "user", ID: 5}) {
+		t.Fatalf("recipients wrong: %+v", notif.Last.Recipients)
+	}
+	if notif.Last.Data["subject"] != "Admission question" {
+		t.Fatalf("data wrong: %+v", notif.Last.Data)
+	}
+	assertTemplates(t, *notif.Last)
+}
+
+func TestUpdateContactInquiryStatusSkipsGuestInquirer(t *testing.T) {
+	db := testDBSystem(t)
+	notif := &captureNotifier{}
+	svc := NewService(NewRepository(db), notif)
+
+	db.Create(&ContactInquiry{Name: "Guest", Email: "guest@example.com", Subject: "Question", Status: "new"})
+
+	if _, err := svc.UpdateContactInquiryStatus(1, "resolved"); err != nil {
+		t.Fatalf("update status: %v", err)
+	}
+	if len(notif.Calls) != 0 {
+		t.Fatalf("expected no emissions for guest inquirer, got %+v", notif.Calls)
+	}
+}

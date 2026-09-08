@@ -12,6 +12,7 @@ import (
 	"gorm.io/gorm"
 
 	"studsphere/backend/internal/college"
+	"studsphere/backend/internal/institution"
 	"studsphere/backend/internal/notification"
 	"studsphere/backend/internal/shared/config"
 	"studsphere/backend/internal/shared/utils"
@@ -61,7 +62,7 @@ func newAuthNotificationService(t *testing.T) (*Service, *captureNotifier) {
 	if err != nil {
 		t.Fatalf("open sqlite db: %v", err)
 	}
-	if err := db.AutoMigrate(&User{}, &InstitutionUser{}, &ScholarshipProviderUser{}, &UserSession{}, &InstitutionSubscription{}, &college.College{}); err != nil {
+	if err := db.AutoMigrate(&User{}, &InstitutionUser{}, &ScholarshipProviderUser{}, &UserSession{}, &InstitutionSubscription{}, &college.College{}, &institution.InstitutionSettings{}); err != nil {
 		t.Fatalf("auto migrate: %v", err)
 	}
 	oldConfig := config.AppConfig
@@ -570,5 +571,17 @@ func TestClaimRegisterNotifiesSuperadmins(t *testing.T) {
 		t.Fatalf("data wrong: %+v", notif.Last.Data)
 	}
 	assertForRolesSuperadminAdmin(t, notif)
+	assertTemplates(t, *notif.Last)
+}
+
+func TestCreateInstitutionNotifiesInstitution(t *testing.T) {
+	svc, notif := newAuthNotificationService(t)
+
+	inst, err := svc.CreateInstitution(CreateInstitutionRequest{InstitutionName: "Created Institute"})
+	if err != nil {
+		t.Fatalf("create institution: %v", err)
+	}
+
+	assertSingleRecipient(t, notif, notification.EventAccountApproved, notification.Ref{Type: "institution", ID: inst.ID})
 	assertTemplates(t, *notif.Last)
 }

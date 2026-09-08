@@ -63,14 +63,38 @@ func testDBProvider(t *testing.T) *gorm.DB {
 	if err != nil {
 		t.Fatalf("open test db: %v", err)
 	}
-	if err := db.AutoMigrate(&ProviderScholarship{}, &ProviderApplication{}, &ProviderInterview{}); err != nil {
+	if err := db.AutoMigrate(&ProviderScholarship{}, &ProviderApplication{}, &ProviderInterview{}, &ProviderReview{}); err != nil {
 		t.Fatalf("automigrate: %v", err)
 	}
 	t.Cleanup(func() {
-		db.Exec(`TRUNCATE provider_scholarships, provider_applications, provider_interviews`)
+		db.Exec(`TRUNCATE provider_scholarships, provider_applications, provider_interviews, provider_reviews`)
 	})
 	return db
 }
+
+// paymentRow is a projection of scholarship.Payment covering only the columns
+// the dispute-status flow touches. Kept local so AutoMigrate doesn't pull the
+// scholarship module's association tables.
+type paymentRow struct {
+	ID              uint       `gorm:"primarykey"`
+	ApplicationID   uint       `gorm:"index"`
+	ScholarshipID   uint       `gorm:"index"`
+	UserID          *uint      `gorm:"index"`
+	Method          string     `gorm:"not null"`
+	Amount          float64    `gorm:"not null"`
+	Status          string     `gorm:"default:pending"`
+	ReceiptURL      string
+	TransactionID   string
+	PaidAt          *time.Time
+	ApprovedAt      *time.Time
+	ApprovedBy      uint       `gorm:"index"`
+	RejectionReason string
+	DisputeStatus   string     `gorm:"default:pending"`
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
+func (paymentRow) TableName() string { return "scholarship_payments" }
 
 func TestApplicationStatusNotifiesOrgAndApplicant(t *testing.T) {
 	db := testDBProvider(t)
@@ -163,4 +187,93 @@ func TestInterviewNotifiesStudent(t *testing.T) {
 		t.Fatalf("student copy wrong: %+v", student)
 	}
 	assertTemplates(t, *student)
+}
+
+func TestUpdateDisputeStatusNotifiesStudent(t *testing.T) {
+	db := testDBProvider(t)
+	if err := db.AutoMigrate(&paymentRow{}); err != nil {
+		t.Fatalf("automigrate payments: %v", err)
+	}
+	t.Cleanup(func() { db.Exec(`TRUNCATE scholarship_payments`) })
+	notif := &captureNotifier{}
+	svc := NewService(NewRepository(db), notif)
+
+	uid := uint(7)
+	saID := uint(99)
+	ps := &ProviderScholarship{ProviderID: 1, Title: "Test Scholarship", Status: "published"}
+	if err := db.Create(ps).Error; err != nil {
+		t.Fatalf("seed scholarship: %v", err)
+	}
+	app := &ProviderApplication{ScholarshipID: ps.ID, UserID: &uid, ScholarshipApplicationID: &saID, FullName: "Test Student", Email: "student@example.com", Status: "approved"}
+	if err := db.Create(app).Error; err != nil {
+		t.Fatalf("seed application: %v", err)
+	}
+	if err := db.Create(&paymentRow{ApplicationID: saID, ScholarshipID: ps.ID, Method: "esewa", Amount: 100}).Error; err != nil {
+		t.Fatalf("seed payment: %v", err)
+	}
+
+	if err := svc.UpdateDisputeStatus(1, app.ID, "resolved"); err != nil {
+		t.Fatalf("update dispute status: %v", err)
+	}
+	if notif.Last == nil || notif.Last.EventKey != notification.EventApplicationStatusChanged {
+		t.Fatalf("expected %s, got %+v", notification.EventApplicationStatusChanged, notif.Last)
+	}
+	if len(notif.Last.Recipients) != 1 || notif.Last.Recipients[0] != (notification.Ref{Type: "user", ID: uid}) {
+		t.Fatalf("recipient wrong: %+v", notif.Last.Recipients)
+	}
+	if notif.Last.Data["program"] != "Test Scholarship" || notif.Last.Data["status"] != "resolved" {
+		t.Fatalf("data wrong: %+v", notif.Last.Data)
+	}
+	assertTemplates(t, *notif.Last)
+
+	var payment paymentRow
+	if err := db.Order("id asc").First(&payment).Error; err != nil {
+		var cnt int64
+		db.Model(&paymentRow{}).Count(&cnt)
+		t.Fatalf("load payment (rows=%d): %v", cnt, err)
+	}
+	if payment.DisputeStatus != "resolved" {
+		t.Fatalf("dispute status not persisted: %+v", payment)
+	}
+}
+
+func TestDeleteReviewNotifiesReviewer(t *testing.T) {
+	db := testDBProvider(t)
+	notif := &captureNotifier{}
+	svc := NewService(NewRepository(db), notif)
+
+	uid := uint(7)
+	review := &ProviderReview{ProviderID: 1, AuthorName: "Test Student", UserID: &uid}
+	if err := db.Create(review).Error; err != nil {
+		t.Fatalf("seed review: %v", err)
+	}
+
+	if err := svc.DeleteReview(1, review.ID); err != nil {
+		t.Fatalf("delete review: %v", err)
+	}
+	if notif.Last == nil || notif.Last.EventKey != notification.EventSocialReviewModerated {
+		t.Fatalf("expected %s, got %+v", notification.EventSocialReviewModerated, notif.Last)
+	}
+	if len(notif.Last.Recipients) != 1 || notif.Last.Recipients[0] != (notification.Ref{Type: "user", ID: uid}) {
+		t.Fatalf("recipient wrong: %+v", notif.Last.Recipients)
+	}
+	assertTemplates(t, *notif.Last)
+}
+
+func TestDeleteReviewSkipsUnlinkedReviewer(t *testing.T) {
+	db := testDBProvider(t)
+	notif := &captureNotifier{}
+	svc := NewService(NewRepository(db), notif)
+
+	review := &ProviderReview{ProviderID: 1, AuthorName: "Anonymous"}
+	if err := db.Create(review).Error; err != nil {
+		t.Fatalf("seed review: %v", err)
+	}
+
+	if err := svc.DeleteReview(1, review.ID); err != nil {
+		t.Fatalf("delete review: %v", err)
+	}
+	if len(notif.Calls) != 0 {
+		t.Fatalf("expected no emissions without a linked reviewer, got %+v", notif.Calls)
+	}
 }

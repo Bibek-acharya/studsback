@@ -84,7 +84,25 @@ func (s *Service) UpdateContactInquiryStatus(id uint, status string) (*ContactIn
 		return nil, errors.New("invalid status")
 	}
 
-	return s.repo.UpdateContactInquiryStatus(id, status)
+	inquiry, err := s.repo.UpdateContactInquiryStatus(id, status)
+	if err != nil {
+		return nil, err
+	}
+
+	// Notify the inquirer when they have a registered account (doc 07:
+	// "if registered account; else email" — guest email copy is a P3 seam,
+	// silently skipped here until that path exists).
+	if s.notifier != nil && inquiry.Email != "" {
+		if userID, err := s.repo.UserIDByEmail(inquiry.Email); err == nil && userID != 0 {
+			_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+				EventKey:   notification.EventSystemInquiryReplied,
+				Recipients: []notification.Ref{{Type: "user", ID: userID}},
+				Data:       map[string]any{"subject": inquiry.Subject},
+			})
+		}
+	}
+
+	return inquiry, nil
 }
 
 func (s *Service) DeleteContactInquiry(id uint) error {
