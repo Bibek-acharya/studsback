@@ -166,22 +166,30 @@ func (s *Service) DeclineInvite(inviteID, userID uint) (*SphereInvite, error) {
 
 // notifyInviter tells the inviting institution that the invitee responded.
 // Only a claimed + approved institution has an inbox identity (D-Q13: silent
-// otherwise). The inviter is resolved via institution_users.college_id.
+// otherwise). sphere_invites.institution_id semantics are data-dependent (no
+// backend creation site): it may be an institution_users.id directly, or a
+// college id claimed via institution_users.college_id. Exact row match wins;
+// the college claim path is the fallback. Silent when neither resolves.
 func (s *Service) notifyInviter(invite *SphereInvite, userID uint, response string) {
 	if s.notifier == nil || invite.InstitutionID == 0 {
 		return
 	}
-	if instUserID, err := s.repo.ApprovedInstitutionUserID(invite.InstitutionID); err == nil && instUserID != 0 {
-		data := map[string]any{"name": "Someone", "response": response}
-		if name, err := s.repo.UserNameByID(userID); err == nil && name != "" {
-			data["name"] = name
+	instUserID, err := s.repo.ApprovedInstitutionUserByID(invite.InstitutionID)
+	if err != nil || instUserID == 0 {
+		instUserID, err = s.repo.ApprovedInstitutionUserID(invite.InstitutionID)
+		if err != nil || instUserID == 0 {
+			return
 		}
-		_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
-			EventKey:   notification.EventSocialInviteAccepted,
-			Recipients: []notification.Ref{{Type: "institution", ID: instUserID}},
-			Data:       data,
-		})
 	}
+	data := map[string]any{"name": "Someone", "response": response}
+	if name, err := s.repo.UserNameByID(userID); err == nil && name != "" {
+		data["name"] = name
+	}
+	_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+		EventKey:   notification.EventSocialInviteAccepted,
+		Recipients: []notification.Ref{{Type: "institution", ID: instUserID}},
+		Data:       data,
+	})
 }
 
 func (s *Service) SaveInvite(inviteID, userID uint) (*SphereInvite, error) {

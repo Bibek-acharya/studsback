@@ -164,3 +164,58 @@ func TestInviteSkipsWithoutInstitutionOwner(t *testing.T) {
 		t.Fatalf("expected no emissions, got %+v", notif.Calls)
 	}
 }
+
+// invite.InstitutionID semantics are data-dependent (no backend creation
+// site). Interpretation A: the value IS an institution_users.id.
+func TestAcceptInviteResolvesDirectInstitutionID(t *testing.T) {
+	db := testDBDashboard(t)
+	seedInvitee(t, db)
+	// InstitutionID 42 matches an approved institution_users row by id only
+	// (no college_id linkage anywhere).
+	invite := seedInvite(t, db)
+	invite.InstitutionID = 42
+	if err := db.Save(invite).Error; err != nil {
+		t.Fatalf("point invite at institution id: %v", err)
+	}
+	if err := db.Create(&institutionUsersRow{ID: 42, Status: "approved", CollegeID: 999}).Error; err != nil {
+		t.Fatalf("seed institution user: %v", err)
+	}
+	notif := &captureNotifier{}
+	svc := NewService(NewRepository(db), notif)
+
+	if _, err := svc.AcceptInvite(invite.ID, 7); err != nil {
+		t.Fatalf("accept: %v", err)
+	}
+	if notif.Last == nil || notif.Last.EventKey != notification.EventSocialInviteAccepted {
+		t.Fatalf("expected %s, got %+v", notification.EventSocialInviteAccepted, notif.Last)
+	}
+	if len(notif.Last.Recipients) != 1 || notif.Last.Recipients[0] != (notification.Ref{Type: "institution", ID: 42}) {
+		t.Fatalf("recipients wrong: %+v", notif.Last.Recipients)
+	}
+	assertTemplates(t, *notif.Last)
+}
+
+// Interpretation B: the value is a college id resolved via a claimed row.
+func TestAcceptInviteResolvesCollegeIDFallback(t *testing.T) {
+	db := testDBDashboard(t)
+	seedInvitee(t, db)
+	// Invite.InstitutionID=3 has no matching institution_users row with id 3,
+	// so the college claim path must resolve it.
+	invite := seedInvite(t, db)
+	if err := db.Create(&institutionUsersRow{ID: 42, Status: "approved", CollegeID: 3}).Error; err != nil {
+		t.Fatalf("seed institution user: %v", err)
+	}
+	notif := &captureNotifier{}
+	svc := NewService(NewRepository(db), notif)
+
+	if _, err := svc.AcceptInvite(invite.ID, 7); err != nil {
+		t.Fatalf("accept: %v", err)
+	}
+	if notif.Last == nil || notif.Last.EventKey != notification.EventSocialInviteAccepted {
+		t.Fatalf("expected %s, got %+v", notification.EventSocialInviteAccepted, notif.Last)
+	}
+	if len(notif.Last.Recipients) != 1 || notif.Last.Recipients[0] != (notification.Ref{Type: "institution", ID: 42}) {
+		t.Fatalf("recipients wrong: %+v", notif.Last.Recipients)
+	}
+	assertTemplates(t, *notif.Last)
+}

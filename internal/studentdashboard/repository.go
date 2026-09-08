@@ -90,6 +90,19 @@ func (r *Repository) ApprovedInstitutionUserID(collegeID uint) (uint, error) {
 	return id, err
 }
 
+// ApprovedInstitutionUserByID resolves an approved institution account by its
+// exact institution_users.id. sphere_invites.institution_id has no backend
+// creation site, so its semantics stay data-dependent: some rows store the
+// institution account id directly, others a college id.
+func (r *Repository) ApprovedInstitutionUserByID(institutionID uint) (uint, error) {
+	var id uint
+	err := r.db.Raw(
+		`SELECT id FROM institution_users WHERE id = ? AND status = 'approved' AND deleted_at IS NULL LIMIT 1`,
+		institutionID,
+	).Scan(&id).Error
+	return id, err
+}
+
 // UserNameByID resolves a display name from the users table (owned by the
 // auth module; accessed via raw SQL to avoid an import cycle).
 func (r *Repository) UserNameByID(userID uint) (string, error) {
