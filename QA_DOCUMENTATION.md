@@ -873,9 +873,6 @@ All endpoints are prefixed with `/api/v1` unless otherwise noted.
 | PUT    | `/scholarship-providers/change-email`           | Change email       |
 | GET    | `/scholarship-providers/settings`               | Get settings       |
 | PUT    | `/scholarship-providers/settings`               | Update settings    |
-| GET    | `/scholarship-providers/notifications`          | List notifications |
-| PUT    | `/scholarship-providers/notifications/:id/read` | Mark read          |
-| PUT    | `/scholarship-providers/notifications/read-all` | Mark all read      |
 
 #### Scholarship Management
 
