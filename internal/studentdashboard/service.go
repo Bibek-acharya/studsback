@@ -232,16 +232,34 @@ func (s *Service) CreateBookmark(userID uint, req BookmarkRequest) (*Bookmark, e
 	}
 
 	if req.ItemType == "college" {
-		s.CreateNotification(userID, "College Saved",
-			"You saved a college to your bookmarks. We'll notify you about updates and deadlines.",
-			"system", "/user/dashboard/bookmarks")
+		s.notifyBookmarkSaved(userID, req.ItemID, "college")
 	} else if req.ItemType == "scholarship" {
-		s.CreateNotification(userID, "Scholarship Saved",
-			"You saved a scholarship. Keep an eye on upcoming deadlines.",
-			"scholarship", "/user/dashboard/bookmarks")
+		s.notifyBookmarkSaved(userID, req.ItemID, "scholarship")
 	}
 
 	return bookmark, nil
+}
+
+// notifyBookmarkSaved emits content.saved to the acting user's inbox.
+// The item name resolves via raw-SQL lookup; falls back to the type label
+// when the row is missing so the template contract always holds.
+func (s *Service) notifyBookmarkSaved(userID, itemID uint, itemType string) {
+	if s.notifier == nil {
+		return
+	}
+	item := itemType
+	if itemType == "college" {
+		if name, err := s.repo.CollegeNameByID(itemID); err == nil && name != "" {
+			item = name
+		}
+	} else if name, err := s.repo.ScholarshipNameByID(itemID); err == nil && name != "" {
+		item = name
+	}
+	_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+		EventKey:   notification.EventContentSaved,
+		Recipients: []notification.Ref{{Type: "user", ID: userID}},
+		Data:       map[string]any{"item": item},
+	})
 }
 
 func (s *Service) DeleteBookmark(bookmarkID, userID uint) error {

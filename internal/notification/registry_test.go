@@ -35,6 +35,7 @@ var p2Keys = []string{
 	"message.offline_fallback",
 	"jobs.application_received", "jobs.status_changed",
 	"projectshiksha.status_changed", "payment.subscription_recorded",
+	"content.saved", // P2.5 bookmark-save migration
 }
 
 func TestValidateRegistryAllP1KeysPresent(t *testing.T) {

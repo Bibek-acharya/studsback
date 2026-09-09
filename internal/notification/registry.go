@@ -78,6 +78,7 @@ const (
 	EventJobsStatusChanged             = "jobs.status_changed"
 	EventProjectshikshaStatusChanged   = "projectshiksha.status_changed"
 	EventPaymentSubscriptionRecorded   = "payment.subscription_recorded"
+	EventContentSaved                 = "content.saved"
 )
 
 type EventDef struct {
@@ -164,6 +165,7 @@ var Registry = map[string]EventDef{
 	EventJobsStatusChanged:           ev(EventJobsStatusChanged, "account", PriorityNormal, "Application Update", "Your application for {{.job_title}} moved to {{.status}}.", "/careers", RecipientExplicit, true, ""),
 	EventProjectshikshaStatusChanged: ev(EventProjectshikshaStatusChanged, "account", PriorityNormal, "Application Update", "Your ProjectShiksha application status: {{.status}}.", "/projectshiksha", RecipientExplicit, true, ""),
 	EventPaymentSubscriptionRecorded: ev(EventPaymentSubscriptionRecorded, "account", PriorityNormal, "Subscription Recorded", "Institution subscription for plan \"{{.plan}}\" was recorded.", "", RecipientExplicit, true, ""),
+	EventContentSaved:                ev(EventContentSaved, "content", PriorityLow, "Saved", "{{.item}} saved to your bookmarks.", "/user/dashboard/bookmarks", RecipientExplicit, false, ""),
 }
 
 // ev() has no Transactional/DedupeWin params; set P2 attrs that differ from
@@ -226,7 +228,7 @@ func ValidateRegistry() error {
 		EventSocialNewFollower, EventSocialReviewReceived, EventSocialForumReply,
 		EventSocialInviteAccepted, EventSocialReviewModerated, EventSocialForumModerated,
 		EventMessageOfflineFallback, EventJobsApplicationReceived, EventJobsStatusChanged,
-		EventProjectshikshaStatusChanged, EventPaymentSubscriptionRecorded} {
+		EventProjectshikshaStatusChanged, EventPaymentSubscriptionRecorded, EventContentSaved} {
 		if _, ok := Registry[k]; !ok {
 			return fmt.Errorf("constant %s missing from Registry", k)
 		}

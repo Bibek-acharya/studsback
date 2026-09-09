@@ -53,6 +53,24 @@ type institutionUsersRow struct {
 
 func (institutionUsersRow) TableName() string { return "institution_users" }
 
+// collegesRow / scholarshipsRow project only the columns the bookmark-notice
+// name lookup touches. Kept local to avoid importing those modules.
+type collegesRow struct {
+	ID        uint           `gorm:"primarykey" json:"id"`
+	Name      string         `json:"name"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+func (collegesRow) TableName() string { return "colleges" }
+
+type scholarshipsRow struct {
+	ID        uint           `gorm:"primarykey" json:"id"`
+	Title     string         `json:"title"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+func (scholarshipsRow) TableName() string { return "scholarships" }
+
 // assertTemplates enforces the missingkey=error data contract: every key
 // referenced by the registry's Title/Body templates must be present in Data.
 func assertTemplates(t *testing.T, req notification.NotifyRequest) {
@@ -75,7 +93,7 @@ func testDBDashboard(t *testing.T) *gorm.DB {
 	if err != nil {
 		t.Fatalf("open sqlite db: %v", err)
 	}
-	if err := db.AutoMigrate(&SphereInvite{}, &usersRow{}, &institutionUsersRow{}); err != nil {
+	if err := db.AutoMigrate(&SphereInvite{}, &Bookmark{}, &usersRow{}, &institutionUsersRow{}, &collegesRow{}, &scholarshipsRow{}); err != nil {
 		t.Fatalf("auto migrate: %v", err)
 	}
 	return db
@@ -216,6 +234,54 @@ func TestAcceptInviteResolvesCollegeIDFallback(t *testing.T) {
 	}
 	if len(notif.Last.Recipients) != 1 || notif.Last.Recipients[0] != (notification.Ref{Type: "institution", ID: 42}) {
 		t.Fatalf("recipients wrong: %+v", notif.Last.Recipients)
+	}
+	assertTemplates(t, *notif.Last)
+}
+
+func TestCreateBookmarkCollegeEmitsContentSaved(t *testing.T) {
+	db := testDBDashboard(t)
+	if err := db.Create(&collegesRow{ID: 11, Name: "Test College"}).Error; err != nil {
+		t.Fatalf("seed college: %v", err)
+	}
+	notif := &captureNotifier{}
+	svc := NewService(NewRepository(db), notif)
+
+	if _, err := svc.CreateBookmark(7, BookmarkRequest{ItemID: 11, ItemType: "college"}); err != nil {
+		t.Fatalf("create bookmark: %v", err)
+	}
+
+	if notif.Last == nil || notif.Last.EventKey != notification.EventContentSaved {
+		t.Fatalf("expected %s, got %+v", notification.EventContentSaved, notif.Last)
+	}
+	if len(notif.Last.Recipients) != 1 || notif.Last.Recipients[0] != (notification.Ref{Type: "user", ID: 7}) {
+		t.Fatalf("recipients wrong: %+v", notif.Last.Recipients)
+	}
+	if notif.Last.Data["item"] != "Test College" {
+		t.Fatalf("data wrong: %+v", notif.Last.Data)
+	}
+	assertTemplates(t, *notif.Last)
+}
+
+func TestCreateBookmarkScholarshipEmitsContentSaved(t *testing.T) {
+	db := testDBDashboard(t)
+	if err := db.Create(&scholarshipsRow{ID: 22, Title: "Merit Award"}).Error; err != nil {
+		t.Fatalf("seed scholarship: %v", err)
+	}
+	notif := &captureNotifier{}
+	svc := NewService(NewRepository(db), notif)
+
+	if _, err := svc.CreateBookmark(7, BookmarkRequest{ItemID: 22, ItemType: "scholarship"}); err != nil {
+		t.Fatalf("create bookmark: %v", err)
+	}
+
+	if notif.Last == nil || notif.Last.EventKey != notification.EventContentSaved {
+		t.Fatalf("expected %s, got %+v", notification.EventContentSaved, notif.Last)
+	}
+	if len(notif.Last.Recipients) != 1 || notif.Last.Recipients[0] != (notification.Ref{Type: "user", ID: 7}) {
+		t.Fatalf("recipients wrong: %+v", notif.Last.Recipients)
+	}
+	if notif.Last.Data["item"] != "Merit Award" {
+		t.Fatalf("data wrong: %+v", notif.Last.Data)
 	}
 	assertTemplates(t, *notif.Last)
 }

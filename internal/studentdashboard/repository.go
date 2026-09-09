@@ -103,6 +103,27 @@ func (r *Repository) ApprovedInstitutionUserByID(institutionID uint) (uint, erro
 	return id, err
 }
 
+// CollegeNameByID / ScholarshipNameByID resolve bookmark display names.
+// The colleges/scholarships tables are owned by other modules; accessed via
+// raw SQL to avoid an import cycle. "" when the row is missing or deleted.
+func (r *Repository) CollegeNameByID(collegeID uint) (string, error) {
+	var name string
+	err := r.db.Raw(
+		`SELECT name FROM colleges WHERE id = ? AND deleted_at IS NULL LIMIT 1`,
+		collegeID,
+	).Scan(&name).Error
+	return name, err
+}
+
+func (r *Repository) ScholarshipNameByID(scholarshipID uint) (string, error) {
+	var title string
+	err := r.db.Raw(
+		`SELECT title FROM scholarships WHERE id = ? AND deleted_at IS NULL LIMIT 1`,
+		scholarshipID,
+	).Scan(&title).Error
+	return title, err
+}
+
 // UserNameByID resolves a display name from the users table (owned by the
 // auth module; accessed via raw SQL to avoid an import cycle).
 func (r *Repository) UserNameByID(userID uint) (string, error) {
