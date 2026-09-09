@@ -510,44 +510,6 @@ func (r *Repository) UpdateProviderSettings(settings *ProviderSettings, updates 
 	return r.db.Model(settings).Updates(updates).Error
 }
 
-func (r *Repository) GetNotificationsByProvider(providerID uint, page, limit int) ([]ProviderNotification, int64, int64, error) {
-	var total int64
-	if err := r.db.Model(&ProviderNotification{}).Where("provider_id = ?", providerID).Count(&total).Error; err != nil {
-		return nil, 0, 0, err
-	}
-
-	var notifications []ProviderNotification
-	offset := (page - 1) * limit
-	if err := r.db.Where("provider_id = ?", providerID).
-		Order("read asc, created_at desc").Offset(offset).Limit(limit).Find(&notifications).Error; err != nil {
-		return nil, 0, 0, err
-	}
-
-	var unreadCount int64
-	if err := r.db.Model(&ProviderNotification{}).Where("provider_id = ? AND read = ?", providerID, false).Count(&unreadCount).Error; err != nil {
-		return nil, 0, 0, err
-	}
-
-	return notifications, total, unreadCount, nil
-}
-
-func (r *Repository) GetNotificationByIDAndProvider(id uint, providerID uint) (*ProviderNotification, error) {
-	var notification ProviderNotification
-	if err := r.db.Where("id = ? AND provider_id = ?", id, providerID).First(&notification).Error; err != nil {
-		return nil, err
-	}
-	return &notification, nil
-}
-
-func (r *Repository) MarkNotificationRead(notification *ProviderNotification) error {
-	return r.db.Model(notification).Update("read", true).Error
-}
-
-func (r *Repository) MarkAllNotificationsRead(providerID uint) error {
-	return r.db.Model(&ProviderNotification{}).Where("provider_id = ? AND read = ?", providerID, false).
-		Update("read", true).Error
-}
-
 func (r *Repository) CreateNews(news *ProviderNews) error {
 	return r.db.Create(news).Error
 }

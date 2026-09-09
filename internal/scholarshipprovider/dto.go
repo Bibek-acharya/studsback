@@ -567,41 +567,19 @@ type ProfileResponse struct {
 }
 
 type UpdateSettingsRequest struct {
-	EmailNotifs bool   `json:"email_notifications"`
-	SmsNotifs   bool   `json:"sms_notifications"`
-	AutoReject  bool   `json:"auto_reject_expired"`
-	Timezone    string `json:"timezone"`
-	Language    string `json:"language"`
+	AutoReject bool   `json:"auto_reject_expired"`
+	Timezone   string `json:"timezone"`
+	Language   string `json:"language"`
 }
 
 type SettingsResponse struct {
-	ID          uint      `json:"id"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
-	ProviderID  uint      `json:"provider_id"`
-	EmailNotifs bool      `json:"email_notifications"`
-	SmsNotifs   bool      `json:"sms_notifications"`
-	AutoReject  bool      `json:"auto_reject_expired"`
-	Timezone    string    `json:"timezone"`
-	Language    string    `json:"language"`
-}
-
-type NotificationResponse struct {
 	ID         uint      `json:"id"`
 	CreatedAt  time.Time `json:"created_at"`
 	UpdatedAt  time.Time `json:"updated_at"`
 	ProviderID uint      `json:"provider_id"`
-	Title      string    `json:"title"`
-	Message    string    `json:"message"`
-	Type       string    `json:"type"`
-	Read       bool      `json:"read"`
-	Link       string    `json:"link"`
-}
-
-type NotificationListResponse struct {
-	Notifications []NotificationResponse `json:"notifications"`
-	UnreadCount   int64                  `json:"unread_count"`
-	Meta          PaginationMeta         `json:"meta"`
+	AutoReject bool      `json:"auto_reject_expired"`
+	Timezone   string    `json:"timezone"`
+	Language   string    `json:"language"`
 }
 
 type DashboardResponse struct {

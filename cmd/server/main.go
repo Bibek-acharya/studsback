@@ -160,7 +160,6 @@ func main() {
 		&scholarshipprovider.ProviderInterview{},
 		&scholarshipprovider.ProviderMessage{},
 		&scholarshipprovider.ProviderSettings{},
-		&scholarshipprovider.ProviderNotification{},
 		&scholarshipprovider.ProviderNews{},
 		&scholarshipprovider.ProviderEvent{},
 		&scholarshipprovider.ProviderBlog{},

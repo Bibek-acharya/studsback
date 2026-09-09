@@ -182,28 +182,13 @@ type ProviderMessage struct {
 }
 
 type ProviderSettings struct {
-	ID          uint      `gorm:"primarykey" json:"id"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
-	ProviderID  uint      `gorm:"uniqueIndex;not null" json:"provider_id"`
-	EmailNotifs bool      `gorm:"default:true" json:"email_notifications"`
-	SmsNotifs   bool      `gorm:"default:false" json:"sms_notifications"`
-	AutoReject  bool      `gorm:"default:false" json:"auto_reject_expired"`
-	Timezone    string    `gorm:"default:'UTC'" json:"timezone"`
-	Language    string    `gorm:"default:'en'" json:"language"`
-}
-
-type ProviderNotification struct {
-	ID         uint           `gorm:"primarykey" json:"id"`
-	CreatedAt  time.Time      `json:"created_at"`
-	UpdatedAt  time.Time      `json:"updated_at"`
-	DeletedAt  gorm.DeletedAt `gorm:"index" json:"-"`
-	ProviderID uint           `gorm:"index;not null" json:"provider_id"`
-	Title      string         `json:"title"`
-	Message    string         `gorm:"type:text" json:"message"`
-	Type       string         `json:"type"`
-	Read       bool           `gorm:"default:false" json:"read"`
-	Link       string         `json:"link"`
+	ID         uint      `gorm:"primarykey" json:"id"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
+	ProviderID uint      `gorm:"uniqueIndex;not null" json:"provider_id"`
+	AutoReject bool      `gorm:"default:false" json:"auto_reject_expired"`
+	Timezone   string    `gorm:"default:'UTC'" json:"timezone"`
+	Language   string    `gorm:"default:'en'" json:"language"`
 }
 
 type ScholarshipProviderUser struct {

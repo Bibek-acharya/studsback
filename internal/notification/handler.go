@@ -162,46 +162,6 @@ func toItem(r AccountNotification, accountType string, accountID uint) Notificat
 	return item
 }
 
-func (h *Handler) providerList(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
-	rows, total, unread, err := h.svc.repo.ListInbox("provider", c.GetUint("provider_id"), page, limit, "", false, false)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	items := make([]ProviderNotificationItem, 0, len(rows))
-	for _, r := range rows {
-		items = append(items, ProviderNotificationItem{
-			ID: r.ID, ProviderID: r.AccountID, Title: r.Title, Message: r.Body,
-			Type: r.Category, Read: r.ReadAt != nil, Link: r.Link,
-			CreatedAt: r.CreatedAt.Format(timeRFC3339),
-		})
-	}
-	resp := ProviderListResponse{Notifications: items, UnreadCount: unread,
-		Meta: InboxMeta{Total: total, Page: page, Limit: limit}}
-	c.JSON(http.StatusOK, gin.H{"data": resp, "message": "ok"})
-}
-
-func (h *Handler) providerMarkRead(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	n, err := h.svc.repo.MarkRead("provider", c.GetUint("provider_id"), uint(id))
-	if err != nil || n == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"message": "marked read"})
-}
-
-func (h *Handler) providerMarkAllRead(c *gin.Context) {
-	n, err := h.svc.repo.MarkAllRead("provider", c.GetUint("provider_id"))
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"data": BulkReadResponse{Updated: n}, "message": "ok"})
-}
-
 type broadcastRequest struct {
 	Title          string   `json:"title" binding:"required"`
 	Body           string   `json:"body" binding:"required"`

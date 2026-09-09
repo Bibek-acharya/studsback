@@ -27,12 +27,6 @@ func (h *Handler) RegisterRoutes(rg *gin.RouterGroup, superadminMW gin.HandlerFu
 	g.PUT("/:id/unarchive", h.archive(false))
 	g.DELETE("/:id", h.remove)
 
-	// Provider legacy proxy — disjoint path, pure legacy shape (doc 05 §1).
-	pg := rg.Group("/scholarship-providers/notifications")
-	pg.GET("", h.providerList)
-	pg.PUT("/:id/read", h.providerMarkRead)
-	pg.PUT("/read-all", h.providerMarkAllRead)
-
 	// Broadcast — superadmin-only via the middleware supplied at wiring time
 	// (same pattern as auth/routes.go's superadmin group).
 	bg := rg.Group("/notifications")

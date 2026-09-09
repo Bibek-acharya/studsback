@@ -168,54 +168,6 @@ func TestArchiveOwnershipAndMissing(t *testing.T) {
 	}
 }
 
-func providerRouter(h *Handler, providerID uint) *gin.Engine {
-	gin.SetMode(gin.TestMode)
-	r := gin.New()
-	r.Use(func(c *gin.Context) {
-		// Distinct values (real middleware sets user_id = users-table ID,
-		// provider_id = claims.ProviderID) prove the proxy scopes by provider_id.
-		c.Set("user_role", "scholarship_provider")
-		c.Set("user_id", providerID*10)
-		c.Set("provider_id", providerID)
-		c.Next()
-	})
-	h.RegisterRoutes(r.Group("/api/v1"), nil)
-	return r
-}
-
-func TestProviderProxyServesLegacyShape(t *testing.T) {
-	db := testDB(t)
-	h := NewHandler(NewService(db))
-	if err := NewRepository(db).InsertNotifications(nil, []AccountNotification{
-		{AccountType: "provider", AccountID: 9, EventKey: EventApplicationReceived,
-			Category: "application", Title: "New Application Received", Body: "Rita applied."},
-	}); err != nil {
-		t.Fatalf("seed: %v", err)
-	}
-	r := providerRouter(h, 9)
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/v1/scholarship-providers/notifications?page=1&limit=20", nil))
-	if w.Code != http.StatusOK {
-		t.Fatalf("status=%d body=%s", w.Code, w.Body.String())
-	}
-	var resp struct {
-		Data struct {
-			Notifications []map[string]any `json:"notifications"`
-			UnreadCount   int              `json:"unread_count"`
-		} `json:"data"`
-	}
-	_ = json.Unmarshal(w.Body.Bytes(), &resp)
-	item := resp.Data.Notifications[0]
-	for _, k := range []string{"provider_id", "message", "type", "read", "created_at"} {
-		if _, ok := item[k]; !ok {
-			t.Fatalf("provider legacy field %q missing", k)
-		}
-	}
-	if item["provider_id"] != float64(9) || item["message"] != "Rita applied." || resp.Data.UnreadCount != 1 {
-		t.Fatalf("proxy values wrong: %v unread=%d", item, resp.Data.UnreadCount)
-	}
-}
-
 func TestBroadcastCreatesCampaignAndFansOut(t *testing.T) {
 	db := testDB(t)
 	// The audience query unions the institution/provider account tables —

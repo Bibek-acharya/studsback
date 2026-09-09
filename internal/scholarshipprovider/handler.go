@@ -966,63 +966,6 @@ func (h *Handler) UpdateSettings(c *gin.Context) {
 	response.Success(c, http.StatusOK, "Settings updated successfully", toSettingsResponse(settings))
 }
 
-func (h *Handler) GetNotifications(c *gin.Context) {
-	providerID := getProviderID(c)
-
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
-
-	notifications, total, unreadCount, err := h.service.GetNotifications(providerID, page, limit)
-	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "Failed to fetch notifications")
-		return
-	}
-
-	responses := make([]NotificationResponse, len(notifications))
-	for i, n := range notifications {
-		responses[i] = toNotificationResponse(&n)
-	}
-
-	response.Success(c, http.StatusOK, "Notifications retrieved successfully", NotificationListResponse{
-		Notifications: responses,
-		UnreadCount:   unreadCount,
-		Meta: PaginationMeta{
-			Total: total,
-			Page:  page,
-			Limit: limit,
-		},
-	})
-}
-
-func (h *Handler) MarkNotificationRead(c *gin.Context) {
-	providerID := getProviderID(c)
-	idStr := c.Param("id")
-
-	id, err := strconv.ParseUint(idStr, 10, 32)
-	if err != nil {
-		response.Error(c, http.StatusBadRequest, "Invalid notification ID")
-		return
-	}
-
-	if err := h.service.MarkNotificationRead(providerID, uint(id)); err != nil {
-		response.Error(c, http.StatusNotFound, "Notification not found")
-		return
-	}
-
-	response.Success(c, http.StatusOK, "Notification marked as read", nil)
-}
-
-func (h *Handler) MarkAllNotificationsRead(c *gin.Context) {
-	providerID := getProviderID(c)
-
-	if err := h.service.MarkAllNotificationsRead(providerID); err != nil {
-		response.Error(c, http.StatusInternalServerError, "Failed to mark notifications as read")
-		return
-	}
-
-	response.Success(c, http.StatusOK, "All notifications marked as read", nil)
-}
-
 func unmarshalJSONB(data []byte) interface{} {
 	var v interface{}
 	json.Unmarshal(data, &v)
@@ -1158,29 +1101,13 @@ func toMessageResponse(m *ProviderMessage) MessageResponse {
 
 func toSettingsResponse(s *ProviderSettings) SettingsResponse {
 	return SettingsResponse{
-		ID:          s.ID,
-		CreatedAt:   s.CreatedAt,
-		UpdatedAt:   s.UpdatedAt,
-		ProviderID:  s.ProviderID,
-		EmailNotifs: s.EmailNotifs,
-		SmsNotifs:   s.SmsNotifs,
-		AutoReject:  s.AutoReject,
-		Timezone:    s.Timezone,
-		Language:    s.Language,
-	}
-}
-
-func toNotificationResponse(n *ProviderNotification) NotificationResponse {
-	return NotificationResponse{
-		ID:         n.ID,
-		CreatedAt:  n.CreatedAt,
-		UpdatedAt:  n.UpdatedAt,
-		ProviderID: n.ProviderID,
-		Title:      n.Title,
-		Message:    n.Message,
-		Type:       n.Type,
-		Read:       n.Read,
-		Link:       n.Link,
+		ID:         s.ID,
+		CreatedAt:  s.CreatedAt,
+		UpdatedAt:  s.UpdatedAt,
+		ProviderID: s.ProviderID,
+		AutoReject: s.AutoReject,
+		Timezone:   s.Timezone,
+		Language:   s.Language,
 	}
 }
 

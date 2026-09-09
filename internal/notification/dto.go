@@ -42,23 +42,6 @@ type BulkReadResponse struct {
 	Updated int64 `json:"updated"`
 }
 
-type ProviderNotificationItem struct {
-	ID         uint   `json:"id"`
-	ProviderID uint   `json:"provider_id"`
-	Title      string `json:"title"`
-	Message    string `json:"message"`
-	Type       string `json:"type"`
-	Read       bool   `json:"read"`
-	Link       string `json:"link"`
-	CreatedAt  string `json:"created_at"`
-}
-
-type ProviderListResponse struct {
-	Notifications []ProviderNotificationItem `json:"notifications"`
-	UnreadCount   int                        `json:"unread_count"`
-	Meta          InboxMeta                  `json:"meta"`
-}
-
 // PublicNotificationResponse is the public banner shape. The system module
 // aliases this type so the guest GET keeps serving the identical JSON.
 type PublicNotificationResponse struct {

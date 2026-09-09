@@ -1614,11 +1614,9 @@ func (s *Service) UpdateProviderSettings(providerID uint, req UpdateSettingsRequ
 	}
 
 	updates := map[string]interface{}{
-		"email_notifs": req.EmailNotifs,
-		"sms_notifs":   req.SmsNotifs,
-		"auto_reject":  req.AutoReject,
-		"timezone":     req.Timezone,
-		"language":     req.Language,
+		"auto_reject": req.AutoReject,
+		"timezone":    req.Timezone,
+		"language":    req.Language,
 	}
 
 	if err := s.repo.UpdateProviderSettings(settings, updates); err != nil {
@@ -1626,30 +1624,6 @@ func (s *Service) UpdateProviderSettings(providerID uint, req UpdateSettingsRequ
 	}
 
 	return settings, nil
-}
-
-func (s *Service) GetNotifications(providerID uint, page, limit int) ([]ProviderNotification, int64, int64, error) {
-	if page < 1 {
-		page = 1
-	}
-	if limit < 1 || limit > 50 {
-		limit = 20
-	}
-
-	return s.repo.GetNotificationsByProvider(providerID, page, limit)
-}
-
-func (s *Service) MarkNotificationRead(providerID, id uint) error {
-	notification, err := s.repo.GetNotificationByIDAndProvider(id, providerID)
-	if err != nil {
-		return err
-	}
-
-	return s.repo.MarkNotificationRead(notification)
-}
-
-func (s *Service) MarkAllNotificationsRead(providerID uint) error {
-	return s.repo.MarkAllNotificationsRead(providerID)
 }
 
 func (s *Service) CreateNews(providerID uint, req CreateNewsRequest) (*ProviderNews, error) {
