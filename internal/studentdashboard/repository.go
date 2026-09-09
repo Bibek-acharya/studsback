@@ -188,47 +188,6 @@ func (r *Repository) GetBookmarksByType(userID uint, itemType string) ([]Bookmar
 	return bookmarks, nil
 }
 
-func (r *Repository) GetNotifications(userID uint, page, limit int) ([]Notification, int64, int64, error) {
-	var total int64
-	if err := r.db.Model(&Notification{}).Where("user_id = ?", userID).Count(&total).Error; err != nil {
-		return nil, 0, 0, err
-	}
-
-	var notifications []Notification
-	offset := (page - 1) * limit
-	if err := r.db.Where("user_id = ?", userID).
-		Order("read asc, created_at desc").Offset(offset).Limit(limit).Find(&notifications).Error; err != nil {
-		return nil, 0, 0, err
-	}
-
-	var unreadCount int64
-	if err := r.db.Model(&Notification{}).Where("user_id = ? AND read = ?", userID, false).Count(&unreadCount).Error; err != nil {
-		return nil, 0, 0, err
-	}
-
-	return notifications, total, unreadCount, nil
-}
-
-func (r *Repository) GetNotificationByID(notifID uint, userID uint) (*Notification, error) {
-	var notification Notification
-	if err := r.db.Where("id = ? AND user_id = ?", notifID, userID).First(&notification).Error; err != nil {
-		return nil, err
-	}
-	return &notification, nil
-}
-
-func (r *Repository) MarkNotificationRead(notifID uint) error {
-	return r.db.Model(&Notification{}).Where("id = ?", notifID).Update("read", true).Error
-}
-
-func (r *Repository) MarkAllNotificationsRead(userID uint) error {
-	return r.db.Model(&Notification{}).Where("user_id = ? AND read = ?", userID, false).Update("read", true).Error
-}
-
-func (r *Repository) CreateNotification(notification *Notification) error {
-	return r.db.Create(notification).Error
-}
-
 func (r *Repository) CountAdmissions(userID uint) (int64, error) {
 	var count int64
 	err := r.db.Model(&admission.Admission{}).Where("user_id = ?", userID).Count(&count).Error

@@ -179,7 +179,6 @@ func main() {
 		&studentdashboard.CalendarEvent{},
 		&studentdashboard.SphereInvite{},
 		&studentdashboard.Bookmark{},
-		&studentdashboard.Notification{},
 		&institution.InstitutionProgram{},
 		&institution.InstitutionMedia{},
 		&institution.InstitutionCounsellingSession{},
@@ -511,21 +510,16 @@ func main() {
 	api := router.Group("/api/v1")
 	messaging.SetupRoutes(api, db, redisClient, natsConn, authMW, notificationSvc)
 
-	// Notification route ownership (NOTIFICATIONS_V2, readiness review C4):
-	// on/unset — notification module owns /api/v1/notifications* + provider
-	// proxy; off — legacy studentdashboard handlers keep the routes. Exactly
-	// one set registers per boot.
+	// Notification route ownership (P2.5 Task 3: legacy studentdashboard
+	// off-branch removed; v2 always registers. NOTIFICATIONS_V2 flag
+	// machinery stays until Task 4).
 	notificationsAPI := api.Group("")
 	notificationsAPI.Use(authMW)
-	if notification.V2Enabled() {
-		notificationHandler := notification.NewHandler(notification.NewService(db))
-		notificationHandler.RegisterRoutes(notificationsAPI, middleware.RequireRole("superadmin", "super_admin"))
-		// Outbox drain + broadcast fan-out expansion; stop func discarded for
-		// process lifetime.
-		go notification.StartPoller(db, 2*time.Second)
-	} else {
-		studentDashHandler.RegisterNotificationRoutes(notificationsAPI)
-	}
+	notificationHandler := notification.NewHandler(notification.NewService(db))
+	notificationHandler.RegisterRoutes(notificationsAPI, middleware.RequireRole("superadmin", "super_admin"))
+	// Outbox drain + broadcast fan-out expansion; stop func discarded for
+	// process lifetime.
+	go notification.StartPoller(db, 2*time.Second)
 
 	logger.Info("All routes registered", "port", config.AppConfig.Port)
 

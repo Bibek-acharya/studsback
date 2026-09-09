@@ -7,7 +7,6 @@ import (
 
 	"studsphere/backend/internal/auth"
 	"studsphere/backend/internal/notification"
-	"studsphere/backend/internal/shared/logger"
 )
 
 type Service struct {
@@ -268,44 +267,6 @@ func (s *Service) DeleteBookmark(bookmarkID, userID uint) error {
 
 func (s *Service) GetBookmarksByType(userID uint, itemType string) ([]Bookmark, error) {
 	return s.repo.GetBookmarksByType(userID, itemType)
-}
-
-func (s *Service) GetNotifications(userID uint, page, limit int) ([]Notification, int64, int64, error) {
-	if page < 1 {
-		page = 1
-	}
-	if limit < 1 || limit > 50 {
-		limit = 20
-	}
-
-	return s.repo.GetNotifications(userID, page, limit)
-}
-
-func (s *Service) MarkNotificationRead(notifID, userID uint) error {
-	_, err := s.repo.GetNotificationByID(notifID, userID)
-	if err != nil {
-		return err
-	}
-
-	return s.repo.MarkNotificationRead(notifID)
-}
-
-func (s *Service) MarkAllNotificationsRead(userID uint) error {
-	return s.repo.MarkAllNotificationsRead(userID)
-}
-
-func (s *Service) CreateNotification(userID uint, title, message, notifType, link string) {
-	notification := &Notification{
-		UserID:  userID,
-		Title:   title,
-		Message: message,
-		Type:    notifType,
-		Link:    link,
-		Read:    false,
-	}
-	if err := s.repo.CreateNotification(notification); err != nil {
-		logger.Warn("Failed to create notification", "error", err)
-	}
 }
 
 func (s *Service) GetDashboardStats(userID uint) (*DashboardStats, error) {

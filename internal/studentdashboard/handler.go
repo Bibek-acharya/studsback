@@ -300,47 +300,6 @@ func (h *Handler) GetBookmarksByType(c *gin.Context) {
 	response.Success(c, http.StatusOK, "Bookmarks retrieved successfully", toBookmarkResponses(bookmarks))
 }
 
-func (h *Handler) GetNotifications(c *gin.Context) {
-	userID, _ := c.Get("user_id")
-	id := userID.(uint)
-
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
-
-	notifications, total, unreadCount, err := h.service.GetNotifications(id, page, limit)
-	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "Failed to retrieve notifications")
-		return
-	}
-
-	response.Success(c, http.StatusOK, "Notifications retrieved successfully", gin.H{
-		"notifications": toNotificationResponses(notifications),
-		"unread_count":  unreadCount,
-		"meta": gin.H{
-			"total": total,
-			"page":  page,
-			"limit": limit,
-		},
-	})
-}
-
-func (h *Handler) MarkNotificationRead(c *gin.Context) {
-	userID, _ := c.Get("user_id")
-	id := userID.(uint)
-	notifID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		response.Error(c, http.StatusBadRequest, "Invalid notification ID")
-		return
-	}
-
-	if err := h.service.MarkNotificationRead(uint(notifID), id); err != nil {
-		response.Error(c, http.StatusNotFound, "Notification not found")
-		return
-	}
-
-	response.Success(c, http.StatusOK, "Notification marked as read", nil)
-}
-
 func (h *Handler) GetDashboardStats(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 	id := userID.(uint)
@@ -392,18 +351,6 @@ func (h *Handler) GetMyApplications(c *gin.Context) {
 	})
 }
 
-func (h *Handler) MarkAllNotificationsRead(c *gin.Context) {
-	userID, _ := c.Get("user_id")
-	id := userID.(uint)
-
-	if err := h.service.MarkAllNotificationsRead(id); err != nil {
-		response.Error(c, http.StatusInternalServerError, "Failed to mark notifications as read")
-		return
-	}
-
-	response.Success(c, http.StatusOK, "All notifications marked as read", nil)
-}
-
 func toCalendarEventResponse(e *CalendarEvent) CalendarEventResponse {
 	return CalendarEventResponse{
 		ID:          e.ID,
@@ -448,24 +395,3 @@ func toBookmarkResponses(bookmarks []Bookmark) []BookmarkResponse {
 	return responses
 }
 
-func toNotificationResponse(n *Notification) NotificationResponse {
-	return NotificationResponse{
-		ID:        n.ID,
-		CreatedAt: n.CreatedAt,
-		UpdatedAt: n.UpdatedAt,
-		UserID:    n.UserID,
-		Title:     n.Title,
-		Message:   n.Message,
-		Type:      n.Type,
-		Read:      n.Read,
-		Link:      n.Link,
-	}
-}
-
-func toNotificationResponses(notifications []Notification) []NotificationResponse {
-	responses := make([]NotificationResponse, len(notifications))
-	for i, n := range notifications {
-		responses[i] = toNotificationResponse(&n)
-	}
-	return responses
-}

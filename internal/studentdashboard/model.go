@@ -43,16 +43,3 @@ type Bookmark struct {
 	ItemID    uint      `json:"item_id"`
 	ItemType  string    `json:"type"`
 }
-
-type Notification struct {
-	ID        uint           `gorm:"primarykey" json:"id"`
-	CreatedAt time.Time      `json:"created_at"`
-	UpdatedAt time.Time      `json:"updated_at"`
-	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
-	UserID    uint           `gorm:"index" json:"user_id"`
-	Title     string         `json:"title"`
-	Message   string         `gorm:"type:text" json:"message"`
-	Type      string         `json:"type"`
-	Read      bool           `gorm:"default:false" json:"read"`
-	Link      string         `json:"link"`
-}

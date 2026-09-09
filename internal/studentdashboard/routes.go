@@ -35,12 +35,3 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 		}
 	}
 }
-
-// RegisterNotificationRoutes mounts the LEGACY notification endpoints.
-// Retained for rollback: reads/writes the legacy `notifications` table.
-// Called from main.go ONLY when NOTIFICATIONS_V2=off.
-func (h *Handler) RegisterNotificationRoutes(rg *gin.RouterGroup) {
-	rg.GET("/notifications", h.GetNotifications)
-	rg.PUT("/notifications/:id/read", h.MarkNotificationRead)
-	rg.PUT("/notifications/read-all", h.MarkAllNotificationsRead)
-}

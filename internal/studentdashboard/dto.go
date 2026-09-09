@@ -90,15 +90,3 @@ type BookmarkResponse struct {
 	ItemID    uint      `json:"item_id"`
 	ItemType  string    `json:"type"`
 }
-
-type NotificationResponse struct {
-	ID        uint      `json:"id"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-	UserID    uint      `json:"user_id"`
-	Title     string    `json:"title"`
-	Message   string    `json:"message"`
-	Type      string    `json:"type"`
-	Read      bool      `json:"read"`
-	Link      string    `json:"link"`
-}
