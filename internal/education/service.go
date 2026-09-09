@@ -157,30 +157,30 @@ func buildExamResponse(exam Exam) ExamResponse {
 
 func buildCourseResponse(course Course, colleges int, affiliationName string) CourseResponse {
 	return CourseResponse{
-		ID:              strconv.FormatUint(uint64(course.ID), 10),
-		Title:           course.Title,
-		ShortTitle:      course.ShortTitle,
-		Colleges:        colleges,
-		Affiliation:     affiliationName,
-		AffiliationName: affiliationName,
+		ID:                       strconv.FormatUint(uint64(course.ID), 10),
+		Title:                    course.Title,
+		ShortTitle:               course.ShortTitle,
+		Colleges:                 colleges,
+		Affiliation:              affiliationName,
+		AffiliationName:          affiliationName,
 		NonUniversityAffiliation: course.NonUniversityAffiliation,
-		Badges:          parseStringArrayField(course.Badges),
-		Level:           course.Level,
-		Field:           course.Field,
-		FieldOfStudy:    course.FieldOfStudy,
-		Duration:        course.Duration,
-		EstFee:          course.EstFee,
-		GovtFee:         course.GovtFee,
-		PrivateFee:      course.PrivateFee,
-		Highlights:      parseStringArrayField(course.Highlights),
-		CareerPath:      course.CareerPath,
-		Description:     course.Description,
-		Location:        course.Location,
-		Mode:            course.Mode,
-		DegreeLabel:     course.DegreeLabel,
-		FeeStructure:    course.FeeStructure,
-		EligibilityText: course.EligibilityText,
-		BannerURL:       course.BannerURL,
+		Badges:                   parseStringArrayField(course.Badges),
+		Level:                    course.Level,
+		Field:                    course.Field,
+		FieldOfStudy:             course.FieldOfStudy,
+		Duration:                 course.Duration,
+		EstFee:                   course.EstFee,
+		GovtFee:                  course.GovtFee,
+		PrivateFee:               course.PrivateFee,
+		Highlights:               parseStringArrayField(course.Highlights),
+		CareerPath:               course.CareerPath,
+		Description:              course.Description,
+		Location:                 course.Location,
+		Mode:                     course.Mode,
+		DegreeLabel:              course.DegreeLabel,
+		FeeStructure:             course.FeeStructure,
+		EligibilityText:          course.EligibilityText,
+		BannerURL:                course.BannerURL,
 
 		WhoShouldChoose:  parseJSONB[PersonaItem](course.WhoShouldChoose),
 		Features:         parseJSONB[FeatureItem](course.Features),
@@ -196,7 +196,6 @@ func buildCourseResponse(course Course, colleges int, affiliationName string) Co
 		FAQs:             parseJSONB[FaqItem](course.FAQs),
 	}
 }
-
 
 func buildNewsResponse(news News) NewsResponse {
 	date := news.Date
@@ -577,8 +576,8 @@ func (s *Service) CreateCourse(req CreateCourseRequest) (*AdminCourseResponse, e
 	return &resp, nil
 }
 
-func (s *Service) GetAllCoursesAdmin(page, limit int) ([]AdminCourseResponse, PaginationMeta, error) {
-	courses, total, err := s.repo.FindAllCoursesAdmin(page, limit)
+func (s *Service) GetAllCoursesAdmin(page, limit int, level, search string) ([]AdminCourseResponse, PaginationMeta, error) {
+	courses, total, err := s.repo.FindAllCoursesAdmin(page, limit, level, search)
 	if err != nil {
 		return nil, PaginationMeta{}, err
 	}
@@ -2476,31 +2475,31 @@ func (s *Service) ResolveCourse(globalCourseID uint, institutionID uint) (*Resol
 	json.Unmarshal(program.FeeItems, &instFeeItems)
 
 	resolved := &ResolvedCourse{
-		ID:              course.ID,
-		Title:           course.Title,
-		Duration:        course.Duration,
-		Level:           course.Level,
-		AffiliationID:   course.AffiliationID,
-		AffiliationName: "",
-		Description:     description,
-		BannerURL:       bannerURL,
-		Careers:         resolvedCareers,
-		FAQs:            resolvedFAQs,
-		EligibilityRows: eligibilityRows,
-		AdmissionSteps:  admissionSteps,
-		SubjectGroups:   subjectGroups,
-		ScholarshipDesc: course.ScholarshipDesc,
+		ID:               course.ID,
+		Title:            course.Title,
+		Duration:         course.Duration,
+		Level:            course.Level,
+		AffiliationID:    course.AffiliationID,
+		AffiliationName:  "",
+		Description:      description,
+		BannerURL:        bannerURL,
+		Careers:          resolvedCareers,
+		FAQs:             resolvedFAQs,
+		EligibilityRows:  eligibilityRows,
+		AdmissionSteps:   admissionSteps,
+		SubjectGroups:    subjectGroups,
+		ScholarshipDesc:  course.ScholarshipDesc,
 		ScholarshipNotes: course.ScholarshipNotes,
-		Scholarships:    scholarships,
-		InstitutionID:   program.InstitutionID,
-		Fee:             program.Fee,
-		Eligibility:     program.Eligibility,
-		Capacity:        program.Capacity,
-		WhoShouldChoose: instWhoShouldChoose,
-		Features:        instFeatures,
-		FullTimeCourses: instFullTimeCourses,
-		FeeItems:        instFeeItems,
-		Status:          program.Status,
+		Scholarships:     scholarships,
+		InstitutionID:    program.InstitutionID,
+		Fee:              program.Fee,
+		Eligibility:      program.Eligibility,
+		Capacity:         program.Capacity,
+		WhoShouldChoose:  instWhoShouldChoose,
+		Features:         instFeatures,
+		FullTimeCourses:  instFullTimeCourses,
+		FeeItems:         instFeeItems,
+		Status:           program.Status,
 	}
 
 	if affiliation != nil {

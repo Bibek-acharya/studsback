@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"studsphere/backend/internal/shared/response"
 	"studsphere/backend/internal/shared/sanitize"
@@ -799,8 +800,16 @@ func (h *Handler) AdminCreateCourse(c *gin.Context) {
 func (h *Handler) AdminListCourses(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 20
+	}
+	level := strings.TrimSpace(c.Query("level"))
+	search := strings.TrimSpace(c.Query("search"))
 
-	courses, meta, err := h.service.GetAllCoursesAdmin(page, limit)
+	courses, meta, err := h.service.GetAllCoursesAdmin(page, limit, level, search)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "Failed to fetch courses")
 		return

@@ -102,6 +102,23 @@ func TestFindCoursesByLevel_EmptyResult(t *testing.T) {
 	}
 }
 
+func TestFindAllCoursesAdmin_FiltersLevelAndSearchBeforePagination(t *testing.T) {
+	db := setupTestDB(t)
+	seedCourses(db)
+	repo := NewRepository(db)
+
+	courses, total, err := repo.FindAllCoursesAdmin(1, 1, "Bachelor", "computer")
+	if err != nil {
+		t.Fatalf("FindAllCoursesAdmin() error = %v", err)
+	}
+	if total != 1 {
+		t.Fatalf("total = %d, want 1", total)
+	}
+	if len(courses) != 1 || courses[0].Title != "BSc Computer Science" {
+		t.Fatalf("courses = %#v, want BSc Computer Science", courses)
+	}
+}
+
 func TestFindCoursesByAffiliation_ReturnsMatching(t *testing.T) {
 	db := setupTestDB(t)
 	seedCourses(db)

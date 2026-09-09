@@ -2,6 +2,7 @@ package education
 
 import (
 	"errors"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -265,14 +266,26 @@ func (r *Repository) DeleteCourse(courseID uint) error {
 	return nil
 }
 
-func (r *Repository) FindAllCoursesAdmin(page, limit int) ([]Course, int64, error) {
+func (r *Repository) FindAllCoursesAdmin(page, limit int, level, search string) ([]Course, int64, error) {
 	var courses []Course
 	var total int64
-	if err := r.db.Model(&Course{}).Count(&total).Error; err != nil {
+	query := r.db.Model(&Course{}).
+		Joins("LEFT JOIN affiliations ON affiliations.id = courses.affiliation_id")
+	if level != "" {
+		query = query.Where("courses.level = ?", level)
+	}
+	if search != "" {
+		pattern := "%" + strings.ToLower(search) + "%"
+		query = query.Where(
+			"LOWER(courses.title) LIKE ? OR LOWER(courses.field) LIKE ? OR LOWER(courses.field_of_study) LIKE ? OR LOWER(courses.non_university_affiliation) LIKE ? OR LOWER(affiliations.name) LIKE ?",
+			pattern, pattern, pattern, pattern, pattern,
+		)
+	}
+	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 	offset := (page - 1) * limit
-	err := r.db.Order("created_at desc").Offset(offset).Limit(limit).Find(&courses).Error
+	err := query.Order("courses.created_at desc").Offset(offset).Limit(limit).Find(&courses).Error
 	return courses, total, err
 }
 
@@ -1065,5 +1078,3 @@ func (r *Repository) GetInstitutionEntranceByID(id string) (*InstitutionEntrance
 	}
 	return &entry, nil
 }
-
-
