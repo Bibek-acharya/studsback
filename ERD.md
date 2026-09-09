@@ -811,8 +811,8 @@ All tables have `provider_id` FK to `scholarship_provider_users.id`.
 | `provider_volunteers`      | slug, title, banner_image, description, volunteer_type, payment, date_mode, range_start/end, specific_dates(JSONB), deadline, districts(JSONB), active, location |
 | `volunteer_applications`   | volunteer_id, user_id(optional), full_name, gender, phone, email, designation, address, available_days(JSONB), volunteered_before, cv_path, status               |
 | `provider_calendar_events` | title, description, start/end_date, color, is_all_day                                                                                                            |
-| `provider_notifications`   | provider_id, title, message, type, read, link                                                                                                                    |
-| `provider_settings`        | provider_id(UNIQUE), email_notifs, sms_notifs, auto_reject, timezone, language                                                                                   |
+| `provider_notifications`   | provider_id, title, message, type, read, link — DROPPED (P2.5, dropped 2026-09-09)                                                                                  |
+| `provider_settings`        | provider_id(UNIQUE), auto_reject, timezone, language — email_notifs, sms_notifs DROPPED (P2.5, dropped 2026-09-09)                                                    |
 | `provider_access`          | provider_id, email, role, status                                                                                                                                 |
 | `provider_access_users`    | provider_id, name, email(UNIQUE), password, role, role_label, status, last_active, permissions(JSONB)                                                            |
 
