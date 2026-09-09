@@ -510,9 +510,9 @@ func main() {
 	api := router.Group("/api/v1")
 	messaging.SetupRoutes(api, db, redisClient, natsConn, authMW, notificationSvc)
 
-	// Notification route ownership (P2.5 Task 3: legacy studentdashboard
-	// off-branch removed; v2 always registers. NOTIFICATIONS_V2 flag
-	// machinery stays until Task 4).
+	// Notification routes are always v2-owned (P2.5: NOTIFICATIONS_V2 retired,
+	// legacy off-branch removed). The poller drains the outbox for process
+	// lifetime.
 	notificationsAPI := api.Group("")
 	notificationsAPI.Use(authMW)
 	notificationHandler := notification.NewHandler(notification.NewService(db))

@@ -11,18 +11,27 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func TestV2EnabledFlag(t *testing.T) {
-	t.Setenv("NOTIFICATIONS_V2", "")
-	if !V2Enabled() {
-		t.Fatal("default must be on")
+// Rollback retired (P2.5 Task 4): routes register unconditionally — the
+// NOTIFICATIONS_V2 env var is inert and must not gate anything.
+func TestRoutesAlwaysRegistered(t *testing.T) {
+	t.Setenv("NOTIFICATIONS_V2", "off") // legacy var; registration must ignore it
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	NewHandler(nil).RegisterRoutes(r.Group("/api/v1"), nil)
+
+	paths := map[string]bool{}
+	for _, ri := range r.Routes() {
+		paths[ri.Method+" "+ri.Path] = true
 	}
-	t.Setenv("NOTIFICATIONS_V2", "on")
-	if !V2Enabled() {
-		t.Fatal("on must enable v2")
-	}
-	t.Setenv("NOTIFICATIONS_V2", "off")
-	if V2Enabled() {
-		t.Fatal("off must disable v2")
+	for _, want := range []string{
+		"GET /api/v1/notifications",
+		"GET /api/v1/notifications/unread-count",
+		"PUT /api/v1/notifications/read-all",
+		"PUT /api/v1/notifications/:id/read",
+	} {
+		if !paths[want] {
+			t.Errorf("missing route %s (flag must not gate registration)", want)
+		}
 	}
 }
 

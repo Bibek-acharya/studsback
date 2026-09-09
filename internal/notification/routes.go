@@ -2,19 +2,12 @@
 package notification
 
 import (
-	"os"
-
 	"github.com/gin-gonic/gin"
 )
 
-// V2Enabled reports whether this module owns the /api/v1/notifications*
-// routes. Default on; NOTIFICATIONS_V2=off falls back to the legacy handlers
-// (rollback path, readiness review C4). Shared by every gate so the flag has
-// one source of truth.
-func V2Enabled() bool { return os.Getenv("NOTIFICATIONS_V2") != "off" }
-
-// RegisterRoutes mounts the notification API. Single owner of route
-// registration (readiness review H1); callers gate on NOTIFICATIONS_V2.
+// RegisterRoutes mounts the notification API. Sole owner of the
+// /api/v1/notifications* route family (readiness review H1); registration is
+// unconditional — the NOTIFICATIONS_V2 rollback flag is retired (P2.5).
 // superadminMW guards the broadcast endpoints (wiring-time, per Task 7);
 // nil skips the guard and is for tests only.
 func (h *Handler) RegisterRoutes(rg *gin.RouterGroup, superadminMW gin.HandlerFunc) {
