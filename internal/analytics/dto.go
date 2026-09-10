@@ -73,3 +73,25 @@ type SupplyAnalytics struct {
 	StaleScholarships []StaleScholarship `json:"stale_scholarships"`
 	Series            []SeriesPoint      `json:"series"`
 }
+
+type OpsTotals struct {
+	ForumReports     int64 `json:"forum_reports"`
+	ReviewReports    int64 `json:"review_reports"`
+	Feedback         int64 `json:"feedback"`
+	Broadcasts       int64 `json:"broadcasts"`
+	BroadcastsFailed int64 `json:"broadcasts_failed"`
+}
+
+type BroadcastRow struct {
+	ID        int64  `json:"id"`
+	Status    string `json:"status"`
+	Audience  string `json:"audience"`
+	CreatedAt string `json:"created_at"`
+}
+
+type OpsAnalytics struct {
+	Totals            OpsTotals        `json:"totals"`
+	InquiriesByStatus map[string]int64 `json:"inquiries_by_status"`
+	RecentBroadcasts  []BroadcastRow   `json:"recent_broadcasts"`
+	Series            []SeriesPoint    `json:"series"`
+}

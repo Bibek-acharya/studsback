@@ -233,6 +233,77 @@ func (s *Service) Supply(from, to time.Time, gran string) (SupplyAnalytics, erro
 	return out, nil
 }
 
+func (s *Service) Ops(from, to time.Time, gran string) (OpsAnalytics, error) {
+	var out OpsAnalytics
+	var err error
+	r := s.repo
+	if out.Totals.ForumReports, err = r.countWhere("forum_reports", ""); err != nil {
+		return out, err
+	}
+	if out.Totals.ReviewReports, err = r.countWhere("review_reports", ""); err != nil {
+		return out, err
+	}
+	if out.Totals.Feedback, err = r.countWhere("feedback", ""); err != nil {
+		return out, err
+	}
+	if out.Totals.Broadcasts, err = r.countWhere("notification_broadcasts", ""); err != nil {
+		return out, err
+	}
+	if out.Totals.BroadcastsFailed, err = r.countWhere("notification_broadcasts", "status = 'failed'"); err != nil {
+		return out, err
+	}
+	out.InquiriesByStatus = map[string]int64{}
+	type kv struct {
+		Status string
+		Count  int64
+	}
+	var kvs []kv
+	if err = r.db.Table("contact_inquiries").Select("status, COUNT(*) AS count").Group("status").Scan(&kvs).Error; err != nil {
+		return out, err
+	}
+	for _, kv := range kvs {
+		out.InquiriesByStatus[kv.Status] = kv.Count
+	}
+	type bc struct {
+		ID        int64
+		Status    string
+		Audience  string
+		CreatedAt time.Time
+	}
+	var bcs []bc
+	if err = r.db.Table("notification_broadcasts").Select("id, status, audience, created_at").Order("created_at DESC").Limit(10).Scan(&bcs).Error; err != nil {
+		return out, err
+	}
+	for _, b := range bcs {
+		out.RecentBroadcasts = append(out.RecentBroadcasts, BroadcastRow{ID: b.ID, Status: b.Status, Audience: b.Audience, CreatedAt: b.CreatedAt.UTC().Format(time.RFC3339)})
+	}
+	for _, tbl := range []struct{ table, key string }{
+		{"forum_reports", "forum_reports"},
+		{"review_reports", "review_reports"},
+		{"contact_inquiries", "inquiries"},
+		{"feedback", "feedback"},
+		{"account_notifications", "notifications"},
+	} {
+		rows, err := r.bucketCounts(tbl.table, "'"+tbl.key+"'", from, to, gran, "")
+		if err != nil {
+			return out, err
+		}
+		out.Series = mergeSeries(out.Series, pivot(rows))
+	}
+	notifByCat, err := r.bucketCounts("account_notifications", "category", from, to, gran, "")
+	if err != nil {
+		return out, err
+	}
+	out.Series = mergeSeries(out.Series, pivot(prefixed(notifByCat, "notif:")))
+	if out.RecentBroadcasts == nil {
+		out.RecentBroadcasts = []BroadcastRow{}
+	}
+	if out.Series == nil {
+		out.Series = []SeriesPoint{}
+	}
+	return out, nil
+}
+
 func (s *Service) ageBuckets(table string) (AgeBuckets, error) {
 	var out AgeBuckets
 	now := time.Now().UTC()
