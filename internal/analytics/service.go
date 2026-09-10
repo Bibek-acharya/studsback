@@ -145,3 +145,114 @@ func prefixed(rows []bucketRow, prefix string) []bucketRow {
 	}
 	return out
 }
+
+func (s *Service) Supply(from, to time.Time, gran string) (SupplyAnalytics, error) {
+	var out SupplyAnalytics
+	var err error
+	r := s.repo
+	if out.Totals.Colleges, err = r.countWhere("colleges", ""); err != nil {
+		return out, err
+	}
+	if out.Totals.ScholarshipsPublished, err = r.countWhere("scholarships", "status = 'published'"); err != nil {
+		return out, err
+	}
+	if out.Totals.Events, err = r.countWhere("events", ""); err != nil {
+		return out, err
+	}
+	if out.Totals.Blogs, err = r.countWhere("blogs", ""); err != nil {
+		return out, err
+	}
+	if out.Totals.News, err = r.countWhere("news", ""); err != nil {
+		return out, err
+	}
+	if out.ApprovalAging.Institutions, err = s.ageBuckets("institution_users"); err != nil {
+		return out, err
+	}
+	if out.ApprovalAging.Providers, err = s.ageBuckets("scholarship_provider_users"); err != nil {
+		return out, err
+	}
+	type ranked struct {
+		Kind  string
+		ID    int64
+		Count int64
+	}
+	var bm []ranked
+	if err = r.db.Table("bookmarks").Select("item_type AS kind, item_id AS id, COUNT(*) AS count").Group("item_type, item_id").Order("count DESC").Limit(10).Scan(&bm).Error; err != nil {
+		return out, err
+	}
+	for _, b := range bm {
+		out.TopBookmarked = append(out.TopBookmarked, RankedItem{Kind: b.Kind, ID: b.ID, Count: b.Count})
+	}
+	var fw []ranked
+	if err = r.db.Table("user_follows").Select("target_type AS kind, target_id AS id, COUNT(*) AS count").Group("target_type, target_id").Order("count DESC").Limit(10).Scan(&fw).Error; err != nil {
+		return out, err
+	}
+	for _, f := range fw {
+		out.TopFollowed = append(out.TopFollowed, RankedItem{Kind: f.Kind, ID: f.ID, Count: f.Count})
+	}
+	type stale struct {
+		ID       int64
+		Title    string
+		Deadline time.Time
+	}
+	var stales []stale
+	if err = r.db.Table("scholarships").Select("id, title, deadline").Where("status = 'published' AND deadline < ?", time.Now().UTC()).Order("deadline DESC").Limit(20).Scan(&stales).Error; err != nil {
+		return out, err
+	}
+	for _, s := range stales {
+		out.StaleScholarships = append(out.StaleScholarships, StaleScholarship{ID: s.ID, Title: s.Title, Deadline: s.Deadline.UTC().Format(time.RFC3339)})
+	}
+	for _, tbl := range []struct {
+		table, key string
+		where      string
+	}{
+		{"colleges", "colleges", ""},
+		{"scholarships", "scholarships", "status = 'published'"},
+		{"events", "events", ""},
+		{"blogs", "blogs", ""},
+		{"news", "news", ""},
+	} {
+		rows, err := r.bucketCounts(tbl.table, "'"+tbl.key+"'", from, to, gran, tbl.where)
+		if err != nil {
+			return out, err
+		}
+		out.Series = mergeSeries(out.Series, pivot(rows))
+	}
+	if out.TopBookmarked == nil {
+		out.TopBookmarked = []RankedItem{}
+	}
+	if out.TopFollowed == nil {
+		out.TopFollowed = []RankedItem{}
+	}
+	if out.StaleScholarships == nil {
+		out.StaleScholarships = []StaleScholarship{}
+	}
+	if out.Series == nil {
+		out.Series = []SeriesPoint{}
+	}
+	return out, nil
+}
+
+func (s *Service) ageBuckets(table string) (AgeBuckets, error) {
+	var out AgeBuckets
+	now := time.Now().UTC()
+	count := func(where string, args ...any) (int64, error) {
+		var n int64
+		if err := s.repo.db.Table(table).Where(where, args...).Count(&n).Error; err != nil {
+			return 0, err
+		}
+		return n, nil
+	}
+	var err error
+	pending := "status = 'pending' AND deleted_at IS NULL"
+	if out.Lt24h, err = count(pending+" AND created_at >= ?", now.Add(-24*time.Hour)); err != nil {
+		return out, err
+	}
+	if out.D1_3, err = count(pending+" AND created_at >= ? AND created_at < ?", now.Add(-72*time.Hour), now.Add(-24*time.Hour)); err != nil {
+		return out, err
+	}
+	if out.Gt3d, err = count(pending+" AND created_at < ?", now.Add(-72*time.Hour)); err != nil {
+		return out, err
+	}
+	return out, nil
+}

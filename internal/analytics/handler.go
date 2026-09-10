@@ -69,6 +69,19 @@ func (h *Handler) getFunnel(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": out})
 }
 
+func (h *Handler) getSupply(c *gin.Context) {
+	from, to, gran, ok := parseRange(c)
+	if !ok {
+		return
+	}
+	out, err := h.svc.Supply(from, to, gran)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": out})
+}
+
 func (h *Handler) notImplemented(c *gin.Context) {
 	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
 }

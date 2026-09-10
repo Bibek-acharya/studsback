@@ -33,3 +33,43 @@ type FunnelAnalytics struct {
 	ByStatus      map[string]int64 `json:"admissions_by_status"`
 	Series        []SeriesPoint    `json:"series"`
 }
+
+type AgeBuckets struct {
+	Lt24h int64 `json:"lt_24h"`
+	D1_3  int64 `json:"d1_3"`
+	Gt3d  int64 `json:"gt_3d"`
+}
+
+type ApprovalAging struct {
+	Institutions AgeBuckets `json:"institutions"`
+	Providers    AgeBuckets `json:"providers"`
+}
+
+type RankedItem struct {
+	Kind  string `json:"kind"`
+	ID    int64  `json:"id"`
+	Count int64  `json:"count"`
+}
+
+type StaleScholarship struct {
+	ID       int64  `json:"id"`
+	Title    string `json:"title"`
+	Deadline string `json:"deadline"`
+}
+
+type SupplyTotals struct {
+	Colleges              int64 `json:"colleges"`
+	ScholarshipsPublished int64 `json:"scholarships_published"`
+	Events                int64 `json:"events"`
+	Blogs                 int64 `json:"blogs"`
+	News                  int64 `json:"news"`
+}
+
+type SupplyAnalytics struct {
+	Totals            SupplyTotals       `json:"totals"`
+	ApprovalAging     ApprovalAging      `json:"approval_aging"`
+	TopBookmarked     []RankedItem       `json:"top_bookmarked"`
+	TopFollowed       []RankedItem       `json:"top_followed"`
+	StaleScholarships []StaleScholarship `json:"stale_scholarships"`
+	Series            []SeriesPoint      `json:"series"`
+}
