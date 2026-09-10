@@ -1,6 +1,7 @@
 package analytics
 
 import (
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -80,4 +81,67 @@ func (s *Service) Users(from, to time.Time, gran string) (UsersAnalytics, error)
 		out.Series = []SeriesPoint{}
 	}
 	return out, nil
+}
+
+// positiveStatuses matches terminal-positive funnel states case-insensitively.
+// Deliberate heuristic: adjust here if the domain adds new terminal states.
+var positiveStatuses = map[string]bool{
+	"approved": true, "accepted": true, "admitted": true,
+	"confirmed": true, "completed": true,
+}
+
+func isPositive(status string) bool {
+	return positiveStatuses[strings.ToLower(strings.TrimSpace(status))]
+}
+
+func (s *Service) Funnel(from, to time.Time, gran string) (FunnelAnalytics, error) {
+	var out FunnelAnalytics
+	admissions, err := s.repo.bucketCounts("admissions", "status", from, to, gran, "")
+	if err != nil {
+		return out, err
+	}
+	schol, err := s.repo.bucketCounts("scholarship_applications", "status", from, to, gran, "")
+	if err != nil {
+		return out, err
+	}
+	bookings, err := s.repo.bucketCounts("counselling_bookings", "status", from, to, gran, "")
+	if err != nil {
+		return out, err
+	}
+	var total, positive int64
+	byStatus := map[string]int64{}
+	for _, row := range admissions {
+		out.Totals.Admissions += row.Count
+		byStatus[row.Key] += row.Count
+		total += row.Count
+		if isPositive(row.Key) {
+			positive += row.Count
+		}
+	}
+	for _, row := range schol {
+		out.Totals.ScholarshipApplications += row.Count
+	}
+	for _, row := range bookings {
+		out.Totals.Bookings += row.Count
+	}
+	if total > 0 {
+		out.ConversionPct = float64(positive) * 100.0 / float64(total)
+	}
+	out.ByStatus = byStatus
+	// Prefix keys per domain so series values stay unambiguous in one chart.
+	out.Series = mergeSeries(pivot(prefixed(admissions, "admissions:")),
+		pivot(prefixed(schol, "scholarship:")), pivot(prefixed(bookings, "booking:")))
+	if out.Series == nil {
+		out.Series = []SeriesPoint{}
+	}
+	return out, nil
+}
+
+func prefixed(rows []bucketRow, prefix string) []bucketRow {
+	out := make([]bucketRow, len(rows))
+	for i, row := range rows {
+		row.Key = prefix + row.Key
+		out[i] = row
+	}
+	return out
 }

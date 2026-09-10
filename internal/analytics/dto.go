@@ -20,3 +20,16 @@ type UsersAnalytics struct {
 	StatusBreakdown map[string]int64 `json:"user_status_breakdown"`
 	Series          []SeriesPoint    `json:"series"`
 }
+
+type FunnelTotals struct {
+	Admissions              int64 `json:"admissions"`
+	ScholarshipApplications int64 `json:"scholarship_applications"`
+	Bookings                int64 `json:"bookings"`
+}
+
+type FunnelAnalytics struct {
+	Totals        FunnelTotals     `json:"totals"`
+	ConversionPct float64          `json:"admission_conversion_pct"`
+	ByStatus      map[string]int64 `json:"admissions_by_status"`
+	Series        []SeriesPoint    `json:"series"`
+}
