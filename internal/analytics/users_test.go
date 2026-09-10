@@ -2,7 +2,9 @@
 package analytics
 
 import (
+	"net/url"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -17,7 +19,33 @@ func testDB(t *testing.T) *gorm.DB {
 	if dsn == "" {
 		t.Skip("TEST_DATABASE_DSN not set; analytics SQL tests require PostgreSQL")
 	}
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	// Isolate analytics twins in their own database so parallel packages
+	// creating minimal same-named twins (without created_at) cannot clash
+	// with the full analytics schema, and TRUNCATEs stay analytics-owned.
+	parsed, err := url.Parse(dsn)
+	if err != nil || strings.TrimPrefix(parsed.Path, "/") == "" {
+		t.Fatalf("bad TEST_DATABASE_DSN: %v", err)
+	}
+	base := strings.TrimPrefix(parsed.Path, "/")
+	isolated := base + "_analytics"
+	maint := *parsed
+	maint.Path = "/postgres"
+	admin, err := gorm.Open(postgres.Open(maint.String()), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	if err != nil {
+		t.Fatalf("open maintenance db: %v", err)
+	}
+	sqlDB, err := admin.DB()
+	if err != nil {
+		t.Fatalf("maintenance pool: %v", err)
+	}
+	defer sqlDB.Close()
+	if err := admin.Exec(`CREATE DATABASE "` + isolated + `"`).Error; err != nil &&
+		!strings.Contains(err.Error(), "already exists") && !strings.Contains(err.Error(), "42P04") {
+		t.Fatalf("create isolated db: %v", err)
+	}
+	iso := *parsed
+	iso.Path = "/" + isolated
+	db, err := gorm.Open(postgres.Open(iso.String()), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 	if err != nil {
 		t.Fatalf("open test db: %v", err)
 	}
