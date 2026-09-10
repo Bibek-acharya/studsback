@@ -16,6 +16,7 @@ import (
 
 	"studsphere/backend/internal/admission"
 	"studsphere/backend/internal/ai"
+	"studsphere/backend/internal/analytics"
 	"studsphere/backend/internal/auth"
 	"studsphere/backend/internal/chat"
 	"studsphere/backend/internal/college"
@@ -479,6 +480,11 @@ func main() {
 
 	authMW := middleware.Auth()
 	roleMW := middleware.RequireRole("admin", "super_admin", "scholarship_provider", "scholarship-provider", "Scholarship Provider", "scholarship_provider_subuser", "institution")
+
+	usageTracker := analytics.NewUsageTracker(30 * time.Minute)
+	router.Use(usageTracker.Middleware())
+	analyticsHandler := analytics.NewHandler(analytics.NewService(db, usageTracker))
+	analyticsHandler.RegisterRoutes(router, authMW, middleware.RequireRole("superadmin", "super_admin"))
 
 	admission.RegisterRoutes(router, authMW, roleMW, admissionHandler)
 	auth.RegisterRoutes(router, authMW, roleMW, authHandler)
