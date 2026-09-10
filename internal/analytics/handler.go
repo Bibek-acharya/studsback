@@ -103,7 +103,3 @@ func (h *Handler) getHealth(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"data": out})
 }
-
-func (h *Handler) notImplemented(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
-}

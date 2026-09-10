@@ -36,10 +36,14 @@ func TestUsersTotalsAndSeries(t *testing.T) {
 	db := testDB(t)
 	day := time.Now().UTC().Truncate(24 * time.Hour)
 	db.Exec(`INSERT INTO users (role, status, created_at) VALUES ('student','active',?), ('student','active',?), ('superadmin','active',?)`, day.Add(-48*time.Hour), day.Add(-24*time.Hour), day.Add(-24*time.Hour))
+	var studentIDs []int64
+	db.Raw(`SELECT id FROM users WHERE role = 'student' ORDER BY created_at`).Scan(&studentIDs)
 	db.Exec(`INSERT INTO institution_users (status, created_at) VALUES ('approved',?), ('pending',?)`, day.Add(-72*time.Hour), day.Add(-12*time.Hour))
 	db.Exec(`INSERT INTO scholarship_provider_users (status, created_at) VALUES ('approved',?)`, day.Add(-24*time.Hour))
-	db.Exec(`INSERT INTO user_sessions (user_id, last_active_at) VALUES (1,?), (2,?)`, time.Now().UTC(), time.Now().UTC().Add(-30*24*time.Hour))
-	db.Exec(`INSERT INTO education_entries (user_id, created_at) VALUES (1,?)`, day.Add(-47*time.Hour))
+	now := time.Now().UTC()
+	db.Exec(`INSERT INTO user_sessions (user_id, last_active_at) VALUES (?,?), (?,?)`, studentIDs[0], now, studentIDs[0], now.Add(-time.Hour))
+	db.Exec(`INSERT INTO user_sessions (user_id, last_active_at) VALUES (?,?)`, studentIDs[1], now.Add(-30*24*time.Hour))
+	db.Exec(`INSERT INTO education_entries (user_id, created_at) VALUES (?,?), (?,?)`, studentIDs[0], day.Add(-47*time.Hour), studentIDs[0], day.Add(-46*time.Hour))
 
 	svc := NewService(db, NewUsageTracker(0))
 	out, err := svc.Users(day.Add(-72*time.Hour), day.Add(24*time.Hour), "day")
@@ -53,7 +57,12 @@ func TestUsersTotalsAndSeries(t *testing.T) {
 		t.Fatalf("pending institutions wrong: %+v", out.Totals)
 	}
 	if out.Totals.Active7d != 1 {
-		t.Fatalf("active7d=%d want 1", out.Totals.Active7d)
+		t.Fatalf("active7d=%d want 1 (duplicate sessions for user 1 must count once)", out.Totals.Active7d)
+	}
+	// Two students created in window, one activated (two entries for user 1
+	// must still count as a single activation): 1/2 = 50%.
+	if out.Totals.ActivationPct != 50 {
+		t.Fatalf("activation_pct=%v want 50", out.Totals.ActivationPct)
 	}
 	if len(out.Series) == 0 || out.Series[0].Values["students"] == 0 {
 		t.Fatalf("series missing student buckets: %+v", out.Series)

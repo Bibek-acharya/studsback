@@ -9,15 +9,6 @@ import (
 	"studsphere/backend/internal/shared/middleware"
 )
 
-func testRouter() *gin.Engine {
-	r := gin.New()
-	h := NewHandler(NewService(nil, NewUsageTracker(0)))
-	h.RegisterRoutes(r,
-		func(c *gin.Context) { c.Next() }, // stand-in Auth: no claims needed for guard test
-		middleware.RequireRole("superadmin", "super_admin"))
-	return r
-}
-
 func TestAnalyticsRequiresSuperadmin(t *testing.T) {
 	r := gin.New()
 	r.Use(func(c *gin.Context) {
