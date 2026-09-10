@@ -95,6 +95,15 @@ func (h *Handler) getOps(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": out})
 }
 
+func (h *Handler) getHealth(c *gin.Context) {
+	out, err := h.svc.Health()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": out})
+}
+
 func (h *Handler) notImplemented(c *gin.Context) {
 	c.JSON(http.StatusNotImplemented, gin.H{"error": "not implemented"})
 }

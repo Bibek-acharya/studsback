@@ -1,8 +1,11 @@
 package analytics
 
 import (
+	"runtime"
 	"strings"
 	"time"
+
+	"studsphere/backend/internal/emailqueue"
 
 	"gorm.io/gorm"
 )
@@ -324,6 +327,42 @@ func (s *Service) ageBuckets(table string) (AgeBuckets, error) {
 	}
 	if out.Gt3d, err = count(pending+" AND created_at < ?", now.Add(-72*time.Hour)); err != nil {
 		return out, err
+	}
+	return out, nil
+}
+
+var analyticsStartTime = time.Now()
+
+func (s *Service) Health() (Health, error) {
+	var out Health
+	var mem runtime.MemStats
+	runtime.ReadMemStats(&mem)
+	out.Process = ProcessHealth{
+		UptimeSeconds:  int64(time.Since(analyticsStartTime).Seconds()),
+		Goroutines:     runtime.NumGoroutine(),
+		HeapAllocBytes: mem.HeapAlloc,
+		HeapSysBytes:   mem.HeapSys,
+	}
+	if sqlDB, err := s.repo.db.DB(); err == nil {
+		stats := sqlDB.Stats()
+		out.Database.PoolOpen = stats.OpenConnections
+		out.Database.PoolInUse = stats.InUse
+		out.Database.PoolIdle = stats.Idle
+		out.Database.PoolWaitCount = stats.WaitCount
+		var size int64
+		if err := s.repo.db.Raw(`SELECT pg_database_size(current_database())`).Scan(&size).Error; err == nil {
+			out.Database.SizeBytes = size
+		}
+	}
+	var pending int64
+	if err := s.repo.db.Table("notification_outbox").Where("done = false").Count(&pending).Error; err == nil {
+		out.Queues.OutboxPending = pending
+	}
+	if qs, err := emailqueue.GetQueueStats(); err == nil {
+		out.Queues.Email = EmailQueueHealth{Available: true, Pending: qs.Pending, Active: qs.Progress, Failed: qs.Failed}
+	}
+	if s.usage != nil {
+		out.API = s.usage.Snapshot()
 	}
 	return out, nil
 }

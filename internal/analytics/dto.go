@@ -95,3 +95,37 @@ type OpsAnalytics struct {
 	RecentBroadcasts  []BroadcastRow   `json:"recent_broadcasts"`
 	Series            []SeriesPoint    `json:"series"`
 }
+
+type ProcessHealth struct {
+	UptimeSeconds  int64  `json:"uptime_seconds"`
+	Goroutines     int    `json:"goroutines"`
+	HeapAllocBytes uint64 `json:"heap_alloc_bytes"`
+	HeapSysBytes   uint64 `json:"heap_sys_bytes"`
+}
+
+type DatabaseHealth struct {
+	PoolOpen      int   `json:"pool_open"`
+	PoolInUse     int   `json:"pool_in_use"`
+	PoolIdle      int   `json:"pool_idle"`
+	PoolWaitCount int64 `json:"pool_wait_count"`
+	SizeBytes     int64 `json:"size_bytes"`
+}
+
+type EmailQueueHealth struct {
+	Available bool `json:"available"`
+	Pending   int  `json:"pending"`
+	Active    int  `json:"active"`
+	Failed    int  `json:"failed"`
+}
+
+type QueueHealth struct {
+	Email         EmailQueueHealth `json:"email"`
+	OutboxPending int64            `json:"outbox_pending"`
+}
+
+type Health struct {
+	Process  ProcessHealth  `json:"process"`
+	Database DatabaseHealth `json:"database"`
+	Queues   QueueHealth    `json:"queues"`
+	API      UsageSnapshot  `json:"api"`
+}
