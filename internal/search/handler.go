@@ -46,6 +46,7 @@ func (h *Handler) Search(c *gin.Context) {
 	entitytype := c.Query("type")
 	ratingMin, _ := strconv.ParseFloat(c.DefaultQuery("rating_min", "0"), 64)
 	university := c.Query("university")
+	includeFacets := c.DefaultQuery("facets", "") == "1"
 
 	// Validate query length
 	if len(rawQ) == 0 {
@@ -115,16 +116,17 @@ func (h *Handler) Search(c *gin.Context) {
 
 	if h.searchService != nil {
 		result := h.searchService.Search(c.Request.Context(), HybridSearchRequest{
-			Query:      q,
-			Category:   cat,
-			Location:   location,
-			Type:       entitytype,
-			RatingMin:  ratingMin,
-			University: university,
-			Sort:       sort,
-			Intent:     parsed.Intent,
-			Page:       page,
-			Limit:      limit,
+			Query:         q,
+			Category:      cat,
+			Location:      location,
+			Type:          entitytype,
+			RatingMin:     ratingMin,
+			University:    university,
+			Sort:          sort,
+			Intent:        parsed.Intent,
+			Page:          page,
+			Limit:         limit,
+			IncludeFacets: includeFacets,
 		})
 
 		c.JSON(http.StatusOK, gin.H{

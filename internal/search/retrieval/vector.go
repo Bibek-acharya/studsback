@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+	"sync"
+	"time"
 
 	"studsphere/backend/internal/embedding"
 
@@ -19,12 +22,28 @@ type EmbeddingGenerator interface {
 type VectorRetriever struct {
 	db               *gorm.DB
 	embeddingService EmbeddingGenerator
+
+	// ponytail: tiny TTL cache; repeat queries (pagination, retry, re-search)
+	// must not pay the embedding API roundtrip again. Cleared when full.
+	mu       sync.RWMutex
+	embCache map[string]embCacheEntry
 }
+
+type embCacheEntry struct {
+	vec []float32
+	exp time.Time
+}
+
+const (
+	embCacheTTL  = 10 * time.Minute
+	embCacheSize = 500
+)
 
 func NewVectorRetriever(db *gorm.DB, emb EmbeddingGenerator) *VectorRetriever {
 	return &VectorRetriever{
 		db:               db,
 		embeddingService: emb,
+		embCache:         make(map[string]embCacheEntry),
 	}
 }
 
@@ -48,7 +67,7 @@ var vectorTables = []vectorTable{
 }
 
 func (r *VectorRetriever) Search(ctx context.Context, req SearchRequest) ([]Candidate, error) {
-	vec, err := r.embeddingService.GenerateEmbedding(req.Query)
+	vec, err := r.cachedEmbedding(req.Query)
 	if err != nil {
 		return nil, fmt.Errorf("generate embedding: %w", err)
 	}
@@ -56,21 +75,63 @@ func (r *VectorRetriever) Search(ctx context.Context, req SearchRequest) ([]Cand
 	vectorStr := embedding.Float32SliceToPgVector(vec)
 	tables := r.resolveTables(req.Filters.Category)
 
+	results := make([][]Candidate, len(tables))
+	errs := make([]error, len(tables))
+	var wg sync.WaitGroup
+	for i, vt := range tables {
+		wg.Add(1)
+		go func(i int, vt vectorTable) {
+			defer wg.Done()
+			items, err := r.searchTable(ctx, vt, vectorStr, req)
+			if err != nil {
+				errs[i] = err
+				return
+			}
+			results[i] = items
+		}(i, vt)
+	}
+	wg.Wait()
+
 	var candidates []Candidate
 	var searchErrors []error
-	for _, vt := range tables {
-		items, err := r.searchTable(ctx, vt, vectorStr, req)
-		if err != nil {
-			searchErrors = append(searchErrors, err)
+	for i := range tables {
+		if errs[i] != nil {
+			searchErrors = append(searchErrors, errs[i])
 			continue
 		}
-		candidates = append(candidates, items...)
+		candidates = append(candidates, results[i]...)
 	}
 	if len(searchErrors) == len(tables) {
 		return nil, errors.Join(searchErrors...)
 	}
 
 	return candidates, nil
+}
+
+func (r *VectorRetriever) cachedEmbedding(query string) ([]float32, error) {
+	key := strings.TrimSpace(query)
+
+	r.mu.RLock()
+	if e, ok := r.embCache[key]; ok && time.Now().Before(e.exp) {
+		vec := e.vec
+		r.mu.RUnlock()
+		return vec, nil
+	}
+	r.mu.RUnlock()
+
+	vec, err := r.embeddingService.GenerateEmbedding(query)
+	if err != nil {
+		return nil, err
+	}
+
+	r.mu.Lock()
+	if len(r.embCache) >= embCacheSize {
+		r.embCache = make(map[string]embCacheEntry)
+	}
+	r.embCache[key] = embCacheEntry{vec: vec, exp: time.Now().Add(embCacheTTL)}
+	r.mu.Unlock()
+
+	return vec, nil
 }
 
 func (r *VectorRetriever) resolveTables(category string) []vectorTable {

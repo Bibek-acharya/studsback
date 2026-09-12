@@ -2,6 +2,7 @@ package search
 
 import (
 	"context"
+	"errors"
 	"log"
 	"math"
 	"sort"
@@ -27,16 +28,17 @@ type SearchService struct {
 }
 
 type HybridSearchRequest struct {
-	Query      string
-	Category   string
-	Location   string
-	Type       string
-	RatingMin  float64
-	University string
-	Sort       string
-	Intent     string
-	Page       int
-	Limit      int
+	Query         string
+	Category      string
+	Location      string
+	Type          string
+	RatingMin     float64
+	University    string
+	Sort          string
+	Intent        string
+	Page          int
+	Limit         int
+	IncludeFacets bool
 }
 
 func NewSearchService(
@@ -135,16 +137,35 @@ func (s *SearchService) Search(ctx context.Context, req HybridSearchRequest) *Se
 		vecCh <- nil
 	}
 
-	go func() {
-		facets := s.meiliRetriever.GetFacets(ctx, retrievalReq, []string{"location", "college_type", "rating"})
-		facetsCh <- facets
-	}()
+	// ponytail: nothing reads facets (search page ignores them) — only fetch when asked via ?facets=1
+	if req.IncludeFacets {
+		go func() {
+			facets := s.meiliRetriever.GetFacets(ctx, retrievalReq, []string{"location", "college_type", "rating"})
+			facetsCh <- facets
+		}()
+	}
 
 	meiliResults := <-meiliCh
-	vecResults := <-vecCh
-	facets := <-facetsCh
 	meiliErr := <-meiliErrCh
-	vecErr := <-vecErrCh
+
+	// ponytail: cold embedding APIs take ~60s; never let vector/facets block keyword results
+	var vecResults []retrieval.Candidate
+	var vecErr error
+	select {
+	case vecResults = <-vecCh:
+		vecErr = <-vecErrCh
+	case <-time.After(3 * time.Second):
+		vecErr = errors.New("vector search timed out")
+	}
+
+	var facets map[string]map[string]int
+	if req.IncludeFacets {
+		select {
+		case facets = <-facetsCh:
+		case <-time.After(2 * time.Second):
+			facets = map[string]map[string]int{}
+		}
+	}
 
 	// Track retrieval quality
 	var retrievalErrors []string
@@ -157,8 +178,9 @@ func (s *SearchService) Search(ctx context.Context, req HybridSearchRequest) *Se
 		retrievalErrors = append(retrievalErrors, "Vector search unavailable")
 	}
 
-	// If both fail, return error response
-	if meiliResults == nil && vecResults == nil && (meiliErr != nil || vecErr != nil) {
+	// If keyword search failed and there's nothing from vector, report error.
+	// (Meilisearch success with zero hits is a genuine empty, not an error.)
+	if meiliErr != nil && vecResults == nil {
 		return &SearchResponse{
 			Items:           []SearchItem{},
 			Category:        nil,
