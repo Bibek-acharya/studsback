@@ -6,6 +6,8 @@ import (
 	"gorm.io/gorm"
 )
 
+func testRegNum(s string) *string { return &s }
+
 func TestCreateCourseRequest(t *testing.T) {
 	db := setupServiceTestDB(t)
 	// CourseApprovalRequest references InstitutionUser via FK
@@ -16,7 +18,7 @@ func TestCreateCourseRequest(t *testing.T) {
 	// Seed institution user for FK constraint
 	inst := &InstitutionUser{
 		InstitutionName:    "Test College",
-		RegistrationNumber: "REG-001",
+		RegistrationNumber: testRegNum("REG-001"),
 		Email:              "test@college.edu",
 		Status:             "approved",
 	}
@@ -69,7 +71,7 @@ func TestFindCourseRequestsByInstitution(t *testing.T) {
 
 	inst := &InstitutionUser{
 		InstitutionName:    "Test College",
-		RegistrationNumber: "REG-001",
+		RegistrationNumber: testRegNum("REG-001"),
 		Email:              "test@college.edu",
 		Status:             "approved",
 	}
@@ -77,7 +79,7 @@ func TestFindCourseRequestsByInstitution(t *testing.T) {
 
 	otherInst := &InstitutionUser{
 		InstitutionName:    "Other College",
-		RegistrationNumber: "REG-002",
+		RegistrationNumber: testRegNum("REG-002"),
 		Email:              "other@college.edu",
 		Status:             "approved",
 	}
@@ -137,7 +139,7 @@ func TestFindCourseRequestByID(t *testing.T) {
 
 	inst := &InstitutionUser{
 		InstitutionName:    "Test College",
-		RegistrationNumber: "REG-001",
+		RegistrationNumber: testRegNum("REG-001"),
 		Email:              "test@college.edu",
 		Status:             "approved",
 	}
@@ -145,7 +147,7 @@ func TestFindCourseRequestByID(t *testing.T) {
 
 	otherInst := &InstitutionUser{
 		InstitutionName:    "Other College",
-		RegistrationNumber: "REG-002",
+		RegistrationNumber: testRegNum("REG-002"),
 		Email:              "other@college.edu",
 		Status:             "approved",
 	}
@@ -184,7 +186,7 @@ func TestFindAllCourseRequests(t *testing.T) {
 
 	inst := &InstitutionUser{
 		InstitutionName:    "Test College",
-		RegistrationNumber: "REG-001",
+		RegistrationNumber: testRegNum("REG-001"),
 		Email:              "test@college.edu",
 		Status:             "approved",
 	}
@@ -233,7 +235,7 @@ func TestFindCourseRequestByIDAdmin(t *testing.T) {
 
 	inst := &InstitutionUser{
 		InstitutionName:    "Test College",
-		RegistrationNumber: "REG-001",
+		RegistrationNumber: testRegNum("REG-001"),
 		Email:              "test@college.edu",
 		Status:             "approved",
 	}
@@ -274,7 +276,7 @@ func TestUpdateCourseRequestStatus(t *testing.T) {
 
 	inst := &InstitutionUser{
 		InstitutionName:    "Test College",
-		RegistrationNumber: "REG-001",
+		RegistrationNumber: testRegNum("REG-001"),
 		Email:              "test@college.edu",
 		Status:             "approved",
 	}
@@ -352,7 +354,7 @@ func seedCourseApprovalRequest(db *gorm.DB, instID uint, status string) *CourseA
 func seedInstitutionUser(db *gorm.DB, regNum string) *InstitutionUser {
 	inst := &InstitutionUser{
 		InstitutionName:    "Test College " + regNum,
-		RegistrationNumber: regNum,
+		RegistrationNumber: testRegNum(regNum),
 		Email:              regNum + "@college.edu",
 		Status:             "approved",
 	}
@@ -368,14 +370,14 @@ func TestFindPublicInstitutionsFiltersByGlobalCourseID(t *testing.T) {
 
 	offeringInstitution := &InstitutionUser{
 		InstitutionName:    "Offering College",
-		RegistrationNumber: "REG-OFFERING",
+		RegistrationNumber: testRegNum("REG-OFFERING"),
 		Email:              "offering@college.edu",
 		Status:             "approved",
 		ProfileStatus:      "published",
 	}
 	otherInstitution := &InstitutionUser{
 		InstitutionName:    "Other College",
-		RegistrationNumber: "REG-OTHER",
+		RegistrationNumber: testRegNum("REG-OTHER"),
 		Email:              "other-public@college.edu",
 		Status:             "approved",
 		ProfileStatus:      "published",

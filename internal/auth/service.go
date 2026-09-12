@@ -29,6 +29,22 @@ func NewService(repo *Repository) *Service {
 	return &Service{repo: repo}
 }
 
+// nullableString maps "" to NULL so optional unique columns don't collide
+// on empty strings (Postgres unique indexes allow multiple NULLs).
+func nullableString(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+
+func derefString(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}
+
 func (s *Service) emailExistsAcrossTypes(email string) bool {
 	_, err := s.repo.FindUserByEmail(email)
 	if err == nil {
@@ -640,13 +656,13 @@ func (s *Service) InstitutionRegister(req InstitutionRegisterRequest) (*Register
 	}
 
 	_, err := s.repo.FindInstitutionUserByRegistrationNumber(req.RegistrationNumber)
-	if err == nil {
+	if req.RegistrationNumber != "" && err == nil {
 		return nil, errors.New("Institution with this registration number already exists")
 	}
 
 	institutionUser := InstitutionUser{
 		InstitutionName:          req.InstitutionName,
-		RegistrationNumber:       req.RegistrationNumber,
+		RegistrationNumber:       nullableString(req.RegistrationNumber),
 		Email:                    req.Email,
 		ContactNumber:            req.ContactNumber,
 		Province:                 req.Province,
@@ -725,7 +741,7 @@ func (s *Service) InstitutionGoogleLoginOrRegister(googleID, email, name string)
 	if err != nil {
 		instUser = &InstitutionUser{
 			InstitutionName:    name,
-			RegistrationNumber: "GOOGLE-" + googleID,
+			RegistrationNumber: nullableString("GOOGLE-" + googleID),
 			Email:              email,
 			GoogleID:           &googleID,
 			Role:               "institution",
@@ -884,7 +900,7 @@ func (s *Service) CreateInstitution(req CreateInstitutionRequest) (*InstitutionU
 
 	institutionUser := InstitutionUser{
 		InstitutionName:    req.InstitutionName,
-		RegistrationNumber: regNumber,
+		RegistrationNumber: &regNumber,
 		Email:              email,
 		Role:               "institution",
 		Status:             "approved",
@@ -956,7 +972,7 @@ func (s *Service) GetInstitution(id uint) (*InstitutionDetailResponse, error) {
 		ID:                 user.ID,
 		InstitutionName:    user.InstitutionName,
 		Email:              user.Email,
-		RegistrationNumber: user.RegistrationNumber,
+		RegistrationNumber: derefString(user.RegistrationNumber),
 		Status:             user.Status,
 		Claimed:            user.Claimed,
 		Verified:           user.Verified,
@@ -1223,8 +1239,10 @@ func (s *Service) ClaimRegister(req ClaimRegisterRequest) (*RegisterResponse, er
 	if exists, _ := s.repo.FindInstitutionUserByEmail(req.Email); exists != nil {
 		return nil, errors.New("Email already registered")
 	}
-	if exists, _ := s.repo.FindInstitutionUserByRegistrationNumber(req.RegistrationNumber); exists != nil {
-		return nil, errors.New("Registration number already exists")
+	if req.RegistrationNumber != "" {
+		if exists, _ := s.repo.FindInstitutionUserByRegistrationNumber(req.RegistrationNumber); exists != nil {
+			return nil, errors.New("Registration number already exists")
+		}
 	}
 	if req.CollegeID > 0 {
 		if claimed, _ := s.repo.FindClaimedInstitutionByCollegeID(req.CollegeID); claimed != nil {
@@ -1234,7 +1252,7 @@ func (s *Service) ClaimRegister(req ClaimRegisterRequest) (*RegisterResponse, er
 
 	institutionUser := InstitutionUser{
 		InstitutionName:          req.InstitutionName,
-		RegistrationNumber:       req.RegistrationNumber,
+		RegistrationNumber:       nullableString(req.RegistrationNumber),
 		Email:                    req.Email,
 		Role:                     "institution",
 		Status:                   "pending",

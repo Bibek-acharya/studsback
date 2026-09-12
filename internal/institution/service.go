@@ -122,13 +122,18 @@ func (s *Service) GetProfile(instID uint) (*ProfileResponse, error) {
 		json.Unmarshal(user.UniversityAffiliations, &uniAffiliations)
 	}
 
+	regNumber := ""
+	if user.RegistrationNumber != nil {
+		regNumber = *user.RegistrationNumber
+	}
+
 	return &ProfileResponse{
 		SubscriptionType:         subType,
 		ID:                       user.ID,
 		CollegeID:                user.CollegeID,
 		InstitutionName:          user.InstitutionName,
 		Email:                    user.Email,
-		RegistrationNumber:       user.RegistrationNumber,
+		RegistrationNumber:       regNumber,
 		Role:                     user.Role,
 		ProfileStatus:            user.ProfileStatus,
 		Location:                 user.District,
@@ -181,7 +186,7 @@ func (s *Service) UpdateProfile(instID uint, req UpdateProfileRequest) (*Profile
 		user.InstitutionName = req.InstitutionName
 	}
 	if req.RegistrationNumber != "" {
-		user.RegistrationNumber = req.RegistrationNumber
+		user.RegistrationNumber = &req.RegistrationNumber
 	}
 	if req.Location != "" {
 		user.District = req.Location

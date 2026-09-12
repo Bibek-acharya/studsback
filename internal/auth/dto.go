@@ -126,7 +126,7 @@ type PreferencesResponse struct {
 
 type InstitutionRegisterRequest struct {
 	InstitutionName          string `json:"institution_name" binding:"required"`
-	RegistrationNumber       string `json:"registration_number" binding:"required"`
+	RegistrationNumber       string `json:"registration_number"`
 	Email                    string `json:"email" binding:"required,email"`
 	ContactNumber            string `json:"contact_number"`
 	Province                 string `json:"province"`

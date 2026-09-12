@@ -524,6 +524,10 @@ func toScholarshipDetailResponse(s Scholarship) gin.H {
 		"exam_centers_new":           parseDetailFieldArray(s.ExamCentersNew),
 		"downloads":                parseDetailFieldArray(s.Downloads),
 		"payment_config":           parseJSON(s.PaymentConfig),
+		"banner_background_image_url": s.BannerBackgroundImageURL,
+		"exam_date":                s.ExamDate,
+		"exam_time":                s.ExamTime,
+		"total_seats":              s.TotalSeats,
 	}
 }
 

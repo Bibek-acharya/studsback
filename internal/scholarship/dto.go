@@ -25,6 +25,57 @@ type CreateScholarshipRequest struct {
 	Status          string   `json:"status"`
 	FormConfig      any      `json:"form_config"`
 	PaymentConfig   any      `json:"payment_config"`
+
+	// Rich content fields (same shape as the scholarship-provider form payload).
+	ProviderName             string `json:"provider_name"`
+	FundingTypeOther         string `json:"funding_type_other"`
+	ScholarshipTypeOther     string `json:"scholarship_type_other"`
+	EducationLevel           string `json:"education_level"`
+	EducationLevelOther      string `json:"education_level_other"`
+	ApplicationStartDate     string `json:"application_start_date"`
+	ApplicationEndDate       string `json:"application_end_date"`
+	ApplyLink                string `json:"apply_link"`
+	BannerBackgroundImageURL string `json:"banner_background_image_url"`
+	CoverageArea             string `json:"coverage_area"`
+	ContactEmail             string `json:"contact_email"`
+	PrimaryPhone             string `json:"primary_phone"`
+	SecondaryPhone           string `json:"secondary_phone"`
+	WebsiteUrl               string `json:"website_url"`
+	OfficeAddress            string `json:"office_address"`
+	MapUrl                   string `json:"map_url"`
+	AboutParagraph1          string `json:"about_paragraph_1"`
+	ScholarshipSectionTitle  string `json:"scholarship_section_title"`
+	ScholarshipSubtitle      string `json:"scholarship_subtitle"`
+	ScholarshipDescription1  string `json:"scholarship_description_1"`
+	ScholarshipDescription2  string `json:"scholarship_description_2"`
+	EligibilitySectionTitle  string `json:"eligibility_section_title"`
+	EligibilitySubtitle      string `json:"eligibility_subtitle"`
+	ExamDate                 string `json:"exam_date"`
+	ExamTime                 string `json:"exam_time"`
+	TotalSeats               int    `json:"total_seats"`
+
+	VideoTutorials           any `json:"video_tutorials"`
+	JourneyTimeline          any `json:"journey_timeline"`
+	Timeline                 any `json:"timeline"`
+	ScholarshipTypes         any `json:"scholarship_types"`
+	ScholarshipTypesNew      any `json:"scholarship_types_new"`
+	SelectionRubric          any `json:"selection_rubric"`
+	SelectionRubricNew       any `json:"selection_rubric_new"`
+	BasicEligibilityCriteria any `json:"basic_eligibility_criteria"`
+	FullyFundedCriteria      any `json:"fully_funded_criteria"`
+	PartiallyFundedCriteria  any `json:"partially_funded_criteria"`
+	SelectionProcessSteps    any `json:"selection_process_steps"`
+	RequiredDocuments        any `json:"required_documents"`
+	FAQs                     any `json:"faqs"`
+	FAQsNew                  any `json:"faqs_new"`
+	GalleryImages            any `json:"gallery_images"`
+	GalleryImagesNew         any `json:"gallery_images_new"`
+	PartnerGroups            any `json:"partner_groups"`
+	PartnerMessages          any `json:"partner_messages"`
+	ExamCenters              any `json:"exam_centers"`
+	ExamCentersNew           any `json:"exam_centers_new"`
+	Downloads                any `json:"downloads"`
+	Benefits                 any `json:"benefits"`
 }
 
 type ScholarshipApplicationRequest struct {

@@ -136,7 +136,7 @@ func TestApproveInstitutionNotifiesInstitution(t *testing.T) {
 	svc, notif := newAuthNotificationService(t)
 	inst := &InstitutionUser{
 		InstitutionName:    "Test Institute",
-		RegistrationNumber: "REG-INST-APPROVE-1",
+		RegistrationNumber: nullableString("REG-INST-APPROVE-1"),
 		Email:              "inst@example.com",
 		Status:             "pending",
 		Role:               "institution",
@@ -156,7 +156,7 @@ func TestRejectInstitutionNotifiesInstitution(t *testing.T) {
 	svc, notif := newAuthNotificationService(t)
 	inst := &InstitutionUser{
 		InstitutionName:    "Test Institute",
-		RegistrationNumber: "REG-INST-REJECT-1",
+		RegistrationNumber: nullableString("REG-INST-REJECT-1"),
 		Email:              "inst-reject@example.com",
 		Status:             "pending",
 		Role:               "institution",
@@ -176,7 +176,7 @@ func TestApproveClaimRequestNotifiesInstitution(t *testing.T) {
 	svc, notif := newAuthNotificationService(t)
 	claim := &InstitutionUser{
 		InstitutionName:    "Claimed Institute",
-		RegistrationNumber: "REG-CLAIM-APPROVE-1",
+		RegistrationNumber: nullableString("REG-CLAIM-APPROVE-1"),
 		Email:              "claim@example.com",
 		Status:             "pending",
 		Role:               "institution",
@@ -197,7 +197,7 @@ func TestRejectClaimRequestNotifiesInstitution(t *testing.T) {
 	svc, notif := newAuthNotificationService(t)
 	claim := &InstitutionUser{
 		InstitutionName:    "Claimed Institute",
-		RegistrationNumber: "REG-CLAIM-REJECT-1",
+		RegistrationNumber: nullableString("REG-CLAIM-REJECT-1"),
 		Email:              "claim-reject@example.com",
 		Status:             "pending",
 		Role:               "institution",
@@ -243,6 +243,60 @@ func TestInstitutionRegisterDoesNotNotifyYet(t *testing.T) {
 	// pending-approval emissions moved to VerifyOTP success (Task 3).
 	if notif.Last != nil {
 		t.Fatalf("expected no emission at register, got %+v", notif.Last)
+	}
+}
+
+func TestInstitutionRegisterWithoutRegNumberAllowsMultiple(t *testing.T) {
+	svc, _ := newAuthNotificationService(t)
+
+	emails := []string{"no-reg-1@example.com", "no-reg-2@example.com"}
+	for _, email := range emails {
+		if _, err := svc.InstitutionRegister(InstitutionRegisterRequest{
+			InstitutionName: "No Reg Institute",
+			Email:           email,
+		}); err != nil {
+			t.Fatalf("register %s: %v", email, err)
+		}
+	}
+
+	// empty values must persist as NULL (not '') so the unique index never collides
+	for _, email := range emails {
+		inst := InstitutionUser{
+			InstitutionName:    "No Reg Institute",
+			RegistrationNumber: nullableString(""),
+			Email:              email,
+			Role:               "institution",
+			Status:             "pending",
+		}
+		if err := svc.repo.CreateInstitutionUser(&inst); err != nil {
+			t.Fatalf("create %s: %v", email, err)
+		}
+		stored, err := svc.repo.FindInstitutionUserByEmail(email)
+		if err != nil {
+			t.Fatalf("find %s: %v", email, err)
+		}
+		if stored.RegistrationNumber != nil {
+			t.Fatalf("expected NULL registration_number, got %q", *stored.RegistrationNumber)
+		}
+	}
+
+	// non-empty duplicates are still rejected
+	seeded := InstitutionUser{
+		InstitutionName:    "Seeded",
+		RegistrationNumber: nullableString("REG-DUP-1"),
+		Email:              "dup-seed@example.com",
+		Role:               "institution",
+		Status:             "approved",
+	}
+	if err := svc.repo.CreateInstitutionUser(&seeded); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	if _, err := svc.InstitutionRegister(InstitutionRegisterRequest{
+		InstitutionName:    "Dup",
+		RegistrationNumber: "REG-DUP-1",
+		Email:              "dup-new@example.com",
+	}); err == nil {
+		t.Fatal("expected duplicate registration number to be rejected")
 	}
 }
 
@@ -362,7 +416,7 @@ func TestVerifyOTPInstitutionRegistrationEmits(t *testing.T) {
 	notif.Audience = []notification.Ref{{Type: "user", ID: 1}}
 	inst := InstitutionUser{
 		InstitutionName:    "Test Institute",
-		RegistrationNumber: "REG-VERIFY-I1",
+		RegistrationNumber: nullableString("REG-VERIFY-I1"),
 		Email:              "inst-verify@example.com",
 		Role:               "institution",
 		Status:             "pending",
@@ -400,7 +454,7 @@ func TestVerifyOTPClaimEmitsOnlyWelcome(t *testing.T) {
 	notif.Audience = []notification.Ref{{Type: "user", ID: 1}}
 	claim := InstitutionUser{
 		InstitutionName:    "Claimed Institute",
-		RegistrationNumber: "REG-VERIFY-C1",
+		RegistrationNumber: nullableString("REG-VERIFY-C1"),
 		Email:              "claim-verify@example.com",
 		Role:               "institution",
 		Status:             "pending",
@@ -525,7 +579,7 @@ func TestRecordInstitutionPaymentNotifiesInstitution(t *testing.T) {
 	svc, notif := newAuthNotificationService(t)
 	inst := &InstitutionUser{
 		InstitutionName:    "Pay Institute",
-		RegistrationNumber: "REG-PAY-1",
+		RegistrationNumber: nullableString("REG-PAY-1"),
 		Email:              "pay@example.com",
 		Role:               "institution",
 	}

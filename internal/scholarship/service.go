@@ -795,29 +795,84 @@ func (s *Service) UpdateApplicationStatus(id uint, status string) (*ScholarshipA
 }
 
 func (s *Service) AdminCreateScholarship(req CreateScholarshipRequest) (*Scholarship, error) {
+	deadlineValue := req.Deadline
+	if deadlineValue == "" {
+		deadlineValue = req.ApplicationEndDate
+	}
 	var deadline time.Time
-	if req.Deadline != "" {
-		var err error
-		deadline, err = time.Parse("2006-01-02", req.Deadline)
-		if err != nil {
-			return nil, errors.New("invalid deadline format (expected YYYY-MM-DD)")
-		}
+	if parsed, ok := parseOptionalScholarshipTime(deadlineValue); ok {
+		deadline = parsed
+	} else if req.Deadline != "" {
+		return nil, errors.New("invalid deadline format (expected YYYY-MM-DD)")
+	}
+	var startDate time.Time
+	if parsed, ok := parseOptionalScholarshipTime(req.ApplicationStartDate); ok {
+		startDate = parsed
 	}
 
 	fieldOfStudy, _ := json.Marshal(req.FieldOfStudy)
 
 	scholarship := &Scholarship{
-		Title:           req.Title,
-		Provider:        req.Provider,
-		Location:        req.Location,
-		Value:           req.Value,
-		Deadline:        deadline,
-		DegreeLevel:     req.DegreeLevel,
-		FundingType:     req.FundingType,
-		ScholarshipType: req.ScholarshipType,
-		Description:     req.Description,
-		ImageURL:        req.ImageURL,
-		FieldOfStudy:    fieldOfStudy,
+		Title:                    req.Title,
+		Provider:                 req.Provider,
+		Location:                 req.Location,
+		Value:                    req.Value,
+		Deadline:                 deadline,
+		ApplicationStartDate:     startDate,
+		DegreeLevel:              req.DegreeLevel,
+		FundingType:              req.FundingType,
+		ScholarshipType:          req.ScholarshipType,
+		Description:              req.Description,
+		ImageURL:                 req.BannerBackgroundImageURL,
+		BannerBackgroundImageURL: req.BannerBackgroundImageURL,
+		FieldOfStudy:             fieldOfStudy,
+		Status:                   normalizeScholarshipStatus(req.Status),
+		ProviderName:             req.ProviderName,
+		FundingTypeOther:         req.FundingTypeOther,
+		ScholarshipTypeOther:     req.ScholarshipTypeOther,
+		EducationLevel:           req.EducationLevel,
+		EducationLevelOther:      req.EducationLevelOther,
+		ApplyLink:                req.ApplyLink,
+		CoverageArea:             req.CoverageArea,
+		ContactEmail:             req.ContactEmail,
+		PrimaryPhone:             req.PrimaryPhone,
+		SecondaryPhone:           req.SecondaryPhone,
+		WebsiteUrl:               req.WebsiteUrl,
+		OfficeAddress:            req.OfficeAddress,
+		MapUrl:                   req.MapUrl,
+		AboutParagraph1:          req.AboutParagraph1,
+		ScholarshipSectionTitle:  req.ScholarshipSectionTitle,
+		ScholarshipSubtitle:      req.ScholarshipSubtitle,
+		ScholarshipDescription1:  req.ScholarshipDescription1,
+		ScholarshipDescription2:  req.ScholarshipDescription2,
+		EligibilitySectionTitle:  req.EligibilitySectionTitle,
+		EligibilitySubtitle:      req.EligibilitySubtitle,
+		ExamDate:                 req.ExamDate,
+		ExamTime:                 req.ExamTime,
+		TotalSeats:               req.TotalSeats,
+		VideoTutorials:           toScholarshipJSON(req.VideoTutorials),
+		JourneyTimeline:          toScholarshipJSON(req.JourneyTimeline),
+		Timeline:                 toScholarshipJSON(req.Timeline),
+		ScholarshipTypes:         toScholarshipJSON(req.ScholarshipTypes),
+		ScholarshipTypesNew:      toScholarshipJSON(req.ScholarshipTypesNew),
+		SelectionRubric:          toScholarshipJSON(req.SelectionRubric),
+		SelectionRubricNew:       toScholarshipJSON(req.SelectionRubricNew),
+		BasicEligibilityCriteria: toScholarshipJSON(req.BasicEligibilityCriteria),
+		FullyFundedCriteria:      toScholarshipJSON(req.FullyFundedCriteria),
+		PartiallyFundedCriteria:  toScholarshipJSON(req.PartiallyFundedCriteria),
+		SelectionProcessSteps:    toScholarshipJSON(req.SelectionProcessSteps),
+		RequiredDocuments:        toScholarshipJSON(req.RequiredDocuments),
+		FAQs:                     toScholarshipJSON(req.FAQs),
+		FAQsNew:                  toScholarshipJSON(req.FAQsNew),
+		GalleryImages:            toScholarshipJSON(req.GalleryImages),
+		GalleryImagesNew:         toScholarshipJSON(req.GalleryImagesNew),
+		PartnerGroups:            toScholarshipJSON(req.PartnerGroups),
+		PartnerMessages:          toScholarshipJSON(req.PartnerMessages),
+		ExamCenters:              toScholarshipJSON(req.ExamCenters),
+		ExamCentersNew:           toScholarshipJSON(req.ExamCentersNew),
+		Downloads:                toScholarshipJSON(req.Downloads),
+		Benefits:                 toScholarshipJSON(req.Benefits),
+		PaymentConfig:            toScholarshipJSON(req.PaymentConfig),
 	}
 
 	if err := s.repo.Create(scholarship); err != nil {
@@ -837,48 +892,137 @@ func (s *Service) AdminCreateScholarship(req CreateScholarshipRequest) (*Scholar
 	return scholarship, nil
 }
 
+func toScholarshipJSON(v any) []byte {
+	if v == nil {
+		return nil
+	}
+	data, err := json.Marshal(v)
+	if err != nil {
+		return nil
+	}
+	return data
+}
+
+func normalizeScholarshipStatus(status string) string {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "published", "active":
+		return "published"
+	case "draft":
+		return "draft"
+	default:
+		if status == "" {
+			return "draft"
+		}
+		return status
+	}
+}
+
+func parseOptionalScholarshipTime(value string) (time.Time, bool) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return time.Time{}, true
+	}
+	if t, err := time.Parse(time.RFC3339, value); err == nil {
+		return t, true
+	}
+	if t, err := time.Parse("2006-01-02", value); err == nil {
+		return t, true
+	}
+	return time.Time{}, false
+}
+
 func (s *Service) AdminUpdateScholarship(id uint, req CreateScholarshipRequest) (*Scholarship, error) {
 	scholarship, err := s.repo.FindByID(id)
 	if err != nil {
 		return nil, errors.New("scholarship not found")
 	}
 
-	if req.Title != "" {
-		scholarship.Title = req.Title
+	deadlineValue := req.Deadline
+	if deadlineValue == "" {
+		deadlineValue = req.ApplicationEndDate
 	}
-	if req.Provider != "" {
-		scholarship.Provider = req.Provider
-	}
-	if req.Location != "" {
-		scholarship.Location = req.Location
-	}
-	if req.Value != "" {
-		scholarship.Value = req.Value
-	}
-	if req.Deadline != "" {
-		if deadline, err := time.Parse("2006-01-02", req.Deadline); err == nil {
-			scholarship.Deadline = deadline
-		}
-	}
-	if req.DegreeLevel != "" {
-		scholarship.DegreeLevel = req.DegreeLevel
-	}
-	if req.FundingType != "" {
-		scholarship.FundingType = req.FundingType
-	}
-	if req.ScholarshipType != "" {
-		scholarship.ScholarshipType = req.ScholarshipType
-	}
-	if req.Description != "" {
-		scholarship.Description = req.Description
-	}
-	if req.ImageURL != "" {
-		scholarship.ImageURL = req.ImageURL
-	}
+
+	scholarship.Title = req.Title
+	scholarship.Provider = req.Provider
+	scholarship.Location = req.Location
+	scholarship.Value = req.Value
+	scholarship.DegreeLevel = req.DegreeLevel
+	scholarship.FundingType = req.FundingType
+	scholarship.ScholarshipType = req.ScholarshipType
+	scholarship.Description = req.Description
+	scholarship.ImageURL = req.BannerBackgroundImageURL
+	scholarship.BannerBackgroundImageURL = req.BannerBackgroundImageURL
+	scholarship.Status = normalizeScholarshipStatus(req.Status)
+	scholarship.ProviderName = req.ProviderName
+	scholarship.FundingTypeOther = req.FundingTypeOther
+	scholarship.ScholarshipTypeOther = req.ScholarshipTypeOther
+	scholarship.EducationLevel = req.EducationLevel
+	scholarship.EducationLevelOther = req.EducationLevelOther
+	scholarship.ApplyLink = req.ApplyLink
+	scholarship.CoverageArea = req.CoverageArea
+	scholarship.ContactEmail = req.ContactEmail
+	scholarship.PrimaryPhone = req.PrimaryPhone
+	scholarship.SecondaryPhone = req.SecondaryPhone
+	scholarship.WebsiteUrl = req.WebsiteUrl
+	scholarship.OfficeAddress = req.OfficeAddress
+	scholarship.MapUrl = req.MapUrl
+	scholarship.AboutParagraph1 = req.AboutParagraph1
+	scholarship.ScholarshipSectionTitle = req.ScholarshipSectionTitle
+	scholarship.ScholarshipSubtitle = req.ScholarshipSubtitle
+	scholarship.ScholarshipDescription1 = req.ScholarshipDescription1
+	scholarship.ScholarshipDescription2 = req.ScholarshipDescription2
+	scholarship.EligibilitySectionTitle = req.EligibilitySectionTitle
+	scholarship.EligibilitySubtitle = req.EligibilitySubtitle
+	scholarship.ExamDate = req.ExamDate
+	scholarship.ExamTime = req.ExamTime
+	scholarship.TotalSeats = req.TotalSeats
+	scholarship.VideoTutorials = toScholarshipJSON(req.VideoTutorials)
+	scholarship.JourneyTimeline = toScholarshipJSON(req.JourneyTimeline)
+	scholarship.Timeline = toScholarshipJSON(req.Timeline)
+	scholarship.ScholarshipTypes = toScholarshipJSON(req.ScholarshipTypes)
+	scholarship.ScholarshipTypesNew = toScholarshipJSON(req.ScholarshipTypesNew)
+	scholarship.SelectionRubric = toScholarshipJSON(req.SelectionRubric)
+	scholarship.SelectionRubricNew = toScholarshipJSON(req.SelectionRubricNew)
+	scholarship.BasicEligibilityCriteria = toScholarshipJSON(req.BasicEligibilityCriteria)
+	scholarship.FullyFundedCriteria = toScholarshipJSON(req.FullyFundedCriteria)
+	scholarship.PartiallyFundedCriteria = toScholarshipJSON(req.PartiallyFundedCriteria)
+	scholarship.SelectionProcessSteps = toScholarshipJSON(req.SelectionProcessSteps)
+	scholarship.RequiredDocuments = toScholarshipJSON(req.RequiredDocuments)
+	scholarship.FAQs = toScholarshipJSON(req.FAQs)
+	scholarship.FAQsNew = toScholarshipJSON(req.FAQsNew)
+	scholarship.GalleryImages = toScholarshipJSON(req.GalleryImages)
+	scholarship.GalleryImagesNew = toScholarshipJSON(req.GalleryImagesNew)
+	scholarship.PartnerGroups = toScholarshipJSON(req.PartnerGroups)
+	scholarship.PartnerMessages = toScholarshipJSON(req.PartnerMessages)
+	scholarship.ExamCenters = toScholarshipJSON(req.ExamCenters)
+	scholarship.ExamCentersNew = toScholarshipJSON(req.ExamCentersNew)
+	scholarship.Downloads = toScholarshipJSON(req.Downloads)
+	scholarship.Benefits = toScholarshipJSON(req.Benefits)
+	scholarship.PaymentConfig = toScholarshipJSON(req.PaymentConfig)
 	if len(req.FieldOfStudy) > 0 {
 		if data, err := json.Marshal(req.FieldOfStudy); err == nil {
 			scholarship.FieldOfStudy = data
 		}
+	}
+
+	if req.ApplicationStartDate != "" {
+		if parsed, ok := parseOptionalScholarshipTime(req.ApplicationStartDate); ok {
+			scholarship.ApplicationStartDate = parsed
+		} else {
+			return nil, errors.New("invalid application start date")
+		}
+	} else {
+		scholarship.ApplicationStartDate = time.Time{}
+	}
+
+	if deadlineValue != "" {
+		if parsed, ok := parseOptionalScholarshipTime(deadlineValue); ok {
+			scholarship.Deadline = parsed
+		} else {
+			return nil, errors.New("invalid application end date")
+		}
+	} else {
+		scholarship.Deadline = time.Time{}
 	}
 
 	if err := s.repo.Save(scholarship); err != nil {
