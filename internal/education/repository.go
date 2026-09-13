@@ -975,6 +975,8 @@ type InstitutionEntranceEntry struct {
 	InstitutionLink     string `gorm:"column:institution_link" json:"institution_link"`
 	ExaminationSchedule []byte `gorm:"column:examination_schedule" json:"examination_schedule"`
 	ProgramsOffered     []byte `gorm:"column:programs_offered" json:"programs_offered"`
+	RequiredDocuments   []byte `gorm:"column:required_documents" json:"required_documents"`
+	EmbeddedMap         string `gorm:"column:embedded_map" json:"embedded_map"`
 }
 
 func (r *Repository) GetAllExamEntries(search, level, stream, status string) ([]Exam, error) {
@@ -1009,6 +1011,8 @@ func (r *Repository) GetPublishedInstitutionEntrances(search string) ([]Institut
 			institution_entrances.exam_pattern, institution_entrances.subject_marks,
 			institution_entrances.model_sets, institution_entrances.upcoming_dates,
 			institution_entrances.contact_persons, institution_entrances.faqs,
+			institution_entrances.examination_schedule, institution_entrances.programs_offered,
+			institution_entrances.required_documents, institution_entrances.embedded_map,
 			institution_entrances.institution_name, institution_entrances.institution_location,
 			institution_entrances.institution_link,
 			COALESCE(NULLIF(institution_entrances.institution_logo, ''), iu.logo_url) as institution_logo, iu.district as institution_location,
@@ -1065,6 +1069,7 @@ func (r *Repository) GetInstitutionEntranceByID(id string) (*InstitutionEntrance
 			institution_entrances.model_sets, institution_entrances.upcoming_dates,
 			institution_entrances.contact_persons, institution_entrances.faqs,
 			institution_entrances.examination_schedule, institution_entrances.programs_offered,
+			institution_entrances.required_documents, institution_entrances.embedded_map,
 			institution_entrances.institution_name, institution_entrances.institution_location,
 			institution_entrances.institution_link,
 			COALESCE(NULLIF(institution_entrances.institution_logo, ''), iu.logo_url) as institution_logo, iu.district as institution_location,

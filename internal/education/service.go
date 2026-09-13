@@ -2144,6 +2144,11 @@ func (s *Service) GetPublicEntrances(page, limit int, search, level, stream, sta
 			json.Unmarshal(ie.ExamDateSchedules, &examDateSchedules)
 		}
 
+		var requiredDocuments []interface{}
+		if len(ie.RequiredDocuments) > 0 {
+			json.Unmarshal(ie.RequiredDocuments, &requiredDocuments)
+		}
+
 		instName := ie.InstitutionName
 		instLocation := loc
 		instPhone := ie.InstitutionPhone
@@ -2220,6 +2225,8 @@ func (s *Service) GetPublicEntrances(page, limit int, search, level, stream, sta
 			ContactPersons:    contactPersons,
 			Faqs:              faqs,
 			ExamDateSchedules: examDateSchedules,
+			RequiredDocuments: requiredDocuments,
+			EmbeddedMap:       ie.EmbeddedMap,
 		})
 	}
 
@@ -2343,6 +2350,10 @@ func (s *Service) GetPublicEntranceByID(id string) (*PublicEntranceResponse, err
 		if len(instEntrance.ProgramsOffered) > 0 {
 			json.Unmarshal(instEntrance.ProgramsOffered, &programsOffered)
 		}
+		var requiredDocuments []interface{}
+		if len(instEntrance.RequiredDocuments) > 0 {
+			json.Unmarshal(instEntrance.RequiredDocuments, &requiredDocuments)
+		}
 		email := instEntrance.Email
 		if email == "" {
 			email = instEntrance.InstitutionEmail
@@ -2382,6 +2393,8 @@ func (s *Service) GetPublicEntranceByID(id string) (*PublicEntranceResponse, err
 			ExamDateSchedules:   examDateSchedules,
 			ExaminationSchedule: examinationSchedule,
 			ProgramsOffered:     programsOffered,
+			RequiredDocuments:   requiredDocuments,
+			EmbeddedMap:         instEntrance.EmbeddedMap,
 		}, nil
 	}
 

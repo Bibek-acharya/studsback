@@ -483,6 +483,8 @@ type PublicEntranceResponse struct {
 	ExamDateSchedules   []interface{} `json:"exam_date_schedules,omitempty"`
 	ExaminationSchedule []interface{} `json:"examination_schedule,omitempty"`
 	ProgramsOffered     []interface{} `json:"programs_offered,omitempty"`
+	RequiredDocuments   []interface{} `json:"required_documents,omitempty"`
+	EmbeddedMap         string        `json:"embedded_map,omitempty"`
 }
 
 type EntranceFilterCountsResponse struct {
