@@ -336,6 +336,8 @@ type SuperadminCreateEntranceRequest struct {
 	InstitutionLink        string          `json:"institution_link"`
 	InstitutionAffiliation string          `json:"institution_affiliation"`
 	InstitutionLogo        string          `json:"institution_logo"`
+	ExamMode               string          `json:"exam_mode"`
+	ExamScope              string          `json:"exam_scope"`
 	Title                  string          `json:"title" binding:"required"`
 	Description            string          `json:"description"`
 	Program                string          `json:"program"`
@@ -379,6 +381,8 @@ type SuperadminUpdateEntranceRequest struct {
 	InstitutionLink        string          `json:"institution_link"`
 	InstitutionAffiliation string          `json:"institution_affiliation"`
 	InstitutionLogo        string          `json:"institution_logo"`
+	ExamMode               string          `json:"exam_mode"`
+	ExamScope              string          `json:"exam_scope"`
 	Title                  string          `json:"title"`
 	Description            string          `json:"description"`
 	Program                string          `json:"program"`

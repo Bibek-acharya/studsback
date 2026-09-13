@@ -977,6 +977,9 @@ type InstitutionEntranceEntry struct {
 	ProgramsOffered     []byte `gorm:"column:programs_offered" json:"programs_offered"`
 	RequiredDocuments   []byte `gorm:"column:required_documents" json:"required_documents"`
 	EmbeddedMap         string `gorm:"column:embedded_map" json:"embedded_map"`
+	Affiliation         string `gorm:"column:affiliation" json:"affiliation"`
+	ExamMode            string `gorm:"column:exam_mode" json:"exam_mode"`
+	ExamScope           string `gorm:"column:exam_scope" json:"exam_scope"`
 }
 
 func (r *Repository) GetAllExamEntries(search, level, stream, status string) ([]Exam, error) {
@@ -1015,6 +1018,9 @@ func (r *Repository) GetPublishedInstitutionEntrances(search string) ([]Institut
 			institution_entrances.required_documents, institution_entrances.embedded_map,
 			institution_entrances.institution_name, institution_entrances.institution_location,
 			institution_entrances.institution_link,
+			institution_entrances.institution_affiliation as affiliation,
+			institution_entrances.exam_mode,
+			institution_entrances.exam_scope,
 			COALESCE(NULLIF(institution_entrances.institution_logo, ''), iu.logo_url) as institution_logo, iu.district as institution_location,
 			iu.province as institution_province, iu.website_url as institution_website,
 			iu.contact_email as institution_phone`).
@@ -1072,6 +1078,9 @@ func (r *Repository) GetInstitutionEntranceByID(id string) (*InstitutionEntrance
 			institution_entrances.required_documents, institution_entrances.embedded_map,
 			institution_entrances.institution_name, institution_entrances.institution_location,
 			institution_entrances.institution_link,
+			institution_entrances.institution_affiliation as affiliation,
+			institution_entrances.exam_mode,
+			institution_entrances.exam_scope,
 			COALESCE(NULLIF(institution_entrances.institution_logo, ''), iu.logo_url) as institution_logo, iu.district as institution_location,
 			iu.province as institution_province, iu.website_url as institution_website,
 			iu.contact_email as institution_email, iu.contact_phone as institution_phone`).

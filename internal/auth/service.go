@@ -1349,6 +1349,11 @@ func (s *Service) ListVerifiedInstitutionsFiltered(filter InstitutionFilter) ([]
 	return s.repo.FindInstitutionUsersFiltered("approved", filter)
 }
 
+func (s *Service) SearchAllInstitutions(filter InstitutionFilter) ([]InstitutionUser, error) {
+	users, _, err := s.repo.FindInstitutionUsersFiltered("", filter)
+	return users, err
+}
+
 func (s *Service) ListRejectedInstitutions() ([]InstitutionUser, error) {
 	return s.repo.FindInstitutionUsersByStatus("rejected")
 }

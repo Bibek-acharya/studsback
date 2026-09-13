@@ -2009,6 +2009,7 @@ func ToEntranceResponse(e InstitutionEntrance) EntranceResponse {
 		InstitutionLocation:    e.InstitutionLocation,
 		InstitutionLink:        e.InstitutionLink,
 		InstitutionAffiliation: e.InstitutionAffiliation,
+		InstitutionLogo:        e.InstitutionLogo,
 		Title:                  e.Title,
 		Description:            e.Description,
 		Program:                e.Program,
@@ -2044,6 +2045,8 @@ func ToEntranceResponse(e InstitutionEntrance) EntranceResponse {
 		RequiredDocuments:      json.RawMessage(e.RequiredDocuments),
 		ExaminationSchedule:    json.RawMessage(e.ExaminationSchedule),
 		ProgramsOffered:        json.RawMessage(e.ProgramsOffered),
+		ExamMode:               e.ExamMode,
+		ExamScope:              e.ExamScope,
 	}
 }
 

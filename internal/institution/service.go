@@ -874,6 +874,9 @@ func (s *Service) CreateEntrance(instID uint, req CreateEntranceRequest) (*Insti
 		InstitutionLocation: req.InstitutionLocation,
 		InstitutionLink:     req.InstitutionLink,
 		InstitutionLogo:     req.InstitutionLogo,
+		InstitutionAffiliation: req.InstitutionAffiliation,
+		ExamMode:            req.ExamMode,
+		ExamScope:           req.ExamScope,
 		Title:               req.Title,
 		Description:         req.Description,
 		Program:             req.Program,
@@ -1062,6 +1065,12 @@ func (s *Service) UpdateEntrance(instID, id uint, req UpdateEntranceRequest) (*I
 	}
 	if req.InstitutionLogo != "" {
 		entrance.InstitutionLogo = req.InstitutionLogo
+	}
+	if req.ExamMode != "" {
+		entrance.ExamMode = req.ExamMode
+	}
+	if req.ExamScope != "" {
+		entrance.ExamScope = req.ExamScope
 	}
 
 	if err := s.repo.SaveEntrance(entrance); err != nil {

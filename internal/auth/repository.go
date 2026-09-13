@@ -180,7 +180,10 @@ func (r *Repository) FindInstitutionUsersByStatus(status string) ([]InstitutionU
 }
 
 func (r *Repository) FindInstitutionUsersFiltered(status string, filter InstitutionFilter) ([]InstitutionUser, map[string]int64, error) {
-	baseQuery := r.db.Table("institution_users").Where("institution_users.status = ?", status)
+	baseQuery := r.db.Table("institution_users")
+	if status != "" {
+		baseQuery = baseQuery.Where("institution_users.status = ?", status)
+	}
 
 	if filter.Search != "" {
 		s := "%" + filter.Search + "%"

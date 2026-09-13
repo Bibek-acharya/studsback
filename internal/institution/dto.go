@@ -243,6 +243,8 @@ type CreateEntranceRequest struct {
 	InstitutionLink        string          `json:"institution_link"`
 	InstitutionAffiliation string          `json:"institution_affiliation"`
 	InstitutionLogo        string          `json:"institution_logo"`
+	ExamMode               string          `json:"exam_mode"`
+	ExamScope              string          `json:"exam_scope"`
 	ApplicationFee         string          `json:"application_fee"`
 	OverviewDetails        json.RawMessage `json:"overview_details"`
 	ExamDateSchedules      json.RawMessage `json:"exam_date_schedules"`
@@ -285,6 +287,8 @@ type UpdateEntranceRequest struct {
 	InstitutionLink        string          `json:"institution_link"`
 	InstitutionAffiliation string          `json:"institution_affiliation"`
 	InstitutionLogo        string          `json:"institution_logo"`
+	ExamMode               string          `json:"exam_mode"`
+	ExamScope              string          `json:"exam_scope"`
 	ApplicationFee         string          `json:"application_fee"`
 	OverviewDetails        json.RawMessage `json:"overview_details"`
 	ExamDateSchedules      json.RawMessage `json:"exam_date_schedules"`
@@ -317,6 +321,8 @@ type EntranceResponse struct {
 	InstitutionLink        string          `json:"institution_link"`
 	InstitutionAffiliation string          `json:"institution_affiliation"`
 	InstitutionLogo        string          `json:"institution_logo"`
+	ExamMode               string          `json:"exam_mode"`
+	ExamScope              string          `json:"exam_scope"`
 	Title                  string          `json:"title"`
 	Description            string          `json:"description"`
 	Program                string          `json:"program"`

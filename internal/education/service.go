@@ -2227,6 +2227,9 @@ func (s *Service) GetPublicEntrances(page, limit int, search, level, stream, sta
 			ExamDateSchedules: examDateSchedules,
 			RequiredDocuments: requiredDocuments,
 			EmbeddedMap:       ie.EmbeddedMap,
+			Affiliation:       ie.Affiliation,
+			ExamMode:          ie.ExamMode,
+			ExamScope:         ie.ExamScope,
 		})
 	}
 
@@ -2395,6 +2398,9 @@ func (s *Service) GetPublicEntranceByID(id string) (*PublicEntranceResponse, err
 			ProgramsOffered:     programsOffered,
 			RequiredDocuments:   requiredDocuments,
 			EmbeddedMap:         instEntrance.EmbeddedMap,
+			Affiliation:         instEntrance.Affiliation,
+			ExamMode:            instEntrance.ExamMode,
+			ExamScope:           instEntrance.ExamScope,
 		}, nil
 	}
 

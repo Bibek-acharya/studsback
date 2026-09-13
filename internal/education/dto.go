@@ -469,6 +469,9 @@ type PublicEntranceResponse struct {
 	ContactNumber       string        `json:"contact_number,omitempty"`
 	SocialLinks         []interface{} `json:"social_links,omitempty"`
 	InstitutionLogo     string        `json:"institutionLogo,omitempty"`
+	Affiliation         string        `json:"affiliation,omitempty"`
+	ExamMode            string        `json:"exam_mode,omitempty"`
+	ExamScope           string        `json:"exam_scope,omitempty"`
 	OverviewDetails     []interface{} `json:"overview_details,omitempty"`
 	ApplicationLink     string        `json:"application_link,omitempty"`
 	NoticeFile          string        `json:"notice_file,omitempty"`

@@ -992,6 +992,27 @@ func (h *Handler) ListVerifiedInstitutions(c *gin.Context) {
 	})
 }
 
+func (h *Handler) SearchAllInstitutions(c *gin.Context) {
+	var filter InstitutionFilter
+	if err := c.ShouldBindQuery(&filter); err != nil {
+		response.Error(c, 400, "Invalid filter parameters")
+		return
+	}
+
+	institutions, err := h.service.SearchAllInstitutions(filter)
+	if err != nil {
+		response.Error(c, 500, err.Error())
+		return
+	}
+	if institutions == nil {
+		institutions = []InstitutionUser{}
+	}
+
+	response.Success(c, 200, "Institutions retrieved successfully", gin.H{
+		"institutions": institutions,
+	})
+}
+
 func (h *Handler) ListRejectedInstitutions(c *gin.Context) {
 	institutions, err := h.service.ListRejectedInstitutions()
 	if err != nil {
@@ -1965,6 +1986,8 @@ func (h *Handler) CreateEntranceForInstitution(c *gin.Context) {
 		InstitutionLink:        req.InstitutionLink,
 		InstitutionAffiliation: req.InstitutionAffiliation,
 		InstitutionLogo:        req.InstitutionLogo,
+		ExamMode:               req.ExamMode,
+		ExamScope:              req.ExamScope,
 		ApplicationFee:         req.ApplicationFee,
 		OverviewDetails:        req.OverviewDetails,
 		ExamDateSchedules:      req.ExamDateSchedules,
@@ -2038,6 +2061,8 @@ func (h *Handler) UpdateEntranceForInstitution(c *gin.Context) {
 		InstitutionLink:        req.InstitutionLink,
 		InstitutionAffiliation: req.InstitutionAffiliation,
 		InstitutionLogo:        req.InstitutionLogo,
+		ExamMode:               req.ExamMode,
+		ExamScope:              req.ExamScope,
 		ApplicationFee:         req.ApplicationFee,
 		OverviewDetails:        req.OverviewDetails,
 		ExamDateSchedules:      req.ExamDateSchedules,
