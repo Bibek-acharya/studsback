@@ -2407,6 +2407,11 @@ func (s *Service) GetPublicEntranceByID(id string) (*PublicEntranceResponse, err
 	return nil, gorm.ErrRecordNotFound
 }
 
+// SaveEntranceReminder saves a "keep me notified" subscription for a user on an entrance.
+func (s *Service) SaveEntranceReminder(userID, entranceID uint) error {
+	return s.repo.SaveEntranceReminder(userID, entranceID)
+}
+
 func (s *Service) ResolveCourse(globalCourseID uint, institutionID uint) (*ResolvedCourse, error) {
 	course, affiliation, err := s.repo.FindCourseByIDWithAffiliation(globalCourseID)
 	if err != nil {

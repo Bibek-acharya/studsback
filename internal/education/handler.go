@@ -20,6 +20,33 @@ func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
 }
 
+// NotifyEntranceReminder saves a "keep me notified" subscription for a user on an entrance.
+func (h *Handler) NotifyEntranceReminder(c *gin.Context) {
+	idVal, exists := c.Get("user_id")
+	if !exists {
+		response.Error(c, http.StatusUnauthorized, "Login required")
+		return
+	}
+	userID, _ := idVal.(uint)
+	if userID == 0 {
+		response.Error(c, http.StatusUnauthorized, "Invalid user")
+		return
+	}
+
+	entranceID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid entrance ID")
+		return
+	}
+
+	if err := h.service.SaveEntranceReminder(userID, uint(entranceID)); err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to subscribe")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "You will be notified of updates", nil)
+}
+
 func (h *Handler) GetEducationRankings(c *gin.Context) {
 	colleges, err := h.service.GetEducationRankings()
 	if err != nil {

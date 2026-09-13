@@ -48,6 +48,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			entrances.POST("", h.GetPublicEntrances)
 			entrances.GET("/filter-counts", h.GetEntranceFilterCounts)
 			entrances.GET("/:id", h.GetPublicEntranceByID)
+			entrances.POST("/:id/notify", authMW, h.NotifyEntranceReminder)
 		}
 
 		// Admin course management routes — admin and super_admin only

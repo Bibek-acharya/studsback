@@ -16,6 +16,20 @@ func NewRepository(db *gorm.DB) *Repository {
 	return &Repository{db: db}
 }
 
+// SaveEntranceReminder upserts a bookmark so the student gets notified of entrance updates.
+func (r *Repository) SaveEntranceReminder(userID, entranceID uint) error {
+	// Check if already exists
+	var count int64
+	r.db.Table("bookmarks").Where("user_id = ? AND item_id = ? AND type = ?", userID, entranceID, "entrance").Count(&count)
+	if count > 0 {
+		return nil // already subscribed
+	}
+	return r.db.Exec(
+		"INSERT INTO bookmarks (user_id, item_id, type, created_at) VALUES (?, ?, 'entrance', NOW())",
+		userID, entranceID,
+	).Error
+}
+
 func (r *Repository) FindTopRatedColleges(limit int) ([]College, error) {
 	var colleges []College
 	err := r.db.Preload("University").Order("rating desc").Limit(limit).Find(&colleges).Error
