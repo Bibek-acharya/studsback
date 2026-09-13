@@ -3,7 +3,9 @@ package search
 import (
 	"log"
 	"net/http"
+	"sort"
 	"strconv"
+	"strings"
 
 	"studsphere/backend/internal/embedding"
 	"studsphere/backend/internal/search/queryparser"
@@ -182,7 +184,7 @@ func (h *Handler) Suggest(c *gin.Context) {
 		Filters: retrieval.SearchFilters{
 			Category: catNormalized,
 		},
-		Limit: limit,
+		Limit: limit * 4,
 	}
 
 	hits, err := meiliRetriever.Search(ctx, suggestionReq)
@@ -215,6 +217,26 @@ func (h *Handler) Suggest(c *gin.Context) {
 			Label: item.Title,
 			URL:   "/" + entityName + "/" + slug,
 		})
+	}
+
+	// Re-sort so text-prefix matches appear first (suggestion feel).
+	lowerQ := strings.ToLower(q)
+	sort.SliceStable(suggestions, func(i, j int) bool {
+		li, lj := strings.ToLower(suggestions[i].Label), strings.ToLower(suggestions[j].Label)
+		iPrefix := strings.HasPrefix(li, lowerQ)
+		jPrefix := strings.HasPrefix(lj, lowerQ)
+		if iPrefix != jPrefix {
+			return iPrefix // prefix matches first
+		}
+		iHas := strings.Contains(li, lowerQ)
+		jHas := strings.Contains(lj, lowerQ)
+		if iHas != jHas {
+			return iHas // contains matches second
+		}
+		return li < lj // alphabetical within group
+	})
+	if len(suggestions) > limit {
+		suggestions = suggestions[:limit]
 	}
 
 	c.JSON(http.StatusOK, gin.H{"suggestions": suggestions})
