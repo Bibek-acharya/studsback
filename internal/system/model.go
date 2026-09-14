@@ -23,6 +23,23 @@ type ContactInquiry struct {
 	Status        string         `gorm:"default:'new'" json:"status"`
 }
 
+type AdCollege struct {
+	ID       uint    `json:"id"`
+	Name     string  `json:"name"`
+	ImageURL string  `json:"image_url"`
+	Rating   float64 `json:"rating"`
+	Location string  `json:"location"`
+}
+
+type AdCourse struct {
+	ID         uint   `json:"id"`
+	Title      string `json:"title"`
+	Level      string `json:"level"`
+	Duration   string `json:"duration"`
+	FieldStudy string `json:"field_of_study"`
+	BannerURL  string `json:"banner_url"`
+}
+
 type Ad struct {
 	ID          uint           `gorm:"primarykey" json:"id"`
 	CreatedAt   time.Time      `json:"created_at"`
@@ -40,6 +57,12 @@ type Ad struct {
 	Clicks      int            `gorm:"default:0" json:"clicks"`
 	Impressions int            `gorm:"default:0" json:"impressions"`
 	Priority    int            `gorm:"default:0" json:"priority"`
+	CollegeID   *uint          `gorm:"index" json:"college_id"`
+	CourseID    *uint          `gorm:"index" json:"course_id"`
+	Description string         `gorm:"type:text" json:"description"`
+	Accent      string         `gorm:"size:7" json:"accent"`
+	College     *AdCollege     `gorm:"-" json:"-"`
+	Course      *AdCourse      `gorm:"-" json:"-"`
 }
 
 // PublicNotification moved to internal/notification (Task 13); the alias

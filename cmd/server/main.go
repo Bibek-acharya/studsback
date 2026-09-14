@@ -243,6 +243,9 @@ func main() {
 	if err := migrations.AddEmbeddingMetadata(db); err != nil {
 		logger.Warn("Failed to run embedding metadata migration", "error", err)
 	}
+	if err := migrations.AddAdEntityLinksAndFields(db); err != nil {
+		logger.Warn("Failed to run ad entity links migration", "error", err)
+	}
 		// Cleanup dangling sub-users with provider_id = 0 from previous bug
 		if err := db.Exec("DELETE FROM provider_access_users WHERE provider_id = 0").Error; err != nil {
 			logger.Warn("Failed to cleanup dangling sub-users", "error", err)

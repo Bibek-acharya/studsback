@@ -133,6 +133,7 @@ func (r *Repository) FindAds(page, limit int, pageFilter, positionFilter string,
 		return nil, 0, err
 	}
 
+	r.resolveAdEntities(ads)
 	return ads, total, nil
 }
 
@@ -165,6 +166,7 @@ func (r *Repository) FindActiveAds(page, position string) ([]Ad, error) {
 		r.db.Model(&Ad{}).Where("id IN ?", ids).Update("impressions", gorm.Expr("impressions + 1"))
 	}
 
+	r.resolveAdEntities(ads)
 	return ads, nil
 }
 
@@ -174,7 +176,91 @@ func (r *Repository) FindAdByID(id uint) (*Ad, error) {
 	if err != nil {
 		return nil, err
 	}
+	r.resolveAdEntities([]Ad{ad})
 	return &ad, nil
+}
+
+// resolveAdEntities batch-loads college and course data for a slice of ads.
+func (r *Repository) resolveAdEntities(ads []Ad) {
+	if len(ads) == 0 {
+		return
+	}
+
+	// Collect unique IDs
+	collegeIDs := make(map[uint]bool)
+	courseIDs := make(map[uint]bool)
+	for i := range ads {
+		if ads[i].CollegeID != nil {
+			collegeIDs[*ads[i].CollegeID] = true
+		}
+		if ads[i].CourseID != nil {
+			courseIDs[*ads[i].CourseID] = true
+		}
+	}
+
+	// Batch-load colleges
+	collegeMap := make(map[uint]*AdCollege)
+	if len(collegeIDs) > 0 {
+		ids := make([]uint, 0, len(collegeIDs))
+		for id := range collegeIDs {
+			ids = append(ids, id)
+		}
+		var rows []struct {
+			ID       uint    `gorm:"column:id"`
+			Name     string  `gorm:"column:name"`
+			ImageURL string  `gorm:"column:image_url"`
+			Rating   float64 `gorm:"column:rating"`
+			Location string  `gorm:"column:location"`
+		}
+		r.db.Table("colleges").Select("id, name, image_url, rating, location").Where("id IN ?", ids).Find(&rows)
+		for _, row := range rows {
+			collegeMap[row.ID] = &AdCollege{
+				ID:       row.ID,
+				Name:     row.Name,
+				ImageURL: row.ImageURL,
+				Rating:   row.Rating,
+				Location: row.Location,
+			}
+		}
+	}
+
+	// Batch-load courses
+	courseMap := make(map[uint]*AdCourse)
+	if len(courseIDs) > 0 {
+		ids := make([]uint, 0, len(courseIDs))
+		for id := range courseIDs {
+			ids = append(ids, id)
+		}
+		var rows []struct {
+			ID         uint   `gorm:"column:id"`
+			Title      string `gorm:"column:title"`
+			Level      string `gorm:"column:level"`
+			Duration   string `gorm:"column:duration"`
+			FieldStudy string `gorm:"column:field_of_study"`
+			BannerURL  string `gorm:"column:banner_url"`
+		}
+		r.db.Table("courses").Select("id, title, level, duration, field_of_study, banner_url").Where("id IN ?", ids).Find(&rows)
+		for _, row := range rows {
+			courseMap[row.ID] = &AdCourse{
+				ID:         row.ID,
+				Title:      row.Title,
+				Level:      row.Level,
+				Duration:   row.Duration,
+				FieldStudy: row.FieldStudy,
+				BannerURL:  row.BannerURL,
+			}
+		}
+	}
+
+	// Attach resolved entities
+	for i := range ads {
+		if ads[i].CollegeID != nil {
+			ads[i].College = collegeMap[*ads[i].CollegeID]
+		}
+		if ads[i].CourseID != nil {
+			ads[i].Course = courseMap[*ads[i].CourseID]
+		}
+	}
 }
 
 func (r *Repository) CreateAd(ad *Ad) error {

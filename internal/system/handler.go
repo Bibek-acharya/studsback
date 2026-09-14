@@ -434,7 +434,7 @@ func toAdResponse(ad *Ad) AdResponse {
 		endDate = ad.EndDate.Format("2006-01-02T15:04:05Z")
 	}
 
-	return AdResponse{
+	resp := AdResponse{
 		ID:          ad.ID,
 		Title:       ad.Title,
 		ImageURL:    ad.ImageURL,
@@ -448,9 +448,29 @@ func toAdResponse(ad *Ad) AdResponse {
 		Clicks:      ad.Clicks,
 		Impressions: ad.Impressions,
 		Priority:    ad.Priority,
+		CollegeID:   ad.CollegeID,
+		CourseID:    ad.CourseID,
+		Description: ad.Description,
+		Accent:      ad.Accent,
 		CreatedAt:   ad.CreatedAt.Format("2006-01-02T15:04:05Z"),
 		UpdatedAt:   ad.UpdatedAt.Format("2006-01-02T15:04:05Z"),
 	}
+
+	if ad.CollegeID != nil && ad.College != nil {
+		resp.CollegeName = ad.College.Name
+		resp.CollegeImage = ad.College.ImageURL
+		resp.CollegeRating = ad.College.Rating
+		resp.CollegeLocation = ad.College.Location
+	}
+	if ad.CourseID != nil && ad.Course != nil {
+		resp.CourseTitle = ad.Course.Title
+		resp.CourseLevel = ad.Course.Level
+		resp.CourseDuration = ad.Course.Duration
+		resp.CourseField = ad.Course.FieldStudy
+		resp.CourseBannerURL = ad.Course.BannerURL
+	}
+
+	return resp
 }
 
 func toCarouselSlideResponse(slide *CarouselSlide) CarouselSlideResponse {

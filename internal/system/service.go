@@ -140,14 +140,18 @@ func (s *Service) GetAdByID(id uint) (*Ad, error) {
 
 func (s *Service) CreateAd(req AdRequest) (*Ad, error) {
 	ad := &Ad{
-		Title:    req.Title,
-		ImageURL: req.ImageURL,
-		LinkURL:  req.LinkURL,
-		Location: req.Location,
-		Page:     req.Page,
-		Position: req.Position,
-		Active:   true,
-		Priority: req.Priority,
+		Title:       req.Title,
+		ImageURL:    req.ImageURL,
+		LinkURL:     req.LinkURL,
+		Location:    req.Location,
+		Page:        req.Page,
+		Position:    req.Position,
+		Active:      true,
+		Priority:    req.Priority,
+		CollegeID:   req.CollegeID,
+		CourseID:    req.CourseID,
+		Description: req.Description,
+		Accent:      req.Accent,
 	}
 
 	if req.StartDate != "" {
@@ -206,6 +210,18 @@ func (s *Service) UpdateAd(id uint, req AdRequest) (*Ad, error) {
 	}
 	if req.Priority != 0 {
 		updates["priority"] = req.Priority
+	}
+	if req.CollegeID != nil {
+		updates["college_id"] = *req.CollegeID
+	}
+	if req.CourseID != nil {
+		updates["course_id"] = *req.CourseID
+	}
+	if req.Description != "" {
+		updates["description"] = req.Description
+	}
+	if req.Accent != "" {
+		updates["accent"] = req.Accent
 	}
 
 	return s.repo.UpdateAd(id, updates)

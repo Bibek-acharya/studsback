@@ -17,16 +17,20 @@ type ContactInquiryStatusRequest struct {
 }
 
 type AdRequest struct {
-	Title     string `json:"title" binding:"required"`
-	ImageURL  string `json:"image_url"`
-	LinkURL   string `json:"link_url"`
-	Location  string `json:"location"`
-	Page      string `json:"page" binding:"required"`
-	Position  string `json:"position"`
-	StartDate string `json:"start_date"`
-	EndDate   string `json:"end_date"`
-	Active    *bool  `json:"active"`
-	Priority  int    `json:"priority"`
+	Title       string `json:"title" binding:"required"`
+	ImageURL    string `json:"image_url"`
+	LinkURL     string `json:"link_url"`
+	Location    string `json:"location"`
+	Page        string `json:"page" binding:"required"`
+	Position    string `json:"position"`
+	StartDate   string `json:"start_date"`
+	EndDate     string `json:"end_date"`
+	Active      *bool  `json:"active"`
+	Priority    int    `json:"priority"`
+	CollegeID   *uint  `json:"college_id"`
+	CourseID    *uint  `json:"course_id"`
+	Description string `json:"description"`
+	Accent      string `json:"accent"`
 }
 
 type CarouselSlideRequest struct {
@@ -78,6 +82,19 @@ type AdResponse struct {
 	Clicks      int    `json:"clicks"`
 	Impressions int    `json:"impressions"`
 	Priority    int    `json:"priority"`
+	CollegeID   *uint  `json:"college_id"`
+	CourseID    *uint  `json:"course_id"`
+	Description string `json:"description"`
+	Accent      string `json:"accent"`
+	CollegeName string `json:"college_name,omitempty"`
+	CollegeImage string `json:"college_image,omitempty"`
+	CollegeRating float64 `json:"college_rating,omitempty"`
+	CollegeLocation string `json:"college_location,omitempty"`
+	CourseTitle   string `json:"course_title,omitempty"`
+	CourseLevel   string `json:"course_level,omitempty"`
+	CourseDuration string `json:"course_duration,omitempty"`
+	CourseField    string `json:"course_field,omitempty"`
+	CourseBannerURL string `json:"course_banner_url,omitempty"`
 	CreatedAt   string `json:"created_at"`
 	UpdatedAt   string `json:"updated_at"`
 }
