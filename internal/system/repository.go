@@ -205,19 +205,52 @@ func (r *Repository) resolveAdEntities(ads []Ad) {
 		for id := range collegeIDs {
 			ids = append(ids, id)
 		}
-		var rows []struct {
-			ID       uint    `gorm:"column:id"`
-			Name     string  `gorm:"column:institution_name"`
-			ImageURL string  `gorm:"column:logo_url"`
-			Location string  `gorm:"column:district"`
+		type instRow struct {
+			ID         uint    `gorm:"column:id"`
+			Name       string  `gorm:"column:institution_name"`
+			ImageURL   string  `gorm:"column:banner_url"`
+			Location   string  `gorm:"column:district"`
+			WebsiteURL string  `gorm:"column:website_url"`
+			CollegeID  uint    `gorm:"column:college_id"`
 		}
-		r.db.Table("institution_users").Select("id, institution_name, logo_url, district").Where("id IN ? AND deleted_at IS NULL", ids).Find(&rows)
-		for _, row := range rows {
+		var instRows []instRow
+		r.db.Table("institution_users").Select("id, institution_name, banner_url, district, website_url, college_id").Where("id IN ? AND deleted_at IS NULL", ids).Find(&instRows)
+
+		// Collect college_ids from institution_users to fetch rating from colleges table
+		collegeTableIDs := make(map[uint]uint) // institution_users.id -> colleges.id
+		for _, row := range instRows {
+			if row.CollegeID > 0 {
+				collegeTableIDs[row.ID] = row.CollegeID
+			}
+		}
+		ratingMap := make(map[uint]float64)
+		if len(collegeTableIDs) > 0 {
+			cids := make([]uint, 0, len(collegeTableIDs))
+			for _, cid := range collegeTableIDs {
+				cids = append(cids, cid)
+			}
+			var cRows []struct {
+				ID     uint    `gorm:"column:id"`
+				Rating float64 `gorm:"column:rating"`
+			}
+			r.db.Table("colleges").Select("id, rating").Where("id IN ?", cids).Find(&cRows)
+			for _, cr := range cRows {
+				ratingMap[cr.ID] = cr.Rating
+			}
+		}
+
+		for _, row := range instRows {
+			var rating float64
+			if cid, ok := collegeTableIDs[row.ID]; ok {
+				rating = ratingMap[cid]
+			}
 			collegeMap[row.ID] = &AdCollege{
 				ID:       row.ID,
 				Name:     row.Name,
 				ImageURL: row.ImageURL,
 				Location: row.Location,
+				Website:  row.WebsiteURL,
+				Rating:   rating,
 			}
 		}
 	}

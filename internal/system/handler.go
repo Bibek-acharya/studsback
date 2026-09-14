@@ -461,6 +461,7 @@ func toAdResponse(ad *Ad) AdResponse {
 		resp.CollegeImage = ad.College.ImageURL
 		resp.CollegeRating = ad.College.Rating
 		resp.CollegeLocation = ad.College.Location
+		resp.CollegeWebsite = ad.College.Website
 	}
 	if ad.CourseID != nil && ad.Course != nil {
 		resp.CourseTitle = ad.Course.Title

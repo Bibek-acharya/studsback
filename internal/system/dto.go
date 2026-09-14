@@ -90,6 +90,7 @@ type AdResponse struct {
 	CollegeImage string `json:"college_image,omitempty"`
 	CollegeRating float64 `json:"college_rating,omitempty"`
 	CollegeLocation string `json:"college_location,omitempty"`
+	CollegeWebsite  string `json:"college_website,omitempty"`
 	CourseTitle   string `json:"course_title,omitempty"`
 	CourseLevel   string `json:"course_level,omitempty"`
 	CourseDuration string `json:"course_duration,omitempty"`

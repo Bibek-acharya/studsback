@@ -29,6 +29,7 @@ type AdCollege struct {
 	ImageURL string  `json:"image_url"`
 	Rating   float64 `json:"rating"`
 	Location string  `json:"location"`
+	Website  string  `json:"website"`
 }
 
 type AdCourse struct {
