@@ -262,23 +262,56 @@ func (r *Repository) resolveAdEntities(ads []Ad) {
 		for id := range courseIDs {
 			ids = append(ids, id)
 		}
-		var rows []struct {
-			ID         uint   `gorm:"column:id"`
-			Title      string `gorm:"column:title"`
-			Level      string `gorm:"column:level"`
-			Duration   string `gorm:"column:duration"`
-			FieldStudy string `gorm:"column:field_of_study"`
-			BannerURL  string `gorm:"column:banner_url"`
+		type courseRow struct {
+			ID            uint   `gorm:"column:id"`
+			Title         string `gorm:"column:title"`
+			Level         string `gorm:"column:level"`
+			Duration      string `gorm:"column:duration"`
+			FieldStudy    string `gorm:"column:field_of_study"`
+			BannerURL     string `gorm:"column:banner_url"`
+			EstFee        string `gorm:"column:est_fee"`
+			AffiliationID *uint  `gorm:"column:affiliation_id"`
 		}
-		r.db.Table("courses").Select("id, title, level, duration, field_of_study, banner_url").Where("id IN ?", ids).Find(&rows)
+		var rows []courseRow
+		r.db.Table("courses").Select("id, title, level, duration, field_of_study, banner_url, est_fee, affiliation_id").Where("id IN ?", ids).Find(&rows)
+
+		// Resolve university names for affiliation
+		uniIDs := make(map[uint]bool)
 		for _, row := range rows {
+			if row.AffiliationID != nil && *row.AffiliationID > 0 {
+				uniIDs[*row.AffiliationID] = true
+			}
+		}
+		uniMap := make(map[uint]string)
+		if len(uniIDs) > 0 {
+			uids := make([]uint, 0, len(uniIDs))
+			for id := range uniIDs {
+				uids = append(uids, id)
+			}
+			var uRows []struct {
+				ID   uint   `gorm:"column:id"`
+				Name string `gorm:"column:name"`
+			}
+			r.db.Table("universities").Select("id, name").Where("id IN ?", uids).Find(&uRows)
+			for _, ur := range uRows {
+				uniMap[ur.ID] = ur.Name
+			}
+		}
+
+		for _, row := range rows {
+			affiliation := ""
+			if row.AffiliationID != nil && *row.AffiliationID > 0 {
+				affiliation = uniMap[*row.AffiliationID]
+			}
 			courseMap[row.ID] = &AdCourse{
-				ID:         row.ID,
-				Title:      row.Title,
-				Level:      row.Level,
-				Duration:   row.Duration,
-				FieldStudy: row.FieldStudy,
-				BannerURL:  row.BannerURL,
+				ID:          row.ID,
+				Title:       row.Title,
+				Level:       row.Level,
+				Duration:    row.Duration,
+				FieldStudy:  row.FieldStudy,
+				BannerURL:   row.BannerURL,
+				EstFee:      row.EstFee,
+				Affiliation: affiliation,
 			}
 		}
 	}

@@ -469,6 +469,8 @@ func toAdResponse(ad *Ad) AdResponse {
 		resp.CourseDuration = ad.Course.Duration
 		resp.CourseField = ad.Course.FieldStudy
 		resp.CourseBannerURL = ad.Course.BannerURL
+		resp.CourseEstFee = ad.Course.EstFee
+		resp.CourseAffiliation = ad.Course.Affiliation
 	}
 
 	return resp

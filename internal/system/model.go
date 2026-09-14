@@ -33,12 +33,14 @@ type AdCollege struct {
 }
 
 type AdCourse struct {
-	ID         uint   `json:"id"`
-	Title      string `json:"title"`
-	Level      string `json:"level"`
-	Duration   string `json:"duration"`
-	FieldStudy string `json:"field_of_study"`
-	BannerURL  string `json:"banner_url"`
+	ID          uint   `json:"id"`
+	Title       string `json:"title"`
+	Level       string `json:"level"`
+	Duration    string `json:"duration"`
+	FieldStudy  string `json:"field_of_study"`
+	BannerURL   string `json:"banner_url"`
+	EstFee      string `json:"est_fee"`
+	Affiliation string `json:"affiliation"`
 }
 
 type Ad struct {

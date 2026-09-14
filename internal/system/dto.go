@@ -96,6 +96,8 @@ type AdResponse struct {
 	CourseDuration string `json:"course_duration,omitempty"`
 	CourseField    string `json:"course_field,omitempty"`
 	CourseBannerURL string `json:"course_banner_url,omitempty"`
+	CourseEstFee    string `json:"course_est_fee,omitempty"`
+	CourseAffiliation string `json:"course_affiliation,omitempty"`
 	CreatedAt   string `json:"created_at"`
 	UpdatedAt   string `json:"updated_at"`
 }
