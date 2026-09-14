@@ -187,7 +187,7 @@ func (r *Repository) FindInstitutionUsersFiltered(status string, filter Institut
 
 	if filter.Search != "" {
 		s := "%" + filter.Search + "%"
-		baseQuery = baseQuery.Where("institution_users.institution_name LIKE ? OR institution_users.registration_number LIKE ?", s, s)
+		baseQuery = baseQuery.Where("institution_users.institution_name ILIKE ? OR institution_users.registration_number ILIKE ?", s, s)
 	}
 	if filter.Type != "" {
 		baseQuery = baseQuery.Where("institution_users.organization_type = ?", filter.Type)

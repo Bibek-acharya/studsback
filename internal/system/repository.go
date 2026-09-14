@@ -180,7 +180,7 @@ func (r *Repository) FindAdByID(id uint) (*Ad, error) {
 	return &ad, nil
 }
 
-// resolveAdEntities batch-loads college and course data for a slice of ads.
+// resolveAdEntities batch-loads institution and course data for a slice of ads.
 func (r *Repository) resolveAdEntities(ads []Ad) {
 	if len(ads) == 0 {
 		return
@@ -198,7 +198,7 @@ func (r *Repository) resolveAdEntities(ads []Ad) {
 		}
 	}
 
-	// Batch-load colleges
+	// Batch-load institutions (entity picker uses institution_users IDs)
 	collegeMap := make(map[uint]*AdCollege)
 	if len(collegeIDs) > 0 {
 		ids := make([]uint, 0, len(collegeIDs))
@@ -207,18 +207,16 @@ func (r *Repository) resolveAdEntities(ads []Ad) {
 		}
 		var rows []struct {
 			ID       uint    `gorm:"column:id"`
-			Name     string  `gorm:"column:name"`
-			ImageURL string  `gorm:"column:image_url"`
-			Rating   float64 `gorm:"column:rating"`
-			Location string  `gorm:"column:location"`
+			Name     string  `gorm:"column:institution_name"`
+			ImageURL string  `gorm:"column:logo_url"`
+			Location string  `gorm:"column:district"`
 		}
-		r.db.Table("colleges").Select("id, name, image_url, rating, location").Where("id IN ?", ids).Find(&rows)
+		r.db.Table("institution_users").Select("id, institution_name, logo_url, district").Where("id IN ? AND deleted_at IS NULL", ids).Find(&rows)
 		for _, row := range rows {
 			collegeMap[row.ID] = &AdCollege{
 				ID:       row.ID,
 				Name:     row.Name,
 				ImageURL: row.ImageURL,
-				Rating:   row.Rating,
 				Location: row.Location,
 			}
 		}
