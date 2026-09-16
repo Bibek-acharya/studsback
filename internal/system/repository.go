@@ -445,3 +445,131 @@ func (r *Repository) FindActivePublicNotifications() ([]PublicNotification, erro
 func (r *Repository) CreatePublicNotification(n *PublicNotification) error {
 	return r.db.Create(n).Error
 }
+
+// Landing Course methods
+
+func (r *Repository) FindActiveLandingFields() ([]LandingCourseField, error) {
+	var fields []LandingCourseField
+	err := r.db.Where("is_active = true").Order("display_order ASC, id ASC").Find(&fields).Error
+	return fields, err
+}
+
+func (r *Repository) FindAllLandingFields() ([]LandingCourseField, error) {
+	var fields []LandingCourseField
+	err := r.db.Order("display_order ASC, id ASC").Find(&fields).Error
+	return fields, err
+}
+
+func (r *Repository) FindLandingFieldByID(id uint) (*LandingCourseField, error) {
+	var field LandingCourseField
+	err := r.db.First(&field, id).Error
+	return &field, err
+}
+
+func (r *Repository) UpdateLandingField(id uint, updates map[string]interface{}) error {
+	return r.db.Model(&LandingCourseField{}).Where("id = ?", id).Updates(updates).Error
+}
+
+func (r *Repository) ReorderLandingFields(items []FieldReorderItem) error {
+	tx := r.db.Begin()
+	for _, item := range items {
+		if err := tx.Model(&LandingCourseField{}).Where("id = ?", item.ID).Update("display_order", item.DisplayOrder).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+	return tx.Commit().Error
+}
+
+func (r *Repository) FindInstitutionsByFieldID(fieldID uint) ([]LandingCourseInstitution, error) {
+	var institutions []LandingCourseInstitution
+	err := r.db.Where("field_id = ?", fieldID).Order("order_index ASC, id ASC").Find(&institutions).Error
+	return institutions, err
+}
+
+func (r *Repository) FindInstitutionsByFieldIDs(fieldIDs []uint) (map[uint][]LandingCourseInstitution, error) {
+	var institutions []LandingCourseInstitution
+	err := r.db.Where("field_id IN ?", fieldIDs).Order("order_index ASC, id ASC").Find(&institutions).Error
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[uint][]LandingCourseInstitution)
+	for _, inst := range institutions {
+		result[inst.FieldID] = append(result[inst.FieldID], inst)
+	}
+	return result, nil
+}
+
+func (r *Repository) CreateLandingInstitution(inst *LandingCourseInstitution) error {
+	return r.db.Create(inst).Error
+}
+
+func (r *Repository) DeleteLandingInstitution(id uint) error {
+	return r.db.Delete(&LandingCourseInstitution{}, id).Error
+}
+
+func (r *Repository) ReorderLandingInstitutions(items []InstitutionReorderItem) error {
+	tx := r.db.Begin()
+	for _, item := range items {
+		if err := tx.Model(&LandingCourseInstitution{}).Where("id = ?", item.ID).Update("order_index", item.OrderIndex).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+	return tx.Commit().Error
+}
+
+func (r *Repository) CountInstitutionsByField(fieldID uint) (int64, error) {
+	var count int64
+	err := r.db.Model(&LandingCourseInstitution{}).Where("field_id = ?", fieldID).Count(&count).Error
+	return count, err
+}
+
+func (r *Repository) InstitutionLinkExists(fieldID, institutionID uint) (bool, error) {
+	var count int64
+	err := r.db.Model(&LandingCourseInstitution{}).Where("field_id = ? AND institution_id = ?", fieldID, institutionID).Count(&count).Error
+	return count > 0, err
+}
+
+func (r *Repository) SearchInstitutions(query string) ([]InstitutionSearchResult, error) {
+	like := "%" + query + "%"
+
+	// Search institution_users
+	var instResults []InstitutionSearchResult
+	err := r.db.Raw(`
+		SELECT id, institution_name as name, logo_url, 'institution' as type,
+		       LOWER(REPLACE(institution_name, ' ', '-')) as slug,
+		       district as location
+		FROM institution_users
+		WHERE deleted_at IS NULL
+		AND (institution_name ILIKE ? OR district ILIKE ?)
+		AND status = 'approved'
+		LIMIT 10
+	`, like, like).Scan(&instResults).Error
+	if err != nil {
+		return nil, err
+	}
+
+	// Search legacy colleges
+	var collegeResults []InstitutionSearchResult
+	err = r.db.Raw(`
+		SELECT id, name,
+		       COALESCE(image_url, '') as logo_url,
+		       'college' as type,
+		       LOWER(REPLACE(name, ' ', '-')) as slug,
+		       COALESCE(location, '') as location
+		FROM colleges
+		WHERE name ILIKE ?
+		LIMIT 10
+	`, like).Scan(&collegeResults).Error
+	if err != nil {
+		return nil, err
+	}
+
+	// Merge and limit to 10 total
+	results := append(instResults, collegeResults...)
+	if len(results) > 10 {
+		results = results[:10]
+	}
+	return results, nil
+}

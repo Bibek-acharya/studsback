@@ -88,3 +88,24 @@ type CarouselSlide struct {
 	Order       int            `gorm:"default:0;index" json:"order"`
 	Active      bool           `gorm:"default:true;index" json:"active"`
 }
+
+type LandingCourseField struct {
+	ID           uint      `gorm:"primarykey" json:"id"`
+	FieldOfStudy string    `gorm:"column:field_of_study;uniqueIndex;not null" json:"field_of_study"`
+	DisplayOrder int       `gorm:"column:display_order;default:0" json:"display_order"`
+	IsActive     bool      `gorm:"column:is_active;default:true" json:"is_active"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
+type LandingCourseInstitution struct {
+	ID              uint      `gorm:"primarykey" json:"id"`
+	FieldID         uint      `gorm:"column:field_id;index;not null" json:"field_id"`
+	InstitutionID   uint      `gorm:"column:institution_id;not null" json:"institution_id"`
+	InstitutionType string    `gorm:"column:institution_type;size:20;default:'institution'" json:"institution_type"`
+	InstitutionName string    `gorm:"column:institution_name;default:''" json:"institution_name"`
+	InstitutionLogo string    `gorm:"column:institution_logo;type:text" json:"institution_logo"`
+	Slug            string    `gorm:"column:slug;default:''" json:"slug"`
+	OrderIndex      int       `gorm:"column:order_index;default:0" json:"order_index"`
+	CreatedAt       time.Time `json:"created_at"`
+}

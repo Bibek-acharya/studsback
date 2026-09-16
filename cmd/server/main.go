@@ -203,6 +203,8 @@ func main() {
 		&auth.InstitutionSubscription{},
 		&system.Ad{},
 		&system.CarouselSlide{},
+		&system.LandingCourseField{},
+		&system.LandingCourseInstitution{},
 		&chat.SitePage{},
 		&feedback.Feedback{},
 		&faq.FAQCategory{},
@@ -245,6 +247,9 @@ func main() {
 	}
 	if err := migrations.AddAdEntityLinksAndFields(db); err != nil {
 		logger.Warn("Failed to run ad entity links migration", "error", err)
+	}
+	if err := migrations.SeedLandingCourseFields(db); err != nil {
+		logger.Warn("Failed to seed landing course fields", "error", err)
 	}
 		// Cleanup dangling sub-users with provider_id = 0 from previous bug
 		if err := db.Exec("DELETE FROM provider_access_users WHERE provider_id = 0").Error; err != nil {

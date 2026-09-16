@@ -16,6 +16,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			system.POST("/ads/:id/click", h.TrackAdClick)
 			system.GET("/carousels", h.GetCarousels)
 			system.GET("/notifications", h.GetPublicNotifications)
+			system.GET("/landing-courses", h.GetPublicLandingCourses)
 		}
 
 		admin := v1.Group("/admin")
@@ -40,6 +41,14 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			admin.PUT("/carousels/:id", h.UpdateCarouselSlide)
 			admin.DELETE("/carousels/:id", h.DeleteCarouselSlide)
 			admin.PUT("/carousels/reorder", h.ReorderCarouselSlides)
+
+			admin.GET("/landing-courses", h.GetAdminLandingCourses)
+			admin.PUT("/landing-courses/fields/:id", h.UpdateLandingField)
+			admin.PUT("/landing-courses/fields/reorder", h.ReorderLandingFields)
+			admin.POST("/landing-courses", h.LinkLandingInstitution)
+			admin.DELETE("/landing-courses/:id", h.UnlinkLandingInstitution)
+			admin.PUT("/landing-courses/reorder", h.ReorderLandingInstitutions)
+			admin.GET("/landing-courses/search", h.SearchLandingInstitutions)
 		}
 	}
 }

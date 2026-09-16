@@ -120,3 +120,68 @@ type CarouselSlideResponse struct {
 // PublicNotificationResponse moved to internal/notification (Task 13); the
 // alias keeps the guest GET's response shape byte-identical.
 type PublicNotificationResponse = notification.PublicNotificationResponse
+
+// Landing Course DTOs
+type LandingCourseFieldResponse struct {
+	ID           uint   `json:"id"`
+	FieldOfStudy string `json:"field_of_study"`
+	DisplayOrder int    `json:"display_order"`
+	IsActive     bool   `json:"is_active"`
+}
+
+type LandingCourseInstitutionResponse struct {
+	ID              uint   `json:"id"`
+	FieldID         uint   `json:"field_id"`
+	InstitutionID   uint   `json:"institution_id"`
+	InstitutionType string `json:"institution_type"`
+	InstitutionName string `json:"institution_name"`
+	InstitutionLogo string `json:"institution_logo"`
+	Slug            string `json:"slug"`
+	OrderIndex      int    `json:"order_index"`
+}
+
+type LandingCoursePublicResponse struct {
+	FieldOfStudy string                              `json:"field_of_study"`
+	Institutions []LandingCourseInstitutionResponse `json:"institutions"`
+}
+
+type LinkInstitutionRequest struct {
+	FieldID         uint   `json:"field_id" binding:"required"`
+	InstitutionID   uint   `json:"institution_id" binding:"required"`
+	InstitutionType string `json:"institution_type"`
+	InstitutionName string `json:"institution_name"`
+	InstitutionLogo string `json:"institution_logo"`
+	Slug            string `json:"slug"`
+}
+
+type ReorderFieldsRequest struct {
+	Items []FieldReorderItem `json:"items" binding:"required"`
+}
+
+type FieldReorderItem struct {
+	ID           uint `json:"id" binding:"required"`
+	DisplayOrder int  `json:"display_order" binding:"required"`
+}
+
+type UpdateFieldRequest struct {
+	IsActive     *bool `json:"is_active"`
+	DisplayOrder *int  `json:"display_order"`
+}
+
+type ReorderInstitutionsRequest struct {
+	Items []InstitutionReorderItem `json:"items" binding:"required"`
+}
+
+type InstitutionReorderItem struct {
+	ID         uint `json:"id" binding:"required"`
+	OrderIndex int  `json:"order_index" binding:"required"`
+}
+
+type InstitutionSearchResult struct {
+	ID           uint   `json:"id"`
+	Name         string `json:"name"`
+	LogoURL      string `json:"logo_url"`
+	Type         string `json:"type"`
+	Slug         string `json:"slug"`
+	Location     string `json:"location"`
+}

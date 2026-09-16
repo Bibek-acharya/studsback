@@ -492,3 +492,108 @@ func toCarouselSlideResponse(slide *CarouselSlide) CarouselSlideResponse {
 		UpdatedAt:   slide.UpdatedAt.Format("2006-01-02T15:04:05Z"),
 	}
 }
+
+// Landing Course handlers
+
+func (h *Handler) GetPublicLandingCourses(c *gin.Context) {
+	courses, err := h.service.GetPublicLandingCourses()
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to retrieve landing courses")
+		return
+	}
+	response.Success(c, http.StatusOK, "Landing courses retrieved", courses)
+}
+
+func (h *Handler) GetAdminLandingCourses(c *gin.Context) {
+	courses, err := h.service.GetAdminLandingCourses()
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to retrieve landing courses")
+		return
+	}
+	response.Success(c, http.StatusOK, "Landing courses retrieved", courses)
+}
+
+func (h *Handler) UpdateLandingField(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid field ID")
+		return
+	}
+	var req UpdateFieldRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := h.service.UpdateLandingField(uint(id), req); err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to update field")
+		return
+	}
+	response.Success(c, http.StatusOK, "Field updated successfully", nil)
+}
+
+func (h *Handler) ReorderLandingFields(c *gin.Context) {
+	var req ReorderFieldsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := h.service.ReorderLandingFields(req); err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to reorder fields")
+		return
+	}
+	response.Success(c, http.StatusOK, "Fields reordered successfully", nil)
+}
+
+func (h *Handler) LinkLandingInstitution(c *gin.Context) {
+	var req LinkInstitutionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	inst, err := h.service.LinkInstitution(req)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	response.Success(c, http.StatusCreated, "Institution linked successfully", inst)
+}
+
+func (h *Handler) UnlinkLandingInstitution(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid ID")
+		return
+	}
+	if err := h.service.UnlinkInstitution(uint(id)); err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to unlink institution")
+		return
+	}
+	response.Success(c, http.StatusOK, "Institution unlinked successfully", nil)
+}
+
+func (h *Handler) ReorderLandingInstitutions(c *gin.Context) {
+	var req ReorderInstitutionsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := h.service.ReorderLandingInstitutions(req); err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to reorder institutions")
+		return
+	}
+	response.Success(c, http.StatusOK, "Institutions reordered successfully", nil)
+}
+
+func (h *Handler) SearchLandingInstitutions(c *gin.Context) {
+	query := c.Query("q")
+	if query == "" {
+		response.Error(c, http.StatusBadRequest, "Search query is required")
+		return
+	}
+	results, err := h.service.SearchInstitutionsForLanding(query)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to search institutions")
+		return
+	}
+	response.Success(c, http.StatusOK, "Search results", results)
+}

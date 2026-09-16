@@ -336,3 +336,173 @@ func (s *Service) CreatePublicNotification(title, message, notifType, link, icon
 	}
 	return n, nil
 }
+
+// Landing Course methods
+
+func (s *Service) GetPublicLandingCourses() ([]LandingCoursePublicResponse, error) {
+	fields, err := s.repo.FindActiveLandingFields()
+	if err != nil {
+		return nil, err
+	}
+	if len(fields) == 0 {
+		return []LandingCoursePublicResponse{}, nil
+	}
+
+	fieldIDs := make([]uint, len(fields))
+	for i, f := range fields {
+		fieldIDs[i] = f.ID
+	}
+
+	institutionsMap, err := s.repo.FindInstitutionsByFieldIDs(fieldIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	var result []LandingCoursePublicResponse
+	for _, field := range fields {
+		institutions := institutionsMap[field.ID]
+		if institutions == nil {
+			institutions = []LandingCourseInstitution{}
+		}
+		instResponses := make([]LandingCourseInstitutionResponse, len(institutions))
+		for i, inst := range institutions {
+			instResponses[i] = LandingCourseInstitutionResponse{
+				ID:              inst.ID,
+				FieldID:         inst.FieldID,
+				InstitutionID:   inst.InstitutionID,
+				InstitutionType: inst.InstitutionType,
+				InstitutionName: inst.InstitutionName,
+				InstitutionLogo: inst.InstitutionLogo,
+				Slug:            inst.Slug,
+				OrderIndex:      inst.OrderIndex,
+			}
+		}
+		result = append(result, LandingCoursePublicResponse{
+			FieldOfStudy: field.FieldOfStudy,
+			Institutions: instResponses,
+		})
+	}
+	return result, nil
+}
+
+func (s *Service) GetAdminLandingCourses() ([]LandingCoursePublicResponse, error) {
+	fields, err := s.repo.FindAllLandingFields()
+	if err != nil {
+		return nil, err
+	}
+	if len(fields) == 0 {
+		return []LandingCoursePublicResponse{}, nil
+	}
+
+	fieldIDs := make([]uint, len(fields))
+	for i, f := range fields {
+		fieldIDs[i] = f.ID
+	}
+
+	institutionsMap, err := s.repo.FindInstitutionsByFieldIDs(fieldIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	var result []LandingCoursePublicResponse
+	for _, field := range fields {
+		institutions := institutionsMap[field.ID]
+		if institutions == nil {
+			institutions = []LandingCourseInstitution{}
+		}
+		instResponses := make([]LandingCourseInstitutionResponse, len(institutions))
+		for i, inst := range institutions {
+			instResponses[i] = LandingCourseInstitutionResponse{
+				ID:              inst.ID,
+				FieldID:         inst.FieldID,
+				InstitutionID:   inst.InstitutionID,
+				InstitutionType: inst.InstitutionType,
+				InstitutionName: inst.InstitutionName,
+				InstitutionLogo: inst.InstitutionLogo,
+				Slug:            inst.Slug,
+				OrderIndex:      inst.OrderIndex,
+			}
+		}
+		result = append(result, LandingCoursePublicResponse{
+			FieldOfStudy: field.FieldOfStudy,
+			Institutions: instResponses,
+		})
+	}
+	return result, nil
+}
+
+func (s *Service) UpdateLandingField(id uint, req UpdateFieldRequest) error {
+	updates := map[string]interface{}{}
+	if req.IsActive != nil {
+		updates["is_active"] = *req.IsActive
+	}
+	if req.DisplayOrder != nil {
+		updates["display_order"] = *req.DisplayOrder
+	}
+	if len(updates) == 0 {
+		return nil
+	}
+	return s.repo.UpdateLandingField(id, updates)
+}
+
+func (s *Service) ReorderLandingFields(req ReorderFieldsRequest) error {
+	return s.repo.ReorderLandingFields(req.Items)
+}
+
+func (s *Service) LinkInstitution(req LinkInstitutionRequest) (*LandingCourseInstitution, error) {
+	// Check field exists
+	_, err := s.repo.FindLandingFieldByID(req.FieldID)
+	if err != nil {
+		return nil, errors.New("field not found")
+	}
+
+	// Check max 5 per field
+	count, err := s.repo.CountInstitutionsByField(req.FieldID)
+	if err != nil {
+		return nil, err
+	}
+	if count >= 5 {
+		return nil, errors.New("maximum 5 institutions per field")
+	}
+
+	// Check duplicate
+	exists, err := s.repo.InstitutionLinkExists(req.FieldID, req.InstitutionID)
+	if err != nil {
+		return nil, err
+	}
+	if exists {
+		return nil, errors.New("institution already linked to this field")
+	}
+
+	instType := req.InstitutionType
+	if instType == "" {
+		instType = "institution"
+	}
+
+	inst := &LandingCourseInstitution{
+		FieldID:         req.FieldID,
+		InstitutionID:   req.InstitutionID,
+		InstitutionType: instType,
+		InstitutionName: req.InstitutionName,
+		InstitutionLogo: req.InstitutionLogo,
+		Slug:            req.Slug,
+		OrderIndex:      int(count),
+	}
+
+	if err := s.repo.CreateLandingInstitution(inst); err != nil {
+		return nil, errors.New("failed to link institution")
+	}
+	return inst, nil
+}
+
+func (s *Service) UnlinkInstitution(id uint) error {
+	return s.repo.DeleteLandingInstitution(id)
+}
+
+func (s *Service) ReorderLandingInstitutions(req ReorderInstitutionsRequest) error {
+	return s.repo.ReorderLandingInstitutions(req.Items)
+}
+
+func (s *Service) SearchInstitutionsForLanding(query string) ([]InstitutionSearchResult, error) {
+	return s.repo.SearchInstitutions(query)
+}
