@@ -871,7 +871,7 @@ func (s *Service) RejectScholarshipProvider(providerID uint) error {
 
 func (s *Service) CreateInstitution(req CreateInstitutionRequest) (*InstitutionUser, error) {
 	slug := strings.NewReplacer(" ", "_", ".", "_", "-", "_").Replace(strings.ToLower(req.InstitutionName))
-	email := fmt.Sprintf("%s@institution.edu.np", slug)
+	email := fmt.Sprintf("%s_%d@institution.edu.np", slug, time.Now().UnixMilli())
 
 	password, err := utils.GenerateRandomPassword(12)
 	if err != nil {
@@ -921,6 +921,7 @@ func (s *Service) CreateInstitution(req CreateInstitutionRequest) (*InstitutionU
 		UniversityAffiliations:   uniAffiliations,
 		Verified:                 false,
 		Claimed:                  false,
+		ProfileStatus:            "published",
 		District:                 req.Location,
 		WebsiteURL:               req.Website,
 		LogoURL:                  req.LogoURL,

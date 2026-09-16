@@ -252,7 +252,7 @@ func (r *Repository) InsertDelivery(tx *gorm.DB, d NotificationDelivery) error {
 	if tx == nil {
 		tx = r.db
 	}
-	return tx.Create(&d).Error
+	return tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&d).Error
 }
 
 func (r *Repository) UpsertPreference(pref NotificationPreference) error {
