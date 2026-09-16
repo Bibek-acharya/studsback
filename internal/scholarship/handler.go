@@ -2,6 +2,7 @@ package scholarship
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -95,9 +96,37 @@ func (h *Handler) RecommendScholarships(c *gin.Context) {
 		return
 	}
 
+	topN := len(results)
+	if topN > 10 {
+		topN = 10
+	}
+	top := make([]recommendLogItem, 0, topN)
+	for _, r := range results[:topN] {
+		top = append(top, recommendLogItem{ID: r.ID, Score: r.Score, Title: r.Title})
+	}
+	if reqJSON, err := json.Marshal(req); err == nil {
+		log.Printf("recommend: request=%s top=%s", reqJSON, marshalRecommendLogItems(top))
+	} else {
+		log.Printf("recommend: top=%s", marshalRecommendLogItems(top))
+	}
+
 	response.Success(c, 200, "Recommendations retrieved successfully", ScholarshipRecommendResponse{
 		Scholarships: results,
 	})
+}
+
+type recommendLogItem struct {
+	ID    uint   `json:"id"`
+	Score int    `json:"score"`
+	Title string `json:"title"`
+}
+
+func marshalRecommendLogItems(items []recommendLogItem) string {
+	b, err := json.Marshal(items)
+	if err != nil {
+		return "[]"
+	}
+	return string(b)
 }
 
 func (h *Handler) GetSimilarScholarships(c *gin.Context) {

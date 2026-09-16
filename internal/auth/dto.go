@@ -184,26 +184,40 @@ type InstitutionDetailResponse struct {
 }
 
 type CreateInstitutionRequest struct {
-	InstitutionName string      `json:"institution_name" binding:"required"`
-	Location        string      `json:"location"`
-	Website         string      `json:"website"`
-	Level           string      `json:"level"`
-	Affiliation     string      `json:"affiliation"`
-	UniversityID    uint        `json:"university_id"`
-	LogoURL         string      `json:"logo_url"`
-	BannerURL       string      `json:"banner_url"`
-	About           string      `json:"about"`
-	Vision          string      `json:"vision"`
-	Mission         string      `json:"mission"`
-	Videos          interface{} `json:"videos"`
-	OverviewData    interface{} `json:"overview_data"`
-	LeadershipData  interface{} `json:"leadership_data"`
-	CoursesData     interface{} `json:"courses_data"`
-	ProgramsData    interface{} `json:"programs_data"`
-	FacilitiesData  interface{} `json:"facilities_data"`
-	AlumniData      interface{} `json:"alumni_data"`
-	GalleryData     interface{} `json:"gallery_data"`
-	DownloadsData   interface{} `json:"downloads_data"`
+	InstitutionName          string      `json:"institution_name" binding:"required"`
+	RegistrationNumber       string      `json:"registration_number"`
+	Location                 string      `json:"location"`
+	Website                  string      `json:"website"`
+	Level                    string      `json:"level"`
+	Affiliation              string      `json:"affiliation"`
+	UniversityID             uint        `json:"university_id"`
+	UniversityAffiliations   interface{} `json:"university_affiliations"`
+	NonUniversityAffiliation string      `json:"non_university_affiliation"`
+	LogoURL                  string      `json:"logo_url"`
+	BannerURL                string      `json:"banner_url"`
+	CardImageURL             string      `json:"card_image_url"`
+	About                    string      `json:"about"`
+	Vision                   string      `json:"vision"`
+	Mission                  string      `json:"mission"`
+	ContactEmail             string      `json:"contact_email"`
+	ContactPhone             string      `json:"contact_phone"`
+	MapURL                   string      `json:"map_url"`
+	FacebookURL              string      `json:"facebook_url"`
+	InstagramURL             string      `json:"instagram_url"`
+	TiktokURL                string      `json:"tiktok_url"`
+	YoutubeURL               string      `json:"youtube_url"`
+	LinkedinURL              string      `json:"linkedin_url"`
+	Videos                   interface{} `json:"videos"`
+	OverviewData             interface{} `json:"overview_data"`
+	LeadershipData           interface{} `json:"leadership_data"`
+	CoursesData              interface{} `json:"courses_data"`
+	ProgramsData             interface{} `json:"programs_data"`
+	FacilitiesData           interface{} `json:"facilities_data"`
+	AlumniData               interface{} `json:"alumni_data"`
+	GalleryData              interface{} `json:"gallery_data"`
+	DownloadsData            interface{} `json:"downloads_data"`
+	FaqsData                 interface{} `json:"faqs_data"`
+	BrochureData             interface{} `json:"brochure_data"`
 }
 
 type InstitutionApprovalRequest struct {

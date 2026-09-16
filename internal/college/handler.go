@@ -1,6 +1,8 @@
 package college
 
 import (
+	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
 	"sync"
@@ -302,6 +304,21 @@ func (h *Handler) RecommendColleges(c *gin.Context) {
 	if err != nil {
 		response.Error(c, 500, "Failed to get recommendations")
 		return
+	}
+
+	// Structured log for future accuracy measurement: student inputs + top-10
+	// result IDs with scores. One line, no DB writes.
+	logPayload := struct {
+		Inputs   CollegeRecommenderRequest `json:"inputs"`
+		Top10    []CollegeRecommendationResult `json:"top10"`
+	}{Inputs: req}
+	if len(recommendations) > 10 {
+		logPayload.Top10 = recommendations[:10]
+	} else {
+		logPayload.Top10 = recommendations
+	}
+	if line, err := json.Marshal(logPayload); err == nil {
+		log.Printf("college_recommendation: %s", line)
 	}
 
 	response.Success(c, 200, "Recommendations retrieved successfully", CollegeRecommendResponse{

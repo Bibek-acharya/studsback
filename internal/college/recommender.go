@@ -11,7 +11,7 @@ const maxCollegeRecommendations = 30
 
 var preferredFieldKeywords = map[string][]string{
 	"science":         {"science", "bsc", "engineering", "be ", "bit", "csit", "b.sc", "physics", "chemistry", "biology", "math", "mathematics"},
-	"management":      {"management", "bbs", "bba", "bbm", "bhm", "bba-tt", "bba-f", "commerce", "finance", "accounting", "marketing", "business"},
+	"management":      {"management", "bbs", "bba", "bbm", "bhm", "bba-tt", "bba-f", "commerce", "finance", "accounting", "marketing", "business", "economics"},
 	"humanities":      {"humanities", "law", "social", "arts", "ba ", "history", "sociology", "anthropology", "political", "philosophy"},
 	"medical":         {"medical", "nursing", "pharmacy", "mbbs", "bds", "bns", "bpharm", "health", "pcl", "ha "},
 	"it":              {"it", "computer", "csit", "bit", "bca", "computing", "software", "data science", "ai", "artificial intelligence"},
@@ -343,6 +343,50 @@ func scoreStudentTypeFit(c College, studentType string, instPrefs InstitutionPre
 	return points, reasons
 }
 
+// containsKeyword reports whether the keyword appears in text on word
+// boundaries. Prevents substring false-positives: "it" inside "university",
+// "ai" inside "plain", "law" inside "bhalwara".
+func containsKeyword(text, kw string) bool {
+	for i := 0; ; {
+		idx := strings.Index(text[i:], kw)
+		if idx < 0 {
+			return false
+		}
+		idx += i
+		before := byte(' ')
+		if idx > 0 {
+			before = text[idx-1]
+		}
+		after := byte(' ')
+		if end := idx + len(kw); end < len(text) {
+			after = text[end]
+		}
+		isSep := func(b byte) bool {
+			return b == ' ' || b == '-' || b == '(' || b == ')' || b == '&' || b == ',' || b == '.' || b == '/' || b == ':'
+		}
+		if isSep(before) && isSep(after) {
+			return true
+		}
+		i = idx + 1
+	}
+}
+
+// bucketSelected decides whether a field string maps to a keyword bucket:
+// the bucket key or any of its keywords appears on a word boundary in the
+// field text ("Engineering" contains no "science" key, but the science bucket
+// lists "engineering" as a keyword).
+func bucketSelected(lowerField, key string) bool {
+	if containsKeyword(lowerField, key) {
+		return true
+	}
+	for _, kw := range preferredFieldKeywords[key] {
+		if containsKeyword(lowerField, kw) {
+			return true
+		}
+	}
+	return false
+}
+
 func scorePreferredField(c College, field string) (int, []string) {
 	if field == "" {
 		return 5, nil
@@ -354,7 +398,11 @@ func scorePreferredField(c College, field string) (int, []string) {
 		if len(kws) == 0 {
 			continue
 		}
-		if !strings.HasPrefix(lowerField, key) {
+		// Contains, not HasPrefix: UI options like "Computer Science & Information
+		// Technology" or "Law & Legal Studies" don't start with the bucket key.
+		// ponytail: keyword-in-text matching; a real alias map per UI option if
+		// this produces false positives.
+		if !bucketSelected(lowerField, key) {
 			continue
 		}
 
@@ -365,7 +413,7 @@ func scorePreferredField(c College, field string) (int, []string) {
 			c.Description)
 
 		for _, kw := range kws {
-			if strings.Contains(combined, kw) {
+			if containsKeyword(combined, kw) {
 				matched = true
 				break
 			}

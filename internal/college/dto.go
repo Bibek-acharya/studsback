@@ -219,6 +219,7 @@ type CollegeFilterCountsResponse struct {
 
 type CollegeRecommenderRequest struct {
 	StudentType          string `json:"student_type"`
+	// ponytail: knows_course collected; ignored until a scoring reason exists
 	KnowsCourse          string `json:"knows_course"`
 	PreferredField       string `json:"preferred_field"`
 	ReputationImportance string `json:"reputation_importance"`

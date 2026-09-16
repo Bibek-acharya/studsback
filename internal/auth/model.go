@@ -96,6 +96,8 @@ type InstitutionUser struct {
 	Level                    string                   `gorm:"default:''" json:"level"`
 	Affiliation              string                   `gorm:"default:''" json:"affiliation"`
 	UniversityID             *uint                    `gorm:"index" json:"university_id"`
+	UniversityAffiliations   []byte                   `gorm:"type:jsonb;default:'[]'" json:"university_affiliations,omitempty"`
+	NonUniversityAffiliation string                   `gorm:"default:''" json:"non_university_affiliation,omitempty"`
 	IsSponsored              bool                     `gorm:"default:false" json:"is_sponsored"`
 	Claimed                  bool                     `gorm:"default:false" json:"claimed"`
 	Verified                 bool                     `gorm:"default:false" json:"verified"`
@@ -103,6 +105,13 @@ type InstitutionUser struct {
 	VerifiedAt               *time.Time               `json:"verified_at"`
 	Latitude                 *float64                 `json:"latitude,omitempty"`
 	Longitude                *float64                 `json:"longitude,omitempty"`
+	MapURL                   string                   `gorm:"default:''" json:"map_url"`
+	FacebookURL              string                   `gorm:"default:''" json:"facebook_url"`
+	InstagramURL             string                   `gorm:"default:''" json:"instagram_url"`
+	TiktokURL                string                   `gorm:"default:''" json:"tiktok_url"`
+	YoutubeURL               string                   `gorm:"default:''" json:"youtube_url"`
+	LinkedinURL              string                   `gorm:"default:''" json:"linkedin_url"`
+	CardImageURL             string                   `gorm:"default:''" json:"card_image_url"`
 	ProfileData              *string                  `gorm:"type:jsonb;default:'{}'" json:"profile_data"`
 	ProfileStatus            string                   `gorm:"type:varchar(20);default:'draft'" json:"profile_status"`
 	Featured                 bool                     `gorm:"default:false" json:"featured"`

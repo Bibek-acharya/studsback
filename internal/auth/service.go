@@ -888,6 +888,8 @@ func (s *Service) CreateInstitution(req CreateInstitutionRequest) (*InstitutionU
 		"alumni_data":     req.AlumniData,
 		"gallery_data":    req.GalleryData,
 		"downloads_data":  req.DownloadsData,
+		"faqs_data":       req.FaqsData,
+		"brochure_data":   req.BrochureData,
 	}
 
 	profileJSON, err := json.Marshal(profileData)
@@ -896,27 +898,46 @@ func (s *Service) CreateInstitution(req CreateInstitutionRequest) (*InstitutionU
 	}
 	profileStr := string(profileJSON)
 
-	regNumber := fmt.Sprintf("ADMIN-%d", time.Now().UnixMilli())
+	var uniAffiliations []byte
+	if req.UniversityAffiliations != nil {
+		uniAffiliations, _ = json.Marshal(req.UniversityAffiliations)
+	}
+
+	regNumber := req.RegistrationNumber
+	if regNumber == "" {
+		regNumber = fmt.Sprintf("ADMIN-%d", time.Now().UnixMilli())
+	}
 
 	institutionUser := InstitutionUser{
-		InstitutionName:    req.InstitutionName,
-		RegistrationNumber: &regNumber,
-		Email:              email,
-		Role:               "institution",
-		Status:             "approved",
-		Level:              req.Level,
-		Affiliation:        req.Affiliation,
-		UniversityID:       &req.UniversityID,
-		Verified:           false,
-		Claimed:            false,
-		District:           req.Location,
-		WebsiteURL:         req.Website,
-		LogoURL:            req.LogoURL,
-		BannerURL:          req.BannerURL,
-		About:              req.About,
-		Vision:             req.Vision,
-		Mission:            req.Mission,
-		ProfileData:        &profileStr,
+		InstitutionName:          req.InstitutionName,
+		RegistrationNumber:       &regNumber,
+		Email:                    email,
+		Role:                     "institution",
+		Status:                   "approved",
+		Level:                    req.Level,
+		Affiliation:              req.Affiliation,
+		UniversityID:             &req.UniversityID,
+		NonUniversityAffiliation: req.NonUniversityAffiliation,
+		UniversityAffiliations:   uniAffiliations,
+		Verified:                 false,
+		Claimed:                  false,
+		District:                 req.Location,
+		WebsiteURL:               req.Website,
+		LogoURL:                  req.LogoURL,
+		BannerURL:                req.BannerURL,
+		CardImageURL:             req.CardImageURL,
+		About:                    req.About,
+		Vision:                   req.Vision,
+		Mission:                  req.Mission,
+		ContactEmail:             req.ContactEmail,
+		ContactPhone:             req.ContactPhone,
+		MapURL:                   req.MapURL,
+		FacebookURL:              req.FacebookURL,
+		InstagramURL:             req.InstagramURL,
+		TiktokURL:                req.TiktokURL,
+		YoutubeURL:               req.YoutubeURL,
+		LinkedinURL:              req.LinkedinURL,
+		ProfileData:              &profileStr,
 	}
 
 	if err := institutionUser.HashPassword(password); err != nil {

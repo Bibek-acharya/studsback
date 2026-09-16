@@ -187,13 +187,12 @@ func scoreScholarship(s Scholarship, req ScholarshipRecommendRequest, profile *P
 	}
 
 	hasProfile := profile != nil && len(profile.EducationEntries) > 0
-	weights := []float64{0.15, 0.15, 0.10, 0.10, 0.05, 0.05, 0.10, 0.05, 0.05, 0.05}
+	weights := recommendationWeights(hasProfile)
 
 	if hasProfile {
 		profileScore := scoreProfileCompatibility(s, profile.EducationEntries, profile.Preferences, profile.BookmarkedFields)
 		breakdown.ProfileCompatibility = profileScore
 		raw = append(raw, float64(profileScore))
-		weights = []float64{0.12, 0.12, 0.08, 0.08, 0.04, 0.04, 0.08, 0.03, 0.04, 0.04, 0.17}
 	}
 
 	norm := normalizePercentile(raw)
@@ -204,6 +203,20 @@ func scoreScholarship(s Scholarship, req ScholarshipRecommendRequest, profile *P
 
 	providerType := determineProviderType(s.Provider, s.FundingType, s.ScholarshipType)
 	return int(math.Round(totalScore * 100)), breakdown, providerType
+}
+
+// recommendationWeights returns the dimension weights (order matches dimValues
+// in scoreScholarship; profileCompatibility is appended last when profile data
+// exists). The leftover mass from the previous non-normalized arrays is added
+// to education level and field of study in proportion to their existing
+// weights, so each array sums to exactly 1.0.
+func recommendationWeights(hasProfile bool) []float64 {
+	if hasProfile {
+		// original sums 0.84; missing 0.16 split evenly over edu+field (0.12 each)
+		return []float64{0.20, 0.20, 0.08, 0.08, 0.04, 0.04, 0.08, 0.03, 0.04, 0.04, 0.17}
+	}
+	// original sums 0.85; missing 0.15 split evenly over edu+field (0.15 each)
+	return []float64{0.225, 0.225, 0.10, 0.10, 0.05, 0.05, 0.10, 0.05, 0.05, 0.05}
 }
 
 func scoreEducationLevel(s Scholarship, userLevel string) int {
@@ -508,41 +521,91 @@ func extractMinGPA(scholarshipType, fundingType, description string, basicEligib
 }
 
 func scoreWillingness(s Scholarship, willingEssay, willingInterview, willingGpa string) int {
-	score := 0
+	text := strings.ToLower(strings.Join([]string{s.Title, s.Description, s.Provider, s.ScholarshipType, s.FundingType}, " "))
 
-	if willingEssay == "yes" {
-		score += 1
+	type requirement struct {
+		keywords []string
+		willing  bool
 	}
-	if willingInterview == "yes" {
-		score += 1
-	}
-	if willingGpa == "yes" {
-		score += 1
+	requirements := []requirement{
+		{[]string{"essay", "statement of purpose", "sop", "written application"}, willingEssay == "yes"},
+		{[]string{"interview"}, willingInterview == "yes"},
+		{[]string{"gpa", "grade point", "academic score"}, willingGpa == "yes"},
 	}
 
-	return score
+	detected := 0
+	covered := 0
+	for _, r := range requirements {
+		matched := false
+		for _, kw := range r.keywords {
+			if strings.Contains(text, kw) {
+				matched = true
+				break
+			}
+		}
+		if matched {
+			detected++
+			if r.willing {
+				covered++
+			}
+		}
+	}
+
+	if detected == 0 {
+		return 3 // neutral: no requirements found in scholarship text
+	}
+
+	if covered == detected {
+		return 5
+	}
+	if covered == 0 {
+		return 0
+	}
+	return 2
+}
+
+// selectedTalentMatches returns true if the selected talent/achievement value
+// (e.g. "Debate", "public_speaking", "olympiad") relates to content present in
+// the scholarship text: the selection's own words or the keywords of the group
+// the selection belongs to.
+func selectedTalentMatches(selection string, keywordGroups map[string][]string, text string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(selection))
+	normalized = strings.ReplaceAll(normalized, " ", "_")
+
+	words := strings.Split(normalized, "_")
+	for key, group := range keywordGroups {
+		if normalized == key {
+			words = append(words, group...)
+			break
+		}
+	}
+
+	for _, w := range words {
+		if w == "" {
+			continue
+		}
+		if fuzzyMatch(text, w) {
+			return true
+		}
+	}
+	return false
 }
 
 func scoreTalents(s Scholarship, talents []string) int {
 	if len(talents) == 0 {
 		return 0
 	}
-	text := strings.ToLower(s.Description + " " + s.Title)
-	score := 0
+	text := strings.ToLower(s.Description + " " + s.Title + " " + s.Provider)
 	talentKeywords := map[string][]string{
 		"programming":    {"programming", "coding", "software", "developer", "tech"},
 		"public_speaking": {"public speaking", "debate", "orator", "presentation"},
 		"arts":           {"arts", "creative", "writing", "design", "music", "performing"},
 		"athletics":      {"sports", "athletics", "sportsperson", "physical"},
 	}
-	for range talents {
-		for _, kw := range talentKeywords {
-			for _, word := range kw {
-				if strings.Contains(text, word) {
-					score += 1
-					break
-				}
-			}
+	score := 0
+	for _, talent := range talents {
+		if selectedTalentMatches(talent, talentKeywords, text) {
+			score++
 		}
 	}
 	if score > 5 {
@@ -555,22 +618,17 @@ func scoreAchievements(s Scholarship, achievements []string) int {
 	if len(achievements) == 0 {
 		return 0
 	}
-	text := strings.ToLower(s.Description + " " + s.Title)
-	score := 0
+	text := strings.ToLower(s.Description + " " + s.Title + " " + s.Provider)
 	achievementKeywords := map[string][]string{
 		"academic_excellence": {"academic", "excellence", "scholar", "top", "rank"},
 		"national_sports":     {"national", "sports", "athlete", "tournament"},
 		"leadership":          {"leadership", "captain", "president", "head"},
 		"olympiad":            {"olympiad", "science", "math", "competition"},
 	}
-	for range achievements {
-		for _, kw := range achievementKeywords {
-			for _, word := range kw {
-				if strings.Contains(text, word) {
-					score += 1
-					break
-				}
-			}
+	score := 0
+	for _, achievement := range achievements {
+		if selectedTalentMatches(achievement, achievementKeywords, text) {
+			score++
 		}
 	}
 	if score > 5 {
