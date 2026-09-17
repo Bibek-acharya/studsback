@@ -141,22 +141,34 @@ type InstitutionRegisterRequest struct {
 }
 
 type UpdateInstitutionRequest struct {
-	InstitutionName  string      `json:"institution_name"`
-	Location         string      `json:"location"`
-	Website          string      `json:"website"`
-	Level            string      `json:"level"`
-	Affiliation      string      `json:"affiliation"`
-	OrganizationType string      `json:"organization_type"`
-	UniversityID     *uint       `json:"university_id"`
-	IsSponsored      *bool       `json:"is_sponsored"`
-	About            string      `json:"about"`
-	Vision           string      `json:"vision"`
-	Mission          string      `json:"mission"`
-	LogoURL          string      `json:"logo_url"`
-	BannerURL        string      `json:"banner_url"`
-	Latitude         *float64    `json:"latitude,omitempty"`
-	Longitude        *float64    `json:"longitude,omitempty"`
-	ProfileData      interface{} `json:"profile_data"`
+	InstitutionName          string      `json:"institution_name"`
+	RegistrationNumber       string      `json:"registration_number"`
+	Email                    string      `json:"email"`
+	Location                 string      `json:"location"`
+	Website                  string      `json:"website"`
+	Level                    string      `json:"level"`
+	Affiliation              string      `json:"affiliation"`
+	OrganizationType         string      `json:"organization_type"`
+	UniversityID             *uint       `json:"university_id"`
+	IsSponsored              *bool       `json:"is_sponsored"`
+	About                    string      `json:"about"`
+	Vision                   string      `json:"vision"`
+	Mission                  string      `json:"mission"`
+	LogoURL                  string      `json:"logo_url"`
+	BannerURL                string      `json:"banner_url"`
+	CardImageURL             string      `json:"card_image_url"`
+	ContactEmail             string      `json:"contact_email"`
+	ContactPhone             string      `json:"contact_phone"`
+	MapURL                   string      `json:"map_url"`
+	FacebookURL              string      `json:"facebook_url"`
+	InstagramURL             string      `json:"instagram_url"`
+	TiktokURL                string      `json:"tiktok_url"`
+	YoutubeURL               string      `json:"youtube_url"`
+	LinkedinURL              string      `json:"linkedin_url"`
+	NonUniversityAffiliation string      `json:"non_university_affiliation"`
+	Latitude                 *float64    `json:"latitude,omitempty"`
+	Longitude                *float64    `json:"longitude,omitempty"`
+	ProfileData              interface{} `json:"profile_data"`
 }
 
 type InstitutionDetailResponse struct {

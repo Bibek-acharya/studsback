@@ -1026,6 +1026,12 @@ func (s *Service) UpdateInstitution(id uint, req UpdateInstitutionRequest) error
 	if req.InstitutionName != "" {
 		user.InstitutionName = req.InstitutionName
 	}
+	if req.RegistrationNumber != "" {
+		user.RegistrationNumber = &req.RegistrationNumber
+	}
+	if req.Email != "" {
+		user.Email = req.Email
+	}
 	if req.Location != "" {
 		user.District = req.Location
 	}
@@ -1061,6 +1067,36 @@ func (s *Service) UpdateInstitution(id uint, req UpdateInstitutionRequest) error
 	}
 	if req.BannerURL != "" {
 		user.BannerURL = req.BannerURL
+	}
+	if req.CardImageURL != "" {
+		user.CardImageURL = req.CardImageURL
+	}
+	if req.ContactEmail != "" {
+		user.ContactEmail = req.ContactEmail
+	}
+	if req.ContactPhone != "" {
+		user.ContactPhone = req.ContactPhone
+	}
+	if req.MapURL != "" {
+		user.MapURL = req.MapURL
+	}
+	if req.FacebookURL != "" {
+		user.FacebookURL = req.FacebookURL
+	}
+	if req.InstagramURL != "" {
+		user.InstagramURL = req.InstagramURL
+	}
+	if req.TiktokURL != "" {
+		user.TiktokURL = req.TiktokURL
+	}
+	if req.YoutubeURL != "" {
+		user.YoutubeURL = req.YoutubeURL
+	}
+	if req.LinkedinURL != "" {
+		user.LinkedinURL = req.LinkedinURL
+	}
+	if req.NonUniversityAffiliation != "" {
+		user.NonUniversityAffiliation = req.NonUniversityAffiliation
 	}
 
 	if req.Latitude != nil {
