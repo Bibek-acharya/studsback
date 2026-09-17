@@ -19,7 +19,7 @@ type ContactInquiryStatusRequest struct {
 type AdRequest struct {
 	Title       string `json:"title" binding:"required"`
 	ImageURL    string `json:"image_url"`
-	LinkURL     string `json:"link_url"`
+	LinkURL     string `json:"link_url" binding:"required"`
 	Location    string `json:"location"`
 	Page        string `json:"page" binding:"required"`
 	Position    string `json:"position"`

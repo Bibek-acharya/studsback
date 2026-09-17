@@ -376,7 +376,7 @@ func (r *Repository) FindCarouselSlides(page string, active *bool) ([]CarouselSl
 		query = query.Where("active = ?", *active)
 	}
 
-	if err := query.Order(`"order" asc, created_at desc`).Find(&slides).Error; err != nil {
+	if err := query.Order(`"order" asc, created_at asc, id asc`).Find(&slides).Error; err != nil {
 		return nil, err
 	}
 
@@ -394,6 +394,14 @@ func (r *Repository) FindCarouselSlideByID(id uint) (*CarouselSlide, error) {
 
 func (r *Repository) CreateCarouselSlide(slide *CarouselSlide) error {
 	return r.db.Create(slide).Error
+}
+
+// MaxCarouselSlideOrder returns the highest slide order for a page (0 when none exist).
+func (r *Repository) MaxCarouselSlideOrder(page string) (int, error) {
+	var maxOrder int
+	err := r.db.Model(&CarouselSlide{}).Where("page = ?", page).
+		Select(`COALESCE(MAX("order"), 0)`).Scan(&maxOrder).Error
+	return maxOrder, err
 }
 
 func (r *Repository) UpdateCarouselSlide(id uint, updates map[string]interface{}) (*CarouselSlide, error) {

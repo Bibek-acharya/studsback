@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -1213,6 +1214,10 @@ func (h *Handler) ToggleInstitutionFeatured(c *gin.Context) {
 	}
 
 	if err := h.service.ToggleInstitutionFeatured(uint(id)); err != nil {
+		if errors.Is(err, ErrUnclaimedFeatured) {
+			response.Error(c, 400, err.Error())
+			return
+		}
 		response.Error(c, 500, err.Error())
 		return
 	}

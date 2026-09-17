@@ -1115,6 +1115,12 @@ func (s *Service) ToggleInstitutionFeatured(institutionID uint) error {
 		return errors.New("Institution not found")
 	}
 
+	// Unclaimed institutions cannot gain featured status; legacy unclaimed
+	// rows that are already featured may still be toggled OFF.
+	if !institution.Claimed && !institution.Featured {
+		return ErrUnclaimedFeatured
+	}
+
 	institution.Featured = !institution.Featured
 
 	if err := s.repo.UpdateInstitutionUser(institution); err != nil {
@@ -1123,6 +1129,9 @@ func (s *Service) ToggleInstitutionFeatured(institutionID uint) error {
 
 	return nil
 }
+
+// ErrUnclaimedFeatured is returned when trying to feature an unclaimed institution.
+var ErrUnclaimedFeatured = errors.New("only claimed institutions can be featured")
 
 func (s *Service) VerifyInstitution(institutionID uint) error {
 	institution, err := s.repo.FindInstitutionUserByID(institutionID)

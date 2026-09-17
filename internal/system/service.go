@@ -265,6 +265,15 @@ func (s *Service) CreateCarouselSlide(req CarouselSlideRequest) (*CarouselSlide,
 		slide.Active = *req.Active
 	}
 
+	// New slides with no explicit order go last by priority within the page.
+	if req.Order == 0 {
+		maxOrder, err := s.repo.MaxCarouselSlideOrder(page)
+		if err != nil {
+			return nil, errors.New("failed to determine slide order")
+		}
+		slide.Order = maxOrder + 1
+	}
+
 	if err := s.repo.CreateCarouselSlide(slide); err != nil {
 		return nil, errors.New("failed to create slide")
 	}
