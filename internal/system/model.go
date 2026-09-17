@@ -68,6 +68,69 @@ type Ad struct {
 	Course      *AdCourse      `gorm:"-" json:"-"`
 }
 
+// Course-finder ad cards (course-ads refactor): multi_college and single_college.
+type CourseAdCard struct {
+	ID            uint           `gorm:"primarykey" json:"id"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
+	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
+	Position      string         `gorm:"index" json:"position"`
+	CourseID      uint           `gorm:"not null" json:"course_id"`
+	InstitutionID *uint          `gorm:"index" json:"institution_id"`
+	Subtitle      string         `gorm:"default:''" json:"subtitle"`
+	Active        bool           `gorm:"default:true" json:"active"`
+	Priority      int            `gorm:"default:0" json:"priority"`
+	Clicks        int            `gorm:"default:0" json:"clicks"`
+
+	// Resolved/child data, not persisted on this table.
+	Course         *CourseAdCourse           `gorm:"-" json:"-"`
+	Institutions   []CourseAdCardInstitution `gorm:"-" json:"-"`
+	InstitutionInf []CourseAdInstitution     `gorm:"-" json:"-"`
+	MouCompanies   []CourseAdCardMouCompany  `gorm:"-" json:"-"`
+}
+
+type CourseAdCardInstitution struct {
+	ID            uint      `gorm:"primarykey" json:"id"`
+	CreatedAt     time.Time `json:"created_at"`
+	CardID        uint      `gorm:"column:card_id;index;not null" json:"card_id"`
+	InstitutionID uint      `gorm:"column:institution_id;not null" json:"institution_id"`
+	OrderIndex    int       `gorm:"column:order_index;default:0" json:"order_index"`
+}
+
+type CourseAdCardMouCompany struct {
+	ID         uint      `gorm:"primarykey" json:"id"`
+	CreatedAt  time.Time `json:"created_at"`
+	CardID     uint      `gorm:"column:card_id;index;not null" json:"card_id"`
+	Name       string    `gorm:"not null" json:"name"`
+	LogoURL    string    `gorm:"column:logo_url;default:''" json:"logo_url"`
+	CompanyURL string    `gorm:"column:company_url;default:''" json:"company_url"`
+}
+
+// CourseAdCourse is the joined course info for a card's public response.
+type CourseAdCourse struct {
+	ID          uint   `json:"id"`
+	Title       string `json:"title"`
+	Level       string `json:"level"`
+	Duration    string `json:"duration"`
+	FieldStudy  string `json:"field_of_study"`
+	Affiliation string `json:"affiliation"`
+	EstFee      string `json:"est_fee"`
+	BannerURL   string `json:"banner_url"`
+	Location    string `json:"location"`
+	Description string `json:"description"`
+}
+
+// CourseAdInstitution is the joined institution info for a card's public response.
+type CourseAdInstitution struct {
+	ID       uint    `json:"id"`
+	Name     string  `json:"name"`
+	ImageURL string  `json:"image_url"`
+	Rating   float64 `json:"rating"`
+	Location string  `json:"location"`
+	Website  string  `json:"website"`
+	Slug     string  `json:"slug"`
+}
+
 // PublicNotification moved to internal/notification (Task 13); the alias
 // keeps the system module's guest GET and the cross-module emit sites
 // compiling against the same table and struct.

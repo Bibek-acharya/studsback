@@ -1,6 +1,7 @@
 package system
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -596,4 +597,175 @@ func (h *Handler) SearchLandingInstitutions(c *gin.Context) {
 		return
 	}
 	response.Success(c, http.StatusOK, "Search results", results)
+}
+
+// Course-finder ad card handlers
+
+func courseAdErrorStatus(err error) int {
+	var ve *validationError
+	if errors.As(err, &ve) {
+		return http.StatusBadRequest
+	}
+	return http.StatusInternalServerError
+}
+
+func (h *Handler) GetCourseAdCards(c *gin.Context) {
+	// Admin listing: all cards (including inactive) for the position.
+	cards, err := h.service.GetCourseAdCards(c.Query("position"), false)
+	if err != nil {
+		response.Error(c, courseAdErrorStatus(err), err.Error())
+		return
+	}
+	response.Success(c, http.StatusOK, "Course ad cards retrieved", cards)
+}
+
+func (h *Handler) GetActiveCourseAdCards(c *gin.Context) {
+	// Public listing: active cards only, priority desc, id desc, max 10.
+	cards, err := h.service.GetCourseAdCards(c.Query("position"), true)
+	if err != nil {
+		response.Error(c, courseAdErrorStatus(err), err.Error())
+		return
+	}
+	response.Success(c, http.StatusOK, "Course ad cards retrieved", cards)
+}
+
+func (h *Handler) GetCourseAdCardByID(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid ID")
+		return
+	}
+	card, err := h.service.GetCourseAdCard(uint(id))
+	if err != nil {
+		if err.Error() == "record not found" {
+			response.Error(c, http.StatusNotFound, "Course ad card not found")
+			return
+		}
+		response.Error(c, courseAdErrorStatus(err), err.Error())
+		return
+	}
+	response.Success(c, http.StatusOK, "Course ad card retrieved", card)
+}
+
+func (h *Handler) CreateCourseAdCard(c *gin.Context) {
+	var req CourseAdRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	card, err := h.service.CreateCourseAdCard(req)
+	if err != nil {
+		response.Error(c, courseAdErrorStatus(err), err.Error())
+		return
+	}
+	response.Success(c, http.StatusCreated, "Course ad card created", card)
+}
+
+func (h *Handler) UpdateCourseAdCard(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid ID")
+		return
+	}
+
+	var req CourseAdRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	card, err := h.service.UpdateCourseAdCard(uint(id), req)
+	if err != nil {
+		if err.Error() == "record not found" {
+			response.Error(c, http.StatusNotFound, "Course ad card not found")
+			return
+		}
+		response.Error(c, courseAdErrorStatus(err), err.Error())
+		return
+	}
+	response.Success(c, http.StatusOK, "Course ad card updated", card)
+}
+
+func (h *Handler) DeleteCourseAdCard(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid ID")
+		return
+	}
+
+	if err := h.service.DeleteCourseAdCard(uint(id)); err != nil {
+		if err.Error() == "record not found" {
+			response.Error(c, http.StatusNotFound, "Course ad card not found")
+			return
+		}
+		response.Error(c, http.StatusInternalServerError, "Failed to delete course ad card")
+		return
+	}
+	response.Success(c, http.StatusOK, "Course ad card deleted", nil)
+}
+
+func (h *Handler) TrackCourseAdCardClick(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid ID")
+		return
+	}
+
+	if err := h.service.TrackCourseAdCardClick(uint(id)); err != nil {
+		if err.Error() == "record not found" {
+			response.Error(c, http.StatusNotFound, "Course ad card not found")
+			return
+		}
+		response.Error(c, http.StatusInternalServerError, "Failed to track course ad click")
+		return
+	}
+	response.Success(c, http.StatusOK, "Course ad click tracked", nil)
+}
+
+func toCourseAdCardResponse(card *CourseAdCard) CourseAdCardResponse {
+	resp := CourseAdCardResponse{
+		ID:           card.ID,
+		Position:     card.Position,
+		Subtitle:     card.Subtitle,
+		Institutions: []CourseAdInstitutionResponse{},
+		MouCompanies: []CourseAdMouResponse{},
+		Active:       card.Active,
+		Priority:     card.Priority,
+		Clicks:       card.Clicks,
+	}
+	if card.Course != nil {
+		resp.Course = &CourseAdCourseResponse{
+			ID:           card.Course.ID,
+			Title:        card.Course.Title,
+			Level:        card.Course.Level,
+			Duration:     card.Course.Duration,
+			FieldOfStudy: card.Course.FieldStudy,
+			Affiliation:  card.Course.Affiliation,
+			EstFee:       card.Course.EstFee,
+			BannerURL:    card.Course.BannerURL,
+			Location:     card.Course.Location,
+			Description:  card.Course.Description,
+		}
+	}
+	for _, inst := range card.InstitutionInf {
+		resp.Institutions = append(resp.Institutions, CourseAdInstitutionResponse{
+			ID:       inst.ID,
+			Name:     inst.Name,
+			ImageURL: inst.ImageURL,
+			Rating:   inst.Rating,
+			Location: inst.Location,
+			Website:  inst.Website,
+			Slug:     inst.Slug,
+		})
+	}
+	for _, mou := range card.MouCompanies {
+		resp.MouCompanies = append(resp.MouCompanies, CourseAdMouResponse{
+			ID:         mou.ID,
+			Name:       mou.Name,
+			LogoURL:    mou.LogoURL,
+			CompanyURL: mou.CompanyURL,
+		})
+	}
+	return resp
 }

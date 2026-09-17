@@ -195,3 +195,68 @@ type InstitutionSearchResult struct {
 	Slug     string `json:"slug"`
 	Location string `json:"location"`
 }
+
+// Course-finder ad card DTOs
+
+type CourseAdMouInput struct {
+	Name       string `json:"name"`
+	LogoURL    string `json:"logo_url"`
+	CompanyURL string `json:"company_url"`
+}
+
+type CourseAdRequest struct {
+	Position       string             `json:"position" binding:"required"`
+	CourseID       uint               `json:"course_id" binding:"required"`
+	InstitutionID  *uint              `json:"institution_id"`
+	Subtitle       string             `json:"subtitle"`
+	InstitutionIDs []uint             `json:"institution_ids"`
+	MouCompanies   []CourseAdMouInput `json:"mou_companies"`
+	Active         *bool              `json:"active"`
+	Priority       *int               `json:"priority"`
+}
+
+type CourseAdCourseResponse struct {
+	ID           uint   `json:"id"`
+	Title        string `json:"title"`
+	Level        string `json:"level"`
+	Duration     string `json:"duration"`
+	FieldOfStudy string `json:"field_of_study"`
+	Affiliation  string `json:"affiliation"`
+	EstFee       string `json:"est_fee"`
+	BannerURL    string `json:"banner_url"`
+	Location     string `json:"location"`
+	Description  string `json:"description"`
+}
+
+type CourseAdInstitutionResponse struct {
+	ID       uint    `json:"id"`
+	Name     string  `json:"name"`
+	ImageURL string  `json:"image_url"`
+	Rating   float64 `json:"rating"`
+	Location string  `json:"location"`
+	Website  string  `json:"website"`
+	Slug     string  `json:"slug"`
+}
+
+type CourseAdMouResponse struct {
+	ID         uint   `json:"id"`
+	Name       string `json:"name"`
+	LogoURL    string `json:"logo_url"`
+	CompanyURL string `json:"company_url"`
+}
+
+type CourseAdCardResponse struct {
+	ID           uint                          `json:"id"`
+	Position     string                        `json:"position"`
+	Course       *CourseAdCourseResponse       `json:"course"`
+	Subtitle     string                        `json:"subtitle"`
+	Institutions []CourseAdInstitutionResponse `json:"institutions"`
+	MouCompanies []CourseAdMouResponse         `json:"mou_companies"`
+	Active       bool                          `json:"active"`
+	Priority     int                           `json:"priority"`
+	Clicks       int                           `json:"clicks"`
+}
+
+type CourseUpdateLogoRequest struct {
+	LogoURL string `json:"logo_url" binding:"required"`
+}

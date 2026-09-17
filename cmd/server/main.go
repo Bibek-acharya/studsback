@@ -205,6 +205,9 @@ func main() {
 		&system.CarouselSlide{},
 		&system.LandingCourseField{},
 		&system.LandingCourseInstitution{},
+		&system.CourseAdCard{},
+		&system.CourseAdCardInstitution{},
+		&system.CourseAdCardMouCompany{},
 		&chat.SitePage{},
 		&feedback.Feedback{},
 		&faq.FAQCategory{},
@@ -240,18 +243,21 @@ func main() {
 		if err := migrations.AddUniversityAffiliations(db); err != nil {
 			logger.Fatal("Failed to run university affiliations migration", "error", err)
 		}
-	if err := migrations.AddMeilisearchSyncSupport(db); err != nil {
-		logger.Warn("Failed to run Meilisearch sync migration", "error", err)
-	}
-	if err := migrations.AddEmbeddingMetadata(db); err != nil {
-		logger.Warn("Failed to run embedding metadata migration", "error", err)
-	}
-	if err := migrations.AddAdEntityLinksAndFields(db); err != nil {
-		logger.Warn("Failed to run ad entity links migration", "error", err)
-	}
-	if err := migrations.SeedLandingCourseFields(db); err != nil {
-		logger.Warn("Failed to seed landing course fields", "error", err)
-	}
+		if err := migrations.AddMeilisearchSyncSupport(db); err != nil {
+			logger.Warn("Failed to run Meilisearch sync migration", "error", err)
+		}
+		if err := migrations.AddEmbeddingMetadata(db); err != nil {
+			logger.Warn("Failed to run embedding metadata migration", "error", err)
+		}
+		if err := migrations.AddAdEntityLinksAndFields(db); err != nil {
+			logger.Warn("Failed to run ad entity links migration", "error", err)
+		}
+		if err := migrations.SeedLandingCourseFields(db); err != nil {
+			logger.Warn("Failed to seed landing course fields", "error", err)
+		}
+		if err := migrations.CreateCourseAdTables(db); err != nil {
+			logger.Warn("Failed to run course ad tables migration", "error", err)
+		}
 		// Cleanup dangling sub-users with provider_id = 0 from previous bug
 		if err := db.Exec("DELETE FROM provider_access_users WHERE provider_id = 0").Error; err != nil {
 			logger.Warn("Failed to cleanup dangling sub-users", "error", err)

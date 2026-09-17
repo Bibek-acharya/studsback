@@ -1,6 +1,7 @@
 package system
 
 import (
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -206,12 +207,12 @@ func (r *Repository) resolveAdEntities(ads []Ad) {
 			ids = append(ids, id)
 		}
 		type instRow struct {
-			ID         uint    `gorm:"column:id"`
-			Name       string  `gorm:"column:institution_name"`
-			ImageURL   string  `gorm:"column:banner_url"`
-			Location   string  `gorm:"column:district"`
-			WebsiteURL string  `gorm:"column:website_url"`
-			CollegeID  uint    `gorm:"column:college_id"`
+			ID         uint   `gorm:"column:id"`
+			Name       string `gorm:"column:institution_name"`
+			ImageURL   string `gorm:"column:banner_url"`
+			Location   string `gorm:"column:district"`
+			WebsiteURL string `gorm:"column:website_url"`
+			CollegeID  uint   `gorm:"column:college_id"`
 		}
 		var instRows []instRow
 		r.db.Table("institution_users").Select("id, institution_name, banner_url, district, website_url, college_id").Where("id IN ? AND deleted_at IS NULL", ids).Find(&instRows)
@@ -582,4 +583,349 @@ func (r *Repository) SearchInstitutions(query string) ([]InstitutionSearchResult
 		results = results[:10]
 	}
 	return results, nil
+}
+
+// Course-finder ad card methods
+
+func (r *Repository) CountCourseAdCards(position string) (int64, error) {
+	var count int64
+	err := r.db.Model(&CourseAdCard{}).Where("position = ?", position).Count(&count).Error
+	return count, err
+}
+
+func (r *Repository) CreateCourseAdCard(card *CourseAdCard, institutions []CourseAdCardInstitution, mous []CourseAdCardMouCompany) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(card).Error; err != nil {
+			return err
+		}
+		for i := range institutions {
+			institutions[i].CardID = card.ID
+			if err := tx.Create(&institutions[i]).Error; err != nil {
+				return err
+			}
+		}
+		for i := range mous {
+			mous[i].CardID = card.ID
+			if err := tx.Create(&mous[i]).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+// FindCourseAdCards lists cards for a position, children included. limit <= 0 means no cap.
+func (r *Repository) FindCourseAdCards(position string, activeOnly bool, limit int) ([]CourseAdCard, error) {
+	var cards []CourseAdCard
+	query := r.db.Model(&CourseAdCard{}).Where("position = ?", position)
+	if activeOnly {
+		query = query.Where("active = ?", true)
+	}
+	if limit > 0 {
+		query = query.Limit(limit)
+	}
+	if err := query.Order("priority desc, id desc").Find(&cards).Error; err != nil {
+		return nil, err
+	}
+	if err := r.loadCourseAdChildren(cards); err != nil {
+		return nil, err
+	}
+	return cards, nil
+}
+
+func (r *Repository) FindCourseAdCardByID(id uint) (*CourseAdCard, error) {
+	var card CourseAdCard
+	if err := r.db.First(&card, id).Error; err != nil {
+		return nil, err
+	}
+	cards := []CourseAdCard{card}
+	if err := r.loadCourseAdChildren(cards); err != nil {
+		return nil, err
+	}
+	return &cards[0], nil
+}
+
+// loadCourseAdChildren batch-loads institution links and MOU companies for the cards.
+func (r *Repository) loadCourseAdChildren(cards []CourseAdCard) error {
+	if len(cards) == 0 {
+		return nil
+	}
+	ids := make([]uint, len(cards))
+	for i, c := range cards {
+		ids[i] = c.ID
+	}
+
+	var links []CourseAdCardInstitution
+	if err := r.db.Where("card_id IN ?", ids).Order("order_index asc, id asc").Find(&links).Error; err != nil {
+		return err
+	}
+	linksByCard := make(map[uint][]CourseAdCardInstitution)
+	for _, l := range links {
+		linksByCard[l.CardID] = append(linksByCard[l.CardID], l)
+	}
+
+	var mous []CourseAdCardMouCompany
+	if err := r.db.Where("card_id IN ?", ids).Order("id asc").Find(&mous).Error; err != nil {
+		return err
+	}
+	mousByCard := make(map[uint][]CourseAdCardMouCompany)
+	for _, m := range mous {
+		mousByCard[m.CardID] = append(mousByCard[m.CardID], m)
+	}
+
+	for i := range cards {
+		cards[i].Institutions = linksByCard[cards[i].ID]
+		if cards[i].Institutions == nil {
+			cards[i].Institutions = []CourseAdCardInstitution{}
+		}
+		cards[i].MouCompanies = mousByCard[cards[i].ID]
+		if cards[i].MouCompanies == nil {
+			cards[i].MouCompanies = []CourseAdCardMouCompany{}
+		}
+	}
+	return nil
+}
+
+// UpdateCourseAdCard applies column updates and replaces children lists when provided.
+func (r *Repository) UpdateCourseAdCard(
+	id uint,
+	updates map[string]interface{},
+	institutions *[]CourseAdCardInstitution,
+	mous *[]CourseAdCardMouCompany,
+) (*CourseAdCard, error) {
+	err := r.db.Transaction(func(tx *gorm.DB) error {
+		if len(updates) > 0 {
+			if err := tx.Model(&CourseAdCard{}).Where("id = ?", id).Updates(updates).Error; err != nil {
+				return err
+			}
+		}
+		if institutions != nil {
+			if err := tx.Where("card_id = ?", id).Delete(&CourseAdCardInstitution{}).Error; err != nil {
+				return err
+			}
+			for i := range *institutions {
+				(*institutions)[i].CardID = id
+				if err := tx.Create(&(*institutions)[i]).Error; err != nil {
+					return err
+				}
+			}
+		}
+		if mous != nil {
+			if err := tx.Where("card_id = ?", id).Delete(&CourseAdCardMouCompany{}).Error; err != nil {
+				return err
+			}
+			for i := range *mous {
+				(*mous)[i].CardID = id
+				if err := tx.Create(&(*mous)[i]).Error; err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return r.FindCourseAdCardByID(id)
+}
+
+func (r *Repository) DeleteCourseAdCard(id uint) error {
+	result := r.db.Delete(&CourseAdCard{}, id)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *Repository) TrackCourseAdCardClick(id uint) error {
+	result := r.db.Model(&CourseAdCard{}).Where("id = ?", id).
+		Update("clicks", gorm.Expr("clicks + 1"))
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+// ResolveCourseAdEntities batch-loads joined course and institution data for cards.
+// Institution rating comes from the colleges table via college_id, mirroring
+// resolveAdEntities; slug is derived from the institution name, matching
+// SearchInstitutions.
+func (r *Repository) ResolveCourseAdEntities(cards []CourseAdCard) error {
+	if len(cards) == 0 {
+		return nil
+	}
+
+	// Card institution IDs: link children plus the single_college institution_id.
+	cardInstIDs := make(map[uint]bool)
+	for i := range cards {
+		if cards[i].InstitutionID != nil {
+			cardInstIDs[*cards[i].InstitutionID] = true
+		}
+		for _, l := range cards[i].Institutions {
+			cardInstIDs[l.InstitutionID] = true
+		}
+	}
+
+	instMap := make(map[uint]*CourseAdInstitution)
+	if len(cardInstIDs) > 0 {
+		ids := make([]uint, 0, len(cardInstIDs))
+		for id := range cardInstIDs {
+			ids = append(ids, id)
+		}
+
+		type instRow struct {
+			ID         uint   `gorm:"column:id"`
+			Name       string `gorm:"column:institution_name"`
+			ImageURL   string `gorm:"column:banner_url"`
+			Location   string `gorm:"column:district"`
+			WebsiteURL string `gorm:"column:website_url"`
+			CollegeID  uint   `gorm:"column:college_id"`
+		}
+		var instRows []instRow
+		if err := r.db.Table("institution_users").
+			Select("id, institution_name, banner_url, district, website_url, college_id").
+			Where("id IN ? AND deleted_at IS NULL", ids).Find(&instRows).Error; err != nil {
+			return err
+		}
+
+		collegeTableIDs := make(map[uint]uint)
+		for _, row := range instRows {
+			if row.CollegeID > 0 {
+				collegeTableIDs[row.ID] = row.CollegeID
+			}
+		}
+		ratingMap := make(map[uint]float64)
+		if len(collegeTableIDs) > 0 {
+			cids := make([]uint, 0, len(collegeTableIDs))
+			for _, cid := range collegeTableIDs {
+				cids = append(cids, cid)
+			}
+			var cRows []struct {
+				ID     uint    `gorm:"column:id"`
+				Rating float64 `gorm:"column:rating"`
+			}
+			if err := r.db.Table("colleges").Select("id, rating").Where("id IN ?", cids).Find(&cRows).Error; err != nil {
+				return err
+			}
+			for _, cr := range cRows {
+				ratingMap[cr.ID] = cr.Rating
+			}
+		}
+
+		for _, row := range instRows {
+			var rating float64
+			if cid, ok := collegeTableIDs[row.ID]; ok {
+				rating = ratingMap[cid]
+			}
+			instMap[row.ID] = &CourseAdInstitution{
+				ID:       row.ID,
+				Name:     row.Name,
+				ImageURL: row.ImageURL,
+				Rating:   rating,
+				Location: row.Location,
+				Website:  row.WebsiteURL,
+				Slug:     strings.ToLower(strings.ReplaceAll(strings.TrimSpace(row.Name), " ", "-")),
+			}
+		}
+	}
+
+	// Courses
+	courseIDs := make(map[uint]bool)
+	for i := range cards {
+		courseIDs[cards[i].CourseID] = true
+	}
+	courseMap := make(map[uint]*CourseAdCourse)
+	if len(courseIDs) > 0 {
+		ids := make([]uint, 0, len(courseIDs))
+		for id := range courseIDs {
+			ids = append(ids, id)
+		}
+
+		type courseRow struct {
+			ID            uint   `gorm:"column:id"`
+			Title         string `gorm:"column:title"`
+			Level         string `gorm:"column:level"`
+			Duration      string `gorm:"column:duration"`
+			FieldStudy    string `gorm:"column:field_of_study"`
+			BannerURL     string `gorm:"column:banner_url"`
+			EstFee        string `gorm:"column:est_fee"`
+			Location      string `gorm:"column:location"`
+			Description   string `gorm:"column:description"`
+			AffiliationID *uint  `gorm:"column:affiliation_id"`
+		}
+		var rows []courseRow
+		if err := r.db.Table("courses").
+			Select("id, title, level, duration, field_of_study, banner_url, est_fee, location, description, affiliation_id").
+			Where("id IN ? AND deleted_at IS NULL", ids).Find(&rows).Error; err != nil {
+			return err
+		}
+
+		uniIDs := make(map[uint]bool)
+		for _, row := range rows {
+			if row.AffiliationID != nil && *row.AffiliationID > 0 {
+				uniIDs[*row.AffiliationID] = true
+			}
+		}
+		uniMap := make(map[uint]string)
+		if len(uniIDs) > 0 {
+			uids := make([]uint, 0, len(uniIDs))
+			for id := range uniIDs {
+				uids = append(uids, id)
+			}
+			var uRows []struct {
+				ID   uint   `gorm:"column:id"`
+				Name string `gorm:"column:name"`
+			}
+			if err := r.db.Table("universities").Select("id, name").Where("id IN ?", uids).Find(&uRows).Error; err != nil {
+				return err
+			}
+			for _, ur := range uRows {
+				uniMap[ur.ID] = ur.Name
+			}
+		}
+
+		for _, row := range rows {
+			affiliation := ""
+			if row.AffiliationID != nil && *row.AffiliationID > 0 {
+				affiliation = uniMap[*row.AffiliationID]
+			}
+			courseMap[row.ID] = &CourseAdCourse{
+				ID:          row.ID,
+				Title:       row.Title,
+				Level:       row.Level,
+				Duration:    row.Duration,
+				FieldStudy:  row.FieldStudy,
+				BannerURL:   row.BannerURL,
+				EstFee:      row.EstFee,
+				Affiliation: affiliation,
+				Location:    row.Location,
+				Description: row.Description,
+			}
+		}
+	}
+
+	// Attach resolved entities
+	for i := range cards {
+		cards[i].Course = courseMap[cards[i].CourseID]
+		infos := make([]CourseAdInstitution, 0, len(cards[i].Institutions))
+		for _, l := range cards[i].Institutions {
+			if inst, ok := instMap[l.InstitutionID]; ok {
+				infos = append(infos, *inst)
+			}
+		}
+		// Single_college: the lone institution lives on the card itself.
+		if cards[i].Position == "single_college" && cards[i].InstitutionID != nil {
+			if inst, ok := instMap[*cards[i].InstitutionID]; ok && len(infos) == 0 {
+				infos = append(infos, *inst)
+			}
+		}
+		cards[i].InstitutionInf = infos
+	}
+	return nil
 }

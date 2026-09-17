@@ -522,3 +522,217 @@ func (s *Service) ReorderLandingInstitutions(req ReorderInstitutionsRequest) err
 func (s *Service) SearchInstitutionsForLanding(query string) ([]InstitutionSearchResult, error) {
 	return s.repo.SearchInstitutions(query)
 }
+
+// Course-finder ad cards
+
+// validationError marks user-input mistakes the handler maps to 400.
+type validationError struct{ msg string }
+
+func (e *validationError) Error() string { return e.msg }
+
+func newValidationError(msg string) error { return &validationError{msg: msg} }
+
+const (
+	courseAdPositionMulti  = "multi_college"
+	courseAdPositionSingle = "single_college"
+)
+
+func validCourseAdPosition(p string) bool {
+	return p == courseAdPositionMulti || p == courseAdPositionSingle
+}
+
+func (s *Service) validateCourseAdChildLimits(position string, institutionIDs []uint, mous []CourseAdMouInput) error {
+	if position == courseAdPositionMulti {
+		if len(institutionIDs) == 0 {
+			return newValidationError("at least one institution is required for multi_college")
+		}
+		if len(institutionIDs) > 7 {
+			return newValidationError("maximum 7 institutions per multi_college card")
+		}
+	} else {
+		if len(institutionIDs) != 1 {
+			return newValidationError("single_college requires exactly one institution")
+		}
+	}
+	if len(mous) > 12 {
+		return newValidationError("maximum 12 MOU companies per card")
+	}
+	for _, m := range mous {
+		if m.Name == "" {
+			return newValidationError("MOU company name is required")
+		}
+	}
+	return nil
+}
+
+func (s *Service) GetCourseAdCards(position string, activeOnly bool) ([]CourseAdCardResponse, error) {
+	if !validCourseAdPosition(position) {
+		return nil, newValidationError("position must be multi_college or single_college")
+	}
+	limit := 0
+	if activeOnly {
+		limit = 10
+	}
+	cards, err := s.repo.FindCourseAdCards(position, activeOnly, limit)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.repo.ResolveCourseAdEntities(cards); err != nil {
+		return nil, err
+	}
+	responses := make([]CourseAdCardResponse, len(cards))
+	for i := range cards {
+		responses[i] = toCourseAdCardResponse(&cards[i])
+	}
+	return responses, nil
+}
+
+func (s *Service) GetCourseAdCard(id uint) (*CourseAdCardResponse, error) {
+	card, err := s.repo.FindCourseAdCardByID(id)
+	if err != nil {
+		return nil, err
+	}
+	cards := []CourseAdCard{*card}
+	if err := s.repo.ResolveCourseAdEntities(cards); err != nil {
+		return nil, err
+	}
+	resp := toCourseAdCardResponse(&cards[0])
+	return &resp, nil
+}
+
+func (s *Service) CreateCourseAdCard(req CourseAdRequest) (*CourseAdCardResponse, error) {
+	if !validCourseAdPosition(req.Position) {
+		return nil, newValidationError("position must be multi_college or single_college")
+	}
+	if err := s.validateCourseAdChildLimits(req.Position, req.InstitutionIDs, req.MouCompanies); err != nil {
+		return nil, err
+	}
+
+	count, err := s.repo.CountCourseAdCards(req.Position)
+	if err != nil {
+		return nil, err
+	}
+	if count >= 10 {
+		return nil, newValidationError("maximum 10 cards per position")
+	}
+
+	card := &CourseAdCard{
+		Position: req.Position,
+		CourseID: req.CourseID,
+		Subtitle: req.Subtitle,
+		Active:   true,
+	}
+	if req.Active != nil {
+		card.Active = *req.Active
+	}
+	if req.Priority != nil {
+		card.Priority = *req.Priority
+	}
+	if req.Position == courseAdPositionSingle && req.InstitutionID != nil {
+		card.InstitutionID = req.InstitutionID
+	}
+
+	institutions := make([]CourseAdCardInstitution, len(req.InstitutionIDs))
+	for i, id := range req.InstitutionIDs {
+		institutions[i] = CourseAdCardInstitution{InstitutionID: id, OrderIndex: i}
+	}
+	mous := make([]CourseAdCardMouCompany, len(req.MouCompanies))
+	for i, m := range req.MouCompanies {
+		mous[i] = CourseAdCardMouCompany{Name: m.Name, LogoURL: m.LogoURL, CompanyURL: m.CompanyURL}
+	}
+
+	if err := s.repo.CreateCourseAdCard(card, institutions, mous); err != nil {
+		return nil, err
+	}
+	return s.GetCourseAdCard(card.ID)
+}
+
+func (s *Service) UpdateCourseAdCard(id uint, req CourseAdRequest) (*CourseAdCardResponse, error) {
+	existing, err := s.repo.FindCourseAdCardByID(id)
+	if err != nil {
+		if err.Error() == "record not found" {
+			return nil, errors.New("record not found")
+		}
+		return nil, err
+	}
+
+	position := req.Position
+	if position == "" {
+		position = existing.Position
+	}
+	if !validCourseAdPosition(position) {
+		return nil, newValidationError("position must be multi_college or single_college")
+	}
+	institutionIDs := req.InstitutionIDs
+	if len(institutionIDs) == 0 && position == existing.Position {
+		for _, l := range existing.Institutions {
+			institutionIDs = append(institutionIDs, l.InstitutionID)
+		}
+	}
+	mous := req.MouCompanies
+	if err := s.validateCourseAdChildLimits(position, institutionIDs, mous); err != nil {
+		return nil, err
+	}
+
+	updates := map[string]interface{}{}
+	if req.Position != "" {
+		updates["position"] = req.Position
+	}
+	if req.CourseID != 0 {
+		updates["course_id"] = req.CourseID
+	}
+	if req.Subtitle != "" {
+		updates["subtitle"] = req.Subtitle
+	}
+	if req.InstitutionID != nil {
+		updates["institution_id"] = *req.InstitutionID
+	}
+	if req.Active != nil {
+		updates["active"] = *req.Active
+	}
+	if req.Priority != nil {
+		updates["priority"] = *req.Priority
+	}
+
+	var replaceInstitutions *[]CourseAdCardInstitution
+	if len(req.InstitutionIDs) > 0 {
+		inst := make([]CourseAdCardInstitution, len(req.InstitutionIDs))
+		for i, id := range req.InstitutionIDs {
+			inst[i] = CourseAdCardInstitution{InstitutionID: id, OrderIndex: i}
+		}
+		replaceInstitutions = &inst
+	}
+	var replaceMous *[]CourseAdCardMouCompany
+	if len(req.MouCompanies) > 0 {
+		mr := make([]CourseAdCardMouCompany, len(req.MouCompanies))
+		for i, m := range req.MouCompanies {
+			// Preserve the logo when the company is unchanged and only the
+			// URL/name rows are sent — PUT payloads commonly omit logo_url.
+			logo := m.LogoURL
+			if logo == "" && i < len(existing.MouCompanies) && existing.MouCompanies[i].Name == m.Name {
+				logo = existing.MouCompanies[i].LogoURL
+			}
+			mr[i] = CourseAdCardMouCompany{Name: m.Name, LogoURL: logo, CompanyURL: m.CompanyURL}
+		}
+		replaceMous = &mr
+	}
+
+	card, err := s.repo.UpdateCourseAdCard(id, updates, replaceInstitutions, replaceMous)
+	if err != nil {
+		return nil, err
+	}
+	cards := []CourseAdCard{*card}
+	if err := s.repo.ResolveCourseAdEntities(cards); err != nil {
+		return nil, err
+	}
+	resp := toCourseAdCardResponse(&cards[0])
+	return &resp, nil
+}
+
+func (s *Service) DeleteCourseAdCard(id uint) error {
+	return s.repo.DeleteCourseAdCard(id)
+}
+
+func (s *Service) TrackCourseAdCardClick(id uint) error {
+	return s.repo.TrackCourseAdCardClick(id)
+}
