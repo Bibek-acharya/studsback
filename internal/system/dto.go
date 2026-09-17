@@ -69,37 +69,37 @@ type ContactInquiryResponse struct {
 }
 
 type AdResponse struct {
-	ID          uint   `json:"id"`
-	Title       string `json:"title"`
-	ImageURL    string `json:"image_url"`
-	LinkURL     string `json:"link_url"`
-	Location    string `json:"location"`
-	Page        string `json:"page"`
-	Position    string `json:"position"`
-	StartDate   string `json:"start_date"`
-	EndDate     string `json:"end_date"`
-	Active      bool   `json:"active"`
-	Clicks      int    `json:"clicks"`
-	Impressions int    `json:"impressions"`
-	Priority    int    `json:"priority"`
-	CollegeID   *uint  `json:"college_id"`
-	CourseID    *uint  `json:"course_id"`
-	Description string `json:"description"`
-	Accent      string `json:"accent"`
-	CollegeName string `json:"college_name,omitempty"`
-	CollegeImage string `json:"college_image,omitempty"`
-	CollegeRating float64 `json:"college_rating,omitempty"`
-	CollegeLocation string `json:"college_location,omitempty"`
-	CollegeWebsite  string `json:"college_website,omitempty"`
-	CourseTitle   string `json:"course_title,omitempty"`
-	CourseLevel   string `json:"course_level,omitempty"`
-	CourseDuration string `json:"course_duration,omitempty"`
-	CourseField    string `json:"course_field,omitempty"`
-	CourseBannerURL string `json:"course_banner_url,omitempty"`
-	CourseEstFee    string `json:"course_est_fee,omitempty"`
-	CourseAffiliation string `json:"course_affiliation,omitempty"`
-	CreatedAt   string `json:"created_at"`
-	UpdatedAt   string `json:"updated_at"`
+	ID                uint    `json:"id"`
+	Title             string  `json:"title"`
+	ImageURL          string  `json:"image_url"`
+	LinkURL           string  `json:"link_url"`
+	Location          string  `json:"location"`
+	Page              string  `json:"page"`
+	Position          string  `json:"position"`
+	StartDate         string  `json:"start_date"`
+	EndDate           string  `json:"end_date"`
+	Active            bool    `json:"active"`
+	Clicks            int     `json:"clicks"`
+	Impressions       int     `json:"impressions"`
+	Priority          int     `json:"priority"`
+	CollegeID         *uint   `json:"college_id"`
+	CourseID          *uint   `json:"course_id"`
+	Description       string  `json:"description"`
+	Accent            string  `json:"accent"`
+	CollegeName       string  `json:"college_name,omitempty"`
+	CollegeImage      string  `json:"college_image,omitempty"`
+	CollegeRating     float64 `json:"college_rating,omitempty"`
+	CollegeLocation   string  `json:"college_location,omitempty"`
+	CollegeWebsite    string  `json:"college_website,omitempty"`
+	CourseTitle       string  `json:"course_title,omitempty"`
+	CourseLevel       string  `json:"course_level,omitempty"`
+	CourseDuration    string  `json:"course_duration,omitempty"`
+	CourseField       string  `json:"course_field,omitempty"`
+	CourseBannerURL   string  `json:"course_banner_url,omitempty"`
+	CourseEstFee      string  `json:"course_est_fee,omitempty"`
+	CourseAffiliation string  `json:"course_affiliation,omitempty"`
+	CreatedAt         string  `json:"created_at"`
+	UpdatedAt         string  `json:"updated_at"`
 }
 
 type CarouselSlideResponse struct {
@@ -141,7 +141,16 @@ type LandingCourseInstitutionResponse struct {
 }
 
 type LandingCoursePublicResponse struct {
-	FieldOfStudy string                              `json:"field_of_study"`
+	FieldOfStudy string                             `json:"field_of_study"`
+	Institutions []LandingCourseInstitutionResponse `json:"institutions"`
+}
+
+// Admin variant: adds the field's own columns for full admin editing.
+type LandingCourseAdminFieldResponse struct {
+	ID           uint                               `json:"id"`
+	FieldOfStudy string                             `json:"field_of_study"`
+	DisplayOrder int                                `json:"display_order"`
+	IsActive     bool                               `json:"is_active"`
 	Institutions []LandingCourseInstitutionResponse `json:"institutions"`
 }
 
@@ -164,8 +173,9 @@ type FieldReorderItem struct {
 }
 
 type UpdateFieldRequest struct {
-	IsActive     *bool `json:"is_active"`
-	DisplayOrder *int  `json:"display_order"`
+	FieldOfStudy *string `json:"field_of_study"`
+	IsActive     *bool   `json:"is_active"`
+	DisplayOrder *int    `json:"display_order"`
 }
 
 type ReorderInstitutionsRequest struct {
@@ -178,10 +188,10 @@ type InstitutionReorderItem struct {
 }
 
 type InstitutionSearchResult struct {
-	ID           uint   `json:"id"`
-	Name         string `json:"name"`
-	LogoURL      string `json:"logo_url"`
-	Type         string `json:"type"`
-	Slug         string `json:"slug"`
-	Location     string `json:"location"`
+	ID       uint   `json:"id"`
+	Name     string `json:"name"`
+	LogoURL  string `json:"logo_url"`
+	Type     string `json:"type"`
+	Slug     string `json:"slug"`
+	Location string `json:"location"`
 }

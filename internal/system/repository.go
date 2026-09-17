@@ -533,9 +533,11 @@ func (r *Repository) CountInstitutionsByField(fieldID uint) (int64, error) {
 	return count, err
 }
 
-func (r *Repository) InstitutionLinkExists(fieldID, institutionID uint) (bool, error) {
+func (r *Repository) InstitutionLinkExists(fieldID, institutionID uint, institutionType string) (bool, error) {
 	var count int64
-	err := r.db.Model(&LandingCourseInstitution{}).Where("field_id = ? AND institution_id = ?", fieldID, institutionID).Count(&count).Error
+	err := r.db.Model(&LandingCourseInstitution{}).
+		Where("field_id = ? AND institution_id = ? AND institution_type = ?", fieldID, institutionID, institutionType).
+		Count(&count).Error
 	return count > 0, err
 }
 

@@ -394,13 +394,13 @@ func (s *Service) GetPublicLandingCourses() ([]LandingCoursePublicResponse, erro
 	return result, nil
 }
 
-func (s *Service) GetAdminLandingCourses() ([]LandingCoursePublicResponse, error) {
+func (s *Service) GetAdminLandingCourses() ([]LandingCourseAdminFieldResponse, error) {
 	fields, err := s.repo.FindAllLandingFields()
 	if err != nil {
 		return nil, err
 	}
 	if len(fields) == 0 {
-		return []LandingCoursePublicResponse{}, nil
+		return []LandingCourseAdminFieldResponse{}, nil
 	}
 
 	fieldIDs := make([]uint, len(fields))
@@ -413,7 +413,7 @@ func (s *Service) GetAdminLandingCourses() ([]LandingCoursePublicResponse, error
 		return nil, err
 	}
 
-	var result []LandingCoursePublicResponse
+	var result []LandingCourseAdminFieldResponse
 	for _, field := range fields {
 		institutions := institutionsMap[field.ID]
 		if institutions == nil {
@@ -432,8 +432,11 @@ func (s *Service) GetAdminLandingCourses() ([]LandingCoursePublicResponse, error
 				OrderIndex:      inst.OrderIndex,
 			}
 		}
-		result = append(result, LandingCoursePublicResponse{
+		result = append(result, LandingCourseAdminFieldResponse{
+			ID:           field.ID,
 			FieldOfStudy: field.FieldOfStudy,
+			DisplayOrder: field.DisplayOrder,
+			IsActive:     field.IsActive,
 			Institutions: instResponses,
 		})
 	}
@@ -442,6 +445,9 @@ func (s *Service) GetAdminLandingCourses() ([]LandingCoursePublicResponse, error
 
 func (s *Service) UpdateLandingField(id uint, req UpdateFieldRequest) error {
 	updates := map[string]interface{}{}
+	if req.FieldOfStudy != nil && *req.FieldOfStudy != "" {
+		updates["field_of_study"] = *req.FieldOfStudy
+	}
 	if req.IsActive != nil {
 		updates["is_active"] = *req.IsActive
 	}
@@ -474,18 +480,19 @@ func (s *Service) LinkInstitution(req LinkInstitutionRequest) (*LandingCourseIns
 		return nil, errors.New("maximum 5 institutions per field")
 	}
 
-	// Check duplicate
-	exists, err := s.repo.InstitutionLinkExists(req.FieldID, req.InstitutionID)
+	instType := req.InstitutionType
+	if instType == "" {
+		instType = "institution"
+	}
+
+	// Check duplicate (type-aware: a college and an institution sharing a
+	// numeric id are distinct links)
+	exists, err := s.repo.InstitutionLinkExists(req.FieldID, req.InstitutionID, instType)
 	if err != nil {
 		return nil, err
 	}
 	if exists {
 		return nil, errors.New("institution already linked to this field")
-	}
-
-	instType := req.InstitutionType
-	if instType == "" {
-		instType = "institution"
 	}
 
 	inst := &LandingCourseInstitution{
