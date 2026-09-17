@@ -81,3 +81,16 @@ func (r *Repository) IncrementDownloads(id uint) error {
 		Where("id = ?", id).
 		UpdateColumn("downloads", gorm.Expr("downloads + 1")).Error
 }
+
+// DistinctValues returns distinct non-empty values of the given column across
+// all non-deleted study resources. column must be a trusted identifier
+// ("year" or "course"); it is never user input.
+func (r *Repository) DistinctValues(column, order string) ([]string, error) {
+	var values []string
+	err := r.db.Model(&StudyResource{}).
+		Where(column+" <> ''").
+		Distinct(column).
+		Order(order).
+		Pluck(column, &values).Error
+	return values, err
+}

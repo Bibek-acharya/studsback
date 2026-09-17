@@ -71,6 +71,31 @@ func (s *Service) UpdateResource(id uint, req UpdateResourceRequest) (*StudyReso
 	return resource, nil
 }
 
+func (s *Service) UpdateResourceModel(resource *StudyResource) error {
+	return s.repo.UpdateResource(resource)
+}
+
+// DistinctFacets returns the distinct non-empty, normalized years and course
+// names across all (non-deleted) study resources. Years are sorted descending;
+// courses alphabetically. These power the list-page filter facets.
+func (s *Service) DistinctFacets() ([]string, []string, error) {
+	years, err := s.repo.DistinctValues("year", "year DESC")
+	if err != nil {
+		return nil, nil, err
+	}
+	courses, err := s.repo.DistinctValues("course", "course ASC")
+	if err != nil {
+		return nil, nil, err
+	}
+	if years == nil {
+		years = []string{}
+	}
+	if courses == nil {
+		courses = []string{}
+	}
+	return years, courses, nil
+}
+
 func (s *Service) DeleteResource(id uint) error {
 	if _, err := s.repo.FindResourceByID(id); err != nil {
 		return errors.New("resource not found")

@@ -2,6 +2,7 @@ package studyresources
 
 import (
 	"testing"
+	"time"
 
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
@@ -138,5 +139,96 @@ func TestDeleteResource_SoftDeletes(t *testing.T) {
 	}
 	if total != 2 {
 		t.Errorf("total after delete = %d, want 2", total)
+	}
+}
+
+func TestDistinctFacets(t *testing.T) {
+	db := setupTestDB(t)
+	seedResources(db)
+	// A soft-deleted resource with unique year/course must be excluded.
+	db.Create(&StudyResource{Title: "Archived", ResourceType: "Notes", Course: "Unique Course", Year: "2079", FileName: "f.pdf", FilePath: "study-resources/z.pdf", FileURL: "/uploads/study-resources/z.pdf", DeletedAt: gorm.DeletedAt{Time: time.Now(), Valid: true}})
+	// A blank course/year must be excluded.
+	db.Create(&StudyResource{Title: "No Facets", ResourceType: "Notes", FileName: "f.pdf", FilePath: "study-resources/y.pdf", FileURL: "/uploads/study-resources/y.pdf"})
+
+	svc := NewService(NewRepository(db))
+
+	years, courses, err := svc.DistinctFacets()
+	if err != nil {
+		t.Fatalf("DistinctFacets error: %v", err)
+	}
+
+	wantYears := []string{"2081", "2080"}
+	if len(years) != len(wantYears) {
+		t.Fatalf("years = %v, want %v", years, wantYears)
+	}
+	for i, y := range wantYears {
+		if years[i] != y {
+			t.Errorf("years[%d] = %q, want %q", i, years[i], y)
+		}
+	}
+
+	wantCourses := []string{"Engineering", "Mathematics", "Physics"}
+	if len(courses) != len(wantCourses) {
+		t.Fatalf("courses = %v, want %v", courses, wantCourses)
+	}
+	for i, c := range wantCourses {
+		if courses[i] != c {
+			t.Errorf("courses[%d] = %q, want %q", i, courses[i], c)
+		}
+	}
+}
+
+func TestReplaceResourceFile_MetadataUpdate(t *testing.T) {
+	db := setupTestDB(t)
+	seedResources(db)
+	svc := NewService(NewRepository(db))
+
+	var first StudyResource
+	db.First(&first)
+
+	resource, err := svc.GetResource(first.ID)
+	if err != nil {
+		t.Fatalf("GetResource error: %v", err)
+	}
+
+	resource.FileName = "new-name.docx"
+	resource.FilePath = "study-resources/new-key-abc.docx"
+	resource.FileURL = "/uploads/study-resources/new-key-abc.docx"
+	resource.FileSize = 12345
+	resource.MimeType = "application/msword"
+
+	if err := svc.UpdateResourceModel(resource); err != nil {
+		t.Fatalf("UpdateResourceModel error: %v", err)
+	}
+
+	refreshed, err := svc.GetResource(first.ID)
+	if err != nil {
+		t.Fatalf("reload error: %v", err)
+	}
+	if refreshed.FileName != "new-name.docx" ||
+		refreshed.FilePath != "study-resources/new-key-abc.docx" ||
+		refreshed.FileURL != "/uploads/study-resources/new-key-abc.docx" ||
+		refreshed.FileSize != 12345 ||
+		refreshed.MimeType != "application/msword" {
+		t.Errorf("file metadata not persisted: %+v", refreshed)
+	}
+
+	// Soft-delete must not occur as a side effect of the replace.
+	_, total, err := svc.GetResources(ResourceFilters{}, 1, 20)
+	if err != nil || total != 3 {
+		t.Errorf("post-replace total = %d (err %v), want 3", total, err)
+	}
+}
+
+func TestNormalizeObjectKey(t *testing.T) {
+	cases := map[string]string{
+		"study-resources/a.pdf":  "study-resources/a.pdf",
+		"/uploads/study/a.png":   "study/a.png",
+		"/uploads/uploads/b.txt": "uploads/b.txt",
+	}
+	for in, want := range cases {
+		if got := normalizeObjectKey(in); got != want {
+			t.Errorf("normalizeObjectKey(%q) = %q, want %q", in, got, want)
+		}
 	}
 }

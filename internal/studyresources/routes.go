@@ -20,6 +20,7 @@ func RegisterRoutes(r *gin.Engine, authMW, superadminRoleMW gin.HandlerFunc, h *
 			admin.POST("", h.CreateResource)
 			admin.GET("", h.AdminListResources)
 			admin.PUT("/:id", h.UpdateResource)
+			admin.POST("/:id/file", h.ReplaceResourceFile)
 			admin.DELETE("/:id", h.DeleteResource)
 		}
 	}
