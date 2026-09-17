@@ -47,6 +47,7 @@ import (
 	"studsphere/backend/internal/shared/seeder"
 	"studsphere/backend/internal/shared/storage"
 	"studsphere/backend/internal/studentdashboard"
+	"studsphere/backend/internal/studyresources"
 	"studsphere/backend/internal/system"
 	"studsphere/backend/internal/tools"
 	"studsphere/backend/internal/university"
@@ -213,6 +214,7 @@ func main() {
 		&feedback.Feedback{},
 		&faq.FAQCategory{},
 		&faq.FAQItem{},
+		&studyresources.StudyResource{},
 		&domain.Conversation{},
 		&domain.Message{},
 		&domain.Participant{},
@@ -257,9 +259,9 @@ func main() {
 			logger.Warn("Failed to seed landing course fields", "error", err)
 		}
 		if err := migrations.CreateAdvertiseRequests(db); err != nil {
-		logger.Warn("Failed to run advertise requests migration", "error", err)
-	}
-	if err := migrations.CreateCourseAdTables(db); err != nil {
+			logger.Warn("Failed to run advertise requests migration", "error", err)
+		}
+		if err := migrations.CreateCourseAdTables(db); err != nil {
 			logger.Warn("Failed to run course ad tables migration", "error", err)
 		}
 		// Cleanup dangling sub-users with provider_id = 0 from previous bug
@@ -360,6 +362,7 @@ func main() {
 
 	projectShikshaHandler := projectshiksha.NewHandler(projectshiksha.NewService(projectshiksha.NewRepository(db), notificationSvc))
 	faqHandler := initModule(faq.NewRepository(db), faq.NewService, faq.NewHandler)
+	studyResourcesHandler := initModule(studyresources.NewRepository(db), studyresources.NewService, studyresources.NewHandler)
 	reviewHandler := review.NewHandler(review.NewService(review.NewRepository(db), notificationSvc))
 	scholarshipRepo := scholarship.NewRepository(db)
 	scholarshipSvc := scholarship.NewService(scholarshipRepo, db, systemSvc, notificationSvc)
@@ -531,6 +534,10 @@ func main() {
 	location.RegisterRoutes(router, locationHandler)
 	follow.RegisterRoutes(router, authMW, followHandler)
 	jobs.RegisterRoutes(router, authMW, roleMW, jobsHandler)
+
+	// Study resources: admins only (superadmin guard, like notifications).
+	studyResourcesRoleMW := middleware.RequireRole("superadmin", "super_admin")
+	studyresources.RegisterRoutes(router, authMW, studyResourcesRoleMW, studyResourcesHandler)
 
 	// Setup messaging routes
 	api := router.Group("/api/v1")
