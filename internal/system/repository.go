@@ -752,6 +752,71 @@ func (r *Repository) TrackCourseAdCardClick(id uint) error {
 	return nil
 }
 
+// Advertise request methods
+
+func (r *Repository) CreateAdvertiseRequest(req *AdvertiseRequest) error {
+	return r.db.Create(req).Error
+}
+
+func (r *Repository) FindAdvertiseRequests(page, limit int, status string) ([]AdvertiseRequest, int64, error) {
+	var requests []AdvertiseRequest
+	var total int64
+
+	query := r.db.Model(&AdvertiseRequest{})
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * limit
+	if err := query.Order("created_at desc, id desc").Offset(offset).Limit(limit).Find(&requests).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return requests, total, nil
+}
+
+func (r *Repository) FindAdvertiseRequestsByInstitution(institutionID uint) ([]AdvertiseRequest, error) {
+	var requests []AdvertiseRequest
+	err := r.db.Where("institution_id = ?", institutionID).
+		Order("created_at desc, id desc").Find(&requests).Error
+	return requests, err
+}
+
+func (r *Repository) FindAdvertiseRequestByID(id uint) (*AdvertiseRequest, error) {
+	var req AdvertiseRequest
+	if err := r.db.First(&req, id).Error; err != nil {
+		return nil, err
+	}
+	return &req, nil
+}
+
+func (r *Repository) UpdateAdvertiseRequestStatus(id uint, status string, note *string) (*AdvertiseRequest, error) {
+	updates := map[string]interface{}{"status": status}
+	if note != nil {
+		updates["note"] = *note
+	}
+	result := r.db.Model(&AdvertiseRequest{}).Where("id = ?", id).Updates(updates)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	if result.RowsAffected == 0 {
+		return nil, gorm.ErrRecordNotFound
+	}
+	return r.FindAdvertiseRequestByID(id)
+}
+
+// InstitutionUserEmail resolves the advertiser's account email as the
+// default contact email (owned by auth; raw SQL avoids an import cycle).
+func (r *Repository) InstitutionUserEmail(id uint) (string, error) {
+	var email string
+	err := r.db.Raw(`SELECT email FROM institution_users WHERE id = ? AND deleted_at IS NULL LIMIT 1`, id).Scan(&email).Error
+	return email, err
+}
+
 // ResolveCourseAdEntities batch-loads joined course and institution data for cards.
 // Institution rating comes from the colleges table via college_id, mirroring
 // resolveAdEntities; slug is derived from the institution name, matching

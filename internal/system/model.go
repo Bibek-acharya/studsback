@@ -131,8 +131,7 @@ type CourseAdInstitution struct {
 	Slug     string  `json:"slug"`
 }
 
-// PublicNotification moved to internal/notification (Task 13); the alias
-// keeps the system module's guest GET and the cross-module emit sites
+// PublicNotification moved to internal/notification (Task 13); the alias// keeps the system module's guest GET and the cross-module emit sites
 // compiling against the same table and struct.
 type PublicNotification = notification.PublicNotification
 
@@ -171,4 +170,23 @@ type LandingCourseInstitution struct {
 	Slug            string    `gorm:"column:slug;default:''" json:"slug"`
 	OrderIndex      int       `gorm:"column:order_index;default:0" json:"order_index"`
 	CreatedAt       time.Time `json:"created_at"`
+}
+
+// AdvertiseRequest: an institution user's request to advertise on a placement.
+// AdvertiseFor values are the signed contract: course-finder:multi_college,
+// course-finder:single_college, landing-popup, hero-banner, showcase-banner,
+// landing-courses, university-affiliation.
+type AdvertiseRequest struct {
+	ID            uint           `gorm:"primarykey" json:"id"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
+	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
+	InstitutionID uint           `gorm:"column:institution_id;index;not null" json:"institution_id"`
+	Name          string         `gorm:"not null" json:"name"`
+	Designation   string         `gorm:"default:''" json:"designation"`
+	Contact       string         `gorm:"default:''" json:"contact"`
+	Email         string         `gorm:"not null" json:"email"`
+	AdvertiseFor  string         `gorm:"not null" json:"advertise_for"`
+	Status        string         `gorm:"default:'pending';index" json:"status"`
+	Note          string         `gorm:"type:text;default:''" json:"note"`
 }

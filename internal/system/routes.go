@@ -57,6 +57,18 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			admin.POST("/course-ads", h.CreateCourseAdCard)
 			admin.PUT("/course-ads/:id", h.UpdateCourseAdCard)
 			admin.DELETE("/course-ads/:id", h.DeleteCourseAdCard)
+
+			admin.GET("/advertise-requests", h.GetAdvertiseRequests)
+			admin.PUT("/advertise-requests/:id/status", h.UpdateAdvertiseRequestStatus)
+		}
+
+		// Institution-zone advertise requests (authenticated institution users).
+		instZone := v1.Group("/institution")
+		instZone.Use(authMW)
+		instZone.Use(roleMW)
+		{
+			instZone.POST("/ad-requests", h.SubmitAdvertiseRequest)
+			instZone.GET("/ad-requests", h.GetInstitutionAdvertiseRequests)
 		}
 	}
 }

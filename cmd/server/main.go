@@ -208,6 +208,7 @@ func main() {
 		&system.CourseAdCard{},
 		&system.CourseAdCardInstitution{},
 		&system.CourseAdCardMouCompany{},
+		&system.AdvertiseRequest{},
 		&chat.SitePage{},
 		&feedback.Feedback{},
 		&faq.FAQCategory{},
@@ -255,7 +256,10 @@ func main() {
 		if err := migrations.SeedLandingCourseFields(db); err != nil {
 			logger.Warn("Failed to seed landing course fields", "error", err)
 		}
-		if err := migrations.CreateCourseAdTables(db); err != nil {
+		if err := migrations.CreateAdvertiseRequests(db); err != nil {
+		logger.Warn("Failed to run advertise requests migration", "error", err)
+	}
+	if err := migrations.CreateCourseAdTables(db); err != nil {
 			logger.Warn("Failed to run course ad tables migration", "error", err)
 		}
 		// Cleanup dangling sub-users with provider_id = 0 from previous bug

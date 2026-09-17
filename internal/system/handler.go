@@ -723,6 +723,110 @@ func (h *Handler) TrackCourseAdCardClick(c *gin.Context) {
 	response.Success(c, http.StatusOK, "Course ad click tracked", nil)
 }
 
+// Advertise request handlers
+
+func authContextID(c *gin.Context) (uint, bool) {
+	idVal, exists := c.Get("user_id")
+	if !exists {
+		return 0, false
+	}
+	id, ok := idVal.(uint)
+	return id, ok
+}
+
+func authContextEmail(c *gin.Context) string {
+	emailVal, exists := c.Get("user_email")
+	if !exists {
+		return ""
+	}
+	email, _ := emailVal.(string)
+	return email
+}
+
+func (h *Handler) SubmitAdvertiseRequest(c *gin.Context) {
+	institutionID, ok := authContextID(c)
+	if !ok || institutionID == 0 {
+		response.Error(c, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	var req AdvertiseRequestRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	if req.Email == "" {
+		req.Email = authContextEmail(c)
+	}
+
+	resp, err := h.service.SubmitAdvertiseRequest(institutionID, req)
+	if err != nil {
+		response.Error(c, courseAdErrorStatus(err), err.Error())
+		return
+	}
+	response.Success(c, http.StatusCreated, "Advertise request submitted successfully", resp)
+}
+
+func (h *Handler) GetInstitutionAdvertiseRequests(c *gin.Context) {
+	institutionID, ok := authContextID(c)
+	if !ok || institutionID == 0 {
+		response.Error(c, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	responses, err := h.service.GetInstitutionAdvertiseRequests(institutionID)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to retrieve advertise requests")
+		return
+	}
+	response.Success(c, http.StatusOK, "Advertise requests retrieved successfully", responses)
+}
+
+func (h *Handler) GetAdvertiseRequests(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	status := c.Query("status")
+
+	responses, total, err := h.service.GetAdvertiseRequests(page, limit, status)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to retrieve advertise requests")
+		return
+	}
+	response.Success(c, http.StatusOK, "Advertise requests retrieved successfully", gin.H{
+		"requests": responses,
+		"meta": gin.H{
+			"total": total,
+			"page":  page,
+			"limit": limit,
+		},
+	})
+}
+
+func (h *Handler) UpdateAdvertiseRequestStatus(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid ID")
+		return
+	}
+
+	var req AdvertiseStatusRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	resp, err := h.service.UpdateAdvertiseRequestStatus(uint(id), req)
+	if err != nil {
+		if err.Error() == "record not found" {
+			response.Error(c, http.StatusNotFound, "Advertise request not found")
+			return
+		}
+		response.Error(c, courseAdErrorStatus(err), err.Error())
+		return
+	}
+	response.Success(c, http.StatusOK, "Advertise request status updated successfully", resp)
+}
+
 func toCourseAdCardResponse(card *CourseAdCard) CourseAdCardResponse {
 	resp := CourseAdCardResponse{
 		ID:           card.ID,

@@ -260,3 +260,33 @@ type CourseAdCardResponse struct {
 type CourseUpdateLogoRequest struct {
 	LogoURL string `json:"logo_url" binding:"required"`
 }
+
+// Advertise request DTOs
+
+type AdvertiseRequestRequest struct {
+	Name         string `json:"name" binding:"required"`
+	Designation  string `json:"designation"`
+	Contact      string `json:"contact"`
+	Email        string `json:"email"`
+	AdvertiseFor string `json:"advertise_for" binding:"required"`
+	Note         string `json:"note"`
+}
+
+type AdvertiseStatusRequest struct {
+	Status string `json:"status" binding:"required"`
+	Note   string `json:"note"`
+}
+
+type AdvertiseRequestResponse struct {
+	ID            uint   `json:"id"`
+	InstitutionID uint   `json:"institution_id"`
+	Name          string `json:"name"`
+	Designation   string `json:"designation"`
+	Contact       string `json:"contact"`
+	Email         string `json:"email"`
+	AdvertiseFor  string `json:"advertise_for"`
+	Status        string `json:"status"`
+	Note          string `json:"note"`
+	CreatedAt     string `json:"created_at"`
+	UpdatedAt     string `json:"updated_at"`
+}

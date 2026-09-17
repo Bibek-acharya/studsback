@@ -736,3 +736,111 @@ func (s *Service) DeleteCourseAdCard(id uint) error {
 func (s *Service) TrackCourseAdCardClick(id uint) error {
 	return s.repo.TrackCourseAdCardClick(id)
 }
+
+// Advertise requests
+
+// allowedAdvertiseFor values are the canonical advertisements shared
+// with the frontend ADVERTISE_FOR_OPTIONS constants.
+var allowedAdvertiseFor = map[string]bool{
+	"course-finder:multi_college":  true,
+	"course-finder:single_college": true,
+	"landing-popup":                true,
+	"hero-banner":                  true,
+	"showcase-banner":              true,
+	"landing-courses":              true,
+	"university-affiliation":       true,
+}
+
+func (s *Service) SubmitAdvertiseRequest(institutionID uint, req AdvertiseRequestRequest) (*AdvertiseRequestResponse, error) {
+	if !allowedAdvertiseFor[req.AdvertiseFor] {
+		return nil, newValidationError("advertise_for must be one of: course-finder:multi_college, course-finder:single_college, landing-popup, hero-banner, showcase-banner, landing-courses, university-affiliation")
+	}
+	if req.Email == "" {
+		email, err := s.repo.InstitutionUserEmail(institutionID)
+		if err != nil || email == "" {
+			return nil, newValidationError("email is required")
+		}
+		req.Email = email
+	}
+
+	request := &AdvertiseRequest{
+		InstitutionID: institutionID,
+		Name:          req.Name,
+		Designation:   req.Designation,
+		Contact:       req.Contact,
+		Email:         req.Email,
+		AdvertiseFor:  req.AdvertiseFor,
+		Status:        "pending",
+		Note:          req.Note,
+	}
+	if err := s.repo.CreateAdvertiseRequest(request); err != nil {
+		return nil, errors.New("failed to submit advertise request")
+	}
+	resp := toAdvertiseRequestResponse(request)
+	return &resp, nil
+}
+
+func (s *Service) GetInstitutionAdvertiseRequests(institutionID uint) ([]AdvertiseRequestResponse, error) {
+	requests, err := s.repo.FindAdvertiseRequestsByInstitution(institutionID)
+	if err != nil {
+		return nil, err
+	}
+	responses := make([]AdvertiseRequestResponse, len(requests))
+	for i := range requests {
+		responses[i] = toAdvertiseRequestResponse(&requests[i])
+	}
+	return responses, nil
+}
+
+func (s *Service) GetAdvertiseRequests(page, limit int, status string) ([]AdvertiseRequestResponse, int64, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50 {
+		limit = 20
+	}
+	requests, total, err := s.repo.FindAdvertiseRequests(page, limit, status)
+	if err != nil {
+		return nil, 0, err
+	}
+	responses := make([]AdvertiseRequestResponse, len(requests))
+	for i := range requests {
+		responses[i] = toAdvertiseRequestResponse(&requests[i])
+	}
+	return responses, total, nil
+}
+
+func (s *Service) UpdateAdvertiseRequestStatus(id uint, req AdvertiseStatusRequest) (*AdvertiseRequestResponse, error) {
+	if req.Status != "approved" && req.Status != "declined" {
+		return nil, newValidationError("status must be approved or declined")
+	}
+	var note *string
+	if req.Note != "" {
+		note = &req.Note
+	}
+	updated, err := s.repo.UpdateAdvertiseRequestStatus(id, req.Status, note)
+	if err != nil {
+		if err.Error() == "record not found" {
+			return nil, err
+		}
+		return nil, err
+	}
+	resp := toAdvertiseRequestResponse(updated)
+	return &resp, nil
+}
+
+func toAdvertiseRequestResponse(req *AdvertiseRequest) AdvertiseRequestResponse {
+	return AdvertiseRequestResponse{
+		ID:            req.ID,
+		InstitutionID: req.InstitutionID,
+		Name:          req.Name,
+		Designation:   req.Designation,
+		Contact:       req.Contact,
+		Email:         req.Email,
+		AdvertiseFor:  req.AdvertiseFor,
+		Status:        req.Status,
+		Note:          req.Note,
+		CreatedAt:     req.CreatedAt.Format("2006-01-02T15:04:05Z"),
+		UpdatedAt:     req.UpdatedAt.Format("2006-01-02T15:04:05Z"),
+	}
+}
