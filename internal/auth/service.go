@@ -991,29 +991,48 @@ func (s *Service) GetInstitution(id uint) (*InstitutionDetailResponse, error) {
 		bannerURL = ""
 	}
 
+	// UniversityAffiliations is stored as jsonb bytes; decode so the JSON
+	// response carries the array as-is rather than a base64 string.
+	var uniAffiliations interface{}
+	if len(user.UniversityAffiliations) > 0 {
+		_ = json.Unmarshal(user.UniversityAffiliations, &uniAffiliations)
+	}
+
 	return &InstitutionDetailResponse{
-		ID:                 user.ID,
-		InstitutionName:    user.InstitutionName,
-		Email:              user.Email,
-		RegistrationNumber: derefString(user.RegistrationNumber),
-		Status:             user.Status,
-		Claimed:            user.Claimed,
-		Verified:           user.Verified,
-		Featured:           user.Featured,
-		District:           user.District,
-		WebsiteURL:         user.WebsiteURL,
-		LogoURL:            logoURL,
-		BannerURL:          bannerURL,
-		About:              user.About,
-		Vision:             user.Vision,
-		Mission:            user.Mission,
-		Level:              user.Level,
-		Affiliation:        user.Affiliation,
-		UniversityID:       user.UniversityID,
-		IsSponsored:        user.IsSponsored,
-		Latitude:           user.Latitude,
-		Longitude:          user.Longitude,
-		ProfileData:        profileData,
+		ID:                       user.ID,
+		InstitutionName:          user.InstitutionName,
+		Email:                    user.Email,
+		RegistrationNumber:       derefString(user.RegistrationNumber),
+		Status:                   user.Status,
+		Claimed:                  user.Claimed,
+		Verified:                 user.Verified,
+		Featured:                 user.Featured,
+		District:                 user.District,
+		WebsiteURL:               user.WebsiteURL,
+		LogoURL:                  logoURL,
+		BannerURL:                bannerURL,
+		About:                    user.About,
+		Vision:                   user.Vision,
+		Mission:                  user.Mission,
+		Level:                    user.Level,
+		Affiliation:              user.Affiliation,
+		OrganizationType:         user.OrganizationType,
+		NonUniversityAffiliation: user.NonUniversityAffiliation,
+		UniversityAffiliations:   uniAffiliations,
+		ContactEmail:             user.ContactEmail,
+		ContactPhone:             user.ContactPhone,
+		MapURL:                   user.MapURL,
+		FacebookURL:              user.FacebookURL,
+		InstagramURL:             user.InstagramURL,
+		TiktokURL:                user.TiktokURL,
+		YoutubeURL:               user.YoutubeURL,
+		LinkedinURL:              user.LinkedinURL,
+		CardImageURL:             user.CardImageURL,
+		UniversityID:             user.UniversityID,
+		IsSponsored:              user.IsSponsored,
+		Latitude:                 user.Latitude,
+		Longitude:                user.Longitude,
+		ProfileData:              profileData,
 	}, nil
 }
 
