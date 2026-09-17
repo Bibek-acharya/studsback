@@ -141,21 +141,22 @@ type InstitutionRegisterRequest struct {
 }
 
 type UpdateInstitutionRequest struct {
-	InstitutionName string      `json:"institution_name"`
-	Location        string      `json:"location"`
-	Website         string      `json:"website"`
-	Level           string      `json:"level"`
-	Affiliation     string      `json:"affiliation"`
-	UniversityID    *uint       `json:"university_id"`
-	IsSponsored     *bool       `json:"is_sponsored"`
-	About           string      `json:"about"`
-	Vision          string      `json:"vision"`
-	Mission         string      `json:"mission"`
-	LogoURL         string      `json:"logo_url"`
-	BannerURL       string      `json:"banner_url"`
-	Latitude        *float64    `json:"latitude,omitempty"`
-	Longitude       *float64    `json:"longitude,omitempty"`
-	ProfileData     interface{} `json:"profile_data"`
+	InstitutionName  string      `json:"institution_name"`
+	Location         string      `json:"location"`
+	Website          string      `json:"website"`
+	Level            string      `json:"level"`
+	Affiliation      string      `json:"affiliation"`
+	OrganizationType string      `json:"organization_type"`
+	UniversityID     *uint       `json:"university_id"`
+	IsSponsored      *bool       `json:"is_sponsored"`
+	About            string      `json:"about"`
+	Vision           string      `json:"vision"`
+	Mission          string      `json:"mission"`
+	LogoURL          string      `json:"logo_url"`
+	BannerURL        string      `json:"banner_url"`
+	Latitude         *float64    `json:"latitude,omitempty"`
+	Longitude        *float64    `json:"longitude,omitempty"`
+	ProfileData      interface{} `json:"profile_data"`
 }
 
 type InstitutionDetailResponse struct {
@@ -190,6 +191,7 @@ type CreateInstitutionRequest struct {
 	Website                  string      `json:"website"`
 	Level                    string      `json:"level"`
 	Affiliation              string      `json:"affiliation"`
+	OrganizationType         string      `json:"organization_type"`
 	UniversityID             uint        `json:"university_id"`
 	UniversityAffiliations   interface{} `json:"university_affiliations"`
 	NonUniversityAffiliation string      `json:"non_university_affiliation"`

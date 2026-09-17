@@ -916,6 +916,7 @@ func (s *Service) CreateInstitution(req CreateInstitutionRequest) (*InstitutionU
 		Status:                   "approved",
 		Level:                    req.Level,
 		Affiliation:              req.Affiliation,
+		OrganizationType:         req.OrganizationType,
 		UniversityID:             &req.UniversityID,
 		NonUniversityAffiliation: req.NonUniversityAffiliation,
 		UniversityAffiliations:   uniAffiliations,
@@ -1036,6 +1037,9 @@ func (s *Service) UpdateInstitution(id uint, req UpdateInstitutionRequest) error
 	}
 	if req.Affiliation != "" {
 		user.Affiliation = req.Affiliation
+	}
+	if req.OrganizationType != "" {
+		user.OrganizationType = req.OrganizationType
 	}
 	if req.UniversityID != nil {
 		user.UniversityID = req.UniversityID
