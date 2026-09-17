@@ -80,3 +80,26 @@ func (r *Repository) countWhere(table, where string, args ...any) (int64, error)
 	}
 	return n, nil
 }
+
+func (r *Repository) RecordPageVisit(v *PageVisit) error {
+	return r.db.Create(v).Error
+}
+
+type pageRankRow struct {
+	Path   string
+	Visits int64
+}
+
+func (r *Repository) topPageVisits(from, to time.Time, limit int) ([]pageRankRow, error) {
+	var rows []pageRankRow
+	if err := r.db.Model(&PageVisit{}).
+		Where("created_at >= ? AND created_at < ?", from, to).
+		Select("path, COUNT(*) AS visits").
+		Group("path").
+		Order("visits DESC, path ASC").
+		Limit(limit).
+		Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	return rows, nil
+}

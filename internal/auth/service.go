@@ -1114,8 +1114,8 @@ func (s *Service) UpdateInstitution(id uint, req UpdateInstitutionRequest) error
 	if req.LinkedinURL != "" {
 		user.LinkedinURL = req.LinkedinURL
 	}
-	if req.NonUniversityAffiliation != "" {
-		user.NonUniversityAffiliation = req.NonUniversityAffiliation
+	if req.NonUniversityAffiliation != nil {
+		user.NonUniversityAffiliation = *req.NonUniversityAffiliation
 	}
 
 	if req.Latitude != nil {

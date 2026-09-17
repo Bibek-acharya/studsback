@@ -165,7 +165,7 @@ type UpdateInstitutionRequest struct {
 	TiktokURL                string      `json:"tiktok_url"`
 	YoutubeURL               string      `json:"youtube_url"`
 	LinkedinURL              string      `json:"linkedin_url"`
-	NonUniversityAffiliation string      `json:"non_university_affiliation"`
+	NonUniversityAffiliation *string     `json:"non_university_affiliation"`
 	Latitude                 *float64    `json:"latitude,omitempty"`
 	Longitude                *float64    `json:"longitude,omitempty"`
 	ProfileData              interface{} `json:"profile_data"`

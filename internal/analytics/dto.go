@@ -21,6 +21,22 @@ type UsersAnalytics struct {
 	Series          []SeriesPoint    `json:"series"`
 }
 
+type PageVisitTotals struct {
+	TotalVisits int64 `json:"total_visits"`
+	UniquePaths int64 `json:"unique_paths"`
+}
+
+type TopPage struct {
+	Path   string `json:"path"`
+	Visits int64  `json:"visits"`
+}
+
+type PageVisitAnalytics struct {
+	Totals   PageVisitTotals `json:"totals"`
+	Series   []SeriesPoint   `json:"series"`
+	TopPages []TopPage       `json:"top_pages"`
+}
+
 type FunnelTotals struct {
 	Admissions              int64 `json:"admissions"`
 	ScholarshipApplications int64 `json:"scholarship_applications"`

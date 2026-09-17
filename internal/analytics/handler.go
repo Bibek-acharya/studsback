@@ -103,3 +103,38 @@ func (h *Handler) getHealth(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"data": out})
 }
+
+type trackVisitRequest struct {
+	Path     string `json:"path" binding:"required"`
+	Referrer string `json:"referrer"`
+}
+
+func (h *Handler) trackVisit(c *gin.Context) {
+	var req trackVisitRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if len(req.Path) >= 512 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "path too long"})
+		return
+	}
+	if err := h.svc.TrackVisit(req.Path, req.Referrer, nil); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true})
+}
+
+func (h *Handler) getPages(c *gin.Context) {
+	from, to, gran, ok := parseRange(c)
+	if !ok {
+		return
+	}
+	out, err := h.svc.Pages(from, to, gran)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": out})
+}

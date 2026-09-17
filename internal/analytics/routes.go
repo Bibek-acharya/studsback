@@ -10,4 +10,11 @@ func (h *Handler) RegisterRoutes(e *gin.Engine, authMW, superadminMW gin.Handler
 	g.GET("/supply", h.getSupply)
 	g.GET("/ops", h.getOps)
 	g.GET("/health", h.getHealth)
+	g.GET("/pages", h.getPages)
+}
+
+// RegisterPublicRoutes wires unauthenticated endpoints (no cookies exist).
+func (h *Handler) RegisterPublicRoutes(e *gin.Engine) {
+	g := e.Group("/api/v1/track")
+	g.POST("/visit", h.trackVisit)
 }

@@ -307,6 +307,43 @@ func (s *Service) Ops(from, to time.Time, gran string) (OpsAnalytics, error) {
 	return out, nil
 }
 
+func (s *Service) TrackVisit(path, referrer string, userID *uint) error {
+	v := &PageVisit{Path: path, Referrer: referrer, UserID: userID}
+	return s.repo.RecordPageVisit(v)
+}
+
+func (s *Service) Pages(from, to time.Time, gran string) (PageVisitAnalytics, error) {
+	var out PageVisitAnalytics
+	visits, err := s.repo.countWhere("page_visits", "created_at >= ? AND created_at < ?", from, to)
+	if err != nil {
+		return out, err
+	}
+	var unique int64
+	if err := s.repo.db.Model(&PageVisit{}).
+		Where("created_at >= ? AND created_at < ?", from, to).
+		Distinct("path").Count(&unique).Error; err != nil {
+		return out, err
+	}
+	out.Totals = PageVisitTotals{TotalVisits: visits, UniquePaths: unique}
+	rows, err := s.repo.bucketCounts("page_visits", "'visits'", from, to, gran, "")
+	if err != nil {
+		return out, err
+	}
+	out.Series = pivot(rows)
+	if out.Series == nil {
+		out.Series = []SeriesPoint{}
+	}
+	top, err := s.repo.topPageVisits(from, to, 10)
+	if err != nil {
+		return out, err
+	}
+	out.TopPages = make([]TopPage, 0, len(top))
+	for _, t := range top {
+		out.TopPages = append(out.TopPages, TopPage{Path: t.Path, Visits: t.Visits})
+	}
+	return out, nil
+}
+
 func (s *Service) ageBuckets(table string) (AgeBuckets, error) {
 	var out AgeBuckets
 	now := time.Now().UTC()

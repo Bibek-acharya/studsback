@@ -221,6 +221,7 @@ func main() {
 		notification.NotificationPreference{},
 		notification.NotificationDelivery{},
 		notification.PublicNotification{},
+		analytics.PageVisit{},
 	); err != nil {
 		logger.Fatal("Failed to migrate database", "error", err)
 	} else {
@@ -493,6 +494,7 @@ func main() {
 	router.Use(usageTracker.Middleware())
 	analyticsHandler := analytics.NewHandler(analytics.NewService(db, usageTracker))
 	analyticsHandler.RegisterRoutes(router, authMW, middleware.RequireRole("superadmin", "super_admin"))
+	analyticsHandler.RegisterPublicRoutes(router)
 
 	admission.RegisterRoutes(router, authMW, roleMW, admissionHandler)
 	auth.RegisterRoutes(router, authMW, roleMW, authHandler)
