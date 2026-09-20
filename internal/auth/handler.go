@@ -1863,11 +1863,7 @@ func (h *Handler) UpdateProgramForInstitution(c *gin.Context) {
 		FeeItems:            req.FeeItems,
 	}
 
-	instID := uint(0)
-	if req.InstitutionID != nil {
-		instID = *req.InstitutionID
-	}
-	program, err := instService.UpdateProgram(instID, uint(id), progReq)
+	program, err := instService.UpdateProgramForSuperadmin(uint(id), progReq, req.InstitutionID)
 	if err != nil {
 		response.Error(c, 404, err.Error())
 		return
@@ -2090,11 +2086,7 @@ func (h *Handler) UpdateEntranceForInstitution(c *gin.Context) {
 		ProgramsOffered:        req.ProgramsOffered,
 	}
 
-	instID := uint(0)
-	if req.InstitutionID != nil {
-		instID = *req.InstitutionID
-	}
-	entrance, err := instService.UpdateEntrance(instID, uint(id), entReq)
+	entrance, err := instService.UpdateEntranceForSuperadmin(uint(id), entReq, req.InstitutionID)
 	if err != nil {
 		response.Error(c, 404, err.Error())
 		return

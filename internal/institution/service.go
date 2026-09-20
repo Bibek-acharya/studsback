@@ -460,12 +460,62 @@ func (s *Service) FindProgramByGlobalCourse(institutionID, globalCourseID uint) 
 	return s.repo.FindProgramByGlobalCourse(institutionID, globalCourseID)
 }
 
+func (s *Service) UpdateProgramForSuperadmin(id uint, req UpdateProgramRequest, targetInstID *uint) (*InstitutionProgram, error) {
+	program, err := s.repo.FindProgramByID(id)
+	if err != nil {
+		return nil, errors.New("program not found")
+	}
+	if targetInstID != nil && *targetInstID != program.InstitutionID {
+		if _, err := s.repo.FindInstitutionUserByID(*targetInstID); err != nil {
+			return nil, errors.New("target institution not found")
+		}
+		program.InstitutionID = *targetInstID
+	}
+	if err := s.applyProgramUpdates(program, req); err != nil {
+		return nil, err
+	}
+	if program.GlobalCourseID == 0 {
+		program.Overrides = nil
+		program.NullifiedFields = nil
+	}
+	if err := s.repo.SaveProgram(program); err != nil {
+		return nil, err
+	}
+
+	if err := s.repo.SyncCourseFromProgram(program); err != nil {
+		fmt.Printf("[WARN] Failed to sync course from program %d: %v\n", program.ID, err)
+	}
+
+	return program, nil
+}
+
 func (s *Service) UpdateProgram(instID, id uint, req UpdateProgramRequest) (*InstitutionProgram, error) {
 	program, err := s.repo.FindProgramByIDAndInstitution(id, instID)
 	if err != nil {
 		return nil, errors.New("program not found")
 	}
 
+	if err := s.applyProgramUpdates(program, req); err != nil {
+		return nil, err
+	}
+
+	if program.GlobalCourseID == 0 {
+		program.Overrides = nil
+		program.NullifiedFields = nil
+	}
+
+	if err := s.repo.SaveProgram(program); err != nil {
+		return nil, err
+	}
+
+	if err := s.repo.SyncCourseFromProgram(program); err != nil {
+		fmt.Printf("[WARN] Failed to sync course from program %d: %v\n", program.ID, err)
+	}
+
+	return program, nil
+}
+
+func (s *Service) applyProgramUpdates(program *InstitutionProgram, req UpdateProgramRequest) error {
 	if req.Fee != "" {
 		program.Fee = req.Fee
 	}
@@ -511,20 +561,9 @@ func (s *Service) UpdateProgram(instID, id uint, req UpdateProgramRequest) (*Ins
 	// Recalculate overrides if program is linked to a global course
 	if program.GlobalCourseID > 0 {
 		s.recalculateOverrides(program)
-	} else {
-		program.Overrides = nil
-		program.NullifiedFields = nil
 	}
 
-	if err := s.repo.SaveProgram(program); err != nil {
-		return nil, err
-	}
-
-	if err := s.repo.SyncCourseFromProgram(program); err != nil {
-		fmt.Printf("[WARN] Failed to sync course from program %d: %v\n", program.ID, err)
-	}
-
-	return program, nil
+	return nil
 }
 
 func (s *Service) recalculateOverrides(program *InstitutionProgram) {
@@ -869,47 +908,47 @@ func (s *Service) CreateEntrance(instID uint, req CreateEntranceRequest) (*Insti
 	}
 
 	entrance := &InstitutionEntrance{
-		InstitutionID:       instID,
-		InstitutionName:     req.InstitutionName,
-		InstitutionLocation: req.InstitutionLocation,
-		InstitutionLink:     req.InstitutionLink,
-		InstitutionLogo:     req.InstitutionLogo,
+		InstitutionID:          instID,
+		InstitutionName:        req.InstitutionName,
+		InstitutionLocation:    req.InstitutionLocation,
+		InstitutionLink:        req.InstitutionLink,
+		InstitutionLogo:        req.InstitutionLogo,
 		InstitutionAffiliation: req.InstitutionAffiliation,
-		ExamMode:            req.ExamMode,
-		ExamScope:           req.ExamScope,
-		Title:               req.Title,
-		Description:         req.Description,
-		Program:             req.Program,
-		Date:                date,
-		StartTime:           req.StartTime,
-		EndTime:             req.EndTime,
-		Duration:            req.Duration,
-		TotalMarks:          req.TotalMarks,
-		PassingMarks:        req.PassingMarks,
-		TotalSeats:          req.TotalSeats,
-		Instructions:        req.Instructions,
-		HeroBanner:          req.HeroBanner,
-		Status:              "draft",
-		ApplicationFee:      req.ApplicationFee,
-		OverviewDetails:     req.OverviewDetails,
-		ExamDateSchedules:   req.ExamDateSchedules,
-		EligibilityList:     req.EligibilityList,
-		ApplicationSteps:    req.ApplicationSteps,
-		ExamPattern:         req.ExamPattern,
-		SubjectMarks:        req.SubjectMarks,
-		ModelSets:           req.ModelSets,
-		UpcomingDates:       req.UpcomingDates,
-		ContactPersons:      req.ContactPersons,
-		Faqs:                req.Faqs,
-		Email:               req.Email,
-		ContactNumber:       req.ContactNumber,
-		SocialLinks:         req.SocialLinks,
-		ApplicationLink:     req.ApplicationLink,
-		NoticeFile:          req.NoticeFile,
-		EmbeddedMap:         req.EmbeddedMap,
-		RequiredDocuments:   req.RequiredDocuments,
-		ExaminationSchedule: req.ExaminationSchedule,
-		ProgramsOffered:     req.ProgramsOffered,
+		ExamMode:               req.ExamMode,
+		ExamScope:              req.ExamScope,
+		Title:                  req.Title,
+		Description:            req.Description,
+		Program:                req.Program,
+		Date:                   date,
+		StartTime:              req.StartTime,
+		EndTime:                req.EndTime,
+		Duration:               req.Duration,
+		TotalMarks:             req.TotalMarks,
+		PassingMarks:           req.PassingMarks,
+		TotalSeats:             req.TotalSeats,
+		Instructions:           req.Instructions,
+		HeroBanner:             req.HeroBanner,
+		Status:                 "draft",
+		ApplicationFee:         req.ApplicationFee,
+		OverviewDetails:        req.OverviewDetails,
+		ExamDateSchedules:      req.ExamDateSchedules,
+		EligibilityList:        req.EligibilityList,
+		ApplicationSteps:       req.ApplicationSteps,
+		ExamPattern:            req.ExamPattern,
+		SubjectMarks:           req.SubjectMarks,
+		ModelSets:              req.ModelSets,
+		UpcomingDates:          req.UpcomingDates,
+		ContactPersons:         req.ContactPersons,
+		Faqs:                   req.Faqs,
+		Email:                  req.Email,
+		ContactNumber:          req.ContactNumber,
+		SocialLinks:            req.SocialLinks,
+		ApplicationLink:        req.ApplicationLink,
+		NoticeFile:             req.NoticeFile,
+		EmbeddedMap:            req.EmbeddedMap,
+		RequiredDocuments:      req.RequiredDocuments,
+		ExaminationSchedule:    req.ExaminationSchedule,
+		ProgramsOffered:        req.ProgramsOffered,
 	}
 
 	if req.Status != "" {
@@ -945,6 +984,39 @@ func (s *Service) UpdateEntrance(instID, id uint, req UpdateEntranceRequest) (*I
 		return nil, errors.New("entrance not found")
 	}
 
+	s.applyEntranceUpdates(entrance, req)
+
+	if err := s.repo.SaveEntrance(entrance); err != nil {
+		return nil, err
+	}
+
+	return entrance, nil
+}
+
+// UpdateEntranceForSuperadmin updates an entrance by ID without institution
+// scoping. Superadmins may reassign the entrance to a different institution
+// by passing targetInstID; nil leaves ownership unchanged. Used only by the
+// superadmin API, which is trusted to cross institution boundaries.
+func (s *Service) UpdateEntranceForSuperadmin(id uint, req UpdateEntranceRequest, targetInstID *uint) (*InstitutionEntrance, error) {
+	entrance, err := s.repo.FindEntranceByID(id)
+	if err != nil {
+		return nil, errors.New("entrance not found")
+	}
+	if targetInstID != nil && *targetInstID != entrance.InstitutionID {
+		if _, err := s.repo.FindInstitutionUserByID(*targetInstID); err != nil {
+			return nil, errors.New("target institution not found")
+		}
+		entrance.InstitutionID = *targetInstID
+	}
+	// reuse the same field-update logic as UpdateEntrance
+	s.applyEntranceUpdates(entrance, req)
+	if err := s.repo.SaveEntrance(entrance); err != nil {
+		return nil, err
+	}
+	return entrance, nil
+}
+
+func (s *Service) applyEntranceUpdates(entrance *InstitutionEntrance, req UpdateEntranceRequest) {
 	if req.Title != "" {
 		entrance.Title = req.Title
 	}
@@ -1072,12 +1144,6 @@ func (s *Service) UpdateEntrance(instID, id uint, req UpdateEntranceRequest) (*I
 	if req.ExamScope != "" {
 		entrance.ExamScope = req.ExamScope
 	}
-
-	if err := s.repo.SaveEntrance(entrance); err != nil {
-		return nil, err
-	}
-
-	return entrance, nil
 }
 
 func (s *Service) DeleteEntrance(instID, id uint) error {

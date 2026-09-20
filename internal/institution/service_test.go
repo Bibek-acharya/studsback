@@ -660,3 +660,101 @@ func TestRejectCourseRequest_NotFound(t *testing.T) {
 		t.Errorf("error = %q, want %q", err.Error(), "course request not found")
 	}
 }
+
+func setupSuperadminTestDB(t *testing.T) *gorm.DB {
+	t.Helper()
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open sqlite db: %v", err)
+	}
+
+	if err := db.AutoMigrate(&InstitutionUser{}, &InstitutionEntrance{}); err != nil {
+		t.Fatalf("auto migrate: %v", err)
+	}
+
+	return db
+}
+
+func seedEntrance(t *testing.T, db *gorm.DB, institutionID uint, title string) *InstitutionEntrance {
+	t.Helper()
+	entrance := &InstitutionEntrance{
+		InstitutionID: institutionID,
+		Title:         title,
+	}
+	if err := db.Create(entrance).Error; err != nil {
+		t.Fatalf("seed entrance: %v", err)
+	}
+	return entrance
+}
+
+func TestUpdateEntranceForSuperadmin_ReassignInstitution(t *testing.T) {
+	db := setupSuperadminTestDB(t)
+	repo := NewRepository(db)
+	svc := NewService(repo, nil, nil, nil)
+
+	entrance := seedEntrance(t, db, 0, "Old Title")
+
+	target := &InstitutionUser{InstitutionName: "Target Institution", Email: "target@example.com"}
+	if err := db.Create(target).Error; err != nil {
+		t.Fatalf("seed target institution: %v", err)
+	}
+
+	req := UpdateEntranceRequest{Title: "New Title"}
+	updated, err := svc.UpdateEntranceForSuperadmin(entrance.ID, req, &target.ID)
+	if err != nil {
+		t.Fatalf("UpdateEntranceForSuperadmin: %v", err)
+	}
+	if updated.InstitutionID != target.ID {
+		t.Errorf("InstitutionID = %d, want %d", updated.InstitutionID, target.ID)
+	}
+	if updated.Title != "New Title" {
+		t.Errorf("Title = %q, want %q", updated.Title, "New Title")
+	}
+
+	// Verify persisted state
+	stored, err := repo.FindEntranceByID(entrance.ID)
+	if err != nil {
+		t.Fatalf("reload entrance: %v", err)
+	}
+	if stored.InstitutionID != target.ID || stored.Title != "New Title" {
+		t.Errorf("persisted state = (%d, %q), want (%d, %q)", stored.InstitutionID, stored.Title, target.ID, "New Title")
+	}
+}
+
+func TestUpdateEntranceForSuperadmin_NilInstKeepsOwner(t *testing.T) {
+	db := setupSuperadminTestDB(t)
+	repo := NewRepository(db)
+	svc := NewService(repo, nil, nil, nil)
+
+	entrance := seedEntrance(t, db, 7, "Original Title")
+
+	req := UpdateEntranceRequest{Title: "Updated Title"}
+	updated, err := svc.UpdateEntranceForSuperadmin(entrance.ID, req, nil)
+	if err != nil {
+		t.Fatalf("UpdateEntranceForSuperadmin: %v", err)
+	}
+	if updated.InstitutionID != 7 {
+		t.Errorf("InstitutionID = %d, want 7", updated.InstitutionID)
+	}
+	if updated.Title != "Updated Title" {
+		t.Errorf("Title = %q, want %q", updated.Title, "Updated Title")
+	}
+}
+
+func TestUpdateEntranceForSuperadmin_TargetMissing(t *testing.T) {
+	db := setupSuperadminTestDB(t)
+	repo := NewRepository(db)
+	svc := NewService(repo, nil, nil, nil)
+
+	entrance := seedEntrance(t, db, 0, "Old Title")
+
+	missingID := uint(9999)
+	req := UpdateEntranceRequest{Title: "New Title"}
+	_, err := svc.UpdateEntranceForSuperadmin(entrance.ID, req, &missingID)
+	if err == nil {
+		t.Fatal("expected error for missing target institution")
+	}
+	if err.Error() != "target institution not found" {
+		t.Errorf("error = %q, want %q", err.Error(), "target institution not found")
+	}
+}
