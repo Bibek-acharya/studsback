@@ -268,47 +268,51 @@ type CreateEntranceRequest struct {
 }
 
 type UpdateEntranceRequest struct {
-	Title                  string          `json:"title"`
-	Description            string          `json:"description"`
-	Program                string          `json:"program"`
-	Date                   string          `json:"date"`
-	StartTime              string          `json:"start_time"`
-	EndTime                string          `json:"end_time"`
-	Duration               int             `json:"duration"`
-	TotalMarks             int             `json:"total_marks"`
-	PassingMarks           int             `json:"passing_marks"`
-	TotalSeats             int             `json:"total_seats"`
-	Instructions           string          `json:"instructions"`
-	HeroBanner             string          `json:"hero_banner"`
-	Questions              interface{}     `json:"questions"`
-	Status                 string          `json:"status"`
-	InstitutionName        string          `json:"institution_name"`
-	InstitutionLocation    string          `json:"institution_location"`
-	InstitutionLink        string          `json:"institution_link"`
-	InstitutionAffiliation string          `json:"institution_affiliation"`
-	InstitutionLogo        string          `json:"institution_logo"`
-	ExamMode               string          `json:"exam_mode"`
-	ExamScope              string          `json:"exam_scope"`
-	ApplicationFee         string          `json:"application_fee"`
-	OverviewDetails        json.RawMessage `json:"overview_details"`
-	ExamDateSchedules      json.RawMessage `json:"exam_date_schedules"`
-	EligibilityList        json.RawMessage `json:"eligibility_list"`
-	ApplicationSteps       json.RawMessage `json:"application_steps"`
-	ExamPattern            json.RawMessage `json:"exam_pattern"`
-	SubjectMarks           json.RawMessage `json:"subject_marks"`
-	ModelSets              json.RawMessage `json:"model_sets"`
-	UpcomingDates          json.RawMessage `json:"upcoming_dates"`
-	ContactPersons         json.RawMessage `json:"contact_persons"`
-	Faqs                   json.RawMessage `json:"faqs"`
-	Email                  string          `json:"email"`
-	ContactNumber          string          `json:"contact_number"`
-	SocialLinks            json.RawMessage `json:"social_links"`
-	ApplicationLink        string          `json:"application_link"`
-	NoticeFile             string          `json:"notice_file"`
-	EmbeddedMap            string          `json:"embedded_map"`
-	RequiredDocuments      json.RawMessage `json:"required_documents"`
-	ExaminationSchedule    json.RawMessage `json:"examination_schedule"`
-	ProgramsOffered        json.RawMessage `json:"programs_offered"`
+	// Pointer fields: nil means "not provided" (leave stored value),
+	// non-nil (including empty string / zero) means "set to this value"
+	// so fields can be cleared on update.
+	Title                  *string          `json:"title"`
+	Description            *string          `json:"description"`
+	Program                *string          `json:"program"`
+	Date                   *string          `json:"date"`
+	StartTime              *string          `json:"start_time"`
+	EndTime                *string          `json:"end_time"`
+	Duration               *int             `json:"duration"`
+	TotalMarks             *int             `json:"total_marks"`
+	PassingMarks           *int             `json:"passing_marks"`
+	TotalSeats             *int             `json:"total_seats"`
+	Instructions           *string          `json:"instructions"`
+	HeroBanner             *string          `json:"hero_banner"`
+	Questions              interface{}      `json:"questions"`
+	Status                 *string          `json:"status"`
+	InstitutionName        *string          `json:"institution_name"`
+	InstitutionLocation    *string          `json:"institution_location"`
+	InstitutionLink        *string          `json:"institution_link"`
+	InstitutionAffiliation *string          `json:"institution_affiliation"`
+	InstitutionLogo        *string          `json:"institution_logo"`
+	ExamMode               *string          `json:"exam_mode"`
+	ExamScope              *string          `json:"exam_scope"`
+	ApplicationFee         *string          `json:"application_fee"`
+	// json.RawMessage: nil = field absent, non-nil (e.g. `[]`) = replace stored value
+	OverviewDetails     json.RawMessage `json:"overview_details"`
+	ExamDateSchedules   json.RawMessage `json:"exam_date_schedules"`
+	EligibilityList     json.RawMessage `json:"eligibility_list"`
+	ApplicationSteps    json.RawMessage `json:"application_steps"`
+	ExamPattern         json.RawMessage `json:"exam_pattern"`
+	SubjectMarks        json.RawMessage `json:"subject_marks"`
+	ModelSets           json.RawMessage `json:"model_sets"`
+	UpcomingDates       json.RawMessage `json:"upcoming_dates"`
+	ContactPersons      json.RawMessage `json:"contact_persons"`
+	Faqs                json.RawMessage `json:"faqs"`
+	Email               *string         `json:"email"`
+	ContactNumber       *string         `json:"contact_number"`
+	SocialLinks         json.RawMessage `json:"social_links"`
+	ApplicationLink     *string         `json:"application_link"`
+	NoticeFile          *string         `json:"notice_file"`
+	EmbeddedMap         *string         `json:"embedded_map"`
+	RequiredDocuments   json.RawMessage `json:"required_documents"`
+	ExaminationSchedule json.RawMessage `json:"examination_schedule"`
+	ProgramsOffered     json.RawMessage `json:"programs_offered"`
 }
 
 type EntranceResponse struct {

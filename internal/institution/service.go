@@ -1017,132 +1017,135 @@ func (s *Service) UpdateEntranceForSuperadmin(id uint, req UpdateEntranceRequest
 }
 
 func (s *Service) applyEntranceUpdates(entrance *InstitutionEntrance, req UpdateEntranceRequest) {
-	if req.Title != "" {
-		entrance.Title = req.Title
+	// Pointers: nil = field absent from request (keep stored value),
+	// non-nil = apply (including empty string / zero / [] to clear).
+	if req.Title != nil {
+		entrance.Title = *req.Title
 	}
-	if req.Description != "" {
-		entrance.Description = req.Description
+	if req.Description != nil {
+		entrance.Description = *req.Description
 	}
-	if req.Program != "" {
-		entrance.Program = req.Program
+	if req.Program != nil {
+		entrance.Program = *req.Program
 	}
-	if req.Date != "" {
-		if t, err := time.Parse("2006-01-02", req.Date); err == nil {
+	if req.Date != nil {
+		if t, err := time.Parse("2006-01-02", *req.Date); err == nil {
 			entrance.Date = t
 		}
 	}
-	if req.StartTime != "" {
-		entrance.StartTime = req.StartTime
+	if req.StartTime != nil {
+		entrance.StartTime = *req.StartTime
 	}
-	if req.EndTime != "" {
-		entrance.EndTime = req.EndTime
+	if req.EndTime != nil {
+		entrance.EndTime = *req.EndTime
 	}
-	if req.Duration > 0 {
-		entrance.Duration = req.Duration
+	if req.Duration != nil {
+		entrance.Duration = *req.Duration
 	}
-	if req.TotalMarks > 0 {
-		entrance.TotalMarks = req.TotalMarks
+	if req.TotalMarks != nil {
+		entrance.TotalMarks = *req.TotalMarks
 	}
-	if req.PassingMarks > 0 {
-		entrance.PassingMarks = req.PassingMarks
+	if req.PassingMarks != nil {
+		entrance.PassingMarks = *req.PassingMarks
 	}
-	if req.TotalSeats > 0 {
-		entrance.TotalSeats = req.TotalSeats
+	if req.TotalSeats != nil {
+		entrance.TotalSeats = *req.TotalSeats
 	}
-	if req.Instructions != "" {
-		entrance.Instructions = req.Instructions
+	if req.Instructions != nil {
+		entrance.Instructions = *req.Instructions
 	}
-	if req.HeroBanner != "" {
-		entrance.HeroBanner = req.HeroBanner
+	if req.HeroBanner != nil {
+		entrance.HeroBanner = *req.HeroBanner
 	}
 	if req.Questions != nil {
 		data, _ := json.Marshal(req.Questions)
 		str := string(data)
 		entrance.Questions = &str
 	}
-	if req.Status != "" {
-		entrance.Status = req.Status
+	if req.Status != nil {
+		entrance.Status = *req.Status
 	}
-	if req.ApplicationFee != "" {
-		entrance.ApplicationFee = req.ApplicationFee
+	if req.ApplicationFee != nil {
+		entrance.ApplicationFee = *req.ApplicationFee
 	}
-	if len(req.OverviewDetails) > 0 {
+	// json.RawMessage: nil = absent (keep), non-nil (e.g. `[]`) = replace (clears if empty)
+	if req.OverviewDetails != nil {
 		entrance.OverviewDetails = req.OverviewDetails
 	}
-	if len(req.ExamDateSchedules) > 0 {
+	if req.ExamDateSchedules != nil {
 		entrance.ExamDateSchedules = req.ExamDateSchedules
 	}
-	if len(req.EligibilityList) > 0 {
+	if req.EligibilityList != nil {
 		entrance.EligibilityList = req.EligibilityList
 	}
-	if len(req.ApplicationSteps) > 0 {
+	if req.ApplicationSteps != nil {
 		entrance.ApplicationSteps = req.ApplicationSteps
 	}
-	if len(req.ExamPattern) > 0 {
+	if req.ExamPattern != nil {
 		entrance.ExamPattern = req.ExamPattern
 	}
-	if len(req.SubjectMarks) > 0 {
+	if req.SubjectMarks != nil {
 		entrance.SubjectMarks = req.SubjectMarks
 	}
-	if len(req.ModelSets) > 0 {
+	if req.ModelSets != nil {
 		entrance.ModelSets = req.ModelSets
 	}
-	if len(req.UpcomingDates) > 0 {
+	if req.UpcomingDates != nil {
 		entrance.UpcomingDates = req.UpcomingDates
 	}
-	if len(req.ContactPersons) > 0 {
+	if req.ContactPersons != nil {
 		entrance.ContactPersons = req.ContactPersons
 	}
-	if len(req.Faqs) > 0 {
+	if req.Faqs != nil {
 		entrance.Faqs = req.Faqs
 	}
-	if req.Email != "" {
-		entrance.Email = req.Email
+	if req.Email != nil {
+		entrance.Email = *req.Email
 	}
-	if req.ContactNumber != "" {
-		entrance.ContactNumber = req.ContactNumber
+	if req.ContactNumber != nil {
+		entrance.ContactNumber = *req.ContactNumber
 	}
-	if len(req.SocialLinks) > 0 {
+	if req.SocialLinks != nil {
 		entrance.SocialLinks = req.SocialLinks
 	}
-	if req.ApplicationLink != "" {
-		entrance.ApplicationLink = req.ApplicationLink
+	if req.ApplicationLink != nil {
+		entrance.ApplicationLink = *req.ApplicationLink
 	}
-	if req.NoticeFile != "" {
-		entrance.NoticeFile = req.NoticeFile
+	if req.NoticeFile != nil {
+		entrance.NoticeFile = *req.NoticeFile
 	}
-	if req.EmbeddedMap != "" {
-		entrance.EmbeddedMap = req.EmbeddedMap
+	if req.EmbeddedMap != nil {
+		entrance.EmbeddedMap = *req.EmbeddedMap
 	}
-	if len(req.RequiredDocuments) > 0 {
+	if req.RequiredDocuments != nil {
 		entrance.RequiredDocuments = req.RequiredDocuments
 	}
-	if len(req.ExaminationSchedule) > 0 {
+	if req.ExaminationSchedule != nil {
 		entrance.ExaminationSchedule = req.ExaminationSchedule
 	}
-	if len(req.ProgramsOffered) > 0 {
+	if req.ProgramsOffered != nil {
 		entrance.ProgramsOffered = req.ProgramsOffered
 	}
-	if req.InstitutionName != "" {
-		entrance.InstitutionName = req.InstitutionName
+	if req.InstitutionName != nil {
+		entrance.InstitutionName = *req.InstitutionName
 	}
-	if req.InstitutionLocation != "" {
-		entrance.InstitutionLocation = req.InstitutionLocation
+	if req.InstitutionLocation != nil {
+		entrance.InstitutionLocation = *req.InstitutionLocation
 	}
-	if req.InstitutionLink != "" {
-		entrance.InstitutionLink = req.InstitutionLink
+	if req.InstitutionLink != nil {
+		entrance.InstitutionLink = *req.InstitutionLink
 	}
-	if req.InstitutionAffiliation != "" {
-		entrance.InstitutionAffiliation = req.InstitutionAffiliation
+	if req.InstitutionAffiliation != nil {
+		entrance.InstitutionAffiliation = *req.InstitutionAffiliation
 	}
-	if req.InstitutionLogo != "" {
-		entrance.InstitutionLogo = req.InstitutionLogo
+	if req.InstitutionLogo != nil {
+		entrance.InstitutionLogo = *req.InstitutionLogo
 	}
-	if req.ExamMode != "" {
-		entrance.ExamMode = req.ExamMode
+	if req.ExamMode != nil {
+		entrance.ExamMode = *req.ExamMode
 	}
-	if req.ExamScope != "" {
-		entrance.ExamScope = req.ExamScope
+	if req.ExamScope != nil {
+		entrance.ExamScope = *req.ExamScope
 	}
 }
 

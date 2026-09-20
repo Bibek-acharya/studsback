@@ -687,6 +687,8 @@ func seedEntrance(t *testing.T, db *gorm.DB, institutionID uint, title string) *
 	return entrance
 }
 
+func strPtr(s string) *string { return &s }
+
 func TestUpdateEntranceForSuperadmin_ReassignInstitution(t *testing.T) {
 	db := setupSuperadminTestDB(t)
 	repo := NewRepository(db)
@@ -699,7 +701,7 @@ func TestUpdateEntranceForSuperadmin_ReassignInstitution(t *testing.T) {
 		t.Fatalf("seed target institution: %v", err)
 	}
 
-	req := UpdateEntranceRequest{Title: "New Title"}
+	req := UpdateEntranceRequest{Title: strPtr("New Title")}
 	updated, err := svc.UpdateEntranceForSuperadmin(entrance.ID, req, &target.ID)
 	if err != nil {
 		t.Fatalf("UpdateEntranceForSuperadmin: %v", err)
@@ -728,7 +730,7 @@ func TestUpdateEntranceForSuperadmin_NilInstKeepsOwner(t *testing.T) {
 
 	entrance := seedEntrance(t, db, 7, "Original Title")
 
-	req := UpdateEntranceRequest{Title: "Updated Title"}
+	req := UpdateEntranceRequest{Title: strPtr("Updated Title")}
 	updated, err := svc.UpdateEntranceForSuperadmin(entrance.ID, req, nil)
 	if err != nil {
 		t.Fatalf("UpdateEntranceForSuperadmin: %v", err)
@@ -749,7 +751,7 @@ func TestUpdateEntranceForSuperadmin_TargetMissing(t *testing.T) {
 	entrance := seedEntrance(t, db, 0, "Old Title")
 
 	missingID := uint(9999)
-	req := UpdateEntranceRequest{Title: "New Title"}
+	req := UpdateEntranceRequest{Title: strPtr("New Title")}
 	_, err := svc.UpdateEntranceForSuperadmin(entrance.ID, req, &missingID)
 	if err == nil {
 		t.Fatal("expected error for missing target institution")
