@@ -35,7 +35,8 @@ services:
     image: redis:7-alpine
     container_name: studsphere_redis
     ports:
-      - "6379:6379"
+      # Loopback only — Redis is unauthenticated and internal-only
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -49,8 +50,9 @@ services:
     image: nats:2-alpine
     container_name: studsphere_nats
     ports:
-      - "4222:4222"
-      - "8222:8222"
+      # Loopback only — NATS runs without auth and is internal-only
+      - "127.0.0.1:4222:4222"
+      - "127.0.0.1:8222:8222"
     command: ["--jetstream", "--store_dir", "/data", "-m", "8222"]
     volumes:
       - nats_data:/data
