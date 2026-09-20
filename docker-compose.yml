@@ -3,7 +3,9 @@ services:
     image: ollama/ollama:latest
     container_name: studsphere_ollama_embeddings
     ports:
-      - "11434:11434"
+      # Bind to loopback only: Ollama must never be reachable from the public
+      # internet (it has no auth). The backend uses the internal network.
+      - "127.0.0.1:11434:11434"
     volumes:
       - ollama_embeddings_data:/root/.ollama
     entrypoint: ["/bin/sh", "-c"]
@@ -93,6 +95,11 @@ services:
       VECTOR_DIMENSION: 1024
     volumes:
       - ./uploads:/app/uploads
+    networks:
+      - default
+      # Reach the Swarm-deployed Postgres service (dokploy overlay network);
+      # DB_HOST points at the swarm service DNS name.
+      - dokploy-network
     depends_on:
       ollama:
         condition: service_healthy
@@ -103,6 +110,10 @@ services:
       meilisearch:
         condition: service_healthy
     restart: unless-stopped
+
+networks:
+  dokploy-network:
+    external: true
 
 volumes:
   ollama_embeddings_data:
