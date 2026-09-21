@@ -21,6 +21,7 @@ import (
 	"studsphere/backend/internal/chat"
 	"studsphere/backend/internal/college"
 	"studsphere/backend/internal/counselling"
+	"studsphere/backend/internal/downloadcenter"
 	"studsphere/backend/internal/education"
 	"studsphere/backend/internal/emailqueue"
 	"studsphere/backend/internal/embedding"
@@ -34,6 +35,7 @@ import (
 	"studsphere/backend/internal/messaging"
 	"studsphere/backend/internal/messaging/domain"
 	"studsphere/backend/internal/notification"
+	"studsphere/backend/internal/pressmedia"
 	"studsphere/backend/internal/projectshiksha"
 	"studsphere/backend/internal/review"
 	"studsphere/backend/internal/scholarship"
@@ -215,6 +217,8 @@ func main() {
 		&faq.FAQCategory{},
 		&faq.FAQItem{},
 		&studyresources.StudyResource{},
+		&pressmedia.PressMediaItem{},
+		&downloadcenter.DownloadItem{},
 		&domain.Conversation{},
 		&domain.Message{},
 		&domain.Participant{},
@@ -363,6 +367,8 @@ func main() {
 	projectShikshaHandler := projectshiksha.NewHandler(projectshiksha.NewService(projectshiksha.NewRepository(db), notificationSvc))
 	faqHandler := initModule(faq.NewRepository(db), faq.NewService, faq.NewHandler)
 	studyResourcesHandler := initModule(studyresources.NewRepository(db), studyresources.NewService, studyresources.NewHandler)
+	pressMediaHandler := initModule(pressmedia.NewRepository(db), pressmedia.NewService, pressmedia.NewHandler)
+	downloadCenterHandler := initModule(downloadcenter.NewRepository(db), downloadcenter.NewService, downloadcenter.NewHandler)
 	reviewHandler := review.NewHandler(review.NewService(review.NewRepository(db), notificationSvc))
 	scholarshipRepo := scholarship.NewRepository(db)
 	scholarshipSvc := scholarship.NewService(scholarshipRepo, db, systemSvc, notificationSvc)
@@ -538,6 +544,12 @@ func main() {
 	// Study resources: admins only (superadmin guard, like notifications).
 	studyResourcesRoleMW := middleware.RequireRole("superadmin", "super_admin")
 	studyresources.RegisterRoutes(router, authMW, studyResourcesRoleMW, studyResourcesHandler)
+
+	// Media & press + download center: superadmin-guarded like study resources.
+	pressMediaRoleMW := middleware.RequireRole("superadmin", "super_admin")
+	downloadCenterRoleMW := middleware.RequireRole("superadmin", "super_admin")
+	pressmedia.RegisterRoutes(router, authMW, pressMediaRoleMW, pressMediaHandler)
+	downloadcenter.RegisterRoutes(router, authMW, downloadCenterRoleMW, downloadCenterHandler)
 
 	// Setup messaging routes
 	api := router.Group("/api/v1")
