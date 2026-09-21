@@ -172,6 +172,43 @@ type LandingCourseInstitution struct {
 	CreatedAt       time.Time `json:"created_at"`
 }
 
+// College-finder page ads: trending items managed by superadmin
+// (kind: spotlight | most_searched).
+type CollegeAdTrendingItem struct {
+	ID        uint           `gorm:"primarykey" json:"id"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+	Kind      string         `gorm:"index;not null" json:"kind"`
+	CollegeID uint           `gorm:"not null" json:"college_id"`
+	Headline  string         `gorm:"default:''" json:"headline"`
+	Priority  int            `gorm:"default:0" json:"priority"`
+	Active    bool           `gorm:"default:true" json:"active"`
+
+	// Resolved college data, not persisted on this table.
+	College *CollegeAdCollege `gorm:"-" json:"-"`
+}
+
+// CollegeAdCollege is the joined college info for a trending item's response.
+type CollegeAdCollege struct {
+	ID       uint    `json:"id"`
+	Name     string  `json:"name"`
+	ImageURL string  `json:"image_url"`
+	Rating   float64 `json:"rating"`
+	Location string  `json:"location"`
+	Type     string  `json:"type"`
+}
+
+// CollegeRecommendationFeedback stores find-college recommendation feedback.
+// Reasons holds a comma-separated string built from the payload's string array.
+type CollegeRecommendationFeedback struct {
+	ID        uint      `gorm:"primarykey" json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+	Helpful   bool      `gorm:"not null" json:"helpful"`
+	Reasons   string    `gorm:"type:text;default:''" json:"reasons"`
+	Comment   string    `gorm:"type:text;default:''" json:"comment"`
+}
+
 // AdvertiseRequest: an institution user's request to advertise on a placement.
 // AdvertiseFor values are the signed contract: course-finder:multi_college,
 // course-finder:single_college, landing-popup, hero-banner, showcase-banner,

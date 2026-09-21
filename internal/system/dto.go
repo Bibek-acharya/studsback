@@ -261,6 +261,73 @@ type CourseUpdateLogoRequest struct {
 	LogoURL string `json:"logo_url" binding:"required"`
 }
 
+// College-finder page ad DTOs
+
+type CollegeAdTrendingRequest struct {
+	Kind      string `json:"kind" binding:"required"`
+	CollegeID uint   `json:"college_id" binding:"required"`
+	Headline  string `json:"headline"`
+	Priority  *int   `json:"priority"`
+	Active    *bool  `json:"active"`
+}
+
+// CollegeAdTrendingUpdateRequest is partial-update friendly: every field is optional.
+type CollegeAdTrendingUpdateRequest struct {
+	Kind      string `json:"kind"`
+	CollegeID *uint  `json:"college_id"`
+	Headline  string `json:"headline"`
+	Priority  *int   `json:"priority"`
+	Active    *bool  `json:"active"`
+}
+
+type CollegeAdCollegeResponse struct {
+	ID       uint    `json:"id"`
+	Name     string  `json:"name"`
+	ImageURL string  `json:"image_url"`
+	Rating   float64 `json:"rating"`
+	Location string  `json:"location"`
+	Type     string  `json:"type"`
+}
+
+type CollegeAdTrendingItemResponse struct {
+	ID       uint                      `json:"id"`
+	Kind     string                    `json:"kind"`
+	Headline string                    `json:"headline"`
+	Priority int                       `json:"priority"`
+	Active   bool                      `json:"active"`
+	College  *CollegeAdCollegeResponse `json:"college"`
+}
+
+type CollegeAdTrendingGroupedResponse struct {
+	Spotlight    []CollegeAdTrendingItemResponse `json:"spotlight"`
+	MostSearched []CollegeAdTrendingItemResponse `json:"most_searched"`
+}
+
+type CollegeAdFeedbackRequest struct {
+	Helpful bool     `json:"helpful"`
+	Reasons []string `json:"reasons"`
+	Comment string   `json:"comment"`
+}
+
+type CollegeAdFeedbackItemResponse struct {
+	ID        uint   `json:"id"`
+	Helpful   bool   `json:"helpful"`
+	Reasons   string `json:"reasons"`
+	Comment   string `json:"comment"`
+	CreatedAt string `json:"created_at"`
+}
+
+type CollegeAdFeedbackStatsResponse struct {
+	Total           int64 `json:"total"`
+	HelpfulCount    int64 `json:"helpful_count"`
+	NotHelpfulCount int64 `json:"not_helpful_count"`
+}
+
+type CollegeAdFeedbackResponse struct {
+	Items []CollegeAdFeedbackItemResponse `json:"items"`
+	Stats CollegeAdFeedbackStatsResponse  `json:"stats"`
+}
+
 // Advertise request DTOs
 
 type AdvertiseRequestRequest struct {

@@ -3,6 +3,7 @@ package system
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"studsphere/backend/internal/notification"
@@ -843,4 +844,221 @@ func toAdvertiseRequestResponse(req *AdvertiseRequest) AdvertiseRequestResponse 
 		CreatedAt:     req.CreatedAt.Format("2006-01-02T15:04:05Z"),
 		UpdatedAt:     req.UpdatedAt.Format("2006-01-02T15:04:05Z"),
 	}
+}
+
+// College-finder page ads
+
+const (
+	collegeAdKindSpotlight    = "spotlight"
+	collegeAdKindMostSearched = "most_searched"
+
+	maxCollegeAdTrendingPerKind    = 10
+	maxCollegeAdFeedbackCommentLen = 1000
+	maxCollegeAdFeedbackRows       = 500
+)
+
+func validCollegeAdKind(k string) bool {
+	return k == collegeAdKindSpotlight || k == collegeAdKindMostSearched
+}
+
+// GetCollegeAdTrending lists trending items, active-only when requested.
+// kind filters to one kind when non-empty.
+func (s *Service) GetCollegeAdTrending(kind string, activeOnly bool) ([]CollegeAdTrendingItemResponse, error) {
+	if kind != "" && !validCollegeAdKind(kind) {
+		return nil, newValidationError("kind must be spotlight or most_searched")
+	}
+	items, err := s.repo.FindCollegeAdTrendingItems(kind, activeOnly)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.repo.ResolveCollegeAdTrending(items); err != nil {
+		return nil, err
+	}
+	responses := make([]CollegeAdTrendingItemResponse, len(items))
+	for i := range items {
+		responses[i] = toCollegeAdTrendingResponse(&items[i])
+	}
+	return responses, nil
+}
+
+// GetPublicCollegeAdTrending returns active items grouped by kind.
+func (s *Service) GetPublicCollegeAdTrending() (CollegeAdTrendingGroupedResponse, error) {
+	items, err := s.repo.FindCollegeAdTrendingItems("", true)
+	if err != nil {
+		return CollegeAdTrendingGroupedResponse{}, err
+	}
+	if err := s.repo.ResolveCollegeAdTrending(items); err != nil {
+		return CollegeAdTrendingGroupedResponse{}, err
+	}
+	grouped := CollegeAdTrendingGroupedResponse{
+		Spotlight:    []CollegeAdTrendingItemResponse{},
+		MostSearched: []CollegeAdTrendingItemResponse{},
+	}
+	for i := range items {
+		resp := toCollegeAdTrendingResponse(&items[i])
+		if items[i].Kind == collegeAdKindSpotlight {
+			grouped.Spotlight = append(grouped.Spotlight, resp)
+		} else {
+			grouped.MostSearched = append(grouped.MostSearched, resp)
+		}
+	}
+	return grouped, nil
+}
+
+func (s *Service) GetCollegeAdTrendingItem(id uint) (*CollegeAdTrendingItemResponse, error) {
+	item, err := s.repo.FindCollegeAdTrendingItemByID(id)
+	if err != nil {
+		return nil, err
+	}
+	items := []CollegeAdTrendingItem{*item}
+	if err := s.repo.ResolveCollegeAdTrending(items); err != nil {
+		return nil, err
+	}
+	resp := toCollegeAdTrendingResponse(&items[0])
+	return &resp, nil
+}
+
+func (s *Service) CreateCollegeAdTrending(req CollegeAdTrendingRequest) (*CollegeAdTrendingItemResponse, error) {
+	if !validCollegeAdKind(req.Kind) {
+		return nil, newValidationError("kind must be spotlight or most_searched")
+	}
+	if req.CollegeID == 0 {
+		return nil, newValidationError("college_id is required")
+	}
+
+	count, err := s.repo.CountCollegeAdTrending(req.Kind)
+	if err != nil {
+		return nil, err
+	}
+	if count >= maxCollegeAdTrendingPerKind {
+		return nil, newValidationError("maximum 10 items per kind")
+	}
+
+	item := &CollegeAdTrendingItem{
+		Kind:      req.Kind,
+		CollegeID: req.CollegeID,
+		Headline:  req.Headline,
+		Active:    true,
+	}
+	if req.Active != nil {
+		item.Active = *req.Active
+	}
+	if req.Priority != nil {
+		item.Priority = *req.Priority
+	}
+
+	if err := s.repo.CreateCollegeAdTrendingItem(item); err != nil {
+		return nil, err
+	}
+	return s.GetCollegeAdTrendingItem(item.ID)
+}
+
+func (s *Service) UpdateCollegeAdTrending(id uint, req CollegeAdTrendingUpdateRequest) (*CollegeAdTrendingItemResponse, error) {
+	if _, err := s.repo.FindCollegeAdTrendingItemByID(id); err != nil {
+		if err.Error() == "record not found" {
+			return nil, errors.New("record not found")
+		}
+		return nil, err
+	}
+	if req.Kind != "" && !validCollegeAdKind(req.Kind) {
+		return nil, newValidationError("kind must be spotlight or most_searched")
+	}
+
+	updates := map[string]interface{}{}
+	if req.Kind != "" {
+		updates["kind"] = req.Kind
+	}
+	if req.CollegeID != nil && *req.CollegeID != 0 {
+		updates["college_id"] = *req.CollegeID
+	}
+	if req.Headline != "" {
+		updates["headline"] = req.Headline
+	}
+	if req.Priority != nil {
+		updates["priority"] = *req.Priority
+	}
+	if req.Active != nil {
+		updates["active"] = *req.Active
+	}
+
+	if len(updates) > 0 {
+		if _, err := s.repo.UpdateCollegeAdTrendingItem(id, updates); err != nil {
+			return nil, err
+		}
+	}
+	return s.GetCollegeAdTrendingItem(id)
+}
+
+func (s *Service) DeleteCollegeAdTrending(id uint) error {
+	return s.repo.DeleteCollegeAdTrendingItem(id)
+}
+
+// SubmitCollegeAdFeedback persists recommendation feedback. The comment is
+// capped server-side and reasons are stored as a comma-separated string.
+func (s *Service) SubmitCollegeAdFeedback(req CollegeAdFeedbackRequest) error {
+	comment := strings.TrimSpace(req.Comment)
+	if runes := []rune(comment); len(runes) > maxCollegeAdFeedbackCommentLen {
+		comment = string(runes[:maxCollegeAdFeedbackCommentLen])
+	}
+	fb := &CollegeRecommendationFeedback{
+		Helpful: req.Helpful,
+		Reasons: strings.Join(req.Reasons, ","),
+		Comment: comment,
+	}
+	if err := s.repo.CreateCollegeRecommendationFeedback(fb); err != nil {
+		return errors.New("failed to submit feedback")
+	}
+	return nil
+}
+
+func (s *Service) GetCollegeAdFeedback() (CollegeAdFeedbackResponse, error) {
+	feedback, err := s.repo.FindCollegeRecommendationFeedback(maxCollegeAdFeedbackRows)
+	if err != nil {
+		return CollegeAdFeedbackResponse{}, err
+	}
+	total, helpful, notHelpful, err := s.repo.CountCollegeRecommendationFeedback()
+	if err != nil {
+		return CollegeAdFeedbackResponse{}, err
+	}
+
+	items := make([]CollegeAdFeedbackItemResponse, len(feedback))
+	for i := range feedback {
+		items[i] = CollegeAdFeedbackItemResponse{
+			ID:        feedback[i].ID,
+			Helpful:   feedback[i].Helpful,
+			Reasons:   feedback[i].Reasons,
+			Comment:   feedback[i].Comment,
+			CreatedAt: feedback[i].CreatedAt.Format("2006-01-02T15:04:05Z"),
+		}
+	}
+	return CollegeAdFeedbackResponse{
+		Items: items,
+		Stats: CollegeAdFeedbackStatsResponse{
+			Total:           total,
+			HelpfulCount:    helpful,
+			NotHelpfulCount: notHelpful,
+		},
+	}, nil
+}
+
+func toCollegeAdTrendingResponse(item *CollegeAdTrendingItem) CollegeAdTrendingItemResponse {
+	resp := CollegeAdTrendingItemResponse{
+		ID:       item.ID,
+		Kind:     item.Kind,
+		Headline: item.Headline,
+		Priority: item.Priority,
+		Active:   item.Active,
+		College:  nil,
+	}
+	if item.College != nil {
+		resp.College = &CollegeAdCollegeResponse{
+			ID:       item.College.ID,
+			Name:     item.College.Name,
+			ImageURL: item.College.ImageURL,
+			Rating:   item.College.Rating,
+			Location: item.College.Location,
+			Type:     item.College.Type,
+		}
+	}
+	return resp
 }

@@ -994,3 +994,138 @@ func (r *Repository) ResolveCourseAdEntities(cards []CourseAdCard) error {
 	}
 	return nil
 }
+
+// College-finder page ads
+
+func (r *Repository) CountCollegeAdTrending(kind string) (int64, error) {
+	var count int64
+	err := r.db.Model(&CollegeAdTrendingItem{}).Where("kind = ?", kind).Count(&count).Error
+	return count, err
+}
+
+func (r *Repository) CreateCollegeAdTrendingItem(item *CollegeAdTrendingItem) error {
+	return r.db.Create(item).Error
+}
+
+// FindCollegeAdTrendingItems lists items, ordered priority desc, id desc.
+// kind filters to one kind when non-empty; activeOnly filters to active rows.
+func (r *Repository) FindCollegeAdTrendingItems(kind string, activeOnly bool) ([]CollegeAdTrendingItem, error) {
+	var items []CollegeAdTrendingItem
+	query := r.db.Model(&CollegeAdTrendingItem{})
+	if kind != "" {
+		query = query.Where("kind = ?", kind)
+	}
+	if activeOnly {
+		query = query.Where("active = ?", true)
+	}
+	if err := query.Order("priority desc, id desc").Find(&items).Error; err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+func (r *Repository) FindCollegeAdTrendingItemByID(id uint) (*CollegeAdTrendingItem, error) {
+	var item CollegeAdTrendingItem
+	if err := r.db.First(&item, id).Error; err != nil {
+		return nil, err
+	}
+	return &item, nil
+}
+
+func (r *Repository) UpdateCollegeAdTrendingItem(id uint, updates map[string]interface{}) (*CollegeAdTrendingItem, error) {
+	result := r.db.Model(&CollegeAdTrendingItem{}).Where("id = ?", id).Updates(updates)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	if result.RowsAffected == 0 {
+		return nil, gorm.ErrRecordNotFound
+	}
+	return r.FindCollegeAdTrendingItemByID(id)
+}
+
+func (r *Repository) DeleteCollegeAdTrendingItem(id uint) error {
+	result := r.db.Delete(&CollegeAdTrendingItem{}, id)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+// ResolveCollegeAdTrending batch-loads college data from the colleges table
+// (name, image_url, rating, location, type). Items whose college row is
+// missing resolve to a nil College.
+func (r *Repository) ResolveCollegeAdTrending(items []CollegeAdTrendingItem) error {
+	if len(items) == 0 {
+		return nil
+	}
+
+	collegeIDs := make(map[uint]bool)
+	for i := range items {
+		collegeIDs[items[i].CollegeID] = true
+	}
+	ids := make([]uint, 0, len(collegeIDs))
+	for id := range collegeIDs {
+		ids = append(ids, id)
+	}
+
+	type collegeRow struct {
+		ID          uint    `gorm:"column:id"`
+		Name        string  `gorm:"column:name"`
+		ImageURL    string  `gorm:"column:image_url"`
+		Rating      float64 `gorm:"column:rating"`
+		Location    string  `gorm:"column:location"`
+		CollegeType string  `gorm:"column:college_type"`
+	}
+	var rows []collegeRow
+	if err := r.db.Table("colleges").
+		Select("id, name, image_url, rating, location, college_type").
+		Where("id IN ? AND deleted_at IS NULL", ids).Find(&rows).Error; err != nil {
+		return err
+	}
+
+	collegeMap := make(map[uint]*CollegeAdCollege, len(rows))
+	for _, row := range rows {
+		collegeMap[row.ID] = &CollegeAdCollege{
+			ID:       row.ID,
+			Name:     row.Name,
+			ImageURL: row.ImageURL,
+			Rating:   row.Rating,
+			Location: row.Location,
+			Type:     row.CollegeType,
+		}
+	}
+
+	for i := range items {
+		items[i].College = collegeMap[items[i].CollegeID]
+	}
+	return nil
+}
+
+// College recommendation feedback
+
+func (r *Repository) CreateCollegeRecommendationFeedback(fb *CollegeRecommendationFeedback) error {
+	return r.db.Create(fb).Error
+}
+
+// FindCollegeRecommendationFeedback returns the latest `limit` feedback rows.
+func (r *Repository) FindCollegeRecommendationFeedback(limit int) ([]CollegeRecommendationFeedback, error) {
+	var feedback []CollegeRecommendationFeedback
+	if err := r.db.Order("created_at desc, id desc").Limit(limit).Find(&feedback).Error; err != nil {
+		return nil, err
+	}
+	return feedback, nil
+}
+
+// CountCollegeRecommendationFeedback returns total, helpful and not-helpful counts.
+func (r *Repository) CountCollegeRecommendationFeedback() (total, helpful, notHelpful int64, err error) {
+	if err = r.db.Model(&CollegeRecommendationFeedback{}).Count(&total).Error; err != nil {
+		return 0, 0, 0, err
+	}
+	if err = r.db.Model(&CollegeRecommendationFeedback{}).Where("helpful = ?", true).Count(&helpful).Error; err != nil {
+		return 0, 0, 0, err
+	}
+	return total, helpful, total - helpful, nil
+}

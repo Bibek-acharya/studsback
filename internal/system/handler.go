@@ -873,3 +873,105 @@ func toCourseAdCardResponse(card *CourseAdCard) CourseAdCardResponse {
 	}
 	return resp
 }
+
+// College-finder page ad handlers
+
+func (h *Handler) GetPublicCollegeAdTrending(c *gin.Context) {
+	grouped, err := h.service.GetPublicCollegeAdTrending()
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to retrieve trending college ads")
+		return
+	}
+	response.Success(c, http.StatusOK, "Trending college ads retrieved", grouped)
+}
+
+func (h *Handler) GetCollegeAdTrending(c *gin.Context) {
+	// Admin listing: all items (including inactive) for the kind filter.
+	items, err := h.service.GetCollegeAdTrending(c.Query("kind"), false)
+	if err != nil {
+		response.Error(c, courseAdErrorStatus(err), err.Error())
+		return
+	}
+	response.Success(c, http.StatusOK, "Trending college ads retrieved", items)
+}
+
+func (h *Handler) CreateCollegeAdTrending(c *gin.Context) {
+	var req CollegeAdTrendingRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	item, err := h.service.CreateCollegeAdTrending(req)
+	if err != nil {
+		response.Error(c, courseAdErrorStatus(err), err.Error())
+		return
+	}
+	response.Success(c, http.StatusCreated, "Trending college ad created", item)
+}
+
+func (h *Handler) UpdateCollegeAdTrending(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid ID")
+		return
+	}
+
+	var req CollegeAdTrendingUpdateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	item, err := h.service.UpdateCollegeAdTrending(uint(id), req)
+	if err != nil {
+		if err.Error() == "record not found" {
+			response.Error(c, http.StatusNotFound, "Trending college ad not found")
+			return
+		}
+		response.Error(c, courseAdErrorStatus(err), err.Error())
+		return
+	}
+	response.Success(c, http.StatusOK, "Trending college ad updated", item)
+}
+
+func (h *Handler) DeleteCollegeAdTrending(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid ID")
+		return
+	}
+
+	if err := h.service.DeleteCollegeAdTrending(uint(id)); err != nil {
+		if err.Error() == "record not found" {
+			response.Error(c, http.StatusNotFound, "Trending college ad not found")
+			return
+		}
+		response.Error(c, http.StatusInternalServerError, "Failed to delete trending college ad")
+		return
+	}
+	response.Success(c, http.StatusOK, "Trending college ad deleted", nil)
+}
+
+func (h *Handler) SubmitCollegeAdFeedback(c *gin.Context) {
+	var req CollegeAdFeedbackRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err := h.service.SubmitCollegeAdFeedback(req); err != nil {
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	response.Success(c, http.StatusOK, "ok", nil)
+}
+
+func (h *Handler) GetCollegeAdFeedback(c *gin.Context) {
+	feedback, err := h.service.GetCollegeAdFeedback()
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to retrieve feedback")
+		return
+	}
+	response.Success(c, http.StatusOK, "Feedback retrieved", feedback)
+}
