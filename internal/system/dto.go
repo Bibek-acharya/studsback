@@ -331,6 +331,30 @@ type CollegeAdFeedbackResponse struct {
 	Stats CollegeAdFeedbackStatsResponse  `json:"stats"`
 }
 
+// Find-college ad card settings DTOs
+
+// UpdateCollegeAdCardSettingsRequest is partial-update friendly: every key is
+// optional; only provided keys are applied. *bool also makes gin's JSON
+// binding reject non-boolean values with 400.
+type UpdateCollegeAdCardSettingsRequest struct {
+	Trending *bool `json:"trending"`
+	ByType   *bool `json:"by_type"`
+	Rating   *bool `json:"rating"`
+}
+
+type CollegeAdCardSettingsResponse struct {
+	Trending bool `json:"trending"`
+	ByType   bool `json:"by_type"`
+	Rating   bool `json:"rating"`
+}
+
+// CollegeTypeCountResponse is one group of the ByType card counts. Type is
+// the raw college_type DB value; the frontend owns label mapping.
+type CollegeTypeCountResponse struct {
+	Type  string `json:"type" gorm:"column:type"`
+	Count int64  `json:"count" gorm:"column:count"`
+}
+
 // Advertise request DTOs
 
 type AdvertiseRequestRequest struct {

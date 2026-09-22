@@ -2,6 +2,7 @@ package system
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"time"
@@ -1039,6 +1040,66 @@ func (s *Service) GetCollegeAdFeedback() (CollegeAdFeedbackResponse, error) {
 			NotHelpfulCount: notHelpful,
 		},
 	}, nil
+}
+
+// Find-college ad card settings
+
+// collegeAdCardSettingsKey is the single SystemSetting key holding the three
+// card toggles as a JSON object.
+const collegeAdCardSettingsKey = "find_college_ad_cards"
+
+// defaultCollegeAdCardSettings is the contract when nothing is stored yet:
+// every card starts enabled.
+func defaultCollegeAdCardSettings() CollegeAdCardSettingsResponse {
+	return CollegeAdCardSettingsResponse{Trending: true, ByType: true, Rating: true}
+}
+
+func (s *Service) GetCollegeAdCardSettings() (CollegeAdCardSettingsResponse, error) {
+	value, found, err := s.repo.GetSystemSetting(collegeAdCardSettingsKey)
+	if err != nil {
+		return CollegeAdCardSettingsResponse{}, err
+	}
+	if !found || value == "" {
+		return defaultCollegeAdCardSettings(), nil
+	}
+	// Unmarshal onto the defaults so a partial stored object still yields
+	// true for any key it omits.
+	settings := defaultCollegeAdCardSettings()
+	if err := json.Unmarshal([]byte(value), &settings); err != nil {
+		return CollegeAdCardSettingsResponse{}, err
+	}
+	return settings, nil
+}
+
+// UpdateCollegeAdCardSettings applies only the provided keys on top of the
+// current settings and persists the merged object.
+func (s *Service) UpdateCollegeAdCardSettings(req UpdateCollegeAdCardSettingsRequest) (CollegeAdCardSettingsResponse, error) {
+	settings, err := s.GetCollegeAdCardSettings()
+	if err != nil {
+		return CollegeAdCardSettingsResponse{}, err
+	}
+	if req.Trending != nil {
+		settings.Trending = *req.Trending
+	}
+	if req.ByType != nil {
+		settings.ByType = *req.ByType
+	}
+	if req.Rating != nil {
+		settings.Rating = *req.Rating
+	}
+	data, err := json.Marshal(settings)
+	if err != nil {
+		return CollegeAdCardSettingsResponse{}, err
+	}
+	if err := s.repo.SetSystemSetting(collegeAdCardSettingsKey, string(data)); err != nil {
+		return CollegeAdCardSettingsResponse{}, err
+	}
+	return settings, nil
+}
+
+// GetCollegeTypeCounts returns per-type college counts for the ByType card.
+func (s *Service) GetCollegeTypeCounts() ([]CollegeTypeCountResponse, error) {
+	return s.repo.CollegeTypeCounts()
 }
 
 func toCollegeAdTrendingResponse(item *CollegeAdTrendingItem) CollegeAdTrendingItemResponse {

@@ -967,6 +967,40 @@ func (h *Handler) SubmitCollegeAdFeedback(c *gin.Context) {
 	response.Success(c, http.StatusOK, "ok", nil)
 }
 
+// Find-college ad card settings handlers
+
+func (h *Handler) GetCollegeAdCardSettings(c *gin.Context) {
+	settings, err := h.service.GetCollegeAdCardSettings()
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to retrieve college ad card settings")
+		return
+	}
+	response.Success(c, http.StatusOK, "College ad card settings retrieved", settings)
+}
+
+func (h *Handler) UpdateCollegeAdCardSettings(c *gin.Context) {
+	var req UpdateCollegeAdCardSettingsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	settings, err := h.service.UpdateCollegeAdCardSettings(req)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to update college ad card settings")
+		return
+	}
+	response.Success(c, http.StatusOK, "College ad card settings updated", settings)
+}
+
+func (h *Handler) GetCollegeTypeCounts(c *gin.Context) {
+	counts, err := h.service.GetCollegeTypeCounts()
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to retrieve college type counts")
+		return
+	}
+	response.Success(c, http.StatusOK, "College type counts retrieved", counts)
+}
+
 func (h *Handler) GetCollegeAdFeedback(c *gin.Context) {
 	feedback, err := h.service.GetCollegeAdFeedback()
 	if err != nil {

@@ -214,6 +214,7 @@ func main() {
 		&system.CollegeAdTrendingItem{},
 		&system.CollegeRecommendationFeedback{},
 		&system.AdvertiseRequest{},
+		&system.SystemSetting{},
 		&chat.SitePage{},
 		&feedback.Feedback{},
 		&faq.FAQCategory{},
@@ -272,6 +273,9 @@ func main() {
 		}
 		if err := migrations.CreateCollegeAdTables(db); err != nil {
 			logger.Warn("Failed to run college ad tables migration", "error", err)
+		}
+		if err := migrations.CreateSystemSettings(db); err != nil {
+			logger.Warn("Failed to run system settings migration", "error", err)
 		}
 		// Cleanup dangling sub-users with provider_id = 0 from previous bug
 		if err := db.Exec("DELETE FROM provider_access_users WHERE provider_id = 0").Error; err != nil {

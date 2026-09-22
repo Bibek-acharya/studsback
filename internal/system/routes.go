@@ -21,6 +21,8 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			system.POST("/course-ads/:id/click", h.TrackCourseAdCardClick)
 			system.GET("/college-ads/trending", h.GetPublicCollegeAdTrending)
 			system.POST("/college-ad-feedback", h.SubmitCollegeAdFeedback)
+			system.GET("/college-ad-card-settings", h.GetCollegeAdCardSettings)
+			system.GET("/college-type-counts", h.GetCollegeTypeCounts)
 		}
 
 		admin := v1.Group("/admin")
@@ -64,6 +66,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			admin.POST("/college-ads/trending", h.CreateCollegeAdTrending)
 			admin.PUT("/college-ads/trending/:id", h.UpdateCollegeAdTrending)
 			admin.DELETE("/college-ads/trending/:id", h.DeleteCollegeAdTrending)
+			admin.PUT("/college-ad-card-settings", h.UpdateCollegeAdCardSettings)
 			admin.GET("/college-ad-feedback", h.GetCollegeAdFeedback)
 
 			admin.GET("/advertise-requests", h.GetAdvertiseRequests)

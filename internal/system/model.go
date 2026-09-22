@@ -212,6 +212,17 @@ type CollegeRecommendationFeedback struct {
 	Comment   string    `gorm:"type:text;default:''" json:"comment"`
 }
 
+// SystemSetting is a minimal key-value store for global site settings. Value
+// is JSON-encoded, e.g. find_college_ad_cards holds
+// {"trending":true,"by_type":true,"rating":true}.
+type SystemSetting struct {
+	ID        uint      `gorm:"primarykey" json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Key       string    `gorm:"column:key;uniqueIndex;not null" json:"key"`
+	Value     string    `gorm:"type:text;default:''" json:"value"`
+}
+
 // AdvertiseRequest: an institution user's request to advertise on a placement.
 // AdvertiseFor values are the signed contract: course-finder:multi_college,
 // course-finder:single_college, landing-popup, hero-banner, showcase-banner,

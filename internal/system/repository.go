@@ -1,6 +1,7 @@
 package system
 
 import (
+	"errors"
 	"strings"
 	"time"
 
@@ -1123,37 +1124,60 @@ func (r *Repository) ResolveCollegeAdTrending(items []CollegeAdTrendingItem) err
 		}
 	}
 
-	// Batch-count published reviews per institution, mirroring
-	// search/indexer/sync.go review_count semantics: match by institution_id
-	// or (when linked) by college_id, published and not soft-deleted.
+	// Batch-load review-derived rating and count per institution in one
+	// pass, mirroring search/indexer/sync.go institution_users shape: match
+	// by institution_id or (when linked) by college_id, published and not
+	// soft-deleted. Scalar subqueries (rather than a joined aggregate) keep
+	// jsonb_each_text row multiplication from distorting either value.
 	type instReviewRow struct {
-		InstID uint  `gorm:"column:inst_id"`
-		Cnt    int64 `gorm:"column:cnt"`
+		InstID uint    `gorm:"column:inst_id"`
+		Rating float64 `gorm:"column:rating"`
+		Cnt    int64   `gorm:"column:cnt"`
 	}
 	var instReviewRows []instReviewRow
-	if err := r.db.Table("institution_users iu").
-		Select("iu.id AS inst_id, COUNT(DISTINCT rv.id) AS cnt").
-		Joins("LEFT JOIN reviews rv ON (rv.institution_id = iu.id OR (iu.college_id > 0 AND rv.college_id = iu.college_id)) AND rv.is_published = true AND rv.deleted_at IS NULL").
-		Where("iu.id IN ?", ids).
-		Group("iu.id").
-		Find(&instReviewRows).Error; err != nil {
+	if err := r.db.Raw(`
+		SELECT iu.id AS inst_id,
+			COALESCE((
+				SELECT ROUND(AVG(entry.value::numeric), 1)::float8
+				FROM reviews rv
+				CROSS JOIN LATERAL jsonb_each_text(rv.ratings) entry
+				WHERE rv.is_published = true AND rv.deleted_at IS NULL
+				  AND (rv.institution_id = iu.id OR (iu.college_id > 0 AND rv.college_id = iu.college_id))
+			), 0) AS rating,
+			(
+				SELECT COUNT(DISTINCT rv.id)
+				FROM reviews rv
+				WHERE rv.is_published = true AND rv.deleted_at IS NULL
+				  AND (rv.institution_id = iu.id OR (iu.college_id > 0 AND rv.college_id = iu.college_id))
+			) AS cnt
+		FROM institution_users iu
+		WHERE iu.id IN ?
+	`, ids).Scan(&instReviewRows).Error; err != nil {
 		return err
 	}
 	instReviewCount := make(map[uint]int, len(instReviewRows))
+	instReviewRating := make(map[uint]float64, len(instReviewRows))
 	for _, rr := range instReviewRows {
 		instReviewCount[rr.InstID] = int(rr.Cnt)
+		instReviewRating[rr.InstID] = rr.Rating
 	}
 
 	collegeMap := make(map[uint]*CollegeAdCollege, len(instRows))
 	for _, row := range instRows {
-		var rating float64
 		var collegeType string
 		var collegeWebsite string
+		var fallbackRating float64
 		if cid, ok := collegeTableIDs[row.ID]; ok {
 			info := collegeInfoMap[cid]
-			rating = info.Rating
+			fallbackRating = info.Rating
 			collegeType = info.CollegeType
 			collegeWebsite = info.Website
+		}
+		// Prefer the review-derived average; fall back to the colleges.rating
+		// column (then zero) when there are no published reviews.
+		rating := instReviewRating[row.ID]
+		if rating <= 0 {
+			rating = fallbackRating
 		}
 		website := row.WebsiteURL
 		if website == "" {
@@ -1176,6 +1200,56 @@ func (r *Repository) ResolveCollegeAdTrending(items []CollegeAdTrendingItem) err
 		items[i].College = collegeMap[items[i].CollegeID]
 	}
 	return nil
+}
+
+// System settings (key-value)
+
+// GetSystemSetting returns the raw stored value for key. found is false when
+// the key has never been written, so callers can apply their defaults.
+func (r *Repository) GetSystemSetting(key string) (value string, found bool, err error) {
+	var setting SystemSetting
+	err = r.db.Where("key = ?", key).First(&setting).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+	return setting.Value, true, nil
+}
+
+// SetSystemSetting inserts or updates the value for key.
+func (r *Repository) SetSystemSetting(key, value string) error {
+	var setting SystemSetting
+	err := r.db.Where("key = ?", key).First(&setting).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return r.db.Create(&SystemSetting{Key: key, Value: value}).Error
+	}
+	if err != nil {
+		return err
+	}
+	setting.Value = value
+	return r.db.Save(&setting).Error
+}
+
+// CollegeTypeCounts groups non-empty college_type values with their row
+// counts, most common first. Raw DB values are returned as-is.
+func (r *Repository) CollegeTypeCounts() ([]CollegeTypeCountResponse, error) {
+	rows := make([]CollegeTypeCountResponse, 0)
+	err := r.db.Raw(`
+		SELECT college_type AS type, COUNT(*) AS count
+		FROM colleges
+		WHERE deleted_at IS NULL AND COALESCE(college_type,'') <> ''
+		GROUP BY college_type
+		ORDER BY count DESC
+	`).Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	if rows == nil {
+		rows = []CollegeTypeCountResponse{}
+	}
+	return rows, nil
 }
 
 // College recommendation feedback
