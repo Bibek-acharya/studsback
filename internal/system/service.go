@@ -1052,12 +1052,15 @@ func toCollegeAdTrendingResponse(item *CollegeAdTrendingItem) CollegeAdTrendingI
 	}
 	if item.College != nil {
 		resp.College = &CollegeAdCollegeResponse{
-			ID:       item.College.ID,
-			Name:     item.College.Name,
-			ImageURL: item.College.ImageURL,
-			Rating:   item.College.Rating,
-			Location: item.College.Location,
-			Type:     item.College.Type,
+			ID:          item.College.ID,
+			Name:        item.College.Name,
+			ImageURL:    item.College.ImageURL,
+			Rating:      item.College.Rating,
+			Location:    item.College.Location,
+			Type:        item.College.Type,
+			CollegeID:   item.College.CollegeID,
+			Website:     item.College.Website,
+			ReviewCount: item.College.ReviewCount,
 		}
 	}
 	return resp

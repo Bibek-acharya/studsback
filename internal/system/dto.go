@@ -281,12 +281,15 @@ type CollegeAdTrendingUpdateRequest struct {
 }
 
 type CollegeAdCollegeResponse struct {
-	ID       uint    `json:"id"`
-	Name     string  `json:"name"`
-	ImageURL string  `json:"image_url"`
-	Rating   float64 `json:"rating"`
-	Location string  `json:"location"`
-	Type     string  `json:"type"`
+	ID          uint    `json:"id"`
+	Name        string  `json:"name"`
+	ImageURL    string  `json:"image_url"`
+	Rating      float64 `json:"rating"`
+	Location    string  `json:"location"`
+	Type        string  `json:"type"`
+	CollegeID   uint    `json:"college_id"`
+	Website     string  `json:"website"`
+	ReviewCount int     `json:"review_count"`
 }
 
 type CollegeAdTrendingItemResponse struct {

@@ -1075,20 +1075,21 @@ func (r *Repository) ResolveCollegeAdTrending(items []CollegeAdTrendingItem) err
 	}
 
 	type instRow struct {
-		ID        uint   `gorm:"column:id"`
-		Name      string `gorm:"column:institution_name"`
-		ImageURL  string `gorm:"column:logo_url"`
-		Location  string `gorm:"column:district"`
-		CollegeID uint   `gorm:"column:college_id"`
+		ID         uint   `gorm:"column:id"`
+		Name       string `gorm:"column:institution_name"`
+		ImageURL   string `gorm:"column:logo_url"`
+		Location   string `gorm:"column:district"`
+		CollegeID  uint   `gorm:"column:college_id"`
+		WebsiteURL string `gorm:"column:website_url"`
 	}
 	var instRows []instRow
 	if err := r.db.Table("institution_users").
-		Select("id, institution_name, logo_url, district, college_id").
+		Select("id, institution_name, logo_url, district, college_id, website_url").
 		Where("id IN ? AND deleted_at IS NULL", ids).Find(&instRows).Error; err != nil {
 		return err
 	}
 
-	// rating/type from colleges via college_id.
+	// rating/type/website from colleges via college_id.
 	collegeTableIDs := make(map[uint]uint)
 	for _, row := range instRows {
 		if row.CollegeID > 0 {
@@ -1098,6 +1099,7 @@ func (r *Repository) ResolveCollegeAdTrending(items []CollegeAdTrendingItem) err
 	type collegeInfo struct {
 		Rating      float64 `gorm:"column:rating"`
 		CollegeType string  `gorm:"column:college_type"`
+		Website     string  `gorm:"column:website"`
 	}
 	collegeInfoMap := make(map[uint]collegeInfo)
 	if len(collegeTableIDs) > 0 {
@@ -1109,33 +1111,64 @@ func (r *Repository) ResolveCollegeAdTrending(items []CollegeAdTrendingItem) err
 			ID          uint    `gorm:"column:id"`
 			Rating      float64 `gorm:"column:rating"`
 			CollegeType string  `gorm:"column:college_type"`
+			Website     string  `gorm:"column:website"`
 		}
 		if err := r.db.Table("colleges").
-			Select("id, rating, college_type").
+			Select("id, rating, college_type, website").
 			Where("id IN ? AND deleted_at IS NULL", cids).Find(&cRows).Error; err != nil {
 			return err
 		}
 		for _, cr := range cRows {
-			collegeInfoMap[cr.ID] = collegeInfo{Rating: cr.Rating, CollegeType: cr.CollegeType}
+			collegeInfoMap[cr.ID] = collegeInfo{Rating: cr.Rating, CollegeType: cr.CollegeType, Website: cr.Website}
 		}
+	}
+
+	// Batch-count published reviews per institution, mirroring
+	// search/indexer/sync.go review_count semantics: match by institution_id
+	// or (when linked) by college_id, published and not soft-deleted.
+	type instReviewRow struct {
+		InstID uint  `gorm:"column:inst_id"`
+		Cnt    int64 `gorm:"column:cnt"`
+	}
+	var instReviewRows []instReviewRow
+	if err := r.db.Table("institution_users iu").
+		Select("iu.id AS inst_id, COUNT(DISTINCT rv.id) AS cnt").
+		Joins("LEFT JOIN reviews rv ON (rv.institution_id = iu.id OR (iu.college_id > 0 AND rv.college_id = iu.college_id)) AND rv.is_published = true AND rv.deleted_at IS NULL").
+		Where("iu.id IN ?", ids).
+		Group("iu.id").
+		Find(&instReviewRows).Error; err != nil {
+		return err
+	}
+	instReviewCount := make(map[uint]int, len(instReviewRows))
+	for _, rr := range instReviewRows {
+		instReviewCount[rr.InstID] = int(rr.Cnt)
 	}
 
 	collegeMap := make(map[uint]*CollegeAdCollege, len(instRows))
 	for _, row := range instRows {
 		var rating float64
 		var collegeType string
+		var collegeWebsite string
 		if cid, ok := collegeTableIDs[row.ID]; ok {
 			info := collegeInfoMap[cid]
 			rating = info.Rating
 			collegeType = info.CollegeType
+			collegeWebsite = info.Website
+		}
+		website := row.WebsiteURL
+		if website == "" {
+			website = collegeWebsite
 		}
 		collegeMap[row.ID] = &CollegeAdCollege{
-			ID:       row.ID,
-			Name:     row.Name,
-			ImageURL: row.ImageURL,
-			Rating:   rating,
-			Location: row.Location,
-			Type:     collegeType,
+			ID:          row.ID,
+			Name:        row.Name,
+			ImageURL:    row.ImageURL,
+			Rating:      rating,
+			Location:    row.Location,
+			Type:        collegeType,
+			CollegeID:   row.CollegeID,
+			Website:     website,
+			ReviewCount: instReviewCount[row.ID],
 		}
 	}
 
