@@ -308,6 +308,7 @@ type CollegeAdTrendingGroupedResponse struct {
 
 type CollegeAdFeedbackRequest struct {
 	Helpful bool     `json:"helpful"`
+	Rating  int      `json:"rating"`
 	Reasons []string `json:"reasons"`
 	Comment string   `json:"comment"`
 }
@@ -315,6 +316,7 @@ type CollegeAdFeedbackRequest struct {
 type CollegeAdFeedbackItemResponse struct {
 	ID        uint   `json:"id"`
 	Helpful   bool   `json:"helpful"`
+	Rating    int    `json:"rating"`
 	Reasons   string `json:"reasons"`
 	Comment   string `json:"comment"`
 	CreatedAt string `json:"created_at"`

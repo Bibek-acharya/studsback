@@ -120,3 +120,48 @@ func TestGetCollegeTypeCountsFiltersAndOrders(t *testing.T) {
 		t.Fatalf("second row wrong: %+v, want Community/1", counts[1])
 	}
 }
+
+func TestSubmitAndListCollegeAdFeedbackIncludesRating(t *testing.T) {
+	db := testSettingsDB(t)
+	if err := db.AutoMigrate(&CollegeRecommendationFeedback{}); err != nil {
+		t.Fatalf("auto migrate feedback: %v", err)
+	}
+	svc := NewService(NewRepository(db), nil)
+
+	if err := svc.SubmitCollegeAdFeedback(CollegeAdFeedbackRequest{
+		Helpful: true,
+		Rating:  4,
+		Reasons: []string{"Helpful", "Clear"},
+		Comment: "  nice page  ",
+	}); err != nil {
+		t.Fatalf("submit feedback with rating: %v", err)
+	}
+	// Recommendation feedback (no rating) keeps rating=0.
+	if err := svc.SubmitCollegeAdFeedback(CollegeAdFeedbackRequest{
+		Helpful: false,
+		Reasons: []string{"Off-topic"},
+	}); err != nil {
+		t.Fatalf("submit feedback without rating: %v", err)
+	}
+
+	out, err := svc.GetCollegeAdFeedback()
+	if err != nil {
+		t.Fatalf("list feedback: %v", err)
+	}
+	if len(out.Items) != 2 {
+		t.Fatalf("items=%d want 2", len(out.Items))
+	}
+	// Newest first: unrated (id 2) before rated (id 1).
+	if out.Items[0].Rating != 0 || out.Items[1].Rating != 4 {
+		t.Fatalf("ratings=[%d,%d] want [0,4] newest first", out.Items[0].Rating, out.Items[1].Rating)
+	}
+	if out.Items[1].Reasons != "Helpful,Clear" {
+		t.Fatalf("reasons=%q want Helpful,Clear", out.Items[1].Reasons)
+	}
+	if out.Items[1].Comment != "nice page" {
+		t.Fatalf("comment=%q want trimmed", out.Items[1].Comment)
+	}
+	if out.Stats.Total != 2 || out.Stats.HelpfulCount != 1 || out.Stats.NotHelpfulCount != 1 {
+		t.Fatalf("stats wrong: %+v", out.Stats)
+	}
+}

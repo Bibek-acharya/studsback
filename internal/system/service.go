@@ -1003,6 +1003,7 @@ func (s *Service) SubmitCollegeAdFeedback(req CollegeAdFeedbackRequest) error {
 	}
 	fb := &CollegeRecommendationFeedback{
 		Helpful: req.Helpful,
+		Rating:  req.Rating,
 		Reasons: strings.Join(req.Reasons, ","),
 		Comment: comment,
 	}
@@ -1027,6 +1028,7 @@ func (s *Service) GetCollegeAdFeedback() (CollegeAdFeedbackResponse, error) {
 		items[i] = CollegeAdFeedbackItemResponse{
 			ID:        feedback[i].ID,
 			Helpful:   feedback[i].Helpful,
+			Rating:    feedback[i].Rating,
 			Reasons:   feedback[i].Reasons,
 			Comment:   feedback[i].Comment,
 			CreatedAt: feedback[i].CreatedAt.Format("2006-01-02T15:04:05Z"),

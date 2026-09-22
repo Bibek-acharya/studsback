@@ -208,6 +208,7 @@ type CollegeRecommendationFeedback struct {
 	ID        uint      `gorm:"primarykey" json:"id"`
 	CreatedAt time.Time `json:"created_at"`
 	Helpful   bool      `gorm:"not null" json:"helpful"`
+	Rating    int       `gorm:"not null;default:0" json:"rating"`
 	Reasons   string    `gorm:"type:text;default:''" json:"reasons"`
 	Comment   string    `gorm:"type:text;default:''" json:"comment"`
 }

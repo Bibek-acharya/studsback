@@ -959,6 +959,10 @@ func (h *Handler) SubmitCollegeAdFeedback(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
+	if req.Rating < 0 || req.Rating > 5 {
+		response.Error(c, http.StatusBadRequest, "rating must be between 0 and 5")
+		return
+	}
 
 	if err := h.service.SubmitCollegeAdFeedback(req); err != nil {
 		response.Error(c, http.StatusInternalServerError, err.Error())
