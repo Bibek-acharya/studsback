@@ -1926,6 +1926,9 @@ func extractLevel(data *string) string {
 
 func (s *Service) CreateAdmissionPage(instID uint, req CreateAdmissionPageRequest) (*AdmissionPageResponse, error) {
 	dataStr := string(req.Data)
+	if !json.Valid([]byte(dataStr)) {
+		dataStr = "{}"
+	}
 	page := &AdmissionPage{
 		InstitutionID:       instID,
 		InstitutionName:     req.InstitutionName,
