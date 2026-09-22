@@ -1077,13 +1077,13 @@ func (r *Repository) ResolveCollegeAdTrending(items []CollegeAdTrendingItem) err
 	type instRow struct {
 		ID        uint   `gorm:"column:id"`
 		Name      string `gorm:"column:institution_name"`
-		ImageURL  string `gorm:"column:banner_url"`
+		ImageURL  string `gorm:"column:logo_url"`
 		Location  string `gorm:"column:district"`
 		CollegeID uint   `gorm:"column:college_id"`
 	}
 	var instRows []instRow
 	if err := r.db.Table("institution_users").
-		Select("id, institution_name, banner_url, district, college_id").
+		Select("id, institution_name, logo_url, district, college_id").
 		Where("id IN ? AND deleted_at IS NULL", ids).Find(&instRows).Error; err != nil {
 		return err
 	}
