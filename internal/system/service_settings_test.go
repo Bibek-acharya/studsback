@@ -14,21 +14,21 @@ func testSettingsDB(t *testing.T) *gorm.DB {
 	if err != nil {
 		t.Fatalf("open sqlite db: %v", err)
 	}
-	if err := db.AutoMigrate(&SystemSetting{}, &collegesRow{}); err != nil {
+	if err := db.AutoMigrate(&SystemSetting{}, &institutionUsersRow{}); err != nil {
 		t.Fatalf("auto migrate: %v", err)
 	}
 	return db
 }
 
-// collegesRow is a projection of the colleges table for the type-counts
-// query, kept local so tests don't import the college module.
-type collegesRow struct {
-	ID          uint           `gorm:"primarykey"`
-	CollegeType string         `gorm:"column:college_type"`
-	DeletedAt   gorm.DeletedAt `gorm:"index"`
+// institutionUsersRow is a projection of the institution_users table for the
+// type-counts query, kept local so tests don't import the auth module.
+type institutionUsersRow struct {
+	ID               uint           `gorm:"primarykey"`
+	OrganizationType string         `gorm:"column:organization_type"`
+	DeletedAt        gorm.DeletedAt `gorm:"index"`
 }
 
-func (collegesRow) TableName() string { return "colleges" }
+func (institutionUsersRow) TableName() string { return "institution_users" }
 
 func boolPtr(b bool) *bool { return &b }
 
@@ -86,23 +86,23 @@ func TestUpdateCollegeAdCardSettingsPartialUpdatePersists(t *testing.T) {
 
 func TestGetCollegeTypeCountsFiltersAndOrders(t *testing.T) {
 	db := testSettingsDB(t)
-	rows := []collegesRow{
-		{CollegeType: "Public"},
-		{CollegeType: "Public"},
-		{CollegeType: "Community"},
-		{CollegeType: ""}, // excluded: empty type
+	rows := []institutionUsersRow{
+		{OrganizationType: "Public"},
+		{OrganizationType: "Public"},
+		{OrganizationType: "Community"},
+		{OrganizationType: ""}, // excluded: empty type
 	}
 	for _, row := range rows {
 		if err := db.Create(&row).Error; err != nil {
-			t.Fatalf("seed college: %v", err)
+			t.Fatalf("seed institution: %v", err)
 		}
 	}
 	// Soft-deleted row: excluded by deleted_at IS NULL.
-	if err := db.Create(&collegesRow{CollegeType: "Public"}).Error; err != nil {
-		t.Fatalf("seed deleted college: %v", err)
+	if err := db.Create(&institutionUsersRow{OrganizationType: "Public"}).Error; err != nil {
+		t.Fatalf("seed deleted institution: %v", err)
 	}
-	if err := db.Delete(&collegesRow{}, 5).Error; err != nil {
-		t.Fatalf("soft delete college: %v", err)
+	if err := db.Delete(&institutionUsersRow{}, 5).Error; err != nil {
+		t.Fatalf("soft delete institution: %v", err)
 	}
 
 	svc := NewService(NewRepository(db), nil)

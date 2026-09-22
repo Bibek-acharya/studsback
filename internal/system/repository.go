@@ -1232,15 +1232,17 @@ func (r *Repository) SetSystemSetting(key, value string) error {
 	return r.db.Save(&setting).Error
 }
 
-// CollegeTypeCounts groups non-empty college_type values with their row
-// counts, most common first. Raw DB values are returned as-is.
+// CollegeTypeCounts groups non-empty organization_type values from
+// institution_users with their row counts, most common first. Counts come from
+// institution_users (not colleges) so environments without populated colleges
+// rows still get type chips. Raw DB values are returned as-is.
 func (r *Repository) CollegeTypeCounts() ([]CollegeTypeCountResponse, error) {
 	rows := make([]CollegeTypeCountResponse, 0)
 	err := r.db.Raw(`
-		SELECT college_type AS type, COUNT(*) AS count
-		FROM colleges
-		WHERE deleted_at IS NULL AND COALESCE(college_type,'') <> ''
-		GROUP BY college_type
+		SELECT organization_type AS type, COUNT(*) AS count
+		FROM institution_users
+		WHERE deleted_at IS NULL AND COALESCE(organization_type,'') <> ''
+		GROUP BY organization_type
 		ORDER BY count DESC
 	`).Scan(&rows).Error
 	if err != nil {
