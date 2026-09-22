@@ -1552,7 +1552,20 @@ func (s *Service) GetEducationBlogByID(id string) (*BlogWithRelatedResponse, err
 	if err != nil {
 		return nil, err
 	}
+	return s.buildBlogWithRelated(blog), nil
+}
 
+func (s *Service) GetBlogBySlug(slug string) (*BlogWithRelatedResponse, error) {
+	blog, err := s.repo.FindBlogBySlug(slug)
+	if err != nil {
+		return nil, err
+	}
+	return s.buildBlogWithRelated(blog), nil
+}
+
+// buildBlogWithRelated increments the view counter and attaches related posts,
+// matching the detail payload returned for both by-id and by-slug lookups.
+func (s *Service) buildBlogWithRelated(blog *Blog) *BlogWithRelatedResponse {
 	_ = s.repo.IncrementBlogViews(blog)
 
 	relatedBlogs, err := s.repo.FindRelatedBlogs(blog.ID, blog.Category, 3)
@@ -1568,7 +1581,7 @@ func (s *Service) GetEducationBlogByID(id string) (*BlogWithRelatedResponse, err
 	return &BlogWithRelatedResponse{
 		Blog:    buildBlogResponse(*blog),
 		Related: relatedResponses,
-	}, nil
+	}
 }
 
 func (s *Service) GetBlogFilterCounts() (*BlogFilterCounts, error) {

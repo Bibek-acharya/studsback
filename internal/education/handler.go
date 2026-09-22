@@ -340,6 +340,17 @@ func (h *Handler) GetEducationBlogByID(c *gin.Context) {
 	response.Success(c, http.StatusOK, "Blog post retrieved successfully", blogWithRelated)
 }
 
+func (h *Handler) GetBlogBySlug(c *gin.Context) {
+	slug := c.Param("slug")
+	blogWithRelated, err := h.service.GetBlogBySlug(slug)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Blog not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Blog post retrieved successfully", blogWithRelated)
+}
+
 func (h *Handler) GetBlogFilterCounts(c *gin.Context) {
 	counts, err := h.service.GetBlogFilterCounts()
 	if err != nil {

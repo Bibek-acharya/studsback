@@ -39,6 +39,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			education.GET("/blogs", h.GetEducationBlogs)
 			education.GET("/blogs/filter-counts", h.GetBlogFilterCounts)
 			education.GET("/blogs/:id", h.GetEducationBlogByID)
+			education.GET("/blogs/by-slug/:slug", h.GetBlogBySlug)
 			education.POST("/blogs/:id/view", h.IncrementBlogView)
 		}
 

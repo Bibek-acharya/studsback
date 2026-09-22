@@ -780,6 +780,15 @@ func (r *Repository) FindBlogByID(id string) (*Blog, error) {
 	return &blog, nil
 }
 
+func (r *Repository) FindBlogBySlug(slug string) (*Blog, error) {
+	var blog Blog
+	err := r.db.Where("slug = ? AND published = ?", slug, true).First(&blog).Error
+	if err != nil {
+		return nil, err
+	}
+	return &blog, nil
+}
+
 func (r *Repository) IncrementBlogViews(blog *Blog) error {
 	return r.db.Model(blog).Update("views", blog.Views+1).Error
 }
