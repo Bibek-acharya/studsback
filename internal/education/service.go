@@ -217,6 +217,7 @@ func buildNewsResponse(news News) NewsResponse {
 		Tags:      parseStringArrayField(news.Tags),
 		Featured:  news.Featured,
 		Published: news.Published,
+		Shares:    news.Shares,
 	}
 }
 
@@ -264,6 +265,7 @@ func buildBlogResponse(blog Blog) BlogResponse {
 		Featured:  blog.Featured,
 		Published: blog.Published,
 		Views:     blog.Views,
+		Shares:    blog.Shares,
 		CreatedAt: blog.CreatedAt.String(),
 	}
 }
@@ -1594,6 +1596,34 @@ func (s *Service) IncrementBlogView(id string) error {
 		return err
 	}
 	return s.repo.IncrementBlogViews(blog)
+}
+
+// IncrementBlogShare records a share for the published blog and returns the
+// updated share count for the response payload.
+func (s *Service) IncrementBlogShare(id string) (int, error) {
+	blog, err := s.repo.FindBlogByID(id)
+	if err != nil {
+		return 0, err
+	}
+	newShares := blog.Shares + 1
+	if err := s.repo.IncrementBlogShares(blog); err != nil {
+		return 0, err
+	}
+	return newShares, nil
+}
+
+// IncrementNewsShare records a share for the news article and returns the
+// updated share count for the response payload.
+func (s *Service) IncrementNewsShare(id string) (int, error) {
+	news, err := s.repo.FindNewsByID(id)
+	if err != nil {
+		return 0, err
+	}
+	newShares := news.Shares + 1
+	if err := s.repo.IncrementNewsShares(news); err != nil {
+		return 0, err
+	}
+	return newShares, nil
 }
 
 // ─── Admin CRUD ──────────────────────────────────────────────────────────────

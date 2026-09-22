@@ -244,6 +244,7 @@ type News struct {
 	Tags         []byte         `gorm:"type:jsonb" json:"tags"`
 	Featured     bool           `gorm:"default:false" json:"featured"`
 	Published    bool           `gorm:"default:true" json:"published"`
+	Shares       int            `gorm:"default:0" json:"shares"`
 }
 
 func (n *News) BeforeCreate(tx *gorm.DB) error {
@@ -347,6 +348,7 @@ type Blog struct {
 	Featured  bool           `gorm:"default:false" json:"featured"`
 	Published bool           `gorm:"default:true" json:"published"`
 	Views     int            `gorm:"default:0" json:"views"`
+	Shares    int            `gorm:"default:0" json:"shares"`
 }
 
 func (Blog) TableName() string {

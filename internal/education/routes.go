@@ -41,6 +41,8 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			education.GET("/blogs/:id", h.GetEducationBlogByID)
 			education.GET("/blogs/by-slug/:slug", h.GetBlogBySlug)
 			education.POST("/blogs/:id/view", h.IncrementBlogView)
+			education.POST("/blogs/:id/share", h.IncrementBlogShare)
+			education.POST("/news/:id/share", h.IncrementNewsShare)
 		}
 
 		// Public entrance endpoints

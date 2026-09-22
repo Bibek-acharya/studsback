@@ -311,6 +311,7 @@ type NewsResponse struct {
 	Tags      []string `json:"tags"`
 	Featured  bool     `json:"featured"`
 	Published bool     `json:"published"`
+	Shares    int      `json:"shares"`
 }
 
 type EventResponse struct {
@@ -388,6 +389,7 @@ type BlogResponse struct {
 	Featured  bool     `json:"featured"`
 	Published bool     `json:"published"`
 	Views     int      `json:"views"`
+	Shares    int      `json:"shares"`
 	CreatedAt string   `json:"created_at"`
 }
 

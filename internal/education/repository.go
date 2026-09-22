@@ -566,6 +566,10 @@ func (r *Repository) FindNewsBySlug(slug string) (*News, error) {
 	return &news, err
 }
 
+func (r *Repository) IncrementNewsShares(news *News) error {
+	return r.db.Model(news).Update("shares", news.Shares+1).Error
+}
+
 func (r *Repository) FindEvents() ([]Event, error) {
 	var events []Event
 	err := r.db.Where("end_date IS NULL OR end_date > ?", time.Now()).Order("date asc").Find(&events).Error
@@ -791,6 +795,10 @@ func (r *Repository) FindBlogBySlug(slug string) (*Blog, error) {
 
 func (r *Repository) IncrementBlogViews(blog *Blog) error {
 	return r.db.Model(blog).Update("views", blog.Views+1).Error
+}
+
+func (r *Repository) IncrementBlogShares(blog *Blog) error {
+	return r.db.Model(blog).Update("shares", blog.Shares+1).Error
 }
 
 func (r *Repository) FindRelatedBlogs(excludeID uint, category string, limit int) ([]Blog, error) {

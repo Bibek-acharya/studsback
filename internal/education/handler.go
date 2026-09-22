@@ -372,6 +372,38 @@ func (h *Handler) IncrementBlogView(c *gin.Context) {
 	response.Success(c, http.StatusOK, "View incremented successfully", nil)
 }
 
+func (h *Handler) IncrementBlogShare(c *gin.Context) {
+	id := c.Param("id")
+	if _, err := strconv.ParseUint(id, 10, 64); err != nil {
+		response.Error(c, http.StatusNotFound, "Blog not found")
+		return
+	}
+
+	shares, err := h.service.IncrementBlogShare(id)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Blog not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Share incremented successfully", gin.H{"shares": shares})
+}
+
+func (h *Handler) IncrementNewsShare(c *gin.Context) {
+	id := c.Param("id")
+	if _, err := strconv.ParseUint(id, 10, 64); err != nil {
+		response.Error(c, http.StatusNotFound, "News not found")
+		return
+	}
+
+	shares, err := h.service.IncrementNewsShare(id)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "News not found")
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Share incremented successfully", gin.H{"shares": shares})
+}
+
 // ─── Public Entrance Handlers ─────────────────────────────────────────────
 
 func (h *Handler) GetPublicEntrances(c *gin.Context) {
