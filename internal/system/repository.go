@@ -1054,14 +1054,17 @@ func (r *Repository) DeleteCollegeAdTrendingItem(id uint) error {
 	return nil
 }
 
-// ResolveCollegeAdTrending batch-loads college data from the colleges table
-// (name, image_url, rating, location, type). Items whose college row is
-// missing resolve to a nil College.
+// ResolveCollegeAdTrending batch-loads institution data from institution_users
+// (the IDs stored on items are institution ids, mirroring
+// ResolveCourseAdEntities), with rating and type joined from colleges via
+// college_id. Items whose institution row is missing resolve to a nil
+// College.
 func (r *Repository) ResolveCollegeAdTrending(items []CollegeAdTrendingItem) error {
 	if len(items) == 0 {
 		return nil
 	}
 
+	// Item IDs: institution_users ids.
 	collegeIDs := make(map[uint]bool)
 	for i := range items {
 		collegeIDs[items[i].CollegeID] = true
@@ -1071,30 +1074,68 @@ func (r *Repository) ResolveCollegeAdTrending(items []CollegeAdTrendingItem) err
 		ids = append(ids, id)
 	}
 
-	type collegeRow struct {
-		ID          uint    `gorm:"column:id"`
-		Name        string  `gorm:"column:name"`
-		ImageURL    string  `gorm:"column:image_url"`
-		Rating      float64 `gorm:"column:rating"`
-		Location    string  `gorm:"column:location"`
-		CollegeType string  `gorm:"column:college_type"`
+	type instRow struct {
+		ID        uint   `gorm:"column:id"`
+		Name      string `gorm:"column:institution_name"`
+		ImageURL  string `gorm:"column:banner_url"`
+		Location  string `gorm:"column:district"`
+		CollegeID uint   `gorm:"column:college_id"`
 	}
-	var rows []collegeRow
-	if err := r.db.Table("colleges").
-		Select("id, name, image_url, rating, location, college_type").
-		Where("id IN ? AND deleted_at IS NULL", ids).Find(&rows).Error; err != nil {
+	var instRows []instRow
+	if err := r.db.Table("institution_users").
+		Select("id, institution_name, banner_url, district, college_id").
+		Where("id IN ? AND deleted_at IS NULL", ids).Find(&instRows).Error; err != nil {
 		return err
 	}
 
-	collegeMap := make(map[uint]*CollegeAdCollege, len(rows))
-	for _, row := range rows {
+	// rating/type from colleges via college_id.
+	collegeTableIDs := make(map[uint]uint)
+	for _, row := range instRows {
+		if row.CollegeID > 0 {
+			collegeTableIDs[row.ID] = row.CollegeID
+		}
+	}
+	type collegeInfo struct {
+		Rating      float64 `gorm:"column:rating"`
+		CollegeType string  `gorm:"column:college_type"`
+	}
+	collegeInfoMap := make(map[uint]collegeInfo)
+	if len(collegeTableIDs) > 0 {
+		cids := make([]uint, 0, len(collegeTableIDs))
+		for _, cid := range collegeTableIDs {
+			cids = append(cids, cid)
+		}
+		var cRows []struct {
+			ID          uint    `gorm:"column:id"`
+			Rating      float64 `gorm:"column:rating"`
+			CollegeType string  `gorm:"column:college_type"`
+		}
+		if err := r.db.Table("colleges").
+			Select("id, rating, college_type").
+			Where("id IN ? AND deleted_at IS NULL", cids).Find(&cRows).Error; err != nil {
+			return err
+		}
+		for _, cr := range cRows {
+			collegeInfoMap[cr.ID] = collegeInfo{Rating: cr.Rating, CollegeType: cr.CollegeType}
+		}
+	}
+
+	collegeMap := make(map[uint]*CollegeAdCollege, len(instRows))
+	for _, row := range instRows {
+		var rating float64
+		var collegeType string
+		if cid, ok := collegeTableIDs[row.ID]; ok {
+			info := collegeInfoMap[cid]
+			rating = info.Rating
+			collegeType = info.CollegeType
+		}
 		collegeMap[row.ID] = &CollegeAdCollege{
 			ID:       row.ID,
 			Name:     row.Name,
 			ImageURL: row.ImageURL,
-			Rating:   row.Rating,
+			Rating:   rating,
 			Location: row.Location,
-			Type:     row.CollegeType,
+			Type:     collegeType,
 		}
 	}
 
