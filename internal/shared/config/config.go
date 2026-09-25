@@ -5,6 +5,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/joho/godotenv"
 )
@@ -60,6 +61,13 @@ type Config struct {
 	MinioSecretKey string
 	MinioBucket    string
 	MinioUseSSL    bool
+
+	// StudyResourceVideoMaxSizeMB caps video-lecture uploads in megabytes.
+	// The four document/image resource types keep their fixed 20MB cap.
+	StudyResourceVideoMaxSizeMB int
+	// StudyResourceVideoTranscodeTimeout bounds one ffmpeg normalization run
+	// (upload -> broadly playable H.264/AAC MP4).
+	StudyResourceVideoTranscodeTimeout time.Duration
 
 	EsewaTestMode     bool
 	EsewaMerchantCode string
@@ -142,6 +150,11 @@ func Load() {
 		MinioBucket:    getEnv("MINIO_BUCKET", "studsphere-storage"),
 		MinioUseSSL:    getEnv("MINIO_USE_SSL", "false") == "true",
 
+		StudyResourceVideoMaxSizeMB: getEnvInt("STUDY_RESOURCE_VIDEO_MAX_SIZE_MB", 200),
+		StudyResourceVideoTranscodeTimeout: getEnvDuration(
+			"STUDY_RESOURCE_VIDEO_TRANSCODE_TIMEOUT", 10*time.Minute,
+		),
+
 		EsewaTestMode:     getEnv("ESEWA_TEST_MODE", "true") == "true",
 		EsewaMerchantCode: getEnv("ESEWA_MERCHANT_CODE", "EPAYTEST"),
 		EsewaSecretKey:    getEnv("ESEWA_SECRET_KEY", "8gBm/:&EnhH.1/q"),
@@ -188,6 +201,18 @@ func getEnvInt(key string, defaultValue int) int {
 	if value := os.Getenv(key); value != "" {
 		if i, err := strconv.Atoi(value); err == nil {
 			return i
+		}
+	}
+	return defaultValue
+}
+
+// getEnvDuration parses a Go duration value ("10m", "90s", "1h"). Unparsable
+// or non-positive values fall back to defaultValue so a typo can never turn
+// into an unbounded or instantly-expiring timeout.
+func getEnvDuration(key string, defaultValue time.Duration) time.Duration {
+	if value := os.Getenv(key); value != "" {
+		if d, err := time.ParseDuration(strings.TrimSpace(value)); err == nil && d > 0 {
+			return d
 		}
 	}
 	return defaultValue

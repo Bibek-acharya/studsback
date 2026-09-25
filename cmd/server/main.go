@@ -34,6 +34,7 @@ import (
 	"studsphere/backend/internal/location"
 	"studsphere/backend/internal/messaging"
 	"studsphere/backend/internal/messaging/domain"
+	"studsphere/backend/internal/mocktests"
 	"studsphere/backend/internal/notification"
 	"studsphere/backend/internal/pressmedia"
 	"studsphere/backend/internal/projectshiksha"
@@ -220,6 +221,10 @@ func main() {
 		&faq.FAQCategory{},
 		&faq.FAQItem{},
 		&studyresources.StudyResource{},
+		&mocktests.MockTest{},
+		&mocktests.MockQuestion{},
+		&mocktests.MockOption{},
+		&mocktests.MockAttempt{},
 		&pressmedia.PressMediaItem{},
 		&downloadcenter.DownloadItem{},
 		&domain.Conversation{},
@@ -279,6 +284,12 @@ func main() {
 		}
 		if err := migrations.AddRatingToCollegeAdFeedback(db); err != nil {
 			logger.Warn("Failed to run college ad feedback rating migration", "error", err)
+		}
+		if err := migrations.AddStudyResourceVideoColumns(db); err != nil {
+			logger.Warn("Failed to run study resource video/publish migration", "error", err)
+		}
+		if err := migrations.CreateMockTestTables(db); err != nil {
+			logger.Warn("Failed to run mock test tables migration", "error", err)
 		}
 		// Cleanup dangling sub-users with provider_id = 0 from previous bug
 		if err := db.Exec("DELETE FROM provider_access_users WHERE provider_id = 0").Error; err != nil {
@@ -431,36 +442,10 @@ func main() {
 	router.Use(ginLogger())
 	router.Use(corsMiddleware())
 
-	router.GET("/uploads/*filepath", func(c *gin.Context) {
-		filepath := c.Param("filepath")
-		if filepath == "" || filepath == "/" {
-			c.Status(http.StatusNotFound)
-			return
-		}
-		filepath = strings.TrimPrefix(filepath, "/")
-
-		reader, info, err := storage.Get(filepath)
-		if err != nil {
-			c.Status(http.StatusNotFound)
-			return
-		}
-
-		ct := info.ContentType
-		if ct == "" {
-			ct = "application/octet-stream"
-		}
-
-		filename := filepath
-		if idx := strings.LastIndex(filepath, "/"); idx >= 0 {
-			filename = filepath[idx+1:]
-		}
-
-		if c.Query("dl") == "1" {
-			c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
-		}
-
-		c.DataFromReader(http.StatusOK, -1, ct, reader, nil)
-	})
+	// Public object route. Study-resource objects (documents and videos) are
+	// private to their domain API and are rejected here; everything else keeps
+	// working exactly as before.
+	router.GET("/uploads/*filepath", uploadsHandler())
 	router.Static("/docs", "./docs")
 	router.GET("/docs", func(c *gin.Context) {
 		c.Redirect(302, "/docs/index.html")
@@ -556,6 +541,11 @@ func main() {
 	// Study resources: admins only (superadmin guard, like notifications).
 	studyResourcesRoleMW := middleware.RequireRole("superadmin", "super_admin")
 	studyresources.RegisterRoutes(router, authMW, studyResourcesRoleMW, studyResourcesHandler)
+
+	// Mock tests: separate domain with nested questions/options. Browsing is
+	// public, submit + attempt results require auth, CRUD is superadmin-only.
+	mockTestsHandler := initModule(mocktests.NewRepository(db), mocktests.NewService, mocktests.NewHandler)
+	mocktests.RegisterRoutes(router, authMW, studyResourcesRoleMW, mockTestsHandler)
 
 	// Media & press + download center: superadmin-guarded like study resources.
 	pressMediaRoleMW := middleware.RequireRole("superadmin", "super_admin")
@@ -850,7 +840,8 @@ func corsMiddleware() gin.HandlerFunc {
 
 		c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
 		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
+		// Range is required for authenticated byte-range video streaming.
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With, Range")
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE, PATCH")
 
 		if c.Request.Method == "OPTIONS" {

@@ -41,6 +41,43 @@ func (s *Service) GetResource(id uint) (*StudyResource, error) {
 	return s.repo.FindResourceByID(id)
 }
 
+// GetPublishedResource returns a resource only when it is published. It backs
+// the new public stream endpoint so drafts stay unreachable.
+func (s *Service) GetPublishedResource(id uint) (*StudyResource, error) {
+	resource, err := s.repo.FindResourceByID(id)
+	if err != nil {
+		return nil, err
+	}
+	if !resource.IsPublished {
+		return nil, errors.New("resource not found")
+	}
+	return resource, nil
+}
+
+// ErrNotAVideoResource marks a published resource that is not a video lecture.
+var ErrNotAVideoResource = errors.New("resource is not a video lecture")
+
+// GetPlayableVideoResource returns a resource only when it is actually
+// playable: published, a video lecture, and backed by a stored object. It
+// backs both the playback-token endpoint and the stream gate, so a draft, a
+// document or a row without an object can never start a stream.
+func (s *Service) GetPlayableVideoResource(id uint) (*StudyResource, error) {
+	resource, err := s.repo.FindResourceByID(id)
+	if err != nil {
+		return nil, errors.New("resource not found")
+	}
+	if !resource.IsPublished {
+		return nil, errors.New("resource not found")
+	}
+	if !IsVideoType(resource.ResourceType) {
+		return nil, ErrNotAVideoResource
+	}
+	if normalizeObjectKey(resource.FilePath) == "" {
+		return nil, errors.New("resource not found")
+	}
+	return resource, nil
+}
+
 func (s *Service) CreateResource(resource *StudyResource) error {
 	return s.repo.CreateResource(resource)
 }
@@ -54,6 +91,7 @@ func (s *Service) UpdateResource(id uint, req UpdateResourceRequest) (*StudyReso
 		resource.Title = *req.Title
 	}
 	if req.ResourceType != nil {
+		// The caller already normalized and validated the type.
 		resource.ResourceType = *req.ResourceType
 	}
 	if req.Course != nil {
@@ -64,6 +102,12 @@ func (s *Service) UpdateResource(id uint, req UpdateResourceRequest) (*StudyReso
 	}
 	if req.Description != nil {
 		resource.Description = *req.Description
+	}
+	if req.DurationSeconds != nil {
+		resource.DurationSeconds = *req.DurationSeconds
+	}
+	if req.IsPublished != nil {
+		resource.IsPublished = *req.IsPublished
 	}
 	if err := s.repo.UpdateResource(resource); err != nil {
 		return nil, err
@@ -76,14 +120,15 @@ func (s *Service) UpdateResourceModel(resource *StudyResource) error {
 }
 
 // DistinctFacets returns the distinct non-empty, normalized years and course
-// names across all (non-deleted) study resources. Years are sorted descending;
-// courses alphabetically. These power the list-page filter facets.
+// names across the PUBLISHED study resources. Years are sorted descending;
+// courses alphabetically. These power the list-page filter facets, so drafts
+// must not leak through them.
 func (s *Service) DistinctFacets() ([]string, []string, error) {
-	years, err := s.repo.DistinctValues("year", "year DESC")
+	years, err := s.repo.DistinctPublishedValues("year", "year DESC")
 	if err != nil {
 		return nil, nil, err
 	}
-	courses, err := s.repo.DistinctValues("course", "course ASC")
+	courses, err := s.repo.DistinctPublishedValues("course", "course ASC")
 	if err != nil {
 		return nil, nil, err
 	}
@@ -107,4 +152,10 @@ func (s *Service) IncrementDownloads(id uint) {
 	// Download counting is best-effort: a failed increment must not block the
 	// file download.
 	_ = s.repo.IncrementDownloads(id)
+}
+
+// IncrementViews counts a video-lecture stream request. Best-effort, exactly
+// like IncrementDownloads: analytics must never break playback.
+func (s *Service) IncrementViews(id uint) {
+	_ = s.repo.IncrementViews(id)
 }

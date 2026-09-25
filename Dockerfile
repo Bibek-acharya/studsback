@@ -15,7 +15,10 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 
 FROM alpine:3.20
 
-RUN apk add --no-cache ca-certificates chromium font-noto fontconfig
+# ffmpeg/ffprobe are required at RUNTIME: uploaded video lectures are
+# normalized to a broadly playable H.264/AAC MP4 on upload. Without ffmpeg the
+# video upload path answers 503 instead of storing unplayable bytes.
+RUN apk add --no-cache ca-certificates chromium font-noto fontconfig ffmpeg
 
 WORKDIR /app
 

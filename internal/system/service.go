@@ -237,7 +237,14 @@ func (s *Service) TrackAdClick(id uint) (*Ad, error) {
 	return s.repo.TrackAdClick(id)
 }
 
+// GetCarousels returns the slides of a single page. The page filter is
+// optional: a blank page falls back to the landing hero default (the historic
+// behavior) instead of matching every page, so callers can ask for a specific
+// page such as "study-resources" without mixing in landing slides.
 func (s *Service) GetCarousels(page string, active *bool) ([]CarouselSlide, error) {
+	if strings.TrimSpace(page) == "" {
+		page = CarouselPageLanding
+	}
 	return s.repo.FindCarouselSlides(page, active)
 }
 
@@ -248,17 +255,17 @@ func (s *Service) GetCarouselSlideByID(id uint) (*CarouselSlide, error) {
 func (s *Service) CreateCarouselSlide(req CarouselSlideRequest) (*CarouselSlide, error) {
 	page := req.Page
 	if page == "" {
-		page = "landing"
+		page = CarouselPageLanding
 	}
 
 	slide := &CarouselSlide{
 		Page:        page,
 		Title:       req.Title,
-		Subtitle:    req.Subtitle,
-		Description: req.Description,
+		Subtitle:    derefString(req.Subtitle),
+		Description: derefString(req.Description),
 		ImageURL:    req.ImageURL,
-		LinkURL:     req.LinkURL,
-		ButtonText:  req.ButtonText,
+		LinkURL:     derefString(req.LinkURL),
+		ButtonText:  derefString(req.ButtonText),
 		Order:       req.Order,
 		Active:      true,
 	}
@@ -291,20 +298,22 @@ func (s *Service) UpdateCarouselSlide(id uint, req CarouselSlideRequest) (*Carou
 	if req.Title != "" {
 		updates["title"] = req.Title
 	}
-	if req.Subtitle != "" {
-		updates["subtitle"] = req.Subtitle
+	// Optional-but-clearable fields: a non-nil pointer is applied even when it
+	// is empty so the admin can clear the column; nil leaves it untouched.
+	if req.Subtitle != nil {
+		updates["subtitle"] = *req.Subtitle
 	}
-	if req.Description != "" {
-		updates["description"] = req.Description
+	if req.Description != nil {
+		updates["description"] = *req.Description
 	}
 	if req.ImageURL != "" {
 		updates["image_url"] = req.ImageURL
 	}
-	if req.LinkURL != "" {
-		updates["link_url"] = req.LinkURL
+	if req.LinkURL != nil {
+		updates["link_url"] = *req.LinkURL
 	}
-	if req.ButtonText != "" {
-		updates["button_text"] = req.ButtonText
+	if req.ButtonText != nil {
+		updates["button_text"] = *req.ButtonText
 	}
 	if req.Order != 0 {
 		updates["order"] = req.Order

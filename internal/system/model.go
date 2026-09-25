@@ -135,6 +135,11 @@ type CourseAdInstitution struct {
 // compiling against the same table and struct.
 type PublicNotification = notification.PublicNotification
 
+// CarouselPageLanding is the default carousel page (landing hero slides). It is
+// used whenever a slide is created without a page or a list request omits the
+// page filter, so existing callers keep seeing exactly what they saw before.
+const CarouselPageLanding = "landing"
+
 type CarouselSlide struct {
 	ID          uint           `gorm:"primarykey" json:"id"`
 	CreatedAt   time.Time      `json:"created_at"`

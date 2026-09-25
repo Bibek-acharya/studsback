@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"studsphere/backend/internal/notification"
 	"studsphere/backend/internal/shared/response"
@@ -269,7 +270,13 @@ func (h *Handler) TrackAdClick(c *gin.Context) {
 }
 
 func (h *Handler) GetCarousels(c *gin.Context) {
-	page := c.DefaultQuery("page", "landing")
+	// Optional page filter shared by the guest and admin routes. Omitting it
+	// (or sending it blank) keeps the landing hero default; e.g.
+	// ?page=study-resources lists only that page's slides.
+	page := strings.TrimSpace(c.Query("page"))
+	if page == "" {
+		page = CarouselPageLanding
+	}
 	activeStr := c.Query("active")
 
 	var active *bool

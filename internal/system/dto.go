@@ -33,16 +33,32 @@ type AdRequest struct {
 	Accent      string `json:"accent"`
 }
 
+// CarouselSlideRequest is the create/update payload for a carousel slide.
+//
+// The pointer fields are optional but clearable: on update a nil pointer means
+// the key was omitted (leave the stored column alone), while a non-nil pointer
+// is applied verbatim — including an empty string, which clears the column.
+// The JSON wire format is unchanged; only the Go shape differs.
 type CarouselSlideRequest struct {
-	Page        string `json:"page"`
-	Title       string `json:"title"`
-	Subtitle    string `json:"subtitle"`
-	Description string `json:"description"`
-	ImageURL    string `json:"image_url"`
-	LinkURL     string `json:"link_url"`
-	ButtonText  string `json:"button_text"`
-	Order       int    `json:"order"`
-	Active      *bool  `json:"active"`
+	Page        string  `json:"page"`
+	Title       string  `json:"title"`
+	Subtitle    *string `json:"subtitle"`
+	Description *string `json:"description"`
+	ImageURL    string  `json:"image_url"`
+	LinkURL     *string `json:"link_url"`
+	ButtonText  *string `json:"button_text"`
+	Order       int     `json:"order"`
+	Active      *bool   `json:"active"`
+}
+
+// derefString resolves an optional request field for create. A nil pointer
+// (key omitted) and a pointer to an empty string both store the zero value,
+// which is the pre-existing create behavior.
+func derefString(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }
 
 type CarouselReorderItem struct {
