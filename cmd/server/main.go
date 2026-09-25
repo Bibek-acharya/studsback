@@ -88,6 +88,63 @@ func (a *instProgramRepoAdapter) FindProgramByGlobalCourse(institutionID, global
 	}, nil
 }
 
+// objectFetcher reads an object from storage. It matches storage.Get and is
+// injected by the uploads tests.
+type objectFetcher func(objectKey string) (io.Reader, *storage.ObjectInfo, error)
+
+// newUploadsHandler serves object-storage assets through the legacy public
+// /uploads route. Study-resource objects are private to their domain API and
+// are rejected here; unrelated assets retain their existing behavior.
+func newUploadsHandler(fetch objectFetcher) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		objectKey := c.Param("filepath")
+		if objectKey == "" || objectKey == "/" {
+			c.Status(http.StatusNotFound)
+			return
+		}
+		objectKey = strings.TrimPrefix(objectKey, "/")
+
+		// Never expose private study-resource objects through the global route.
+		if storage.IsPrivateKey(objectKey) {
+			c.Status(http.StatusNotFound)
+			return
+		}
+
+		reader, info, err := fetch(objectKey)
+		if err != nil {
+			c.Status(http.StatusNotFound)
+			return
+		}
+		if closer, ok := reader.(io.Closer); ok {
+			defer closer.Close()
+		}
+
+		contentType := "application/octet-stream"
+		if info != nil && info.ContentType != "" {
+			contentType = info.ContentType
+		}
+
+		filename := objectKey
+		if idx := strings.LastIndex(objectKey, "/"); idx >= 0 {
+			filename = objectKey[idx+1:]
+		}
+		if c.Query("dl") == "1" {
+			c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
+		}
+
+		size := int64(-1)
+		if info != nil && info.Size > 0 {
+			size = info.Size
+		}
+		c.DataFromReader(http.StatusOK, size, contentType, reader, nil)
+	}
+}
+
+// uploadsHandler wires the public object route to real object storage.
+func uploadsHandler() gin.HandlerFunc {
+	return newUploadsHandler(storage.Get)
+}
+
 func main() {
 	config.Load()
 
