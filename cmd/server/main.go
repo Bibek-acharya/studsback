@@ -284,6 +284,11 @@ func main() {
 		&mocktests.MockOption{},
 		&mocktests.MockAttempt{},
 		&coins.ConfigVersion{},
+		&coins.CoinAccount{},
+		&coins.CoinAccountBalance{},
+		&coins.CoinJournal{},
+		&coins.CoinPosting{},
+		&coins.CoinLot{},
 		&pressmedia.PressMediaItem{},
 		&downloadcenter.DownloadItem{},
 		&domain.Conversation{},
@@ -306,6 +311,14 @@ func main() {
 		if !config.IsSQLite {
 			if err := notification.EnsurePostgresIndexes(db); err != nil {
 				logger.Fatal("Failed to create notification indexes", "error", err)
+			}
+			// The StudsToken ledger cannot be correct without this. AutoMigrate
+			// cannot create partial or expression indexes, CHECK constraints, or
+			// triggers, and it will not seed the chart of accounts. Skipping it
+			// yields tables that look right and enforce nothing, which is the
+			// same class of bug as internal/notification/ensure_indexes.go.
+			if err := coins.EnsurePostgresIndexes(db); err != nil {
+				logger.Fatal("Failed to create coin ledger constraints", "error", err)
 			}
 		}
 		if err := allowAnonymousScholarshipApplications(db); err != nil {
