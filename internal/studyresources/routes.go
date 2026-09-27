@@ -13,7 +13,6 @@ func RegisterRoutes(r *gin.Engine, authMW, superadminRoleMW gin.HandlerFunc, h *
 		// only — no video bytes.
 		v1.GET("/study-resources", h.ListResources)
 		v1.GET("/study-resources/:id", h.GetResource)
-		v1.GET("/study-resources/:id/download", h.DownloadResource)
 
 		// Range-aware inline playback for video lectures.
 		//
@@ -27,11 +26,24 @@ func RegisterRoutes(r *gin.Engine, authMW, superadminRoleMW gin.HandlerFunc, h *
 		// attachment-oriented /:id/download endpoint.
 		v1.GET("/study-resources/:id/stream", h.StreamResource)
 
-		// Mints the short-lived, resource-bound token that unlocks the stream.
-		// Behind the session Auth middleware: an anonymous caller gets 401.
+		// Document downloads and playback tokens both require a session.
+		//
+		// The download route used to sit here, unauthenticated, and the only
+		// check in the handler was IsPublished — so any anonymous caller could
+		// fetch any published file, and so could any caller once coin gating
+		// made file delivery worth protecting.
+		//
+		// It is safe behind authMW even though the frontend opens it with
+		// window.open and therefore sends no Authorization header: Auth falls
+		// back to the HttpOnly `token` cookie that every login/refresh path
+		// sets, and a cookie is sent on a plain top-level navigation. That is
+		// the difference from the <video> route above, which cannot carry a
+		// cookie set on a cross-origin media request the same way and so relies
+		// on the playback token instead.
 		authenticated := v1.Group("/study-resources")
 		authenticated.Use(authMW)
 		{
+			authenticated.GET("/:id/download", h.DownloadResource)
 			authenticated.GET("/:id/playback-token", h.IssuePlaybackToken)
 		}
 

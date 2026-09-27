@@ -231,7 +231,9 @@ func (h *Handler) DownloadItem(c *gin.Context) {
 		return
 	}
 
-	item, err := h.service.GetItem(uint(id))
+	// Published-only lookup. This is a public route, so it must not use
+	// GetItem, which returns drafts for the admin edit path.
+	item, err := h.service.GetPublishedItem(uint(id))
 	if err != nil {
 		response.Error(c, http.StatusNotFound, "Item not found")
 		return
