@@ -363,6 +363,9 @@ func main() {
 		if err := migrations.CreateMockTestTables(db); err != nil {
 			logger.Warn("Failed to run mock test tables migration", "error", err)
 		}
+		if err := migrations.CreateCoinLedger(db); err != nil {
+			logger.Warn("Failed to run coin ledger migration", "error", err)
+		}
 		if err := migrations.CreateCoinEconomyConfigVersion(db); err != nil {
 			logger.Warn("Failed to run coin economy config version migration", "error", err)
 		}
