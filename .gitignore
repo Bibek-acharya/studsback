@@ -4,7 +4,9 @@
 !.env.example
 
 # Compiled binaries
-server
+# Anchored to the repo root on purpose. An unanchored "server" also matches the
+# cmd/server/ directory, which silently untracked cmd/server/uploads_test.go.
+/server
 verify-esewa
 
 # Go build outputs
