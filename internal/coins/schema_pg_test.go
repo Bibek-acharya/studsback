@@ -36,6 +36,15 @@ import (
 
 const testSchema = "coins_schema_test"
 
+// openTestDB opens the integration database, or skips the test when
+// COINS_TEST_DSN is unset.
+//
+// The pool is closed when the calling test finishes. That is not tidiness: an
+// unclosed *sql.DB keeps its idle connections for the lifetime of the test
+// binary, so `go test -tags coinsintegration -count=10` leaks one pool per run
+// here and exhausts the server's max_connections. The failure then surfaces as
+// "sorry, too many clients" inside an unrelated concurrency test, which is a very
+// expensive way to learn that a helper is missing a Cleanup.
 func openTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	dsn := os.Getenv("COINS_TEST_DSN")
@@ -47,6 +56,9 @@ func openTestDB(t *testing.T) *gorm.DB {
 	})
 	if err != nil {
 		t.Fatalf("open postgres: %v", err)
+	}
+	if sqlDB, err := db.DB(); err == nil {
+		t.Cleanup(func() { _ = sqlDB.Close() })
 	}
 	return db
 }
@@ -321,6 +333,89 @@ func TestLotCannotBeOverConsumed(t *testing.T) {
 		mustExec(t, db, `UPDATE coin_lot SET consumed = 10`)
 		if err := db.Exec(`UPDATE coin_lot SET consumed = 11`).Error; err == nil {
 			t.Error("a fully consumed lot was allowed to be over-consumed")
+		}
+	})
+}
+
+// The two UNIQUE constraints and the four foreign keys were declared in
+// 02-architecture.md section 2 and were, for a while, absent from the live
+// schema: the models carried no uniqueIndex tag, so AutoMigrate could not create
+// them and nothing else did. The ledger-core build caught this by inspecting
+// pg_constraint rather than trusting the spec.
+//
+// The consequence was that a duplicate (account_id, account_seq) was possible
+// and the only thing preventing it was a row lock in Go. These assert the
+// database now refuses it, so correctness stops depending on application code
+// behaving.
+func TestPostingUniquenessIsEnforcedByTheDatabase(t *testing.T) {
+	withFreshSchema(t, func(db *gorm.DB) {
+		for _, name := range []string{"uq_coin_posting_account_seq", "uq_coin_posting_journal_seq"} {
+			var found int64
+			db.Raw(`SELECT count(*) FROM pg_constraint WHERE conname = ? AND conrelid = 'coin_posting'::regclass`, name).Scan(&found)
+			if found != 1 {
+				t.Errorf("constraint %s is missing from coin_posting", name)
+			}
+		}
+
+		acct := seedUserAccount(t, db, 810)
+		mustExec(t, db, `INSERT INTO coin_journal
+			(entry_type, state, scope, idempotency_key, request_fingerprint, reason_code, created_at)
+			VALUES ('GRANT', 'POSTED', 'user', 'uq1', '\x00', 'RESOURCE_APPROVED', ?)`,
+			time.Now().UTC())
+		var jid string
+		db.Raw(`SELECT id FROM coin_journal WHERE idempotency_key='uq1'`).Scan(&jid)
+
+		mustExec(t, db, `INSERT INTO coin_posting
+			(journal_id, seq, account_id, amount, account_seq, created_at)
+			VALUES (?, 1, ?, 5, 1, ?)`, jid, acct, time.Now().UTC())
+
+		// Same account, same account_seq: must be refused.
+		if err := db.Exec(`INSERT INTO coin_posting
+			(journal_id, seq, account_id, amount, account_seq, created_at)
+			VALUES (?, 1, ?, 7, 1, ?)`, jid, acct, time.Now().UTC()).Error; err == nil {
+			t.Error("a duplicate (account_id, account_seq) was allowed")
+		}
+		// Same journal, same seq: must be refused.
+		if err := db.Exec(`INSERT INTO coin_posting
+			(journal_id, seq, account_id, amount, account_seq, created_at)
+			VALUES (?, 1, ?, 9, 2, ?)`, jid, acct, time.Now().UTC()).Error; err == nil {
+			t.Error("a duplicate (journal_id, seq) was allowed")
+		}
+		// A legitimate second leg on a fresh sequence is fine.
+		mustExec(t, db, `INSERT INTO coin_posting
+			(journal_id, seq, account_id, amount, account_seq, created_at)
+			VALUES (?, 2, ?, 9, 2, ?)`, jid, acct, time.Now().UTC())
+	})
+}
+
+func TestPostingAndLotForeignKeysRejectOrphans(t *testing.T) {
+	withFreshSchema(t, func(db *gorm.DB) {
+		for name, tbl := range map[string]string{
+			"fk_coin_posting_journal": "coin_posting",
+			"fk_coin_posting_account": "coin_posting",
+			"fk_coin_lot_journal":     "coin_lot",
+			"fk_coin_lot_account":     "coin_lot",
+		} {
+			var found int64
+			db.Raw(`SELECT count(*) FROM pg_constraint WHERE conname = ? AND conrelid = ?::regclass`,
+				name, tbl).Scan(&found)
+			if found != 1 {
+				t.Errorf("foreign key %s is missing from %s", name, tbl)
+			}
+		}
+
+		acct := seedUserAccount(t, db, 811)
+		ghost := "00000000-0000-0000-0000-0000000000ff"
+
+		if err := db.Exec(`INSERT INTO coin_posting
+			(journal_id, seq, account_id, amount, account_seq, created_at)
+			VALUES (?, 1, ?, 5, 1, ?)`, ghost, acct, time.Now().UTC()).Error; err == nil {
+			t.Error("a posting referencing a nonexistent journal was allowed")
+		}
+		if err := db.Exec(`INSERT INTO coin_lot
+			(account_id, journal_id, bucket, granted, consumed, created_at)
+			VALUES (?, ?, 'EARNED', 5, 0, ?)`, acct, ghost, time.Now().UTC()).Error; err == nil {
+			t.Error("a lot referencing a nonexistent journal was allowed")
 		}
 	})
 }

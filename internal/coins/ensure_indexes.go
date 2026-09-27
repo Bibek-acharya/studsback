@@ -95,6 +95,39 @@ func EnsurePostgresIndexes(db *gorm.DB) error {
 		addCheck("chk_coin_entry_type", `coin_journal`,
 			`entry_type IN ('GRANT', 'SPEND', 'EXPIRE', 'REVERSAL', 'ADJUST')`),
 
+		// ── UNIQUE constraints declared by the spec but previously never
+		//    created ──────────────────────────────────────────────────────
+		// 02-architecture.md section 2 declares both of these. They were not
+		// in the models, and AutoMigrate cannot create them without a
+		// uniqueIndex tag, so a live schema had NEITHER. The ledger carried on
+		// with only the row lock preventing a duplicate account_seq, which
+		// makes correctness depend on Go rather than on the database. The
+		// ledger-core build found this by inspecting pg_constraint rather than
+		// trusting the spec, which is the right way round.
+		//
+		// (account_id, account_seq) is the counter-uniqueness guarantee. The
+		// per-user advisory lock does not protect this: the system accounts are
+		// global, so two different users holding two different user locks both
+		// write earned_faucet. Without this constraint two concurrent journals
+		// can hand the same account the same sequence number.
+		addConstraint("uq_coin_posting_account_seq", `coin_posting`,
+			`UNIQUE (account_id, account_seq)`),
+		addConstraint("uq_coin_posting_journal_seq", `coin_posting`,
+			`UNIQUE (journal_id, seq)`),
+
+		// ── foreign keys ──────────────────────────────────────────────────
+		// ON DELETE RESTRICT is the default but is stated explicitly. The
+		// append-only trigger already blocks deleting a journal or posting, so
+		// this is the second of two independent guards rather than the only one.
+		addConstraint("fk_coin_posting_journal", `coin_posting`,
+			`FOREIGN KEY (journal_id) REFERENCES coin_journal(id) ON DELETE RESTRICT`),
+		addConstraint("fk_coin_posting_account", `coin_posting`,
+			`FOREIGN KEY (account_id) REFERENCES coin_account(id) ON DELETE RESTRICT`),
+		addConstraint("fk_coin_lot_journal", `coin_lot`,
+			`FOREIGN KEY (journal_id) REFERENCES coin_journal(id) ON DELETE RESTRICT`),
+		addConstraint("fk_coin_lot_account", `coin_lot`,
+			`FOREIGN KEY (account_id) REFERENCES coin_account(id) ON DELETE RESTRICT`),
+
 		// ── immutability ─────────────────────────────────────────────────
 		// A mutable posting row destroys the only audit trail that makes a
 		// balance explainable. Triggers alone are bypassable by a superuser
@@ -148,7 +181,8 @@ func EnsurePostgresIndexes(db *gorm.DB) error {
 	return seedChartOfAccounts(db)
 }
 
-// addCheck wraps a CHECK constraint in the same idempotent DO $$ shape the
+// addConstraint runs ALTER TABLE ... ADD CONSTRAINT only if that constraint is
+// not already on that table, using the same idempotent DO $$ shape the
 // notification module uses, because Postgres has no CREATE CONSTRAINT IF NOT
 // EXISTS. conname and conrelid are both qualified so a same-named constraint on
 // another table cannot be mistaken for ours.
@@ -156,7 +190,11 @@ func EnsurePostgresIndexes(db *gorm.DB) error {
 // Built with Sprintf over one template rather than by concatenating backtick
 // raw strings. Interpolating into a raw string next to SQL containing quotes
 // and `::regclass` is how you end up with an unterminated literal.
-func addCheck(name, table, expression string) string {
+//
+// clause is the part after ADD CONSTRAINT <name>, e.g.
+// "UNIQUE (account_id, account_seq)" or
+// "FOREIGN KEY (journal_id) REFERENCES coin_journal(id) ON DELETE RESTRICT".
+func addConstraint(name, table, clause string) string {
 	return fmt.Sprintf(`DO $$
 BEGIN
     IF NOT EXISTS (
@@ -164,9 +202,14 @@ BEGIN
         WHERE conname = '%s'
           AND conrelid = '%s'::regclass
     ) THEN
-        ALTER TABLE %s ADD CONSTRAINT %s CHECK (%s);
+        ALTER TABLE %s ADD CONSTRAINT %s %s;
     END IF;
-END $$`, name, table, table, name, expression)
+END $$`, name, table, table, name, clause)
+}
+
+// addCheck is addConstraint specialised to a CHECK expression.
+func addCheck(name, table, expression string) string {
+	return addConstraint(name, table, "CHECK ("+expression+")")
 }
 
 // seedChartOfAccounts creates the three SYSTEM accounts the ledger posts against.
