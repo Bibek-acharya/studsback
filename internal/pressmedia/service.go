@@ -71,6 +71,28 @@ func (s *Service) GetItem(id uint) (*PressMediaItem, error) {
 	return s.repo.FindItemByID(id)
 }
 
+// ErrItemNotPublished is returned when an item exists but is not published. The
+// message deliberately mirrors the not-found wording so a public caller cannot
+// distinguish a draft from an id that never existed.
+var ErrItemNotPublished = errors.New("press media item not found")
+
+// GetPublishedItem returns an item only when it is published.
+//
+// Public routes must use this, not GetItem. GetItem returns drafts because the
+// admin detail and update routes need to see unpublished rows to edit them. The
+// public detail route previously used GetItem, which exposed unpublished items
+// by id. Same shape as downloadcenter.GetPublishedItem.
+func (s *Service) GetPublishedItem(id uint) (*PressMediaItem, error) {
+	item, err := s.repo.FindItemByID(id)
+	if err != nil {
+		return nil, err
+	}
+	if !item.IsPublished {
+		return nil, ErrItemNotPublished
+	}
+	return item, nil
+}
+
 func (s *Service) CreateItem(input CreatePressMediaItemInput) (*PressMediaItem, error) {
 	input.Category = sanitizeCategory(input.Category)
 	if !isValidCategory(input.Category) {

@@ -10,7 +10,7 @@ func RegisterRoutes(r *gin.Engine, authMW, superadminRoleMW gin.HandlerFunc, h *
 	v1 := r.Group("/api/v1")
 	{
 		v1.GET("/media-press", h.ListItems)
-		v1.GET("/media-press/:id", h.GetItem)
+		v1.GET("/media-press/:id", h.GetPublicItem)
 
 		admin := v1.Group("/superadmin/media-press")
 		admin.Use(authMW)

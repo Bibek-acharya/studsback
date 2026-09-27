@@ -45,7 +45,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			institutionAuth.POST("/register", h.InstitutionRegister)
 			institutionAuth.POST("/claim", h.ClaimRegister)
 			institutionAuth.POST("/login", h.InstitutionLogin)
-			institutionAuth.POST("/send-otp", h.SendOTP)
+			institutionAuth.POST("/send-otp", sendOTPLimit, h.SendOTP)
 			institutionAuth.POST("/reset-password", h.ResetPassword)
 			institutionAuth.GET("/google", h.InstitutionGoogleLogin)
 			institutionAuth.GET("/google/callback", h.InstitutionGoogleCallback)
@@ -55,7 +55,7 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 		{
 			scholarshipProviderAuth.POST("/register", h.ScholarshipProviderRegister)
 			scholarshipProviderAuth.POST("/login", h.ScholarshipProviderLogin)
-			scholarshipProviderAuth.POST("/send-otp", h.SendOTP)
+			scholarshipProviderAuth.POST("/send-otp", sendOTPLimit, h.SendOTP)
 			scholarshipProviderAuth.POST("/reset-password", h.ResetPassword)
 			scholarshipProviderAuth.GET("/google", h.ScholarshipProviderGoogleLogin)
 			scholarshipProviderAuth.GET("/google/callback", h.ScholarshipProviderGoogleCallback)

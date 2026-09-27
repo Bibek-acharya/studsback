@@ -81,6 +81,24 @@ func (h *Handler) GetItem(c *gin.Context) {
 	response.Success(c, http.StatusOK, "Item fetched successfully", item)
 }
 
+// GetPublicItem handles GET /api/v1/media-press/:id. It is the public twin of
+// GetItem: the admin route at /superadmin/media-press/:id deliberately shares
+// GetItem, because editing a draft requires seeing it. This route must not, so
+// it uses the published-only accessor rather than filtering inside GetItem.
+func (h *Handler) GetPublicItem(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid item ID")
+		return
+	}
+	item, err := h.service.GetPublishedItem(uint(id))
+	if err != nil {
+		response.Error(c, http.StatusNotFound, "Item not found")
+		return
+	}
+	response.Success(c, http.StatusOK, "Item fetched successfully", item)
+}
+
 func (h *Handler) CreateItem(c *gin.Context) {
 	var req CreatePressMediaItemInput
 	if err := c.ShouldBindJSON(&req); err != nil {
