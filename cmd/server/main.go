@@ -19,6 +19,7 @@ import (
 	"studsphere/backend/internal/analytics"
 	"studsphere/backend/internal/auth"
 	"studsphere/backend/internal/chat"
+	"studsphere/backend/internal/coins"
 	"studsphere/backend/internal/college"
 	"studsphere/backend/internal/counselling"
 	"studsphere/backend/internal/downloadcenter"
@@ -282,6 +283,7 @@ func main() {
 		&mocktests.MockQuestion{},
 		&mocktests.MockOption{},
 		&mocktests.MockAttempt{},
+		&coins.ConfigVersion{},
 		&pressmedia.PressMediaItem{},
 		&downloadcenter.DownloadItem{},
 		&domain.Conversation{},
@@ -347,6 +349,9 @@ func main() {
 		}
 		if err := migrations.CreateMockTestTables(db); err != nil {
 			logger.Warn("Failed to run mock test tables migration", "error", err)
+		}
+		if err := migrations.CreateCoinEconomyConfigVersion(db); err != nil {
+			logger.Warn("Failed to run coin economy config version migration", "error", err)
 		}
 		// Cleanup dangling sub-users with provider_id = 0 from previous bug
 		if err := db.Exec("DELETE FROM provider_access_users WHERE provider_id = 0").Error; err != nil {
@@ -449,6 +454,10 @@ func main() {
 	studyResourcesHandler := initModule(studyresources.NewRepository(db), studyresources.NewService, studyresources.NewHandler)
 	pressMediaHandler := initModule(pressmedia.NewRepository(db), pressmedia.NewService, pressmedia.NewHandler)
 	downloadCenterHandler := initModule(downloadcenter.NewRepository(db), downloadcenter.NewService, downloadcenter.NewHandler)
+	// Coin economy config: the settings key is owned by internal/system, the
+	// audit rows by this package, and the service holds a short-TTL cache over
+	// both because pricing is read on every unlock attempt.
+	coinsHandler := coins.NewHandler(coins.NewService(coins.NewConfigStore(systemRepo), coins.NewVersionStore(db)))
 	reviewHandler := review.NewHandler(review.NewService(review.NewRepository(db), notificationSvc))
 	scholarshipRepo := scholarship.NewRepository(db)
 	scholarshipSvc := scholarship.NewService(scholarshipRepo, db, systemSvc, notificationSvc)
@@ -598,6 +607,15 @@ func main() {
 	// Study resources: admins only (superadmin guard, like notifications).
 	studyResourcesRoleMW := middleware.RequireRole("superadmin", "super_admin")
 	studyresources.RegisterRoutes(router, authMW, studyResourcesRoleMW, studyResourcesHandler)
+
+	// Coin economy config: its own superadmin gate, deliberately NOT roleMW.
+	// roleMW admits "institution" and "scholarship_provider", and an
+	// institution account must not be able to rewrite coin pricing
+	// (docs/coin-system/02-architecture.md §7). "admin" is omitted because it
+	// is a phantom role here — it appears in allow-lists but is never assigned
+	// to a user.
+	coinAdminRoleMW := middleware.RequireRole("superadmin", "super_admin")
+	coins.RegisterRoutes(router, authMW, coinAdminRoleMW, coinsHandler)
 
 	// Mock tests: separate domain with nested questions/options. Browsing is
 	// public, submit + attempt results require auth, CRUD is superadmin-only.
