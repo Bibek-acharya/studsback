@@ -1,6 +1,9 @@
 package auth
 
 import (
+	"time"
+
+	"studsphere/backend/internal/shared/middleware"
 	"studsphere/backend/internal/shared/response"
 
 	"github.com/gin-gonic/gin"
@@ -11,15 +14,26 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 		return
 	}
 
+	// Pre-flight abuse limits (docs/coin-system/04-implementation-plan.md §2.2).
+	// IP alone is a weak key: campus networks in India and Nepal put thousands
+	// of students behind one NAT, so the per-email rule on /send-otp is what
+	// actually caps OTP abuse without punishing a shared network.
+	registerLimit := middleware.RateLimit(middleware.NewLimiter(5, time.Hour), middleware.ClientIPKey)
+	sendOTPLimit := middleware.RateLimitAll(
+		middleware.Limit{Limiter: middleware.NewLimiter(5, time.Hour), Key: middleware.ClientIPKey},
+		middleware.Limit{Limiter: middleware.NewLimiter(3, time.Hour), Key: middleware.JSONFieldKey("email")},
+	)
+	verifyOTPLimit := middleware.RateLimit(middleware.NewLimiter(10, time.Hour), middleware.ClientIPKey)
+
 	v1 := r.Group("/api/v1")
 	{
 		auth := v1.Group("/auth")
 		{
-			auth.POST("/register", h.Register)
+			auth.POST("/register", registerLimit, h.Register)
 			auth.POST("/login", h.Login)
 			auth.POST("/logout", h.Logout)
-			auth.POST("/send-otp", h.SendOTP)
-			auth.POST("/verify-otp", h.VerifyOTP)
+			auth.POST("/send-otp", sendOTPLimit, h.SendOTP)
+			auth.POST("/verify-otp", verifyOTPLimit, h.VerifyOTP)
 			auth.POST("/reset-password", h.ResetPassword)
 			auth.POST("/totp/verify", h.VerifyLoginTOTP)
 			auth.GET("/google", h.GoogleLogin)
