@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"studsphere/backend/internal/shared/httpx"
 	"studsphere/backend/internal/shared/response"
 	"studsphere/backend/internal/shared/sanitize"
 	"studsphere/backend/internal/shared/storage"
@@ -327,16 +328,26 @@ func (h *Handler) CreateResource(c *gin.Context) {
 		return
 	}
 
+	// Resolve the uploader before touching object storage, so an unresolvable
+	// id costs a 401 instead of a full upload plus ffmpeg transcode and a
+	// leftover orphan. This route sits behind Auth (routes.go), so the id is
+	// always set in the normal path; the check is a backstop for a route wired
+	// without the middleware. Failing is the point: proceeding would record
+	// uploaded_by = 0, a wrong owner on a provenance column, instead of
+	// surfacing the misconfiguration.
+	userID, ok := httpx.CurrentUserID(c)
+	if !ok {
+		response.Error(c, http.StatusUnauthorized, "Authentication required")
+		return
+	}
+
 	upload, err := uploadFile(c.Request.Context(), fileHeader, resourceType)
 	if err != nil {
 		response.Error(c, statusForUploadError(err), err.Error())
 		return
 	}
 
-	userID, _ := c.Get("user_id")
-	uploadedBy, _ := userID.(uint)
-
-	resource := newResourceFromRequest(req, fileHeader, upload, resourceType, uploadedBy)
+	resource := newResourceFromRequest(req, fileHeader, upload, resourceType, userID)
 	if err := h.service.CreateResource(resource); err != nil {
 		// Clean up the uploaded object if the DB save fails.
 		_ = storage.DeleteObject(upload.ObjectPath)

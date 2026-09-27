@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"studsphere/backend/internal/shared/httpx"
 	"studsphere/backend/internal/shared/response"
 	"studsphere/backend/internal/shared/utils"
 
@@ -29,7 +30,7 @@ func (h *Handler) IssuePlaybackToken(c *gin.Context) {
 	c.Header("Cache-Control", "no-store")
 	c.Header("Pragma", "no-cache")
 
-	userID, ok := currentUserID(c)
+	userID, ok := httpx.CurrentUserID(c)
 	if !ok {
 		response.Error(c, http.StatusUnauthorized, "Authentication required")
 		return
@@ -66,25 +67,4 @@ func (h *Handler) IssuePlaybackToken(c *gin.Context) {
 		"expires_at": expiresAt.UTC().Format(time.RFC3339),
 		"stream_url": streamURL,
 	})
-}
-
-// currentUserID reads the authenticated user set by the auth middleware. The
-// value is a uint, but int/int64 are tolerated for custom middleware.
-func currentUserID(c *gin.Context) (uint, bool) {
-	value, exists := c.Get("user_id")
-	if !exists {
-		return 0, false
-	}
-	switch v := value.(type) {
-	case uint:
-		return v, true
-	case uint64:
-		return uint(v), true
-	case int:
-		return uint(v), true
-	case int64:
-		return uint(v), true
-	default:
-		return 0, false
-	}
 }

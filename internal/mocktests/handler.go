@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"studsphere/backend/internal/shared/httpx"
 	"studsphere/backend/internal/shared/response"
 
 	"github.com/gin-gonic/gin"
@@ -67,7 +68,7 @@ func (h *Handler) SubmitTest(c *gin.Context) {
 	if !ok {
 		return
 	}
-	userID, ok := currentUserID(c)
+	userID, ok := httpx.CurrentUserID(c)
 	if !ok {
 		response.Error(c, http.StatusUnauthorized, "Authentication required")
 		return
@@ -99,7 +100,7 @@ func (h *Handler) GetAttempt(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "Invalid attempt ID")
 		return
 	}
-	userID, ok := currentUserID(c)
+	userID, ok := httpx.CurrentUserID(c)
 	if !ok {
 		response.Error(c, http.StatusUnauthorized, "Authentication required")
 		return
@@ -168,7 +169,7 @@ func (h *Handler) CreateTest(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
-	createdBy, _ := currentUserID(c)
+	createdBy, _ := httpx.CurrentUserID(c)
 
 	test, err := h.service.CreateTest(req, createdBy)
 	if err != nil {
@@ -219,27 +220,6 @@ func parseID(c *gin.Context) (uint, bool) {
 		return 0, false
 	}
 	return uint(id), true
-}
-
-// currentUserID reads the authenticated user set by the auth middleware. The
-// value is a uint, but int/int64 are tolerated for custom middleware.
-func currentUserID(c *gin.Context) (uint, bool) {
-	value, exists := c.Get("user_id")
-	if !exists {
-		return 0, false
-	}
-	switch v := value.(type) {
-	case uint:
-		return v, true
-	case uint64:
-		return uint(v), true
-	case int:
-		return uint(v), true
-	case int64:
-		return uint(v), true
-	default:
-		return 0, false
-	}
 }
 
 // statusForError maps domain errors onto HTTP status codes. Validation and
