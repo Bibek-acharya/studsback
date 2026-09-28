@@ -94,6 +94,9 @@ func (r *Repository) FindCoursesFiltered(page, limit int, search, level, field, 
 	return courses, total, err
 }
 
+// FindPublishedGlobalCourses returns every published global course matching the
+// search term. The course finder paginates client-side over the full result set,
+// so a hard LIMIT here silently dropped matches with no indication in the UI.
 func (r *Repository) FindPublishedGlobalCourses(search string) ([]Course, error) {
 	var courses []Course
 	query := r.db.Model(&Course{}).
@@ -101,7 +104,7 @@ func (r *Repository) FindPublishedGlobalCourses(search string) ([]Course, error)
 	if search != "" {
 		query = query.Where("title ILIKE ?", "%"+search+"%")
 	}
-	err := query.Order("title asc").Limit(20).Find(&courses).Error
+	err := query.Order("LOWER(title) asc").Find(&courses).Error
 	return courses, err
 }
 
