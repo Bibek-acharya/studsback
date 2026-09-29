@@ -6,10 +6,17 @@ import (
 )
 
 // Service owns the economy configuration: load it through the cache, and
-// write it behind validation plus an audit row.
+// write it behind validation plus an audit row. It also owns the entitlement
+// domain, so that a gate has one object to call rather than two.
+//
+// repo is nil in a Service built by NewService, which is the admin-config-only
+// wiring. Every entitlement method checks and returns ErrNoDatabase rather than
+// panicking; see unlock.go's requireRepo. Use NewServiceWithRepository to get a
+// Service that can reach the database.
 type Service struct {
 	config   *ConfigStore
 	versions VersionStore
+	repo     *Repository
 }
 
 func NewService(config *ConfigStore, versions VersionStore) *Service {

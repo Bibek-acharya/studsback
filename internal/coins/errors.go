@@ -53,3 +53,45 @@ var (
 	ErrInvalidArgument     = errors.New("invalid argument")
 	ErrHoldExceedsBalance  = errors.New("hold exceeds available balance")
 )
+
+// The entitlement sentinels, for the resource_unlock / user_free_allowance
+// domain (02-architecture.md §5). Appended, not reorganised: the block above is
+// the ledger's vocabulary, and mixing the two would blur which errors a spend can
+// produce and which an unlock can.
+//
+// Matched with errors.Is, so every method here wraps rather than substitutes.
+//
+//	ErrNoAllowanceRemaining 402/423 — the starter allowance cannot cover this.
+//	    It is deliberately returned TOGETHER WITH ErrAllowanceExpired when the
+//	    window has closed (see ConsumeAllowance), because the two answer different
+//	    questions for the same student: "you have used your free unlocks" and
+//	    "your free unlocks ran out on the 26th" are different sentences, and the
+//	    second is the 423 in 03-api-contract.md §2.3. A caller that only wants
+//	    "the allowance is not available" matches this one; a handler mapping 423
+//	    matches the other.
+//	ErrAllowanceExpired    423 — the window has closed. Never returned alone; it
+//	    always accompanies ErrNoAllowanceRemaining.
+//	ErrAlreadyUnlocked     200 — an unlock already exists for
+//	    (user, resource_type, resource_id). It is NOT an error condition at the
+//	    API boundary: 03-api-contract.md §2.3 says a mobile retry returns the
+//	    success body with already_unlocked: true, because a 403 would render a
+//	    failure for an outcome that succeeded. The sentinel exists so the domain
+//	    can report it distinctly from a genuine refusal, not so a handler can
+//	    4xx it.
+//	ErrUnlockRevoked       409 — a second revocation of an already-revoked
+//	    unlock. The first revocation is the record, so the second changes
+//	    nothing. Deliberately not "already done and fine": overwriting the
+//	    timestamp and the reason would destroy exactly the evidence a revocation
+//	    exists to preserve.
+//	ErrInvalidResourceType 400 — a resource_type that is not one of
+//	    study_resource | video | mock_test. It has its own sentinel rather than
+//	    riding ErrInvalidArgument because it is the one validation failure in
+//	    this slice that names a request field, and the handler wants to say which
+//	    field without string-matching an error message.
+var (
+	ErrNoAllowanceRemaining = errors.New("no starter allowance remaining")
+	ErrAllowanceExpired     = errors.New("starter allowance has expired")
+	ErrAlreadyUnlocked      = errors.New("resource is already unlocked")
+	ErrUnlockRevoked        = errors.New("unlock is already revoked")
+	ErrInvalidResourceType  = errors.New("not an unlockable resource type")
+)

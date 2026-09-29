@@ -289,6 +289,8 @@ func main() {
 		&coins.CoinJournal{},
 		&coins.CoinPosting{},
 		&coins.CoinLot{},
+		&coins.ResourceUnlock{},
+		&coins.UserFreeAllowance{},
 		&pressmedia.PressMediaItem{},
 		&downloadcenter.DownloadItem{},
 		&domain.Conversation{},
@@ -319,6 +321,18 @@ func main() {
 			// same class of bug as internal/notification/ensure_indexes.go.
 			if err := coins.EnsurePostgresIndexes(db); err != nil {
 				logger.Fatal("Failed to create coin ledger constraints", "error", err)
+			}
+			// The entitlement tables are the same trap with a different symptom.
+			// AutoMigrate creates resource_unlock and user_free_allowance and stops
+			// there, so without this call they have no UNIQUE on
+			// (user_id, resource_type, resource_id) — the one constraint that caps
+			// referral fraud — no CHECK keeping source and journal_id consistent, and
+			// no foreign key to coin_journal. Tables that look right and enforce
+			// nothing is exactly what internal/notification/ensure_indexes.go
+			// documents, so this sits beside the ledger's call rather than in the
+			// migration list below, where a failure is only a warning.
+			if err := coins.EnsureEntitlementIndexes(db); err != nil {
+				logger.Fatal("Failed to create coin entitlement constraints", "error", err)
 			}
 		}
 		if err := allowAnonymousScholarshipApplications(db); err != nil {
@@ -368,6 +382,9 @@ func main() {
 		}
 		if err := migrations.CreateCoinEconomyConfigVersion(db); err != nil {
 			logger.Warn("Failed to run coin economy config version migration", "error", err)
+		}
+		if err := migrations.CreateStudsTokenEntitlements(db); err != nil {
+			logger.Warn("Failed to run StudsToken entitlement migration", "error", err)
 		}
 		// Cleanup dangling sub-users with provider_id = 0 from previous bug
 		if err := db.Exec("DELETE FROM provider_access_users WHERE provider_id = 0").Error; err != nil {
