@@ -307,9 +307,12 @@ Reuses the existing modal shell **verbatim** — `fixed inset-0 z-50 flex items-
 </Modal>
 ```
 
-- **The allocation must come from the server.** `POST /api/v1/coins/spend-preview` returns `{ cost, balanceBefore, balanceAfter, allocation[] }`. The client never computes FEFO — it does not know the lots. **If the preview fails the confirm button is not rendered**: show the error, `Try again`, `Not now`. A live confirm without a balance check is how students get charged twice.
-- **On a 409 (balance changed since preview)** the dialog stays open, the numbers refresh, the allocation re-renders. Silent re-pricing is a bait-and-switch.
-- **`already-unlocked` guard.** A 409 `already_unlocked` flips the card to `unlocked` and fires `toast.info("Already unlocked — nothing was spent.")`. Never charged twice, never told they were about to be.
+- **The allocation must come from the server, and there is no preview endpoint.** This section originally specified `POST /api/v1/coins/spend-preview` returning `{ cost, balanceBefore, balanceAfter, allocation[] }`. **That endpoint does not exist**: 03 §2.1-2.3 does not define it and the backend does not implement it. The allocation is read from `GET /coins/balance`'s `spend_order`, which the **server** computes FEFO. The client walks that array in the order given — it never sorts, never picks a lot, and never decides which bucket pays. `preview.cost` above is therefore the server-resolved price for the class, carried from the resource, not a quoted figure.
+  - If the balance read fails, the confirm button is not rendered: show the error, `Try again`, `Not now`. A live confirm without a balance check is how students get charged twice. This is the **`price-unknown` state** in §4 — a failed read must never render as "you cannot afford this", which is a different and much worse lie.
+  - When a real `spend-preview` endpoint does land, only the caller of `buildSpendPreview` changes. The prohibition on client-side FEFO is the part that does not change.
+- **If the balance moved since the dialog opened, the response is 402, not 409.** The server re-resolves the price and re-reads the balance inside the purchase transaction, so a student whose balance dropped gets the 402 body with fresh `required`/`available`/`shortfall`. The dialog stays open, the numbers refresh, the allocation re-renders. Silent re-pricing is a bait-and-switch. There is no 409 for this case.
+- **`already-unlocked` is a 200, not a 409.** This section previously said 409; the contract (§3, and 03 §2.3) and the implementation both return **200** with `already_unlocked: true` and `coins_paid: 0`, because it is not an error. A client written from the old text would render a success as a failure. The card flips to `unlocked` and fires `toast.info("Already unlocked — nothing was spent.")`. Never charged twice, never told they were about to be.
+- **The one 409 that does exist is `IDEMPOTENCY_KEY_REUSE`** — the same idempotency key replayed with a different payload. That is a client bug, not a user-facing state, and it should not surface as a dialog; log it.
 - **The button label repeats the cost** — "Unlock for 40 coins", not "Unlock". The number is the point of the press.
 
 ### 4.1 Starter-token variant
@@ -354,6 +357,9 @@ Shell: the same `Modal`, one step wider — `max-w-md` — plus `max-h-[85vh] ov
   </ul>
 
   {/* The anti-dead-end. Always present. */}
+  {/* NOT YET IMPLEMENTED: the ?affordable=1 filter branch does not exist, so this
+      link currently lands on the unfiltered catalogue. Ship-blocking only at the
+      moment the gate is switched on — see §12. */}
   <Link href="/study-resources?affordable=1" className="mt-3 flex items-center gap-2 rounded-md bg-gray-50 px-3 py-2.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-100">
     <Filter size={14} aria-hidden="true" />Browse resources you can unlock now<ChevronRight size={14} className="ml-auto text-gray-400" aria-hidden="true" />
   </Link>
@@ -573,14 +579,14 @@ On the dark stage: `rose-300` on `slate-950` is **10.67:1** and `slate-400` on `
 | `StudyResourcesPage.tsx:400-484` | **Delete** inline card JSX; render `<ResourceCard variant="document">` |
 | `StudyResourcesPage.tsx:503-541` | **Replace** the inline login modal with `components/ui/Modal.tsx` — fixes the focus trap (§11.1) while it is being touched |
 | `StudyResourcesPage.tsx:195-211` | `handleDownload` branches on access: unlocked → download · affordable → unlock dialog · insufficient → gap dialog · anonymous → login |
-| `StudyResourcesPage.tsx` (page root) | Wrap in `<CoinProvider>`; add the `?affordable=1` filter branch that §5's anti-dead-end link targets |
+| `StudyResourcesPage.tsx` (page root) | Wrap in `<CoinProvider>`; add the `?affordable=1` filter branch that §5's anti-dead-end link targets. **OUTSTANDING — not implemented.** `EarnRoutes` already links to it, so the link lands on the unfiltered catalogue. Not ship-blocking while the gate is off; must land before the gate is switched on, because the 402 screen is the one surface that depends on it. |
 | `VideoLecturesPage.tsx:262-320` | **Delete** the duplicated card JSX; render `<ResourceCard variant="video">` |
 | `VideoLecturesPage.tsx:312` | **Delete** the `Sign in to play` `text-slate-400` label (2.56:1); replaced by the coin state badge |
 | `VideoLecturePlayer.tsx:156-176` | Add a fourth, `login-required`-sibling state `coins-required`, reusing the `bg-slate-950` locked panel and the `rose-500` CTA |
 | `playbackState.ts` | Extend `PlaybackViewState` and `toPlaybackViewState` with the new state |
 | `mockTests/MockTestListPage.tsx:90-95` | Swap the bare `Link` for `<ResourceCard variant="mock-test">`; keep the `cyan` category accent |
 | `mockTests/MockTestRunner.tsx:387-411` | Attempt entitlement: the chip, the unlock path, and the `:397-400` copy fix (§10) |
-| `StudyResourceFilterPanel.tsx` | Add the "Can unlock now" toggle, backed by `?affordable=1` |
+| `StudyResourceFilterPanel.tsx` | Add the "Can unlock now" toggle, backed by `?affordable=1`. **OUTSTANDING — not implemented**, for the same reason as the row above; the toggle and the query parameter are one change. |
 | `services/studyResourcesApi.ts:18-37` | Add `access?: ResourceAccess` to `StudyResource` so the list endpoint carries per-resource state |
 
 **Modified — dashboard and public chrome**
