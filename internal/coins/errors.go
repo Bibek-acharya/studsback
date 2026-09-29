@@ -1,6 +1,9 @@
 package coins
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 // Domain errors surfaced to the handler. Package-level sentinels matched with
 // errors.Is, per the house style at internal/mocktests/service.go:13-23.
@@ -95,3 +98,71 @@ var (
 	ErrUnlockRevoked        = errors.New("unlock is already revoked")
 	ErrInvalidResourceType  = errors.New("not an unlockable resource type")
 )
+
+// ── the typed insufficiency ──────────────────────────────────────────────────
+//
+// Appended, because it is a refinement of a sentinel declared above rather than
+// a new outcome.
+//
+// Spend decides the 402 in 03-api-contract.md §2.3 by comparing two numbers, and
+// §2.3's body is required, available and shortfall. Those numbers were computed
+// inside the transaction that has already rolled back by the time the handler
+// renders, and a zero SpendResult is the only thing that comes back out of a
+// failed Spend — so the handler re-read the wallet to recover them. That read is
+// safe (unlock_api.go says why) but it is a read of a DIFFERENT moment from the
+// decision, and the whole point of the refusal is to quote the decision.
+//
+// ErrInsufficient carries both figures out of the failed call. It is not a new
+// sentinel: it UNWRAPS to ErrInsufficientCoins, so every
+// errors.Is(err, ErrInsufficientCoins) in the status mapping, the code mapping
+// and the tests keeps matching exactly as before, and the message is unchanged.
+type InsufficientError struct {
+	// Required is the price the spend was about: the server-resolved value of
+	// EconomyConfig.Prices for the class, never a number from the request.
+	Required int64
+	// Available is posted - reserved across every spendable bucket, as read
+	// inside the transaction that refused the spend, under the per-user advisory
+	// lock. It is the figure the decision was made on, not a later one.
+	Available int64
+}
+
+// Error reproduces the message ledger.go has always produced for this refusal, so
+// a log line and a grep of the old string both still work.
+func (e *InsufficientError) Error() string {
+	return fmt.Sprintf("%s: need %d, %d available", ErrInsufficientCoins, e.Required, e.Available)
+}
+
+// Unwrap is what keeps the sentinel matching: errors.Is walks it, so
+// errors.Is(ErrInsufficient(40, 25), ErrInsufficientCoins) is true.
+func (e *InsufficientError) Unwrap() error { return ErrInsufficientCoins }
+
+// Shortfall is the gap, floored at zero. The payload derives it rather than
+// asking for it, so the two cannot disagree; this is here for a caller that has
+// the error and not the payload.
+func (e *InsufficientError) Shortfall() int64 {
+	if e.Available >= e.Required {
+		return 0
+	}
+	return e.Required - e.Available
+}
+
+// ErrInsufficient is the error Spend returns when the balance will not cover the
+// price, built from the two figures it had already computed.
+func ErrInsufficient(required, available int64) error {
+	return &InsufficientError{Required: required, Available: available}
+}
+
+// InsufficientFigures pulls Required and Available back out of a refusal, and
+// reports whether the error was carrying them at all.
+//
+// ok == false means somebody wrapped the bare ErrInsufficientCoins sentinel. No
+// caller in this package does, and a caller that did would be quoting a wallet
+// reading taken at the wrong moment — which is the bug the typed error exists to
+// remove, not to make survivable.
+func InsufficientFigures(err error) (required, available int64, ok bool) {
+	var typed *InsufficientError
+	if !errors.As(err, &typed) {
+		return 0, 0, false
+	}
+	return typed.Required, typed.Available, true
+}

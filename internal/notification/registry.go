@@ -78,7 +78,8 @@ const (
 	EventJobsStatusChanged             = "jobs.status_changed"
 	EventProjectshikshaStatusChanged   = "projectshiksha.status_changed"
 	EventPaymentSubscriptionRecorded   = "payment.subscription_recorded"
-	EventContentSaved                 = "content.saved"
+	EventContentSaved                  = "content.saved"
+	EventCoinsDebited                  = "coins.debited"
 )
 
 type EventDef struct {
@@ -166,6 +167,19 @@ var Registry = map[string]EventDef{
 	EventProjectshikshaStatusChanged: ev(EventProjectshikshaStatusChanged, "account", PriorityNormal, "Application Update", "Your ProjectShiksha application status: {{.status}}.", "/projectshiksha", RecipientExplicit, true, ""),
 	EventPaymentSubscriptionRecorded: ev(EventPaymentSubscriptionRecorded, "account", PriorityNormal, "Subscription Recorded", "Institution subscription for plan \"{{.plan}}\" was recorded.", "", RecipientExplicit, true, ""),
 	EventContentSaved:                ev(EventContentSaved, "content", PriorityLow, "Saved", "{{.item}} saved to your bookmarks.", "/user/dashboard/bookmarks", RecipientExplicit, false, ""),
+	// coins.debited (03-api-contract.md §5): a spend went through, so this is a
+	// receipt a student will look for when a balance does not match what they
+	// expected. account, like payment.subscription_recorded, because it is a
+	// movement on their own account and not a message about anyone else's.
+	// PriorityNormal: it confirms something the student just did on purpose, so
+	// it must not force in_app on the way. EmailDefault true because 09
+	// §"If the student says an email never arrived" lists this event as one that
+	// emails, and a missing receipt for a real debit is exactly the question that
+	// list exists to answer. Every string is from the 06 §10 copy deck, and the
+	// coin figures beside them are coin figures, never a currency one.
+	EventCoinsDebited: ev(EventCoinsDebited, "account", PriorityNormal, "StudsTokens used",
+		"{{.coins}} StudsTokens were used to unlock a {{.item}}. Your balance is {{.balance}}.",
+		"/user/dashboard/resources", RecipientExplicit, true, ""),
 }
 
 // ev() has no Transactional/DedupeWin params; set P2 attrs that differ from
@@ -228,7 +242,8 @@ func ValidateRegistry() error {
 		EventSocialNewFollower, EventSocialReviewReceived, EventSocialForumReply,
 		EventSocialInviteAccepted, EventSocialReviewModerated, EventSocialForumModerated,
 		EventMessageOfflineFallback, EventJobsApplicationReceived, EventJobsStatusChanged,
-		EventProjectshikshaStatusChanged, EventPaymentSubscriptionRecorded, EventContentSaved} {
+		EventProjectshikshaStatusChanged, EventPaymentSubscriptionRecorded, EventContentSaved,
+		EventCoinsDebited} {
 		if _, ok := Registry[k]; !ok {
 			return fmt.Errorf("constant %s missing from Registry", k)
 		}

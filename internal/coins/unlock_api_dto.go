@@ -231,11 +231,10 @@ func decodeTransactionCursor(raw string) (transactionCursor, error) {
 
 // InsufficientCoinsData is the designed object of §2.3.
 //
-// required is the server-resolved price for the class. available is the wallet's
-// cached projection as of AFTER the refusal rolled back — the ledger returns an
-// empty SpendResult alongside an error, so the two figures are re-read rather
-// than carried out of the failed call. unlock_api.go documents what that costs
-// and why it is safe.
+// required and available are the figures the refusal was DECIDED on, carried out
+// of the failed Spend on the typed *InsufficientError rather than re-read
+// afterwards. expires_in_days and ways_to_earn are reads taken after the
+// rollback, because they are about the wallet as it is now.
 //
 // Shortfall is derived here rather than being asked for, so it cannot disagree
 // with the two numbers above it.

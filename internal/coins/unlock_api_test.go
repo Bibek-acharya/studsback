@@ -180,7 +180,10 @@ func testAPI(t *testing.T, entitlements *fakeEntitlements, wallet *fakeWallet, m
 			return purchaseOutcome{}, err
 		}
 		if wallet.available < price {
-			return purchaseOutcome{}, fmt.Errorf("%w: need %d, %d available", ErrInsufficientCoins, price, wallet.available)
+			// The typed error, exactly as Ledger.Spend produces it: the 402 body is
+			// built from the figures on the error, so a fake that wrapped the bare
+			// sentinel would be testing a path the ledger never takes.
+			return purchaseOutcome{}, ErrInsufficient(price, wallet.available)
 		}
 		return purchaseOutcome{
 			CoinsPaid:    price,
@@ -497,7 +500,7 @@ func TestWaysToEarnReflectsActualEligibility(t *testing.T) {
 			api = api.WithProfileEligibility(tc.profiles)
 			cfg, _ := api.config.Load()
 
-			payload := api.insufficientCoinsPayload(context.Background(), 4242, cfg.Prices.StudyResource, cfg)
+			payload := api.insufficientCoinsPayload(context.Background(), 4242, cfg.Prices.StudyResource, 0, cfg)
 
 			var codes []string
 			for _, w := range payload.WaysToEarn {
@@ -527,7 +530,7 @@ func TestWaysToEarnOmitsAProfileLadderThatIsFullyPaid(t *testing.T) {
 	api := testAPI(t, &fakeEntitlements{}, wallet, nil).WithProfileEligibility(&fakeProfiles{complete: false})
 	cfg, _ := api.config.Load()
 
-	payload := api.insufficientCoinsPayload(context.Background(), 1, cfg.Prices.StudyResource, cfg)
+	payload := api.insufficientCoinsPayload(context.Background(), 1, cfg.Prices.StudyResource, 0, cfg)
 	for _, w := range payload.WaysToEarn {
 		if w.Code == RouteProfile {
 			t.Errorf("the profile route is offered with potential %d after all five instalments were paid", w.Potential)
@@ -542,7 +545,7 @@ func TestWaysToEarnReportsReferralAsUnavailableRatherThanOfferingIt(t *testing.T
 	api := testAPI(t, &fakeEntitlements{}, &fakeWallet{}, nil)
 	cfg, _ := api.config.Load()
 
-	payload := api.insufficientCoinsPayload(context.Background(), 1, cfg.Prices.StudyResource, cfg)
+	payload := api.insufficientCoinsPayload(context.Background(), 1, cfg.Prices.StudyResource, 0, cfg)
 	for _, w := range payload.WaysToEarn {
 		if w.Code == RouteReferral {
 			t.Fatal("the referral route is offered; there is no referral code in this slice, so it is a dead button")
@@ -572,12 +575,14 @@ func TestInsufficientCoinsPayloadQuotesTheGapAndTheUrgency(t *testing.T) {
 	api := testAPI(t, &fakeEntitlements{}, wallet, nil)
 	cfg, _ := api.config.Load()
 
-	payload := api.insufficientCoinsPayload(context.Background(), 1, cfg.Prices.StudyResource, cfg)
+	// The figures the refusal was decided on, passed in rather than read: the
+	// error carries them, and the builder no longer asks the wallet what they are.
+	payload := api.insufficientCoinsPayload(context.Background(), 1, cfg.Prices.StudyResource, 25, cfg)
 	if payload.Required != 40 {
 		t.Errorf("required = %d, want the configured 40", payload.Required)
 	}
 	if payload.Available != 25 {
-		t.Errorf("available = %d, want the wallet's 25", payload.Available)
+		t.Errorf("available = %d, want the 25 the refusal was decided on", payload.Available)
 	}
 	if payload.Shortfall != 15 {
 		t.Errorf("shortfall = %d, want 15", payload.Shortfall)
@@ -596,7 +601,7 @@ func TestExpiresInDaysIsNullWhenNothingLapses(t *testing.T) {
 	api := testAPI(t, &fakeEntitlements{}, &fakeWallet{available: 0}, nil)
 	cfg, _ := api.config.Load()
 
-	payload := api.insufficientCoinsPayload(context.Background(), 1, cfg.Prices.StudyResource, cfg)
+	payload := api.insufficientCoinsPayload(context.Background(), 1, cfg.Prices.StudyResource, 0, cfg)
 	if payload.ExpiresInDays != nil {
 		t.Errorf("expires_in_days = %d, want null for a student with no expiring lots", *payload.ExpiresInDays)
 	}

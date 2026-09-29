@@ -52,6 +52,8 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
+
+	"studsphere/backend/internal/notification"
 )
 
 // unlockAPISchema is the one schema this file owns.
@@ -65,6 +67,12 @@ const unlockAPISchema = "coins_unlock_api_test"
 // coin_journal(id), and both Ensure functions run because the unlock path takes
 // the ledger's per-user advisory lock and coin_account has to exist for it to be
 // the same lock it is everywhere else.
+//
+// The notification models go in too, and this is not tidiness: NewUnlockAPI wires
+// the real notification service by default, so every purchase in this file emits
+// coins.debited inside its transaction. Without the tables the emission would
+// fail and — correctly — take the purchase down with it, which would make every
+// test here a test of a missing table.
 func openUnlockAPISchema(t *testing.T) *gorm.DB {
 	t.Helper()
 	dsn := os.Getenv("COINS_TEST_DSN")
@@ -109,6 +117,10 @@ func openUnlockAPISchema(t *testing.T) *gorm.DB {
 	t.Cleanup(func() { _ = sqlPool.Close() })
 
 	models := append(append([]any{}, LedgerModels...), EntitlementModels...)
+	models = append(models,
+		notification.AccountNotification{}, notification.NotificationOutbox{},
+		notification.NotificationBroadcast{}, notification.NotificationDedupeLease{},
+		notification.NotificationPreference{}, notification.NotificationDelivery{})
 	if err := pool.AutoMigrate(models...); err != nil {
 		t.Fatalf("automigrate: %v", err)
 	}
@@ -117,6 +129,19 @@ func openUnlockAPISchema(t *testing.T) *gorm.DB {
 	}
 	if err := EnsureEntitlementIndexes(pool); err != nil {
 		t.Fatalf("ensure entitlement indexes: %v", err)
+	}
+	// uq_an_occurrence is what makes one debit one inbox row, and it is a partial
+	// index AutoMigrate cannot build. EnsurePostgresIndexes covers the
+	// preferences and deliveries indexes; the notifications one is a migration.
+	if err := notification.EnsurePostgresIndexes(pool); err != nil {
+		t.Fatalf("ensure notification indexes: %v", err)
+	}
+	indexes, err := os.ReadFile("../../migrations/20260903-02-notification-indexes.sql")
+	if err != nil {
+		t.Fatalf("read the notification index migration: %v", err)
+	}
+	if err := pool.Exec(string(indexes)).Error; err != nil {
+		t.Fatalf("apply the notification index migration: %v", err)
 	}
 	return pool
 }

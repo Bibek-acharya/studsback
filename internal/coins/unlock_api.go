@@ -41,11 +41,11 @@
 //  4. Otherwise spend through the ledger and record the entitlement, in ONE
 //     transaction, with the journal id and the coins actually paid.
 //
-//  5. Any notification is emitted inside that same transaction. Nothing is
-//     produced in this slice: the closed notification registry has no
-//     coins.debited row, and the registry is boot-validated, so a constant
-//     without a row would stop the server from starting. The seam is here and
-//     stays unused rather than guessed at; see unlockNotifier.
+//  5. Any notification is emitted inside that same transaction. The one event a
+//     purchase produces is coins.debited, announced to the student who paid; it
+//     is written through the real registry over the OPEN transaction, so a
+//     notification that cannot be written takes the purchase down with it rather
+//     than leaving a debit nobody was told about. See unlockNotifier.
 //
 // ── the price ────────────────────────────────────────────────────────────────
 //
@@ -68,6 +68,7 @@ import (
 	"strings"
 	"time"
 
+	"studsphere/backend/internal/notification"
 	"studsphere/backend/internal/shared/httpx"
 	"studsphere/backend/internal/shared/response"
 
@@ -133,18 +134,22 @@ type ResourceLookup interface {
 
 // unlockNotifier is the §5 notification seam.
 //
-// It takes the transaction handle so a future implementation can call
-// notification.NotifyTx with it and be atomic with the unlock. Nothing calls it
-// in this slice: the notification registry is closed and boot-validated and has
-// no coins.debited row, and 03-api-contract.md §5 lists one as still to come, so
-// there is no event to emit and inventing a key would stop the server booting.
+// It takes the transaction handle so the emission can be atomic with the unlock,
+// and NewUnlockAPI wires the real implementation (registryNotifier) by default:
+// notification.NotifyTx over the caller's tx. A caller that wants a different
+// behaviour — a test asserting the rollback, a module that batches inbox writes —
+// replaces it with WithNotifier, which is how the seam stays a seam without being
+// an unlit one.
 type unlockNotifier interface {
 	NotifyUnlockTx(ctx context.Context, tx *gorm.DB, userID uint, event UnlockEvent) error
 }
 
-// UnlockEvent is what a notifier would be told. It exists so the seam has a
-// shape now and does not have to be invented under pressure when the event
-// lands.
+// UnlockEvent is what a notifier is told about a purchase that settled.
+//
+// It carries the journal id, the class and id that were unlocked, the coins
+// actually paid and the balance after. It does NOT carry a title or a price
+// string: this package cannot read the resource tables, so anything it invented
+// about the resource would be a guess rendered into somebody's inbox.
 type UnlockEvent struct {
 	JournalID    string
 	ResourceType string
@@ -152,6 +157,57 @@ type UnlockEvent struct {
 	CoinsPaid    int64
 	BalanceAfter int64
 	Source       string
+}
+
+// registryNotifier is the one production implementation of the seam: the real
+// registry, the real notification service, the caller's transaction.
+//
+// It does not look the resource up to name it — that is what the class in
+// UnlockEvent is for. The gate slice, which can read studyresources / mocktests /
+// pressmedia / downloadcenter, passes a better label through without changing
+// this type.
+type registryNotifier struct {
+	notifier *notification.Service
+}
+
+// unlockNotificationRequest is the request for one debit, split out so the test
+// can render the registry's templates from the exact Data the emit uses — the
+// contract templates have is missingkey=error, so "the key is in the map" is a
+// fact worth asserting rather than a hope.
+func unlockNotificationRequest(userID uint, event UnlockEvent) notification.NotifyRequest {
+	return notification.NotifyRequest{
+		EventKey:   notification.EventCoinsDebited,
+		Recipients: []notification.Ref{{Type: "user", ID: userID}},
+		Data: map[string]any{
+			// The coin figures the copy deck allows, and nothing else: no
+			// currency, no "free", no windfall-gain vocabulary.
+			"coins":   event.CoinsPaid,
+			"balance": event.BalanceAfter,
+			"item":    unlockItemLabel(event.ResourceType),
+			"journal": event.JournalID,
+		},
+		// One emission per journal, and the journal id IS the purchase. It also
+		// gives a retried emit a natural identity instead of a second inbox row
+		// for one debit.
+		OccurrenceKey: notification.EventCoinsDebited + ":" + event.JournalID,
+		CorrelationID: event.JournalID,
+	}
+}
+
+// unlockItemLabel is the class in the words the copy deck uses for it.
+func unlockItemLabel(resourceType string) string {
+	switch resourceType {
+	case ResourceTypeVideo:
+		return "video lecture"
+	case ResourceTypeMockTest:
+		return "mock test"
+	default:
+		return "study resource"
+	}
+}
+
+func (n *registryNotifier) NotifyUnlockTx(ctx context.Context, tx *gorm.DB, userID uint, event UnlockEvent) error {
+	return n.notifier.NotifyTx(ctx, tx, unlockNotificationRequest(userID, event))
 }
 
 // purchaseOutcome is what step 4 decided.
@@ -208,6 +264,14 @@ func NewUnlockAPI(service *Service, ledger *Ledger) *UnlockAPI {
 		if service.config != nil {
 			api.config = service.config
 		}
+	}
+	// The notification seam is wired by DEFAULT, over the same handle the
+	// purchase transaction runs on. It used to be left nil because the closed
+	// registry had no coins.debited row and a key with no row stops the server
+	// booting; the row exists now, so the debit is announced rather than
+	// swallowed. WithNotifier still replaces it.
+	if api.repo != nil && api.repo.db != nil {
+		api.notifier = &registryNotifier{notifier: notification.NewService(api.repo.db)}
 	}
 	api.purchase = api.coinPurchase
 	return api
@@ -650,8 +714,10 @@ func (a *UnlockAPI) coinPurchase(ctx context.Context, userID uint, req UnlockReq
 		}
 
 		// ── step 5: the notification, inside this transaction ────────────────
-		// A no-op while notifier is nil, which it is in this slice: the closed
-		// notification registry has no coins.debited row. See unlockNotifier.
+		// Wired by NewUnlockAPI to the real registry; a test or a caller that
+		// wants a different implementation replaces it with WithNotifier. Nil is
+		// the only unlit case, and it is a no-op rather than an error so an API
+		// object assembled by hand in a test is not a purchase that fails.
 		if a.notifier != nil {
 			if err := a.notifier.NotifyUnlockTx(ctx, tx.DB(), userID, UnlockEvent{
 				JournalID:    spend.JournalID,
@@ -759,7 +825,19 @@ func (a *UnlockAPI) respondUnlockFailure(c *gin.Context, err error, result Unloc
 		respondUnlockError(c, walletStatusFor(err), walletErrorCode(err), walletErrorMessage(err), nil)
 		return
 	}
-	payload := a.insufficientCoinsPayload(c.Request.Context(), result.UserID, result.Required, cfg)
+	// The two figures the body is built from come out of the refusal itself.
+	// Spend had them and had already rolled back by now, so re-reading the wallet
+	// would have quoted a DIFFERENT moment from the one the decision was made on.
+	required, available, carried := InsufficientFigures(err)
+	if !carried {
+		// Only reachable if something wrapped the bare sentinel. required is
+		// still the server-resolved price, and available is reported as 0 rather
+		// than invented — a 402 that says "you have none of what you actually
+		// hold" is worse than one whose numbers are thin, and no caller in this
+		// package produces that error.
+		required = result.Required
+	}
+	payload := a.insufficientCoinsPayload(c.Request.Context(), result.UserID, required, available, cfg)
 
 	// 423 ALLOWANCE_EXPIRED takes precedence over 402 for a student whose
 	// allowance LAPSED rather than ran out: §2.3's row is "allowance lapsed and
@@ -777,26 +855,23 @@ func (a *UnlockAPI) respondUnlockFailure(c *gin.Context, err error, result Unloc
 
 // insufficientCoinsPayload builds the §2.3 object.
 //
+// required and available are passed in, not read here. They are the two figures
+// the refusal was decided on: ErrInsufficient carries them out of Spend, and the
+// 402 is rendered after that transaction rolled back. This function used to
+// re-read the cached projection to recover `available`, which meant quoting a
+// balance from a later moment than the decision — safe in both directions, and
+// still a query whose answer nobody had asked for. There is no balance read left
+// in this path, and the test that says so is
+// TestInsufficientCoinsPayloadNeverReadsTheWallet.
+//
 // required is the server-resolved price for the class — the same spendPrice the
 // ledger used, recomputed from the config rather than taken from the request,
 // because there is no amount in the request to take.
 //
-// available is re-read from the cached projection after the refusal. SpendResult
-// carries Required and AvailableBefore, and ledger.go says they are there "so the
-// 402 body in 03-api-contract.md §2.3 can be built without a second read" — but
-// only a SUCCESS populates the result, so on the one path that needs them the
-// numbers are not there. The read happens after the rollback, so a concurrent
-// movement between the refusal and the read is visible in the figure: if the
-// wallet grew, the reported shortfall is smaller than at refusal (the client can
-// retry and succeed); if it shrank, the shortfall is larger (the client is told
-// a truer number). Both are safe; reporting a stale number would not be. The
-// honest fix is a typed error carrying the two figures, which belongs in
-// ledger.go.
-func (a *UnlockAPI) insufficientCoinsPayload(ctx context.Context, userID uint, required int64, cfg EconomyConfig) *InsufficientCoinsData {
-	available := int64(0)
-	if balance, err := a.wallet.WalletBalance(ctx, userID, a.now()); err == nil {
-		available = balance.TotalAvailable
-	}
+// expires_in_days and ways_to_earn are still reads, and they have to be: they
+// are about the student's wallet AFTER the refusal, and the wallet cannot change
+// while a failed purchase is being rendered.
+func (a *UnlockAPI) insufficientCoinsPayload(ctx context.Context, userID uint, required, available int64, cfg EconomyConfig) *InsufficientCoinsData {
 	shortfall := required - available
 	if shortfall < 0 {
 		shortfall = 0

@@ -250,9 +250,15 @@ type SpendResult struct {
 	SpentFrom []SpentFrom
 	// Available is posted - reserved AFTER the spend, across every bucket.
 	Available int64
-	// Required and AvailableBefore are here so the 402 body in
-	// 03-api-contract.md §2.3 can be built without a second read. The shortfall
-	// is AvailableBefore - Required.
+	// Required and AvailableBefore are the price and the balance the spend
+	// decided on, for a caller that has to explain what it just did.
+	//
+	// A SpendResult only ever describes a spend that HAPPENED. On refusal the
+	// result is the zero value and the same two figures travel out on the typed
+	// error instead — ErrInsufficient — because the 402 body in
+	// 03-api-contract.md §2.3 is built after the transaction has rolled back, and
+	// a result that is empty exactly when the handler needs it is a result the
+	// handler has to work around with a second read.
 	Required        int64
 	AvailableBefore int64
 	Replayed        bool
@@ -547,6 +553,10 @@ func replayGrant(tx *TxContext, req GrantRequest, fp []byte, out *GrantResult) e
 // gate 2 is what the no-overdraft CHECK enforces and gate 3 is what keeps the
 // lots honest; neither alone is sufficient.
 //
+// A refusal returns the zero SpendResult and a typed *InsufficientError carrying
+// the two figures gate 2 compared. See SpendResult for why the figures are on
+// the error rather than in the result.
+//
 // The postings are built from the ALLOCATION's per-lot increments, one leg per
 // lot carrying its lot_id, plus one aggregate leg on redeemed_sink. Writing
 // -taken to each lot instead is the bug in 02-architecture.md §4, and it is why
@@ -627,7 +637,13 @@ func (l *Ledger) Spend(ctx context.Context, req SpendRequest) (SpendResult, erro
 			// Returned before a single lot or posting is touched, and the journal
 			// rolls back with it. A refused spend leaves ZERO rows, which is the
 			// property the concurrency test asserts.
-			return fmt.Errorf("%w: need %d, %d available", ErrInsufficientCoins, price, availableBefore)
+			//
+			// The two figures go out ON THE ERROR, not on the result. The 402 body
+			// is rendered after this transaction has rolled back, and a zero
+			// SpendResult is what a failed Spend returns — so before this was typed,
+			// the handler had to re-read the wallet to recover numbers it already
+			// had. Unwraps to ErrInsufficientCoins, so nothing downstream changed.
+			return ErrInsufficient(price, availableBefore)
 		}
 
 		lots, err := tx.OpenLots(accountIDs, now)
@@ -670,6 +686,10 @@ func (l *Ledger) Spend(ctx context.Context, req SpendRequest) (SpendResult, erro
 		return nil
 	})
 	if err != nil {
+		// The zero result beside the error is the point: a SpendResult describes a
+		// spend, and describing one that did not happen is how a caller ends up
+		// quoting a journal id for a journal that was rolled back. Everything a
+		// refusal has to say is on the error.
 		return SpendResult{}, err
 	}
 	return result, nil
