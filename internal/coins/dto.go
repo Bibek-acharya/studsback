@@ -31,6 +31,18 @@ type UpdateEconomyConfigRequest struct {
 	// without being silently thrown back to dark. See the field comment on
 	// EconomyConfig for why it ships off.
 	UnlockEndpointEnabled *bool `json:"unlock_endpoint_enabled"`
+	// Gates is the per-class kill switch. A pointer like every other group here,
+	// and three pointers inside it, for the reason the switch above has a
+	// pointer: turning ONE class back to free during an incident must not silently
+	// re-enable the other two, and omitting the block must not throw away a gate
+	// an admin turned on last week.
+	Gates *UpdateGatesRequest `json:"gates_enabled"`
+}
+
+type UpdateGatesRequest struct {
+	StudyResource *bool `json:"study_resource"`
+	Video         *bool `json:"video"`
+	MockTest      *bool `json:"mock_test"`
 }
 
 type UpdatePricesRequest struct {
@@ -109,6 +121,11 @@ func applyEconomyConfigUpdate(base EconomyConfig, req UpdateEconomyConfigRequest
 	}
 	assignInt64(&out.ClawbackWindowDays, req.ClawbackWindowDays)
 	assignBool(&out.UnlockEndpointEnabled, req.UnlockEndpointEnabled)
+	if g := req.Gates; g != nil {
+		assignBool(&out.Gates.StudyResource, g.StudyResource)
+		assignBool(&out.Gates.Video, g.Video)
+		assignBool(&out.Gates.MockTest, g.MockTest)
+	}
 
 	return out
 }

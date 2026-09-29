@@ -43,6 +43,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -320,12 +321,16 @@ func refFromPointers(refType *string, refID *uint64) *RefDTO {
 // describeReason renders a journal as a line of English for the wallet's
 // history list.
 //
-// It is server-side and derived from the reason code rather than a title looked
-// up from the resource module, because this package does not know the resource
-// tables — a cross-module read here would couple the ledger to four modules and
-// would have to be redone by each of them. The wording is therefore honest about
-// what it knows: the event and the class. The gate slice replaces it with the
-// real title once a gate knows it.
+// It is server-side and derived from the reason code plus whatever the caller
+// resolved, because this package does not own the resource tables — a read
+// across four modules is not something a history renderer should be doing on
+// its own. The wording is therefore honest about what it knows: the event and,
+// for an unlock, the class and id.
+//
+// A title, when the ResourceLookup supplied one, is folded in by
+// nameUnlockedItems before this line is used, so the common case reads
+// "Unlocked: Physics Past Questions 2081" and this function's fallback only
+// shows for a resource this build cannot name.
 func describeReason(reasonCode string, ref *RefDTO) string {
 	what := "your account"
 	if ref != nil {
@@ -346,4 +351,20 @@ func describeReason(reasonCode string, ref *RefDTO) string {
 		return "Referral placed on hold: " + what
 	}
 	return reasonCode
+}
+
+// describeUnlocked is the titled form of the unlock line, and the reason it is a
+// separate function rather than a parameter on describeReason is that only the
+// unlock branch can be titled: a profile award or a referral has no resource to
+// name, and giving those branches a title parameter would invite someone to pass
+// one.
+//
+// An empty title falls back to the class and id, so a lookup that resolved
+// nothing produces the old wording rather than "Unlocked: ".
+func describeUnlocked(class, title string, resourceID uint64) string {
+	trimmed := strings.TrimSpace(title)
+	if trimmed == "" {
+		return describeReason(ReasonResourceUnlock, &RefDTO{Type: class, ID: resourceID})
+	}
+	return "Unlocked: " + trimmed
 }

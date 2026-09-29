@@ -27,6 +27,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -127,14 +128,25 @@ func (f *fakeProfiles) ProfileComplete(_ context.Context, userID uint) (bool, er
 	return f.complete, f.err
 }
 
+// fakeResources is the ResourceLookup seam with no database behind it.
+//
+// It records the (class, id) pairs it was asked about, because a lookup that is
+// called with the wrong class is a lookup validating a purchase against the
+// wrong table and there is no other way to see that in a unit test.
 type fakeResources struct {
 	lookupErr error
+	title     string
 	calls     int
+	asked     []string
 }
 
-func (f *fakeResources) LookupUnlockable(context.Context, string, uint64) error {
+func (f *fakeResources) LookupUnlockable(_ context.Context, resourceType string, resourceID uint64) (UnlockableResource, error) {
 	f.calls++
-	return f.lookupErr
+	f.asked = append(f.asked, resourceType+":"+strconv.FormatUint(resourceID, 10))
+	if f.lookupErr != nil {
+		return UnlockableResource{}, f.lookupErr
+	}
+	return UnlockableResource{Title: f.title}, nil
 }
 
 // testAPI builds an UnlockAPI over the fakes, with a fixed clock and a config

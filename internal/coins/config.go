@@ -86,6 +86,62 @@ type ReferralConfig struct {
 	HoldDays        int64 `json:"hold_days"`
 }
 
+// GatesEnabledConfig is the per-class kill switch, one boolean per unlockable
+// class, and it is THE rollback (04-implementation-plan.md §4.4 and §9).
+//
+// Every field is false by default and stays false until an admin turns it on,
+// which is the decision this struct exists to record. A gate is a behaviour
+// change for a student who is currently downloading a file for nothing, so it
+// ships dark and is enabled one class at a time: documents first, because they
+// have the highest volume and the clearest allowance coverage.
+//
+// The two properties that make it a switch rather than a config value:
+//
+//   - It is read at RUNTIME, from the cached coin_economy row, so turning a gate
+//     off is a config write and not a deploy. That is the whole point: a ledger
+//     defect found in production is answered by flipping a boolean here.
+//   - Turning a gate off is NOT a refund. A student who already paid keeps the
+//     unlock, because resource_unlock is a record of a purchase rather than a
+//     projection of the current gate state. A gate stops future spends; it does
+//     not unwind history (04-implementation-plan.md §4.4, "an important
+//     non-invariance").
+//
+// The json names are the CLASS names the rest of the contract already uses —
+// study_resource, video, mock_test — rather than the switch names in §4.4's
+// table (documents / mock_tests), because this flag is keyed on exactly the
+// class vocabulary that ResourceTypes, PriceConfig and the unlock request use,
+// and a gate that named its classes differently from everything that prices and
+// unlocks them would be a second spelling to keep in step.
+type GatesEnabledConfig struct {
+	StudyResource bool `json:"study_resource"`
+	Video         bool `json:"video"`
+	MockTest      bool `json:"mock_test"`
+}
+
+// EnabledFor reports whether the gate for a class is on. An unknown class is
+// ungated, deliberately and for the same reason an unlocked class is: a gate
+// that gated a class this build does not know about would refuse downloads for
+// a reason nobody can read off the config.
+func (g GatesEnabledConfig) EnabledFor(resourceType string) bool {
+	switch resourceType {
+	case ResourceTypeStudyResource:
+		return g.StudyResource
+	case ResourceTypeVideo:
+		return g.Video
+	case ResourceTypeMockTest:
+		return g.MockTest
+	default:
+		return false
+	}
+}
+
+// GateEnabled is the one-line question every delivery path asks. It is a method
+// on the config rather than a switch at each call site so that "which class is
+// gated" has exactly one implementation.
+func (c EconomyConfig) GateEnabled(resourceType string) bool {
+	return c.Gates.EnabledFor(resourceType)
+}
+
 // EconomyConfig is the whole admin-editable economy. The json tags are the
 // wire contract of 03-api-contract.md §3.1 and are used for both the
 // system_settings payload and the admin response, so the two cannot drift.
@@ -96,6 +152,19 @@ type EconomyConfig struct {
 	Expiry             ExpiryConfig    `json:"expiry"`
 	Referral           ReferralConfig  `json:"referral"`
 	ClawbackWindowDays int64           `json:"clawback_window_days"`
+	// Gates is the per-class kill switch. All three default to false, so a
+	// config written before this field existed reads back with every gate off —
+	// Load unmarshals onto the defaults, and a stored object that omits
+	// gates_enabled entirely cannot switch a gate on by being absent from.
+	//
+	// A gate on its own is not the whole switch for the document path. The POST
+	// /coins/unlock endpoint keeps its own flag, so charging a student at the
+	// download while the standalone unlock endpoint refuses with 503 would give
+	// the same product two different prices for the same document. Turning the
+	// document gate live means setting BOTH gates_enabled.study_resource and
+	// unlock_endpoint_enabled. Neither default is changed in code here; both are
+	// admin decisions made after the gates have been read in production.
+	Gates GatesEnabledConfig `json:"gates_enabled"`
 	// UnlockEndpointEnabled ships the write path, POST /api/v1/coins/unlock.
 	//
 	// It is DARK, and that is the decision this field exists to record. Nothing
@@ -174,6 +243,14 @@ func DefaultEconomyConfig() EconomyConfig {
 		// decision here and not an accident of a struct literal. See the field
 		// comment for why the write path ships dark.
 		UnlockEndpointEnabled: false,
+		// Every gate off. This is the "ship with gates_enabled false" line of
+		// 04-implementation-plan.md §4.4, and it is the reason a student
+		// experiences nothing from this slice until an admin writes here.
+		Gates: GatesEnabledConfig{
+			StudyResource: false,
+			Video:         false,
+			MockTest:      false,
+		},
 	}
 }
 

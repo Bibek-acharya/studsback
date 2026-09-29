@@ -40,10 +40,37 @@ func sanitizeDescription(input string) string {
 
 type Handler struct {
 	service *Service
+	// gate is the coin entitlement check on downloads. It is a field with a
+	// setter rather than a constructor argument so that the modules that do not
+	// know anything about coins — and the tests for them — keep constructing this
+	// handler the way they always have. See download_gate.go for the port and why
+	// it is declared on this side.
+	gate DownloadGate
 }
 
 func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
+}
+
+// WithDownloadGate wires the coin gate. Called once from main.go; a handler
+// without it serves downloads ungated, which is the pre-coin behaviour and not
+// a failure mode.
+func (h *Handler) WithDownloadGate(gate DownloadGate) *Handler {
+	h.gate = gate
+	return h
+}
+
+// gateClassFor is the coin class a stored row is priced under. A video lecture
+// is a video for pricing and allowance purposes; everything else this module
+// stores is a document. It mirrors studyResourceClass in internal/coins, and
+// there is one test per side that says the two agree — a drift here would
+// charge the document price for a video, which no constraint in the schema would
+// catch.
+func gateClassFor(resource *StudyResource) string {
+	if IsVideoType(resource.ResourceType) {
+		return GateClassVideo
+	}
+	return GateClassStudyResource
 }
 
 func (h *Handler) ListResources(c *gin.Context) {
@@ -143,6 +170,46 @@ func (h *Handler) DownloadResource(c *gin.Context) {
 	if err != nil {
 		response.Error(c, http.StatusNotFound, "Resource not found")
 		return
+	}
+
+	// ── the coin gate ──────────────────────────────────────────────────────
+	//
+	// It runs HERE, after the publication check and before the download counter,
+	// and the order of those three things is the whole contract:
+	//
+	//   - AFTER the publication check, because a draft is a 404 whether or not
+	//     anyone can pay for it. Gating first would answer 402 to a request for
+	//     something the public is not allowed to know exists, which both leaks
+	//     the draft and leaves a student unable to tell "this does not exist"
+	//     from "this costs coins".
+	//   - BEFORE the download counter, because a refused download is not a
+	//     download. Counting it would report engagement for bytes the student
+	//     never received, and would make the counter disagree with the wallet.
+	//   - BEFORE object storage, which is the point of the gate: the question is
+	//     answered without ever opening the object, so a student who cannot pay
+	//     does not get a byte and the bucket is not touched.
+	//
+	// A nil gate means no gate: the check is skipped entirely rather than
+	// defaulting to "refuse", so a deployment that has not wired the economy yet
+	// serves files exactly as it always has. That is the same reason the config
+	// ships with every gate off — the kill switch is off, and an absent switch is
+	// the off position.
+	if h.gate != nil {
+		userID, _ := httpx.CurrentUserID(c)
+		decision := h.gate.AuthorizeDownload(c.Request.Context(), userID,
+			gateClassFor(resource), uint64(resource.ID), resource.Title)
+		if !decision.Allowed {
+			refusal := decision.Refusal
+			if refusal == nil {
+				// A gate that says no without saying why is a bug in the gate, and
+				// answering 500 is the only honest response: inventing a 402 here
+				// would tell a student with a full wallet that they cannot afford
+				// something.
+				refusal = NewGateErrorRefusal(ErrGateFailed)
+			}
+			c.JSON(refusal.Status, refusal.RefusalBody())
+			return
+		}
 	}
 
 	// Download counting is best-effort and happens before streaming.

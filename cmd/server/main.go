@@ -500,7 +500,12 @@ func main() {
 
 	projectShikshaHandler := projectshiksha.NewHandler(projectshiksha.NewService(projectshiksha.NewRepository(db), notificationSvc))
 	faqHandler := initModule(faq.NewRepository(db), faq.NewService, faq.NewHandler)
-	studyResourcesHandler := initModule(studyresources.NewRepository(db), studyresources.NewService, studyresources.NewHandler)
+	// The study-resource service is kept rather than inlined, because the coin
+	// economy's ResourceLookup is answered from it (below) and the download gate
+	// needs a handler it can be attached to. One repository, one service, one
+	// handler — the same three objects initModule built, held onto by name.
+	studyResourcesSvc := studyresources.NewService(studyresources.NewRepository(db))
+	studyResourcesHandler := studyresources.NewHandler(studyResourcesSvc)
 	pressMediaHandler := initModule(pressmedia.NewRepository(db), pressmedia.NewService, pressmedia.NewHandler)
 	downloadCenterHandler := initModule(downloadcenter.NewRepository(db), downloadcenter.NewService, downloadcenter.NewHandler)
 	// Coin economy: the settings key is owned by internal/system, the audit rows
@@ -555,12 +560,38 @@ func main() {
 
 	// The student-facing wallet: /api/v1/coins/{balance,transactions,allowance,unlock}.
 	//
-	// The profile-completion adapter is the only eligibility lookup wired. The
-	// RESOURCE lookup is deliberately left nil: 404 RESOURCE_NOT_FOUND needs a
-	// read of studyresources / mocktests / pressmedia / downloadcenter, and the
-	// gate slice is where those are consulted.
+	// Two lookups are wired and they are not the same kind of thing.
+	//
+	// profileCompletionAdapter is an adapter DEFINED HERE, because the twelve
+	// checks that answer it are studentdashboard's and must not be reimplemented
+	// inside coins. The resource lookup is the other way round: the answer lives
+	// in a table coins needs to read, so the adapter lives in internal/coins
+	// (study_resource_lookup.go) and is handed the studyresources service. See
+	// that file for why the import points that way rather than this one.
+	//
+	// The resource lookup now makes 404 RESOURCE_NOT_FOUND reachable for a
+	// study resource, and supplies the title that names a purchase in the debit
+	// receipt and in the wallet history. The three remaining classes — mock test,
+	// press media, download centre — are not wired, and an unlock naming one is
+	// a 404 until their slice lands rather than a purchase against the wrong
+	// table.
 	coinsWalletAPI := coins.NewUnlockAPI(coinsService, coinsLedger).
-		WithProfileEligibility(&profileCompletionAdapter{svc: studentDashboardSvc})
+		WithProfileEligibility(&profileCompletionAdapter{svc: studentDashboardSvc}).
+		WithResourceLookup(coins.NewStudyResourceLookup(studyResourcesSvc))
+
+	// The download gate, and the one place a study-resource file is paid for.
+	//
+	// Attaching it here rather than at construction is what keeps the dependency
+	// one-way: internal/coins imports internal/studyresources to read the table,
+	// and internal/studyresources declares the port this satisfies rather than
+	// importing coins back. See internal/studyresources/download_gate.go.
+	//
+	// The gate is inert until an admin sets gates_enabled.study_resource, and so
+	// is the unlock endpoint until unlock_endpoint_enabled. Turning the document
+	// path live means turning on BOTH: the gate is what makes a purchase
+	// meaningful, and the endpoint is what stops a student spending coins
+	// through a route that is cheaper than the one they are being charged on.
+	studyResourcesHandler.WithDownloadGate(coins.NewDownloadGate(coinsWalletAPI))
 	systemHandler := system.NewHandler(systemSvc)
 	toolsHandler := initModule(tools.NewRepository(db), tools.NewService, tools.NewHandler)
 	universityHandler := initModule(university.NewRepository(db), university.NewService, university.NewHandler)

@@ -118,18 +118,26 @@ type ProfileEligibility interface {
 // ResourceLookup resolves a (class, id) pair to a resource the caller may buy,
 // or returns ErrNotFound.
 //
-// It is UNWIRED in this slice, and that is a real gap rather than an oversight:
-// 404 RESOURCE_NOT_FOUND means "unknown id, or not published, or wrong type",
-// and answering it needs a lookup in studyresources / mocktests / pressmedia /
-// downloadcenter. This slice is forbidden from touching those modules, so the
-// check is a seam and the status mapping for ErrNotFound exists and is tested
-// against it. The gate slice is where the four lookups get wired.
+// It exists because 404 RESOURCE_NOT_FOUND means "unknown id, or not published,
+// or wrong type", and none of those three questions can be answered by this
+// package: the row lives in another module's table. The seam is implemented
+// there — NewStudyResourceLookup in study_resource_lookup.go answers it from
+// internal/studyresources for the two classes that module owns.
 //
-// A nil ResourceLookup is not a bypass: nothing else in the write path reads the
-// resource either, so an unlock written now names an id this package cannot
-// vouch for. That is exactly why the endpoint is dark.
+// The returned title is not decoration. It is what lets the debit receipt and
+// the wallet history name the thing that was bought instead of rendering
+// "study_resource 812" at the student, and a lookup that cannot produce one is
+// allowed to return an empty Title: every caller falls back to the class words
+// rather than failing an unlock over a label.
 type ResourceLookup interface {
-	LookupUnlockable(ctx context.Context, resourceType string, resourceID uint64) error
+	LookupUnlockable(ctx context.Context, resourceType string, resourceID uint64) (UnlockableResource, error)
+}
+
+// UnlockableResource is what a ResourceLookup resolved: proof that the resource
+// exists, is published and is of the class that was asked for.
+type UnlockableResource struct {
+	// Title is the resource's stored title, or "" when the lookup has none.
+	Title string
 }
 
 // unlockNotifier is the §5 notification seam.
@@ -151,6 +159,13 @@ type unlockNotifier interface {
 // string: this package cannot read the resource tables, so anything it invented
 // about the resource would be a guess rendered into somebody's inbox.
 type UnlockEvent struct {
+	// Title is the resource's real name, resolved through ResourceLookup when one
+	// is wired, and empty otherwise. It is the one field about the RESOURCE that
+	// this type can carry, and it is what lets a receipt name what was bought
+	// rather than naming its class. Every consumer falls back to the class words
+	// when it is empty, so an unresolved title never changes an outcome — it
+	// only changes how a sentence reads.
+	Title        string
 	JournalID    string
 	ResourceType string
 	ResourceID   uint64
@@ -170,6 +185,28 @@ type registryNotifier struct {
 	notifier *notification.Service
 }
 
+// unlockItemLabel is the class in the words the copy deck uses for it.
+//
+// A resolved title REPLACES the class words rather than qualifying them, and
+// that is the point of the ResourceLookup: "Physics Past Questions 2081" is
+// what the student bought, while "study resource" is what this package knew
+// about it when the class was all it had. An empty title falls back to the
+// class, so a module with no lookup wired produces the old sentence rather than
+// a blank one.
+func unlockItemLabel(resourceType, title string) string {
+	if trimmed := strings.TrimSpace(title); trimmed != "" {
+		return trimmed
+	}
+	switch resourceType {
+	case ResourceTypeVideo:
+		return "video lecture"
+	case ResourceTypeMockTest:
+		return "mock test"
+	default:
+		return "study resource"
+	}
+}
+
 // unlockNotificationRequest is the request for one debit, split out so the test
 // can render the registry's templates from the exact Data the emit uses — the
 // contract templates have is missingkey=error, so "the key is in the map" is a
@@ -183,7 +220,7 @@ func unlockNotificationRequest(userID uint, event UnlockEvent) notification.Noti
 			// currency, no "free", no windfall-gain vocabulary.
 			"coins":   event.CoinsPaid,
 			"balance": event.BalanceAfter,
-			"item":    unlockItemLabel(event.ResourceType),
+			"item":    unlockItemLabel(event.ResourceType, event.Title),
 			"journal": event.JournalID,
 		},
 		// One emission per journal, and the journal id IS the purchase. It also
@@ -191,18 +228,6 @@ func unlockNotificationRequest(userID uint, event UnlockEvent) notification.Noti
 		// for one debit.
 		OccurrenceKey: notification.EventCoinsDebited + ":" + event.JournalID,
 		CorrelationID: event.JournalID,
-	}
-}
-
-// unlockItemLabel is the class in the words the copy deck uses for it.
-func unlockItemLabel(resourceType string) string {
-	switch resourceType {
-	case ResourceTypeVideo:
-		return "video lecture"
-	case ResourceTypeMockTest:
-		return "mock test"
-	default:
-		return "study resource"
 	}
 }
 
@@ -286,11 +311,42 @@ func (a *UnlockAPI) WithProfileEligibility(p ProfileEligibility) *UnlockAPI {
 	return a
 }
 
-// WithResourceLookup wires the 404 check. See ResourceLookup for why it is
-// absent in this slice.
+// WithResourceLookup wires the 404 check and the title that names a purchase.
+// See ResourceLookup.
 func (a *UnlockAPI) WithResourceLookup(r ResourceLookup) *UnlockAPI {
 	a.resources = r
 	return a
+}
+
+// titleFor is a resource's name, or "" when this build cannot name it.
+//
+// It never returns an error. The three callers are a receipt, a history line
+// and a gate decision, and in all three a missing title is a worse sentence
+// rather than a failed request: a notification about a purchase that did
+// settle must not be dropped because a title could not be read, and a history
+// list must not 500 over a label.
+func (a *UnlockAPI) titleFor(ctx context.Context, resourceType string, resourceID uint64) string {
+	resolved, err := a.lookupUnlockable(ctx, resourceType, resourceID)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(resolved.Title)
+}
+
+// lookupUnlockable resolves a class and id through the wired ResourceLookup.
+//
+// With no lookup wired it is a no-op that resolves to an untitled resource
+// rather than an error. That is not a hole: the gate path reads the resource
+// from the module that owns it before it ever gets here, so the gate's 404 comes
+// from that module and this is only the standalone unlock endpoint's own check.
+// The fallback keeps the two answers from disagreeing about whether the
+// endpoint is usable when the lookup is absent, and the "dark until wired"
+// decision stays where it was made — on the flags.
+func (a *UnlockAPI) lookupUnlockable(ctx context.Context, resourceType string, resourceID uint64) (UnlockableResource, error) {
+	if a.resources == nil {
+		return UnlockableResource{}, nil
+	}
+	return a.resources.LookupUnlockable(ctx, resourceType, resourceID)
 }
 
 // WithNotifier wires the notification seam. See unlockNotifier.
@@ -403,7 +459,52 @@ func (a *UnlockAPI) ListTransactions(c *gin.Context) {
 		response.Error(c, http.StatusInternalServerError, "Could not read the transaction history")
 		return
 	}
+	a.nameUnlockedItems(c.Request.Context(), items)
 	response.Success(c, http.StatusOK, "Transaction history", TransactionsResponse{Items: items, NextCursor: next})
+}
+
+// nameUnlockedItems replaces the placeholder in an unlock's description with the
+// resource's real title, so a student's history reads "Unlocked: Physics Past
+// Questions 2081" rather than "Unlocked: study_resource 812".
+//
+// The title is resolved HERE, on the read, and not stored on the journal, for
+// two reasons. A journal is immutable, so a title frozen at purchase time would
+// keep naming a resource after an admin renames it; and the history is a read of
+// a resource module this package only reaches through the lookup seam, so the
+// name is as current as the page is.
+//
+// Cost is bounded by the page, not by the history: at most one indexed read per
+// distinct (class, id) on this page, memoised because a student who bought
+// several papers from one course would otherwise re-read the same row per row.
+// It is best-effort — an unresolvable resource, an unwired lookup or a failed
+// read leaves the existing description in place. A wallet that renders slightly
+// worse is the right outcome for a history list; a history that 500s because a
+// title could not be read is not.
+func (a *UnlockAPI) nameUnlockedItems(ctx context.Context, items []TransactionDTO) {
+	if a.resources == nil {
+		return
+	}
+	type ref struct {
+		class string
+		id    uint64
+	}
+	seen := make(map[ref]string)
+	for i := range items {
+		if items[i].ReasonCode != ReasonResourceUnlock || items[i].Ref == nil {
+			continue
+		}
+		key := ref{class: items[i].Ref.Type, id: items[i].Ref.ID}
+		title, ok := seen[key]
+		if !ok {
+			resolved, err := a.lookupUnlockable(ctx, key.class, key.id)
+			if err != nil {
+				continue
+			}
+			title = resolved.Title
+			seen[key] = title
+		}
+		items[i].Description = describeUnlocked(key.class, title, key.id)
+	}
 }
 
 // ── POST /api/v1/coins/unlock ────────────────────────────────────────────────
@@ -471,12 +572,14 @@ func (a *UnlockAPI) UnlockResource(c *gin.Context) {
 	}
 	// 404 RESOURCE_NOT_FOUND — "unknown id, or not published, or wrong type".
 	// Reachable only once a ResourceLookup is wired; see that interface.
-	if a.resources != nil {
-		if err := a.resources.LookupUnlockable(c.Request.Context(), req.ResourceType, req.ResourceID); err != nil {
-			respondUnlockError(c, walletStatusFor(err), walletErrorCode(err),
-				"That resource does not exist, is not published, or is not of that type.", nil)
-			return
-		}
+	// 404 RESOURCE_NOT_FOUND — "unknown id, or not published, or wrong type".
+	// Reachable because a ResourceLookup is wired; see that interface. The
+	// resolved title is not used here: this endpoint's own response describes the
+	// class, and the wallet history is where a name is wanted.
+	if _, err := a.lookupUnlockable(c.Request.Context(), req.ResourceType, req.ResourceID); err != nil {
+		respondUnlockError(c, walletStatusFor(err), walletErrorCode(err),
+			"That resource does not exist, is not published, or is not of that type.", nil)
+		return
 	}
 
 	result, err := a.unlock(c.Request.Context(), userID, req, key, cfg)
@@ -660,6 +763,13 @@ func (a *UnlockAPI) coinPurchase(ctx context.Context, userID uint, req UnlockReq
 	if a.ledger == nil {
 		return purchaseOutcome{}, ErrNoDatabase
 	}
+	// The title is resolved ONCE, before the transaction opens, and not inside
+	// it. The lookup reaches another module's table through its own handle rather
+	// than through this transaction, so resolving it here keeps the money
+	// transaction to the rows it owns and keeps the advisory lock held for the
+	// shortest possible window. It cannot change the outcome: a failure yields
+	// an empty title and the receipt falls back to the class words.
+	title := a.titleFor(ctx, req.ResourceType, req.ResourceID)
 	var outcome purchaseOutcome
 	err := a.repo.InUserTx(ctx, userID, func(tx *TxContext) error {
 		existing, err := tx.ReadUnlock(userID, req.ResourceType, req.ResourceID)
@@ -723,6 +833,9 @@ func (a *UnlockAPI) coinPurchase(ctx context.Context, userID uint, req UnlockReq
 				JournalID:    spend.JournalID,
 				ResourceType: req.ResourceType,
 				ResourceID:   req.ResourceID,
+				// Resolved once before the transaction opened; see the comment
+				// on that call. Empty is a valid answer and renders the class.
+				Title:        title,
 				CoinsPaid:    spend.Amount,
 				BalanceAfter: spend.Available,
 				Source:       UnlockSourceCoins,

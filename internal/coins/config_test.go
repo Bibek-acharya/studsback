@@ -75,6 +75,10 @@ func testService(t *testing.T) (*Service, *fakeSettings, *fakeVersions, *ConfigS
 
 func i64(v int64) *int64 { return &v }
 
+// boolp is i64 for the switches. The gate flags are pointers so that "not
+// mentioned" and "sent as false" are different requests.
+func boolp(v bool) *bool { return &v }
+
 func TestDefaultEconomyConfigMatchesAgreedPlaceholders(t *testing.T) {
 	cfg := DefaultEconomyConfig()
 
@@ -110,6 +114,93 @@ func TestDefaultEconomyConfigMatchesAgreedPlaceholders(t *testing.T) {
 	}
 	if cfg.ClawbackWindowDays != 180 {
 		t.Fatalf("clawback_window_days=%d want 180", cfg.ClawbackWindowDays)
+	}
+	if cfg.Gates.StudyResource || cfg.Gates.Video || cfg.Gates.MockTest {
+		t.Fatalf("gates_enabled=%+v, want all three off", cfg.Gates)
+	}
+}
+
+// The gates ship dark, and this is the test that says so independently of the
+// JSON shape: a build that shipped a gate on would change what a student
+// experiences the moment it deployed, and the only thing standing between that
+// and production is a default nobody is supposed to edit.
+func TestGatesShipDark(t *testing.T) {
+	cfg := DefaultEconomyConfig()
+	for _, class := range ResourceTypes {
+		if cfg.GateEnabled(class) {
+			t.Errorf("gates_enabled.%s is on in the default config; it must ship off", class)
+		}
+	}
+
+	// A stored config written before gates_enabled existed reads back through
+	// Load, which unmarshals onto the defaults — so an absent key is off too,
+	// not "on because it was missing".
+	settings := newFakeSettings()
+	settings.values[EconomyConfigSettingKey] = `{"prices":{"study_resource":60}}`
+	loaded, err := NewConfigStore(settings).Load()
+	if err != nil {
+		t.Fatalf("load a config with no gates_enabled key: %v", err)
+	}
+	if loaded.Prices.StudyResource != 60 {
+		t.Fatalf("the stored price did not apply: %+v", loaded.Prices)
+	}
+	if loaded.GateEnabled(ResourceTypeStudyResource) {
+		t.Error("a stored config that omits gates_enabled came up with the document gate on")
+	}
+
+	// One class at a time: turning the document gate on must not drag video or
+	// mock tests with it, or an incident response reverts less than it means to.
+	settings.values[EconomyConfigSettingKey] = `{"gates_enabled":{"study_resource":true}}`
+	loaded, err = NewConfigStore(settings).Load()
+	if err != nil {
+		t.Fatalf("load a config with one gate on: %v", err)
+	}
+	if !loaded.GateEnabled(ResourceTypeStudyResource) {
+		t.Error("the document gate did not come on")
+	}
+	if loaded.GateEnabled(ResourceTypeVideo) || loaded.GateEnabled(ResourceTypeMockTest) {
+		t.Errorf("enabling one gate enabled another: %+v", loaded.Gates)
+	}
+}
+
+// An admin can turn a single class back to free without touching the others, and
+// omitting the block entirely changes nothing — the kill switch is only a kill
+// switch if it is reachable from the same screen as the prices.
+func TestGatesAreSettableOneClassAtATime(t *testing.T) {
+	base := DefaultEconomyConfig()
+	base.Gates.StudyResource = true
+
+	off := applyEconomyConfigUpdate(base, UpdateEconomyConfigRequest{
+		Gates: &UpdateGatesRequest{StudyResource: boolp(false)},
+	})
+	if off.GateEnabled(ResourceTypeStudyResource) {
+		t.Error("sending study_resource:false did not turn the document gate off")
+	}
+
+	// A partial update that says nothing about the gates leaves them alone.
+	untouched := applyEconomyConfigUpdate(base, UpdateEconomyConfigRequest{
+		Prices: &UpdatePricesRequest{StudyResource: i64(55)},
+	})
+	if !untouched.GateEnabled(ResourceTypeStudyResource) {
+		t.Error("a price edit silently turned the document gate off")
+	}
+	if untouched.Prices.StudyResource != 55 {
+		t.Errorf("price = %d, want 55", untouched.Prices.StudyResource)
+	}
+
+	// Enabling video alone must not enable documents. The base here is a config
+	// with every gate off, because a merge never turns a gate OFF that the
+	// request did not mention — that is what makes a one-class incident response
+	// possible without re-sending the whole block.
+	video := applyEconomyConfigUpdate(DefaultEconomyConfig(), UpdateEconomyConfigRequest{
+		Gates: &UpdateGatesRequest{Video: boolp(true)},
+	})
+	if !video.GateEnabled(ResourceTypeVideo) || video.GateEnabled(ResourceTypeStudyResource) {
+		t.Errorf("gates = %+v, want only video on", video.Gates)
+	}
+	// And the result still has to be a config the rest of the package accepts.
+	if err := ValidateEconomyConfig(video); err != nil {
+		t.Errorf("a config with one gate on does not validate: %v", err)
 	}
 }
 
@@ -210,7 +301,9 @@ func TestEconomyConfigJSONShape(t *testing.T) {
 		`"allowance":{"document_unlocks":3,"video_unlocks":1,"mock_test_unlocks":1,"expires_in_days":30},` +
 		`"expiry":{"free_days":30,"earned_days":365,"activity_extend_days":180},` +
 		`"referral":{"monthly_cap":10,"lifetime_coin_cap":600,"hold_days":7},` +
-		`"clawback_window_days":180,"unlock_endpoint_enabled":false}`
+		`"clawback_window_days":180,` +
+		`"gates_enabled":{"study_resource":false,"video":false,"mock_test":false},` +
+		`"unlock_endpoint_enabled":false}`
 
 	got, err := json.Marshal(DefaultEconomyConfig())
 	if err != nil {
