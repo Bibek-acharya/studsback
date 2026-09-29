@@ -659,6 +659,20 @@ func main() {
 	// process lifetime.
 	go notification.StartPoller(db, 2*time.Second)
 
+	// StudsToken ledger reconciliation. Re-checks the five double-entry
+	// invariants on a ticker: journals net to zero, global conservation, no
+	// liability overdraft, the cached balance matches the postings, and no
+	// duplicate idempotency keys. It logs and never kills the process, because
+	// a data-integrity problem must not destroy the evidence or take the server
+	// down. The first pass is deferred by one interval so a rolling deploy does
+	// not have every instance reconcile at once. Stop func discarded for
+	// process lifetime, matching the poller above.
+	go coins.StartReconciler(
+		db,
+		config.AppConfig.CoinsReconcileInterval,
+		config.AppConfig.CoinsReconcileTimeout,
+	)
+
 	logger.Info("All routes registered", "port", config.AppConfig.Port)
 
 	go func() {

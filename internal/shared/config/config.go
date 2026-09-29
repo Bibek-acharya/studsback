@@ -69,6 +69,18 @@ type Config struct {
 	// (upload -> broadly playable H.264/AAC MP4).
 	StudyResourceVideoTranscodeTimeout time.Duration
 
+	// CoinsReconcileInterval is how often the StudsToken ledger re-checks its
+	// five double-entry invariants. The spec says nightly; the default is
+	// hourly because the whole value of the check is timeliness, five
+	// aggregate queries are cheap at launch scale, and a nightly interval means
+	// discovering drift up to 24 hours late. The per-check duration is logged
+	// on every healthy pass, so the point at which this becomes expensive is
+	// visible before it becomes a problem.
+	CoinsReconcileInterval time.Duration
+	// CoinsReconcileTimeout bounds one full reconciliation pass, so a slow
+	// check cannot overlap the next tick or hold a connection indefinitely.
+	CoinsReconcileTimeout time.Duration
+
 	EsewaTestMode     bool
 	EsewaMerchantCode string
 	EsewaSecretKey    string
@@ -154,6 +166,9 @@ func Load() {
 		StudyResourceVideoTranscodeTimeout: getEnvDuration(
 			"STUDY_RESOURCE_VIDEO_TRANSCODE_TIMEOUT", 10*time.Minute,
 		),
+
+		CoinsReconcileInterval: getEnvDuration("COINS_RECONCILE_INTERVAL", time.Hour),
+		CoinsReconcileTimeout:  getEnvDuration("COINS_RECONCILE_TIMEOUT", 2*time.Minute),
 
 		EsewaTestMode:     getEnv("ESEWA_TEST_MODE", "true") == "true",
 		EsewaMerchantCode: getEnv("ESEWA_MERCHANT_CODE", "EPAYTEST"),
