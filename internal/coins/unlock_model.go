@@ -30,14 +30,43 @@
 //
 // ── the one constraint that earns this file its keep ─────────────────────────
 //
-// UNIQUE (user_id, resource_type, resource_id). It is the single most valuable
-// constraint in the system, and it is worth being blunt about why: a fraud ring
-// that farms a thousand fraudulent accounts can still only ever unlock the
-// resources it actually pays for. The worst case is capped at "they got the
-// three starter unlocks each" rather than "they drained the catalogue", and
-// that cap is structural — it holds independently of balance, independently of
-// config, and independently of whether the Go code that writes these rows has a
-// bug. One index buys that. See EnsureEntitlementIndexes.
+// UNIQUE (user_id, resource_type, resource_id) WHERE revoked_at IS NULL. It is
+// the single most valuable constraint in the system, and it is worth being blunt
+// about why: a fraud ring that farms a thousand fraudulent accounts can still
+// only ever unlock the resources it actually pays for. The worst case is capped
+// at "they got the three starter unlocks each" rather than "they drained the
+// catalogue", and that cap is structural — it holds independently of balance,
+// independently of config, and independently of whether the Go code that writes
+// these rows has a bug. One index buys that. See EnsureEntitlementIndexes.
+//
+// The predicate is the part that needs arguing, because it narrows what the index
+// covers and the obvious objection is that a revoked row escaping the cap
+// reopens the hole. It does not, and the reason is that the cap was never about
+// rows. It is about ACCESS: the thing being limited is "resources this account
+// can open", and a revoked unlock opens nothing. So the cap is one LIVE unlock
+// per resource, which is what the index now says.
+//
+// The two consequences are both deliberate, and neither weakens the argument
+// above:
+//
+//   - Re-buying after a revocation is allowed. It was previously impossible, and
+//     the impossibility was a defect: an admin who revoked a student's access in
+//     error had no way to give it back, and neither did the student. Now it
+//     costs them a second time, so it is not a free re-grant, and the second
+//     payment is a second journal an auditor can see.
+//
+//   - The history survives. The re-buy is a NEW row, not an overwrite of the
+//     revoked one. "Was this ever granted", "when was it taken away" and "why"
+//     all still have answers, which is the property point 2 above is about and
+//     the reason a revocation is a reversal rather than a delete. Choosing which
+//     of two rows to keep — which is what a repair pass on a corrupt schema
+//     would have to do — would destroy exactly this.
+//
+// What is deliberately NOT here is any repair logic for a schema that somehow
+// holds duplicates. See EnsureEntitlementIndexes: a schema that never ran it has
+// no uniqueness at all, and CREATE UNIQUE INDEX failing loudly at boot, naming
+// the offending key, is the right outcome. Silently merging rows would be
+// strictly worse.
 //
 // ── the counter that is deliberately absent ──────────────────────────────────
 //
@@ -88,8 +117,10 @@ const (
 // ResourceTypes.
 var UnlockSources = []string{UnlockSourceCoins, UnlockSourceAllowance}
 
-// ResourceUnlock is one row per (user, resource_type, resource_id). The UNIQUE on
-// those three columns is the fraud control described in the file header.
+// ResourceUnlock is one LIVE row per (user, resource_type, resource_id), plus
+// whatever revoked rows the history has accumulated. The partial UNIQUE on those
+// three columns is the fraud control described in the file header; a triple can
+// hold more than one row only when the earlier ones are all revoked.
 //
 // The other fields are all consequences of a purchase having happened, not of a
 // user having a balance:
@@ -111,7 +142,9 @@ var UnlockSources = []string{UnlockSourceCoins, UnlockSourceAllowance}
 //
 //   - RevokedAt and RevokeReason are a reversal, not a delete. Nothing in this
 //     table is ever removed: a deleted row cannot answer "was this ever granted",
-//     and that question is asked during fraud review.
+//     and that question is asked during fraud review. A revocation also does not
+//     free the row's slot in the unique index — it frees the LIVE slot, so a
+//     re-buy adds a second row and leaves this one here to be read.
 type ResourceUnlock struct {
 	ID           uint   `gorm:"primarykey" json:"id"`
 	UserID       uint   `gorm:"not null;index" json:"user_id"`
@@ -154,10 +187,20 @@ func (UserFreeAllowance) TableName() string { return "user_free_allowance" }
 // EntitlementModels is what cmd/server/main.go adds to the AutoMigrate list,
 // alongside the individual &coins.ResourceUnlock{} / &coins.UserFreeAllowance{}
 // entries. AutoMigrate creates the tables and the plain non-unique indexes;
-// every CHECK constraint, both UNIQUE constraints, the foreign key and the
-// partial index that makes the derived `used` count cheap come from
-// EnsureEntitlementIndexes, which main.go must call in the same non-fatal —
-// rather, same !config.IsSQLite — block as coins.EnsurePostgresIndexes.
+// every CHECK constraint, the UNIQUE on user_free_allowance, the foreign key,
+// the partial UNIQUE index behind the fraud control, the non-unique index behind
+// the revocation-history read and the partial index that makes the derived
+// `used` count cheap all come from EnsureEntitlementIndexes, which main.go must
+// call in the same non-fatal — rather, same !config.IsSQLite — block as
+// coins.EnsurePostgresIndexes.
+//
+// Note what is NOT in the list above: uniqueness on resource_unlock's triple is
+// absent from it too, and that is not an oversight. No Go struct tag declares it,
+// because a gorm uniqueIndex tag cannot express a partial index. It comes from
+// EnsureEntitlementIndexes as a CREATE UNIQUE INDEX, which means a schema that
+// only ever saw AutoMigrate has no uniqueness on those columns at all. That is
+// the reason EnsureEntitlementIndexes fails loudly rather than repairing; see
+// the header of that file.
 var EntitlementModels = []any{
 	&ResourceUnlock{},
 	&UserFreeAllowance{},

@@ -119,11 +119,26 @@ func countAllowanceUnlocksOfClass(db *gorm.DB, userID uint, resourceType string)
 
 // ── reads that do not need a transaction ─────────────────────────────────────
 
-// FindUnlock reads one unlock, revoked or not, or nil when there is none.
+// FindUnlock reads ONE unlock, revoked or not, or nil when there is none.
 //
 // A caller that needs to know whether the row is ACTIVE must ask HasUnlock, not
-// this: a revoked row is still a row, and it is still holding its slot in the
-// UNIQUE key. That is deliberate and is documented on the constraint.
+// this: a revoked row is still a row, and FindUnlock is documented to return
+// it. What FindUnlock no longer promises is WHICH row it returns when a triple
+// has more than one — see below.
+//
+// ORDER BY revoked_at NULLS FIRST, and that is not tidiness. This query
+// predates the partial index, when resource_unlock_uniq guaranteed at most one
+// row per triple and no ordering was needed. That guarantee is deliberately
+// gone: a revoked row no longer occupies the slot, so a triple can now hold a
+// revoked row AND a live one, and a read with no ORDER BY returns whichever the
+// planner reached first. Unordered, FindUnlock could hand back a year-old
+// revoked row to a caller that believes it holds an active unlock.
+//
+// NULLS FIRST puts the live row first for the ordinary case, and the re-bought
+// row over the revoked one it replaced. For a triple that is entirely revoked —
+// which is what a caller asking about a revocation wants — it returns the
+// oldest of them, so "what is the history here" starts at the beginning. Use
+// ReadRevokedUnlock when the newest revocation is what matters.
 func (r *Repository) FindUnlock(ctx context.Context, userID uint, resourceType string, resourceID uint64) (*ResourceUnlock, error) {
 	if r == nil || r.db == nil {
 		return nil, ErrNoDatabase
@@ -131,7 +146,9 @@ func (r *Repository) FindUnlock(ctx context.Context, userID uint, resourceType s
 	var u ResourceUnlock
 	if err := r.db.WithContext(ctx).Raw(
 		`SELECT `+unlockColumns+` FROM resource_unlock
-		  WHERE user_id = ? AND resource_type = ? AND resource_id = ?`,
+		  WHERE user_id = ? AND resource_type = ? AND resource_id = ?
+		  ORDER BY revoked_at NULLS FIRST
+		  LIMIT 1`,
 		userID, resourceType, resourceID,
 	).Scan(&u).Error; err != nil {
 		return nil, fmt.Errorf("read unlock for user %d %s/%d: %w", userID, resourceType, resourceID, err)
@@ -207,16 +224,75 @@ func (tx *TxContext) CountAllowanceUnlocksByClass(userID uint) (map[string]int64
 	return countAllowanceUnlocksByClass(tx.db, userID)
 }
 
-// ReadUnlock reads one unlock inside the transaction that is deciding something
-// about it. It is the TxContext twin of Repository.FindUnlock, used after a
-// conflicting insert to find out WHO holds the row.
+// ReadUnlock reads the LIVE unlock for a triple inside the transaction that is
+// deciding something about it: the TxContext twin of Repository.HasUnlock with
+// the row rather than a boolean, used after a conflicting insert to find out WHO
+// holds the row.
+//
+// `AND revoked_at IS NULL` is the correct filter here and not a narrowing of
+// scope. This is only ever called on the path where InsertUnlock just returned
+// created=false, and that boolean is produced by an ON CONFLICT against
+// resource_unlock_live_uniq, which by construction conflicts only against a LIVE
+// row. The row that caused the conflict is therefore always a live one, and
+// asking for exactly that makes the read agree with the write instead of
+// relying on a coincidence. Without it, a triple that holds a revoked row and a
+// re-bought live row would return whichever came first, and the loser of the
+// insert could be told somebody else holds the resource under a journal they
+// have never heard of.
+//
+// A caller that wants the REVOCED row is not a variation of this one, it is a
+// different question. Use ReadLatestRevokedUnlock, which Revoke does.
+//
+// LIMIT 1 is load-bearing for the same reason the ORDER BY is in FindUnlock:
+// a Scan into a struct walks the result set, and an unbounded multi-row result
+// is not a single answer.
 func (tx *TxContext) ReadUnlock(userID uint, resourceType string, resourceID uint64) (*ResourceUnlock, error) {
-	var u ResourceUnlock
-	if err := tx.db.Raw(
+	return tx.readUnlock(
 		`SELECT `+unlockColumns+` FROM resource_unlock
-		  WHERE user_id = ? AND resource_type = ? AND resource_id = ?`,
-		userID, resourceType, resourceID,
-	).Scan(&u).Error; err != nil {
+		  WHERE user_id = ? AND resource_type = ? AND resource_id = ?
+		    AND revoked_at IS NULL
+		  LIMIT 1`,
+		userID, resourceType, resourceID)
+}
+
+// ReadLatestRevokedUnlock reads the most recent REVOKED unlock for a triple, or
+// nil when the user has never had one revoked.
+//
+// This is the other end of RevokeUnlock's compare-and-set. That method reports
+// "nothing updated", and this one answers why: nil means there is no row at all
+// and the caller should say ErrNotFound, a row here means the user does hold it
+// and it is already revoked and the caller should say ErrUnlockRevoked. Those
+// are different answers and a caller that cannot tell them apart retries
+// forever, which is the whole reason this method exists.
+//
+// ORDER BY revoked_at DESC, and the direction is a decision rather than a
+// default. A triple can now hold several revoked rows — buy, revoke, re-buy,
+// revoke — and the one that answers "when and why did access go away" is the
+// LATEST, because that is the revocation that is currently in force. Reporting
+// the oldest would describe a state that was superseded and send a support
+// agent looking at a reason the student is no longer subject to.
+//
+// Note this is a live query, not a scan of the partial index: the two indexes
+// that cover this table for other reads are both partial on revoked_at IS NULL
+// and physically cannot return this row. resource_unlock_user_revoked_idx is the
+// one that serves it.
+func (tx *TxContext) ReadLatestRevokedUnlock(userID uint, resourceType string, resourceID uint64) (*ResourceUnlock, error) {
+	return tx.readUnlock(
+		`SELECT `+unlockColumns+` FROM resource_unlock
+		  WHERE user_id = ? AND resource_type = ? AND resource_id = ?
+		    AND revoked_at IS NOT NULL
+		  ORDER BY revoked_at DESC
+		  LIMIT 1`,
+		userID, resourceType, resourceID)
+}
+
+// readUnlock is the shared body of the two readers above. It exists so the
+// "did I get a row?" check and the error wrapping cannot drift between them —
+// and it is the reason both queries must carry their own LIMIT, because the
+// zero-row case is decided here by u.ID == 0 rather than by the caller.
+func (tx *TxContext) readUnlock(sql string, userID uint, resourceType string, resourceID uint64) (*ResourceUnlock, error) {
+	var u ResourceUnlock
+	if err := tx.db.Raw(sql, userID, resourceType, resourceID).Scan(&u).Error; err != nil {
 		return nil, fmt.Errorf("read unlock for user %d %s/%d: %w", userID, resourceType, resourceID, err)
 	}
 	if u.ID == 0 {
@@ -256,7 +332,7 @@ func (tx *TxContext) LockFreeAllowance(userID uint) (*UserFreeAllowance, error) 
 // ── in-transaction writes ────────────────────────────────────────────────────
 
 // InsertUnlock writes one resource_unlock row, or reports that its
-// (user_id, resource_type, resource_id) slot is already taken.
+// (user_id, resource_type, resource_id) LIVE slot is already taken.
 //
 // ON CONFLICT DO NOTHING rather than a read-then-write, for the reason
 // repository.go gives for InsertJournal: two transactions for the same resource
@@ -266,6 +342,31 @@ func (tx *TxContext) LockFreeAllowance(userID uint) (*UserFreeAllowance, error) 
 // the race into a returned boolean. The conflicting row must already be
 // committed for RowsAffected to be 0, so `created == false` is never reported
 // from a transaction that later rolls back.
+//
+// ── the WHERE clause is load-bearing, not decoration ─────────────────────────
+//
+// `WHERE revoked_at IS NULL` on the ON CONFLICT is what makes this statement
+// legal at all. resource_unlock_live_uniq is a PARTIAL unique index, and
+// Postgres index inference does not infer through a partial index from a bare
+// column list: a partial index only matches an inference clause that carries a
+// predicate the planner can prove is implied by the index's own predicate. With
+// the bare column list this statement does not fail at INSERT time with a
+// duplicate — it fails at PREPARE time, every time, with:
+//
+//	ERROR: there is no unique or exclusion constraint matching
+//	       the ON CONFLICT specification   (SQLSTATE 42P10)
+//
+// which means every unlock write in the system fails, on every call, forever.
+// This is the same 42P10 that internal/notification/ensure_indexes.go
+// documents as a production incident, and it is why the predicate is written out
+// in full rather than left to a reader to infer. Do not "simplify" this back to
+// a bare column list.
+//
+// The semantics are the same either way, and they are the right ones: a
+// conflicting LIVE row means somebody already holds this resource. A REVOKED
+// row is not a conflict and must not be, or a student whose unlock was revoked
+// could never buy it back — which is the bug the partial index was introduced
+// to fix, reintroduced here as an inference detail.
 //
 // The funding triple is validated in Go before the write so the caller gets
 // ErrInvalidArgument with the field named; chk_resource_unlock_source_funding is
@@ -293,7 +394,7 @@ func (tx *TxContext) InsertUnlock(u *ResourceUnlock) (created bool, err error) {
 		`INSERT INTO resource_unlock
 			(user_id, resource_type, resource_id, journal_id, source, coins_paid, unlocked_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?)
-		 ON CONFLICT (user_id, resource_type, resource_id) DO NOTHING
+		 ON CONFLICT (user_id, resource_type, resource_id) WHERE revoked_at IS NULL DO NOTHING
 		 RETURNING id`,
 		u.UserID, u.ResourceType, u.ResourceID, anyJournal, u.Source, u.CoinsPaid, u.UnlockedAt,
 	).Scan(&id)

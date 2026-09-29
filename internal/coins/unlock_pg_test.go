@@ -6,9 +6,17 @@
 // the load-bearing claims in this file are about what the DATABASE refuses to
 // accept, and a Go mock accepts everything:
 //
-//   - that UNIQUE (user_id, resource_type, resource_id) actually refuses a
-//     second row for the same resource. This is the fraud control; a service-layer
-//     check that a bug can bypass is not a fraud control.
+//   - that the partial UNIQUE (user_id, resource_type, resource_id) WHERE
+//     revoked_at IS NULL refuses a second LIVE row for the same resource. This is
+//     the fraud control; a service-layer check that a bug can bypass is not a
+//     fraud control.
+//   - and, in the other direction, that a revoked row does NOT hold the slot, so
+//     a revocation is recoverable. A mock would let both of those "pass"
+//     trivially; only the real index can distinguish them.
+//   - that ON CONFLICT with the matching predicate resolves against that
+//     PARTIAL index, because Postgres will not infer one from a bare column list.
+//     Getting this wrong is a 42P10 on every unlock write in the system, and it
+//     cannot be observed without a real planner.
 //   - that chk_resource_unlock_source_funding refuses a COINS unlock with no
 //     journal AND an ALLOWANCE unlock with one, in both directions.
 //   - that the derived `used` count and the ceiling cannot both be read by two
@@ -196,6 +204,25 @@ func constraintPresent(t *testing.T, db *gorm.DB, name, table string) bool {
 	return n == 1
 }
 
+// indexPresent reports whether an index of that name exists in the pinned
+// schema.
+//
+// pg_indexes rather than pg_class, because the name alone is ambiguous across
+// schemas and this file owns exactly one of them: a test that matched an index
+// in the public schema would report success for an object this file never
+// created. The relname join is what pins it to the search_path connection.
+func indexPresent(t *testing.T, db *gorm.DB, name string) bool {
+	t.Helper()
+	var n int64
+	if err := db.Raw(
+		`SELECT count(*) FROM pg_indexes
+		  WHERE schemaname = current_schema() AND indexname = ?`, name,
+	).Scan(&n).Error; err != nil {
+		t.Fatalf("look up index %s: %v", name, err)
+	}
+	return n == 1
+}
+
 // ── the schema exists and is enforcing ───────────────────────────────────────
 
 func TestEnsureEntitlementIndexesCreatesBothTables(t *testing.T) {
@@ -225,7 +252,6 @@ func TestEnsureEntitlementIndexesCreatesEveryConstraint(t *testing.T) {
 		"chk_resource_unlock_source_funding": "resource_unlock",
 		"chk_resource_unlock_coins_paid":     "resource_unlock",
 		"chk_resource_unlock_revocation":     "resource_unlock",
-		"resource_unlock_uniq":               "resource_unlock",
 		"uq_user_free_allowance_user":        "user_free_allowance",
 		"fk_resource_unlock_journal":         "resource_unlock",
 	}
@@ -238,12 +264,118 @@ func TestEnsureEntitlementIndexesCreatesEveryConstraint(t *testing.T) {
 	// The partial index behind the derived `used` count. Without it, every
 	// allowance check is a scan of the user's whole unlock history, and this is
 	// the query that runs on every gate check.
-	var found bool
-	if err := db.Raw(`SELECT to_regclass('resource_unlock_allowance_open_idx') IS NOT NULL`).Scan(&found).Error; err != nil {
-		t.Fatalf("look up the partial index: %v", err)
-	}
-	if !found {
+	if !indexPresent(t, db, "resource_unlock_allowance_open_idx") {
 		t.Error("index resource_unlock_allowance_open_idx is missing; the derived used count has no index behind it")
+	}
+	// The fraud control itself, now a partial unique index rather than a
+	// constraint. It is checked as an index and not as a constraint because that
+	// is what it now is — a gorm uniqueIndex tag cannot express the predicate,
+	// and see the header of unlock_indexes.go for why AutoMigrate cannot make
+	// it at all.
+	if !indexPresent(t, db, "resource_unlock_live_uniq") {
+		t.Error("index resource_unlock_live_uniq is missing; nothing at all is enforcing one live unlock per resource")
+	}
+	// The revocation-history read. Both other resource_unlock indexes are
+	// partial on revoked_at IS NULL and cannot return a revoked row at all.
+	if !indexPresent(t, db, "resource_unlock_user_revoked_idx") {
+		t.Error("index resource_unlock_user_revoked_idx is missing; the revocation history is a sequential scan")
+	}
+}
+
+// The old shape must be gone, not merely superseded. Leaving it would be worse
+// than never having changed it: a full UNIQUE over the same three columns
+// silently re-forbids every re-buy after a revocation, so the bug this change
+// exists to fix would come straight back with no error and no trace of why.
+func TestEnsureEntitlementIndexesRemovesTheOldFullUniqueConstraint(t *testing.T) {
+	db := openEntitlementSchema(t)
+
+	if constraintPresent(t, db, "resource_unlock_uniq", "resource_unlock") {
+		t.Error("resource_unlock_uniq is still a CONSTRAINT; the full unique key over revoked rows is still in force")
+	}
+	if indexPresent(t, db, "resource_unlock_uniq") {
+		t.Error("an index named resource_unlock_uniq still exists; a full unique key over revoked rows is still in force")
+	}
+	// And the replacement is partial, rather than being a differently-named
+	// index that happens to have the same wrong scope. This is the assertion
+	// that would catch a future edit swapping CREATE UNIQUE INDEX for a bare
+	// one, which would look correct in a diff.
+	var def string
+	if err := db.Raw(`SELECT indexdef FROM pg_indexes WHERE indexname = 'resource_unlock_live_uniq'`).Scan(&def).Error; err != nil {
+		t.Fatalf("read the live index definition: %v", err)
+	}
+	if !strings.Contains(def, "UNIQUE INDEX") {
+		t.Errorf("resource_unlock_live_uniq is not a unique index: %s", def)
+	}
+	if !strings.Contains(def, "revoked_at IS NULL") {
+		t.Errorf("resource_unlock_live_uniq is not partial on revoked_at IS NULL, so revoked rows still occupy the cap: %s", def)
+	}
+}
+
+// The retirement must work against BOTH spellings, because the object being
+// dropped was a CONSTRAINT and a constraint owns an index that a bare
+// DROP INDEX refuses to touch. An older schema has the constraint; a schema
+// somebody has been poking at by hand may have the index. This builds both and
+// asserts EnsureEntitlementIndexes removes both.
+//
+// It is the only test here that constructs the old object deliberately — every
+// other test starts from a schema that never had it, where both statements are
+// no-ops and a missing DROP would go unnoticed.
+func TestEnsureEntitlementIndexesRetiresTheOldObjectUnderBothSpellings(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		asIndex bool
+	}{
+		{name: "as a constraint", asIndex: false},
+		{name: "as a plain index", asIndex: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			db := openEntitlementSchema(t)
+
+			if tc.asIndex {
+				mustUnlockExec(t, db, `CREATE UNIQUE INDEX resource_unlock_uniq
+					ON resource_unlock (user_id, resource_type, resource_id)`)
+			} else {
+				mustUnlockExec(t, db, `ALTER TABLE resource_unlock
+					ADD CONSTRAINT resource_unlock_uniq UNIQUE (user_id, resource_type, resource_id)`)
+			}
+			// Whichever way it was made, the pre-change behaviour must be back:
+			// a re-buy after a revocation is refused.
+			now := time.Now().UTC()
+			journal := spendJournal(t, db, "retire-old-object")
+			mustUnlockExec(t, db,
+				`INSERT INTO resource_unlock
+					(user_id, resource_type, resource_id, journal_id, source, coins_paid, unlocked_at)
+				 VALUES (800, 'study_resource', 1, ?, 'COINS', 40, ?)`, journal, now)
+			mustUnlockExec(t, db,
+				`UPDATE resource_unlock SET revoked_at = ?, revoke_reason = 'fraud'
+				  WHERE user_id = 800`, now)
+			if err := db.Exec(
+				`INSERT INTO resource_unlock
+					(user_id, resource_type, resource_id, journal_id, source, coins_paid, unlocked_at)
+				 VALUES (800, 'study_resource', 1, ?, 'COINS', 40, ?)`,
+				journal, now).Error; err == nil {
+				t.Fatal("the fixture is wrong: a re-buy was allowed before EnsureEntitlementIndexes ran")
+			}
+
+			if err := EnsureEntitlementIndexes(db); err != nil {
+				t.Fatalf("EnsureEntitlementIndexes over the old object: %v", err)
+			}
+			if constraintPresent(t, db, "resource_unlock_uniq", "resource_unlock") {
+				t.Error("the constraint survived EnsureEntitlementIndexes")
+			}
+			if indexPresent(t, db, "resource_unlock_uniq") {
+				t.Error("the index survived EnsureEntitlementIndexes")
+			}
+			// And the behaviour flipped: the same insert that was refused a
+			// moment ago now succeeds, which is the point of the whole exercise.
+			mustUnlockExec(t, db,
+				`INSERT INTO resource_unlock
+					(user_id, resource_type, resource_id, journal_id, source, coins_paid, unlocked_at)
+				 VALUES (800, 'study_resource', 1, ?, 'COINS', 40, ?)`, journal, now)
+			if n := countUnlocks(t, db, `SELECT count(*) FROM resource_unlock WHERE user_id = 800`); n != 2 {
+				t.Errorf("user 800 has %d rows, want 2 — the revoked row and the re-bought one", n)
+			}
+		})
 	}
 }
 
@@ -281,8 +413,21 @@ func TestEnsureEntitlementIndexesIsIdempotent(t *testing.T) {
 			t.Fatalf("EnsureEntitlementIndexes call %d: %v", i+1, err)
 		}
 	}
-	if !constraintPresent(t, db, "resource_unlock_uniq", "resource_unlock") {
-		t.Error("resource_unlock_uniq is missing after three runs")
+	if !indexPresent(t, db, "resource_unlock_live_uniq") {
+		t.Error("resource_unlock_live_uniq is missing after three runs")
+	}
+	if !indexPresent(t, db, "resource_unlock_user_revoked_idx") {
+		t.Error("resource_unlock_user_revoked_idx is missing after three runs")
+	}
+	// Idempotency cuts both ways here. The old object is dropped with IF EXISTS
+	// and a second run must not fail complaining that it is already gone —
+	// main.go calls this on every boot, so "the DROP was already done" is the
+	// normal case after the first, not an edge case.
+	if constraintPresent(t, db, "resource_unlock_uniq", "resource_unlock") {
+		t.Error("resource_unlock_uniq came back as a constraint after three runs")
+	}
+	if indexPresent(t, db, "resource_unlock_uniq") {
+		t.Error("resource_unlock_uniq came back as an index after three runs")
 	}
 }
 
@@ -290,13 +435,13 @@ func TestEnsureEntitlementIndexesIsIdempotent(t *testing.T) {
 
 // This is the constraint the whole domain exists for, asserted at the rows
 // rather than through the service. A fraud ring that farms a thousand
-// accounts still cannot hold two unlocks of the same resource per account, so
-// the worst case is bounded by what it actually paid for.
+// accounts still cannot hold two LIVE unlocks of the same resource per account,
+// so the worst case is bounded by what it actually paid for.
 //
 // It is asserted with raw SQL on purpose: going through RecordCoinUnlock would
 // be testing that the service returns an error, and the claim is that the
 // DATABASE does.
-func TestResourceUnlockUniquenessIsEnforcedByTheDatabase(t *testing.T) {
+func TestLiveUnlockUniquenessIsEnforcedByTheDatabase(t *testing.T) {
 	db := openEntitlementSchema(t)
 	now := time.Now().UTC()
 	journal := spendJournal(t, db, "unlock-unique-fixture")
@@ -307,32 +452,26 @@ func TestResourceUnlockUniquenessIsEnforcedByTheDatabase(t *testing.T) {
 		 VALUES (500, 'study_resource', 812, ?, 'COINS', 40, ?)`,
 		journal, now)
 
-	// The same user, class and resource: refused, even though it is a
-	// differently-priced purchase and even though the first is later revoked.
+	// The same user, class and resource, both still LIVE: refused, even though it
+	// is a differently-priced purchase. This is the fraud cap and it is the one
+	// thing that must not have loosened.
 	if err := db.Exec(
 		`INSERT INTO resource_unlock
 			(user_id, resource_type, resource_id, journal_id, source, coins_paid, unlocked_at)
 		 VALUES (500, 'study_resource', 812, ?, 'COINS', 60, ?)`,
 		spendJournal(t, db, "unlock-unique-fixture-2"), now).Error; err == nil {
-		t.Error("a second unlock for the same (user, class, resource) was allowed")
+		t.Error("a second LIVE unlock for the same (user, class, resource) was allowed")
 	}
 
-	// And refused after a revocation too. The row still holds its slot, which is
-	// what makes a revocation a reversal rather than a delete: the record of what
-	// was once granted cannot be erased by marking it revoked.
+	// One allowance row per user, for the same idempotency reason the journal's
+	// idempotency key has one.
 	mustUnlockExec(t, db,
-		`UPDATE resource_unlock SET revoked_at = ?, revoke_reason = 'fraud'
-		  WHERE user_id = 500 AND resource_type = 'study_resource' AND resource_id = 812`,
-		now)
+		`INSERT INTO user_free_allowance (user_id, granted_at, expires_at, document_unlocks, video_unlocks, mock_test_unlocks)
+		 VALUES (500, ?, ?, 3, 1, 1)`, now, now.AddDate(0, 0, 30))
 	if err := db.Exec(
-		`INSERT INTO resource_unlock
-			(user_id, resource_type, resource_id, journal_id, source, coins_paid, unlocked_at)
-		 VALUES (500, 'study_resource', 812, ?, 'COINS', 60, ?)`,
-		spendJournal(t, db, "unlock-unique-fixture-3"), now).Error; err == nil {
-		t.Error("a re-buy after a revocation was allowed as a second row; reinstatement must be an explicit operation")
-	}
-	if n := countUnlocks(t, db, `SELECT count(*) FROM resource_unlock WHERE user_id = 500`); n != 1 {
-		t.Errorf("user 500 has %d unlock rows, want exactly 1 — a revocation must never become a second row", n)
+		`INSERT INTO user_free_allowance (user_id, granted_at, expires_at, document_unlocks, video_unlocks, mock_test_unlocks)
+		 VALUES (500, ?, ?, 9, 9, 9)`, now, now.AddDate(0, 0, 30)).Error; err == nil {
+		t.Error("a second allowance row for one user was allowed, so a re-registration could re-grant the starter allowance")
 	}
 
 	// The three freedoms that remain: another user, another class, another
@@ -352,17 +491,283 @@ func TestResourceUnlockUniquenessIsEnforcedByTheDatabase(t *testing.T) {
 	if n := countUnlocks(t, db, `SELECT count(*) FROM resource_unlock`); n != 4 {
 		t.Errorf("total unlock rows = %d, want 4 — the other three combinations are all legitimate", n)
 	}
+}
 
-	// One allowance row per user, for the same idempotency reason the journal's
-	// idempotency key has one.
+// The other half of the change, and the reason it was made: a revocation must
+// not be permanent. Under the old full UNIQUE, a revoked row held its slot
+// forever, so a student whose unlock was revoked in error lost it with no path
+// back — no reinstatement operation existed and no second row could be inserted.
+//
+// Now a fresh LIVE row is allowed once the old one is revoked. Three properties
+// are asserted together, because any one of them alone would pass for the wrong
+// reason: the re-buy is allowed, the cap still holds (a SECOND live row is
+// still refused), and the revoked row is intact rather than overwritten.
+func TestRevokedUnlockDoesNotOccupyTheLiveSlot(t *testing.T) {
+	const userID = 510
+	db := openEntitlementSchema(t)
+	// Truncated to microseconds because that is timestamptz's resolution and Go
+	// has nanoseconds. Without it the round-trip through Postgres loses the last
+	// few digits and the equality assertion below is comparing the fixture
+	// against a rounding artefact rather than against the stored value.
+	now := time.Now().UTC().Truncate(time.Microsecond)
+	revokedAt := now.Add(-time.Hour)
+	journal := spendJournal(t, db, "revoked-slot-fixture")
+
 	mustUnlockExec(t, db,
-		`INSERT INTO user_free_allowance (user_id, granted_at, expires_at, document_unlocks, video_unlocks, mock_test_unlocks)
-		 VALUES (500, ?, ?, 3, 1, 1)`, now, now.AddDate(0, 0, 30))
+		`INSERT INTO resource_unlock
+			(user_id, resource_type, resource_id, journal_id, source, coins_paid, unlocked_at)
+		 VALUES (?, 'study_resource', 812, ?, 'COINS', 40, ?)`,
+		userID, journal, now)
+	mustUnlockExec(t, db,
+		`UPDATE resource_unlock SET revoked_at = ?, revoke_reason = 'revoked by mistake'
+		  WHERE user_id = ?`, revokedAt, userID)
+
+	// The re-buy. This is the statement the old index refused.
+	mustUnlockExec(t, db,
+		`INSERT INTO resource_unlock
+			(user_id, resource_type, resource_id, journal_id, source, coins_paid, unlocked_at)
+		 VALUES (?, 'study_resource', 812, ?, 'COINS', 40, ?)`,
+		userID, spendJournal(t, db, "revoked-slot-fixture-2"), now)
+
+	// The cap is still one LIVE row. Allowing the re-buy is not the same as
+	// allowing duplicates, and a regression that dropped the predicate from the
+	// CREATE entirely would pass the assertion above while breaking this one.
 	if err := db.Exec(
-		`INSERT INTO user_free_allowance (user_id, granted_at, expires_at, document_unlocks, video_unlocks, mock_test_unlocks)
-		 VALUES (500, ?, ?, 9, 9, 9)`, now, now.AddDate(0, 0, 30)).Error; err == nil {
-		t.Error("a second allowance row for one user was allowed, so a re-registration could re-grant the starter allowance")
+		`INSERT INTO resource_unlock
+			(user_id, resource_type, resource_id, journal_id, source, coins_paid, unlocked_at)
+		 VALUES (?, 'study_resource', 812, ?, 'COINS', 40, ?)`,
+		userID, spendJournal(t, db, "revoked-slot-fixture-3"), now).Error; err == nil {
+		t.Error("a second LIVE row was allowed after the re-buy; the cap is one live row, not one row ever")
 	}
+
+	// The history survives, byte for byte. A re-buy is a second row, not an
+	// overwrite: "was this ever granted", "when" and "why" all still have
+	// answers, which is the entire reason a revocation is a reversal rather than
+	// a delete.
+	var history []ResourceUnlock
+	if err := db.Raw(
+		`SELECT `+unlockColumns+` FROM resource_unlock
+		  WHERE user_id = ? AND revoked_at IS NOT NULL`, userID,
+	).Scan(&history).Error; err != nil {
+		t.Fatalf("read the revoked row: %v", err)
+	}
+	if len(history) != 1 {
+		t.Fatalf("the triple has %d revoked rows, want 1", len(history))
+	}
+	old := history[0]
+	if old.RevokeReason == nil || *old.RevokeReason != "revoked by mistake" {
+		t.Errorf("the revoked row's reason = %v, want 'revoked by mistake' — the re-buy overwrote the history", old.RevokeReason)
+	}
+	if old.RevokedAt == nil || !old.RevokedAt.Equal(revokedAt) {
+		t.Errorf("the revoked row's timestamp = %v, want %v — the re-buy overwrote the history", old.RevokedAt, revokedAt)
+	}
+
+	// Two rows for the triple, exactly one of them live. The revoked row still
+	// names the journal it was bought under; the re-buy is a second, separately
+	// paid purchase and an auditor can see both.
+	if n := countUnlocks(t, db, `SELECT count(*) FROM resource_unlock WHERE user_id = ?`, userID); n != 2 {
+		t.Errorf("user %d has %d rows, want 2 — the revoked row and the re-bought one", userID, n)
+	}
+	if n := countUnlocks(t, db,
+		`SELECT count(*) FROM resource_unlock WHERE user_id = ? AND revoked_at IS NULL`, userID); n != 1 {
+		t.Errorf("user %d has %d LIVE rows, want exactly 1", userID, n)
+	}
+	// The first purchase keeps its own journal. If the two rows had been merged
+	// rather than added to, one of these journals would be gone.
+	if n := countUnlocks(t, db,
+		`SELECT count(*) FROM resource_unlock WHERE user_id = ? AND journal_id = ?`, userID, journal); n != 1 {
+		t.Errorf("the original purchase's journal appears on %d rows, want 1", n)
+	}
+}
+
+// ── ON CONFLICT inference: the regression that matters most ─────────────────
+
+// The one that would have taken production down, and the reason InsertUnlock
+// carries `WHERE revoked_at IS NULL` on its ON CONFLICT.
+//
+// Postgres cannot infer a PARTIAL unique index from a bare column list. The
+// inference clause has to carry a predicate the planner can match against the
+// index's own. With the bare list the statement does not merely fail to dedupe —
+// it fails to PREPARE, every time, on every call:
+//
+//	ERROR: there is no unique or exclusion constraint matching
+//	       the ON CONFLICT specification   (SQLSTATE 42P10)
+//
+// 42P10 is the same code internal/notification/ensure_indexes.go documents as a
+// production incident, and the blast radius is every unlock write in the system:
+// RecordCoinUnlock and ConsumeAllowance both route through InsertUnlock, so
+// nothing would work at all.
+//
+// Asserted at the level the bug lives at — the actual statement, through the
+// actual repository method — because a test that only inserted twice serially
+// would pass against the broken version too: two sequential inserts never
+// conflict, so the missing predicate would never be exercised. The concurrency
+// is the point.
+func TestOnConflictInferenceResolvesAgainstThePartialIndex(t *testing.T) {
+	const (
+		userID     = 520
+		concurrent = 8
+	)
+	ctx := context.Background()
+	db := openEntitlementSchema(t)
+	repo := NewRepository(db)
+	svc := testEntitlements(t, db, nil)
+	now := time.Now().UTC()
+	journal := spendJournal(t, db, "on-conflict-inference-fixture")
+
+	t.Run("the bare column list is refused by the planner", func(t *testing.T) {
+		// Stated as a fact rather than left implied. If a future Postgres
+		// learned to infer through a partial index this would start failing,
+		// which is fine: it means the explicit predicate in InsertUnlock has
+		// become redundant and the comment there can be revisited. What must
+		// not happen is this test being quietly deleted.
+		err := db.Exec(
+			`INSERT INTO resource_unlock
+				(user_id, resource_type, resource_id, journal_id, source, coins_paid, unlocked_at)
+			 VALUES (?, 'study_resource', 9991, ?, 'COINS', 40, ?)
+			 ON CONFLICT (user_id, resource_type, resource_id) DO NOTHING`,
+			userID, journal, now).Error
+		if err == nil {
+			t.Fatal("a bare ON CONFLICT column list resolved against the partial index; " +
+				"either Postgres changed or the index is not partial, and InsertUnlock's explicit " +
+				"predicate should be re-examined")
+		}
+		var pgErr interface{ SQLState() string }
+		if errors.As(err, &pgErr) && pgErr.SQLState() != "42P10" {
+			t.Errorf("the bare inference failed with %v (SQLSTATE %s), want 42P10 — the test is not "+
+				"proving what it claims if it fails for a different reason", err, pgErr.SQLState())
+		}
+		if n := countUnlocks(t, db, `SELECT count(*) FROM resource_unlock WHERE resource_id = 9991`); n != 0 {
+			t.Errorf("the failing statement left %d rows behind", n)
+		}
+	})
+
+	t.Run("the predicated inference takes the conflict path", func(t *testing.T) {
+		// EIGHT concurrent RecordCoinUnlock calls for ONE resource, which is the
+		// mobile-retry storm the ON CONFLICT exists for. Exactly one must create
+		// a row; the other seven must come back with that same row and no error.
+		//
+		// A 23505 here means the conflict was NOT resolved — either the
+		// predicate is missing and the statement failed to prepare, or something
+		// else is going wrong. Either way it surfaces as an error here rather
+		// than as ErrAlreadyUnlocked, which is the whole difference the ON
+		// CONFLICT is buying.
+		var ready, done sync.WaitGroup
+		ready.Add(concurrent)
+		done.Add(concurrent)
+		start := make(chan struct{})
+
+		var mu sync.Mutex
+		var ids []uint
+		var conflicts []error
+
+		for i := 0; i < concurrent; i++ {
+			go func() {
+				defer done.Done()
+				ready.Done()
+				<-start
+				row, err := svc.RecordCoinUnlock(ctx, userID, ResourceTypeStudyResource, 4242, journal, 40, now)
+				mu.Lock()
+				defer mu.Unlock()
+				if err != nil {
+					conflicts = append(conflicts, err)
+					return
+				}
+				ids = append(ids, row.ID)
+			}()
+		}
+		ready.Wait()
+		close(start)
+		done.Wait()
+
+		if len(conflicts) > 0 {
+			t.Errorf("%d of %d concurrent RecordCoinUnlock calls failed: %v\n"+
+				"A raw unique violation or 42P10 here means the ON CONFLICT did not resolve against "+
+				"resource_unlock_live_uniq; the inferred predicate in InsertUnlock is load-bearing.",
+				len(conflicts), concurrent, conflicts[0])
+		}
+		if len(ids) != concurrent {
+			t.Fatalf("%d of %d calls returned a row, want %d — a conflicted insert must return the existing row, not nil",
+				len(ids), concurrent, concurrent)
+		}
+		for _, id := range ids {
+			if id != ids[0] {
+				t.Fatalf("concurrent calls returned different rows (%v); every one of them must be the same single row", ids)
+			}
+		}
+		if n := countUnlocks(t, db, `SELECT count(*) FROM resource_unlock WHERE user_id = ? AND resource_id = 4242`, userID); n != 1 {
+			t.Errorf("%d rows exist for one concurrently-unlocked resource, want exactly 1", n)
+		}
+	})
+
+	t.Run("the same predicate does not swallow a revoked row", func(t *testing.T) {
+		// The converse, and the reason the predicate is the RIGHT one rather
+		// than merely a legal one. If ON CONFLICT were inference-free — say
+		// written as `ON CONFLICT DO NOTHING` with no target at all — it would
+		// suppress the insert against ANY conflict, and the re-buy after a
+		// revocation would silently do nothing while the caller was told
+		// nothing. Named inference with a predicate can only conflict on a
+		// live row, which is exactly the set that should be suppressed.
+		const rbUser = 521
+		rbJournal := spendJournal(t, db, "on-conflict-revoked-fixture")
+		if _, err := svc.RecordCoinUnlock(ctx, rbUser, ResourceTypeStudyResource, 7001, rbJournal, 40, now); err != nil {
+			t.Fatalf("first RecordCoinUnlock: %v", err)
+		}
+		if err := svc.Revoke(ctx, rbUser, ResourceTypeStudyResource, 7001, "revoked", now); err != nil {
+			t.Fatalf("Revoke: %v", err)
+		}
+		again, err := svc.RecordCoinUnlock(ctx, rbUser, ResourceTypeStudyResource, 7001, rbJournal, 40, now)
+		if err != nil {
+			t.Fatalf("RecordCoinUnlock after a revocation = %v, want success — a revoked row must not block the re-buy", err)
+		}
+		if n := countUnlocks(t, db, `SELECT count(*) FROM resource_unlock WHERE user_id = ? AND resource_id = 7001`, rbUser); n != 2 {
+			t.Errorf("%d rows for the revoked-then-rebought resource, want 2", n)
+		}
+		_ = again
+	})
+
+	t.Run("the repository's own conflict path resolves rather than erroring", func(t *testing.T) {
+		// InsertUnlock called directly, which is the one place the SQL is
+		// visible. A regression in the predicate fails here with a 42P10 that
+		// names the statement, rather than somewhere downstream.
+		const directUser = 522
+		directJournal := spendJournal(t, db, "on-conflict-direct-fixture")
+		mustUnlockExec(t, db,
+			`INSERT INTO resource_unlock
+				(user_id, resource_type, resource_id, journal_id, source, coins_paid, unlocked_at)
+			 VALUES (?, 'study_resource', 8100, ?, 'COINS', 40, ?)`,
+			directUser, directJournal, now)
+
+		var firstID, secondID uint
+		err := repo.InUserTx(ctx, directUser, func(tx *TxContext) error {
+			created, err := tx.InsertUnlock(&ResourceUnlock{
+				UserID: directUser, ResourceType: ResourceTypeStudyResource, ResourceID: 8100,
+				JournalID: &directJournal, Source: UnlockSourceCoins, CoinsPaid: 40, UnlockedAt: now,
+			})
+			if err != nil {
+				return err
+			}
+			if created {
+				t.Error("InsertUnlock created a second live row for a triple that already had one")
+			}
+			firstID = 1
+			existing, err := tx.ReadUnlock(directUser, ResourceTypeStudyResource, 8100)
+			if err != nil {
+				return err
+			}
+			if existing == nil {
+				t.Fatal("ReadUnlock returned nil after a conflicted insert; the conflict path cannot report who holds the row")
+			}
+			secondID = existing.ID
+			return nil
+		})
+		if err != nil {
+			t.Fatalf("the conflicted insert path returned %v; it must resolve to created=false, not an error", err)
+		}
+		if firstID == 0 || secondID == 0 {
+			t.Fatal("the fixture did not run")
+		}
+	})
 }
 
 // ── source and journal_id must agree ─────────────────────────────────────────
@@ -474,9 +879,12 @@ func TestSourceAndJournalIDMustAgree(t *testing.T) {
 //
 // The mechanism under test, precisely:
 //
-//	resource_unlock_uniq, via ON CONFLICT (user_id, resource_type, resource_id)
-//	DO NOTHING RETURNING id, decides "does this user already hold this
-//	resource?" inside the insert itself, so that half needs no read at all.
+//	resource_unlock_live_uniq, via ON CONFLICT (user_id, resource_type,
+//	resource_id) WHERE revoked_at IS NULL DO NOTHING RETURNING id, decides "does
+//	this user already hold this resource?" inside the insert itself, so that
+//	half needs no read at all. The predicate is not optional: without it the
+//	statement does not prepare, and everything in the system that writes an
+//	unlock fails. See TestOnConflictInferenceResolvesAgainstThePartialIndex.
 //
 //	The count against the allowance CEILING is not decidable by a constraint —
 //	the ceiling is a number in system_settings, not a schema constant, and no
@@ -487,9 +895,9 @@ func TestSourceAndJournalIDMustAgree(t *testing.T) {
 //	strictly ordered, and the loser's count runs after the winner's INSERT has
 //	committed, so it sees the row.
 //
-// Note the resource ids are all DIFFERENT. The unique constraint is not what
+// Note the resource ids are all DIFFERENT. The unique index is not what
 // rejects the losers here — a duplicate-resource race would be caught by the
-// constraint and would prove nothing about the count. Every loser is refused
+// index and would prove nothing about the count. Every loser is refused
 // because there is no allowance left, which is the claim being tested.
 //
 // The failure mode this test exists to catch is silent: a double-spend here
@@ -588,7 +996,7 @@ func TestConsumeAllowanceWithOneRemainingConsumesItExactlyOnce(t *testing.T) {
 	}
 	if alreadyUnlocked != 0 {
 		t.Errorf("%d goroutines were refused with ErrAlreadyUnlocked, want 0 — every goroutine asked for a "+
-			"DISTINCT resource, so a duplicate-resource refusal means the uniqueness constraint is doing "+
+			"DISTINCT resource, so a duplicate-resource refusal means the uniqueness index is doing "+
 			"the work the allowance ceiling should be doing", alreadyUnlocked)
 	}
 
@@ -769,6 +1177,104 @@ func TestConcurrentFirstEverConsumeCreatesOneAllowanceAndOneUnlock(t *testing.T)
 	}
 	if n := countUnlocks(t, db, `SELECT count(*) FROM user_free_allowance WHERE user_id = ?`, userID); n != 1 {
 		t.Errorf("allowance rows for user %d = %d, want 1 — two first-timers must not produce two starter allowances", userID, n)
+	}
+}
+
+// Once two rows for one triple are legal, every read that matched on the triple
+// with no filter and no ordering stops having a defined answer, and that is not
+// a theoretical concern — it is the change this whole test file exists to cover.
+// A read that returns a year-old revoked row to a caller expecting an active
+// unlock is a silent wrong answer, so the readers are pinned here.
+//
+// This is a service-level test rather than a raw-SQL one because the point is
+// which row each CALLER receives, and the callers are the service methods.
+func TestReadersReturnTheRightRowWhenATripleHoldsARevokedAndALiveOne(t *testing.T) {
+	const userID = 530
+	ctx := context.Background()
+	db := openEntitlementSchema(t)
+	repo := NewRepository(db)
+	svc := testEntitlements(t, db, nil)
+	now := time.Now().UTC()
+	first := time.Now().UTC().Add(-72 * time.Hour)
+	journalA := spendJournal(t, db, "readers-fixture-a")
+	journalB := spendJournal(t, db, "readers-fixture-b")
+
+	// Buy, revoke, buy again — the exact shape the partial index now permits.
+	if _, err := svc.RecordCoinUnlock(ctx, userID, ResourceTypeStudyResource, 555, journalA, 40, first); err != nil {
+		t.Fatalf("the first purchase: %v", err)
+	}
+	if err := svc.Revoke(ctx, userID, ResourceTypeStudyResource, 555, "an old mistake", first); err != nil {
+		t.Fatalf("revoking the first: %v", err)
+	}
+	second, err := svc.RecordCoinUnlock(ctx, userID, ResourceTypeStudyResource, 555, journalB, 40, now)
+	if err != nil {
+		t.Fatalf("the re-buy: %v", err)
+	}
+
+	// FindUnlock: the LIVE row, even though the revoked one has the same triple
+	// and a lower id. Without ORDER BY revoked_at NULLS FIRST this is whatever
+	// the planner reached first, and a caller reading the revocation's journal
+	// would be told about the wrong purchase.
+	row, err := repo.FindUnlock(ctx, userID, ResourceTypeStudyResource, 555)
+	if err != nil {
+		t.Fatalf("FindUnlock: %v", err)
+	}
+	if row == nil {
+		t.Fatal("FindUnlock returned nil for a resource the user currently holds")
+	}
+	if row.ID != second.ID {
+		t.Errorf("FindUnlock returned row %d, want the live row %d", row.ID, second.ID)
+	}
+	if row.RevokedAt != nil {
+		t.Errorf("FindUnlock returned a revoked row (%v) while a live one exists", row.RevokedAt)
+	}
+	if row.JournalID == nil || *row.JournalID != journalB {
+		t.Errorf("FindUnlock returned journal %v, want the current purchase's %s", row.JournalID, journalB)
+	}
+
+	// With the live row revoked too, the triple is entirely revoked and
+	// FindUnlock must still answer — with the OLDEST, so a caller asking about
+	// the history starts at the beginning of it.
+	if err := svc.Revoke(ctx, userID, ResourceTypeStudyResource, 555, "a second mistake", now); err != nil {
+		t.Fatalf("revoking the second: %v", err)
+	}
+	row, err = repo.FindUnlock(ctx, userID, ResourceTypeStudyResource, 555)
+	if err != nil {
+		t.Fatalf("FindUnlock after both revocations: %v", err)
+	}
+	if row == nil {
+		t.Fatal("FindUnlock returned nil; a revoked row is still a row")
+	}
+	if row.JournalID == nil || *row.JournalID != journalA {
+		t.Errorf("FindUnlock returned journal %v, want the first purchase's %s — the history should read from the start", row.JournalID, journalA)
+	}
+
+	// Revoke's own error path. This is the assertion that ReadUnlock could not
+	// have been filtered to live-only: a second Revoke updates nothing, and
+	// asking for a live row would come back nil and be reported as ErrNotFound
+	// — "you never had this" about a resource the user bought twice.
+	err = svc.Revoke(ctx, userID, ResourceTypeStudyResource, 555, "a friendlier reason", now.Add(time.Minute))
+	if !errors.Is(err, ErrUnlockRevoked) {
+		t.Fatalf("a third revocation = %v, want ErrUnlockRevoked — with two revocations on the triple the "+
+			"error must name the LATEST one, not the first", err)
+	}
+	// The first revocation is still the record of the first decision and has not
+	// been overwritten by either of the later ones.
+	if n := countUnlocks(t, db,
+		`SELECT count(*) FROM resource_unlock
+		  WHERE user_id = ? AND revoke_reason = 'an old mistake'`, userID); n != 1 {
+		t.Errorf("%d rows carry the first revocation's reason, want 1 — a later revocation overwrote it", n)
+	}
+	if n := countUnlocks(t, db,
+		`SELECT count(*) FROM resource_unlock
+		  WHERE user_id = ? AND revoke_reason = 'a friendlier reason'`, userID); n != 0 {
+		t.Errorf("%d rows carry the third revocation's reason, want 0 — RevokeUnlock is a compare-and-set", n)
+	}
+
+	// A triple that was never held at all still answers nil, so ErrNotFound and
+	// ErrUnlockRevoked remain distinguishable.
+	if err := svc.Revoke(ctx, userID, ResourceTypeStudyResource, 999999, "x", now); !errors.Is(err, ErrNotFound) {
+		t.Errorf("revoking an unheld resource = %v, want ErrNotFound", err)
 	}
 }
 

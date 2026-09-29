@@ -21,12 +21,23 @@
 // because "we took a lock" is not an answer on its own:
 //
 //  1. THE CONSTRAINT covers the duplicate resource.
-//     resource_unlock_uniq — UNIQUE (user_id, resource_type, resource_id) —
-//     makes the insert itself the decision. ON CONFLICT DO NOTHING RETURNING id
-//     is resolved against that index, so exactly one of two concurrent inserts
-//     for the same (user, class, resource) gets a row, and the other is told so
-//     as ErrAlreadyUnlocked rather than as a raw unique violation. No read
-//     precedes it that could be stale.
+//     resource_unlock_live_uniq — UNIQUE (user_id, resource_type, resource_id)
+//     WHERE revoked_at IS NULL — makes the insert itself the decision. ON CONFLICT
+//     DO NOTHING RETURNING id is resolved against that index, so exactly one of
+//     two concurrent inserts for the same (user, class, resource) gets a live
+//     row, and the other is told so as ErrAlreadyUnlocked rather than as a raw
+//     unique violation. No read precedes it that could be stale.
+//
+//     The ON CONFLICT carries `WHERE revoked_at IS NULL` and MUST, because
+//     Postgres will not infer a partial index from a bare column list: without
+//     the predicate the statement fails to prepare with 42P10 on every call.
+//     See InsertUnlock.
+//
+//     "Live" is the whole of the scope, and it is deliberate. A revoked row
+//     grants no access, so it does not occupy the one-unlock cap, and a student
+//     whose unlock was revoked can buy it again — at full price, so the cap is
+//     not weakened. The revoked row is kept, not overwritten: it is the record
+//     of what was granted and what was taken away.
 //
 //  2. THE LOCK covers the count, because no constraint can.
 //     The allowance ceiling is a NUMBER IN CONFIGURATION, not a schema constant,
@@ -457,9 +468,14 @@ func (s *Service) RemainingAllowance(ctx context.Context, userID uint, now time.
 // This is the idempotency check every gate calls FIRST, before it resolves a
 // price, spends a coin or burns an allowance. It is one indexed existence check
 // and it cannot be stale in a way that matters, because the row it would be stale
-// about is covered by UNIQUE (user_id, resource_type, resource_id): a revoked row
-// still holds its slot, so "no active row" means "never unlocked" or "revoked",
+// about is covered by resource_unlock_live_uniq: at most one LIVE row per
+// (user, class, resource), so "no active row" means "never unlocked" or "revoked",
 // and in both cases the answer is that there is no access right now.
+//
+// A revoked row does not occupy the uniqueness cap, so "no active row" after a
+// revocation genuinely does invite a re-purchase — which is the intent, not a
+// hole. The re-purchase costs the buyer again and leaves the revoked row in
+// place as history.
 func (s *Service) HasAccess(ctx context.Context, userID uint, resourceType string, resourceID uint64) (bool, error) {
 	if err := validateResourceRef(userID, resourceType, resourceID); err != nil {
 		return false, err
@@ -477,7 +493,7 @@ func (s *Service) HasAccess(ctx context.Context, userID uint, resourceType strin
 //
 // The concurrency mechanism is described in full at the top of this file. In one
 // paragraph: the insert is made safe against a duplicate resource by
-// resource_unlock_uniq via ON CONFLICT, and the read-then-insert against the
+// resource_unlock_live_uniq via ON CONFLICT, and the read-then-insert against the
 // allowance CEILING is made safe by serialisation — the ledger's per-user
 // advisory lock from InUserTx plus the FOR UPDATE on user_free_allowance —
 // because a configurable count has no constraint that could enforce it.
@@ -658,14 +674,23 @@ func loadOrCreateAllowance(tx *TxContext, userID uint, cfg EconomyConfig, now ti
 //     hide a double charge behind a successful-looking response. The caller
 //     should surface the existing unlock, not pay again.
 //
-// One consequence of the UNIQUE that is a real gap and is left visible rather
-// than papered over: a REVOKED unlock still occupies its slot, so a student who
-// had their access revoked cannot simply re-buy it — a second row is refused by
-// the constraint. Reinstating a revoked unlock (a new journal, a new
-// coins_paid, and the revocation history preserved) is an operation this slice
-// does not have, and it belongs to the gate slice that knows when a revocation
-// is meant to be temporary. Revoke's own documentation says the same thing from
-// the other end.
+// One consequence of the UNIQUE is worth stating precisely, because the scope
+// changed and the old wording is now wrong in the dangerous direction. The
+// uniqueness is over LIVE rows only (resource_unlock_live_uniq, partial on
+// revoked_at IS NULL). A revoked row does NOT occupy the cap, so a student whose
+// access was revoked can simply buy it again: this method will create a second
+// row, charge them a second time, and leave the revoked row untouched as the
+// record of the first decision.
+//
+// That is deliberate, and the fraud argument is unchanged — see unlock_model.go.
+// One live unlock per resource is still one live unlock per resource. What it
+// means in practice is that a revocation is recoverable at the buyer's expense,
+// which is the right outcome for a revocation made in error, and the wrong one
+// for a revocation meant to be permanent. Deciding which is which is not this
+// method's job and is not yet a job anywhere: a gate that wants a permanent
+// revocation must not simply call Revoke and let a re-buy through, it has to
+// block the purchase. This slice does not have that gate, and this note is here
+// so the next one does not inherit the assumption that Revoke alone is enough.
 func (s *Service) RecordCoinUnlock(ctx context.Context, userID uint, resourceType string, resourceID uint64, journalID string, coinsPaid int64, now time.Time) (*ResourceUnlock, error) {
 	// Every argument is checked before the repository is consulted, so a
 	// malformed call is a typed argument error rather than a wiring error that
@@ -758,8 +783,13 @@ func (s *Service) RecordCoinUnlock(ctx context.Context, userID uint, resourceTyp
 //
 // Who may call this is not decided here. It is an admin/support operation and the
 // gate slice is where the authorisation lives; what this method guarantees is
-// that it is recorded rather than erased, and that a re-grant after a revocation
-// needs a deliberate reinstatement rather than happening by accident.
+// that it is recorded rather than erased.
+//
+// A re-grant after a revocation is now possible — the uniqueness that used to
+// forbid it is partial on revoked_at IS NULL, so a revoked row no longer holds
+// the slot and a fresh purchase makes a second row rather than being refused.
+// See RecordCoinUnlock for why that is the right default and where the open
+// question sits.
 func (s *Service) Revoke(ctx context.Context, userID uint, resourceType string, resourceID uint64, reason string, now time.Time) error {
 	// Validated before the repository, for the same reason as RecordCoinUnlock:
 	// a missing reason is the caller's bug and must not be reported as a wiring
@@ -787,7 +817,17 @@ func (s *Service) Revoke(ctx context.Context, userID uint, resourceType string, 
 		// Nothing was updated. Either there was never an unlock, or there was one
 		// and it is already revoked; those are different answers and a caller
 		// that cannot tell them apart will retry forever.
-		existing, err := tx.ReadUnlock(userID, resourceType, resourceID)
+		//
+		// ReadLatestRevokedUnlock rather than ReadUnlock, and the choice is the
+		// point: the row we need here is the REVOKED one, which is exactly the row
+		// ReadUnlock now refuses to return. A live-row read would come back nil
+		// on this path — the compare-and-set above guarantees there is no live
+		// row when it reports no update — and a nil is reported to the caller as
+		// ErrNotFound. That would turn "you already revoked this, here is when
+		// and why" into "you never had this", which is a false answer about a
+		// student's own history and is precisely the confusion this branch
+		// exists to prevent.
+		existing, err := tx.ReadLatestRevokedUnlock(userID, resourceType, resourceID)
 		if err != nil {
 			return err
 		}
