@@ -55,7 +55,13 @@ go.work
 # OS files
 .DS_Store
 Thumbs.db
-/docs/
+# Generated API docs (swagger) are not tracked. The hand-written coin-system
+# spec IS, because engineers build from it and it must version with the code it
+# describes. Note the two-part form: git cannot re-include a file whose parent
+# DIRECTORY is excluded, so /docs/* excludes the entries rather than docs/ itself,
+# and the negation then re-admits coin-system.
+/docs/*
+!/docs/coin-system/
 
 # SDD worktrees (isolated implementation workspaces)
 .worktrees/
