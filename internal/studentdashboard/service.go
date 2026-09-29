@@ -372,6 +372,47 @@ func computeProfileCompletion(user *auth.User, educationCount int64) int {
 	return percent
 }
 
+// ProfileCompletion is the exported form of computeProfileCompletion, for
+// callers outside this package that need the same answer this dashboard shows.
+//
+// It exists because the coin economy's INSUFFICIENT_COINS body
+// (docs/coin-system/03-api-contract.md §2.3) has to decide whether to offer
+// "complete your profile" as a way to earn. That decision must be the same one
+// the profile page and this dashboard make, and a second implementation of
+// twelve checks inside internal/coins would be free to drift: the student would
+// be told their profile is incomplete on a screen that shows it complete.
+//
+// Exported rather than reimplemented, and returns the PERCENT so a caller that
+// wants a threshold can pick its own. 100 means all twelve checks passed.
+func ProfileCompletion(user *auth.User, educationCount int64) int {
+	if user == nil {
+		return 0
+	}
+	return computeProfileCompletion(user, educationCount)
+}
+
+// ProfileComplete is the boolean form, for a caller that only needs "is this
+// done" — which is the question the coin economy's ways_to_earn list asks.
+//
+// The threshold is 100 rather than "some high score" on purpose: the profile
+// award is paid as a five-instalment ladder over twelve checks, and a partial
+// profile is not a finished one. A student told to "finish" a profile that is
+// 11/12 complete is being told to chase a coin award that will not arrive.
+func (s *Service) ProfileComplete(ctx context.Context, userID uint) (bool, error) {
+	user, err := s.repo.GetUserByID(userID)
+	if err != nil {
+		return false, err
+	}
+	if user == nil {
+		return false, nil
+	}
+	educationCount, err := s.repo.CountEducationEntries(userID)
+	if err != nil {
+		return false, err
+	}
+	return ProfileCompletion(user, educationCount) >= 100, nil
+}
+
 func (s *Service) GetRecentApplications(userID uint) ([]RecentApplication, error) {
 	admissions, err := s.repo.GetRecentAdmissions(userID, 5)
 	if err != nil {

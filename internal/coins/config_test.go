@@ -119,6 +119,86 @@ func TestDefaultEconomyConfigIsValid(t *testing.T) {
 	}
 }
 
+// The write path ships dark, and the two things that could turn it on by
+// accident are both closed: the default is false, and a config that enables it
+// over a zero-priced class is rejected outright rather than deployed and then
+// failing every purchase of that class.
+func TestUnlockEndpointShipsDarkAndCannotBeEnabledOverAFreeClass(t *testing.T) {
+	if DefaultEconomyConfig().UnlockEndpointEnabled {
+		t.Fatal("the default config has the unlock write path enabled; it must ship dark")
+	}
+	// A stored value that omits the key entirely also reads as false, because
+	// Load unmarshals onto the defaults. A config written before this field
+	// existed must not come up with purchases switched on.
+	if got := DefaultEconomyConfig(); got.UnlockEndpointEnabled {
+		t.Fatalf("unlock_endpoint_enabled = %t, want false", got.UnlockEndpointEnabled)
+	}
+
+	enabled := DefaultEconomyConfig()
+	enabled.UnlockEndpointEnabled = true
+	if err := ValidateEconomyConfig(enabled); err != nil {
+		t.Fatalf("enabling the write path with every class priced must validate, got: %v", err)
+	}
+
+	for _, tc := range []struct {
+		name   string
+		mutate func(*EconomyConfig)
+	}{
+		{"a free document class", func(c *EconomyConfig) {
+			c.Prices.StudyResource = 0
+			c.Allowance.DocumentUnlocks = 0
+		}},
+		{"a free video class", func(c *EconomyConfig) {
+			c.Prices.Video = 0
+			c.Allowance.VideoUnlocks = 0
+		}},
+		{"a free mock test class", func(c *EconomyConfig) {
+			c.Prices.MockTest = 0
+			c.Allowance.MockTestUnlocks = 0
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := DefaultEconomyConfig()
+			cfg.UnlockEndpointEnabled = true
+			tc.mutate(&cfg)
+			err := ValidateEconomyConfig(cfg)
+			if err == nil {
+				t.Fatal("a live write path over a free class was accepted")
+			}
+			var verr *ValidationError
+			if !asValidationError(err, &verr) {
+				t.Fatalf("error = %v, want a *ValidationError", err)
+			}
+			found := false
+			for _, f := range verr.Fields {
+				if f.Field == "unlock_endpoint_enabled" {
+					found = true
+				}
+			}
+			if !found {
+				t.Errorf("the refusal does not name unlock_endpoint_enabled: %+v", verr.Fields)
+			}
+		})
+	}
+}
+
+// asValidationError is errors.As with the import kept out of a test whose point
+// is the rule rather than the mechanism.
+func asValidationError(err error, target **ValidationError) bool {
+	for err != nil {
+		if v, ok := err.(*ValidationError); ok {
+			*target = v
+			return true
+		}
+		u, ok := err.(interface{ Unwrap() error })
+		if !ok {
+			return false
+		}
+		err = u.Unwrap()
+	}
+	return false
+}
+
 // TestEconomyConfigJSONShape pins the stored/admin JSON to the object in
 // 03-api-contract.md §3.1, key for key and value for value. This is what stops
 // a rename or a dropped field from silently breaking the admin screen, the
@@ -130,7 +210,7 @@ func TestEconomyConfigJSONShape(t *testing.T) {
 		`"allowance":{"document_unlocks":3,"video_unlocks":1,"mock_test_unlocks":1,"expires_in_days":30},` +
 		`"expiry":{"free_days":30,"earned_days":365,"activity_extend_days":180},` +
 		`"referral":{"monthly_cap":10,"lifetime_coin_cap":600,"hold_days":7},` +
-		`"clawback_window_days":180}`
+		`"clawback_window_days":180,"unlock_endpoint_enabled":false}`
 
 	got, err := json.Marshal(DefaultEconomyConfig())
 	if err != nil {

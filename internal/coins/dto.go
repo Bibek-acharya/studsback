@@ -25,6 +25,12 @@ type UpdateEconomyConfigRequest struct {
 	Expiry             *UpdateExpiryRequest    `json:"expiry"`
 	Referral           *UpdateReferralRequest  `json:"referral"`
 	ClawbackWindowDays *int64                  `json:"clawback_window_days"`
+	// UnlockEndpointEnabled ships the write path. A pointer, like every other
+	// leaf here, so that omitting the key is not the same decision as sending
+	// false: this is the switch that has to survive an unrelated pricing edit
+	// without being silently thrown back to dark. See the field comment on
+	// EconomyConfig for why it ships off.
+	UnlockEndpointEnabled *bool `json:"unlock_endpoint_enabled"`
 }
 
 type UpdatePricesRequest struct {
@@ -102,6 +108,7 @@ func applyEconomyConfigUpdate(base EconomyConfig, req UpdateEconomyConfigRequest
 		assignInt64(&out.Referral.HoldDays, r.HoldDays)
 	}
 	assignInt64(&out.ClawbackWindowDays, req.ClawbackWindowDays)
+	assignBool(&out.UnlockEndpointEnabled, req.UnlockEndpointEnabled)
 
 	return out
 }
@@ -109,6 +116,16 @@ func applyEconomyConfigUpdate(base EconomyConfig, req UpdateEconomyConfigRequest
 // assignInt64 applies a partial-update leaf: a nil pointer means the key was
 // not mentioned and the current value stands.
 func assignInt64(dst *int64, src *int64) {
+	if src != nil {
+		*dst = *src
+	}
+}
+
+// assignBool is assignInt64 for a switch. It exists because the naive
+// `if req.UnlockEndpointEnabled { out.UnlockEndpointEnabled = true }` form
+// cannot express "send false" — an admin turning a shipped-dark write path back
+// on, or off again, would be editing a field that can only ever be set true.
+func assignBool(dst *bool, src *bool) {
 	if src != nil {
 		*dst = *src
 	}

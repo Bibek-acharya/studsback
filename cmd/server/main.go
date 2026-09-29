@@ -89,6 +89,22 @@ func (a *instProgramRepoAdapter) FindProgramByGlobalCourse(institutionID, global
 	}, nil
 }
 
+// profileCompletionAdapter answers coins.ProfileEligibility from the student
+// dashboard's own twelve checks.
+//
+// The indirection exists so internal/coins never learns the shape of a user or of
+// a profile: the wallet asks one boolean question, and the only module that can
+// answer it correctly is the one that already computes it. A second
+// implementation inside coins would be free to drift, and the drift would appear
+// as a student being told to complete a profile the dashboard shows complete.
+type profileCompletionAdapter struct {
+	svc *studentdashboard.Service
+}
+
+func (a *profileCompletionAdapter) ProfileComplete(ctx context.Context, userID uint) (bool, error) {
+	return a.svc.ProfileComplete(ctx, userID)
+}
+
 // objectFetcher reads an object from storage. It matches storage.Get and is
 // injected by the uploads tests.
 type objectFetcher func(objectKey string) (io.Reader, *storage.ObjectInfo, error)
@@ -487,10 +503,22 @@ func main() {
 	studyResourcesHandler := initModule(studyresources.NewRepository(db), studyresources.NewService, studyresources.NewHandler)
 	pressMediaHandler := initModule(pressmedia.NewRepository(db), pressmedia.NewService, pressmedia.NewHandler)
 	downloadCenterHandler := initModule(downloadcenter.NewRepository(db), downloadcenter.NewService, downloadcenter.NewHandler)
-	// Coin economy config: the settings key is owned by internal/system, the
-	// audit rows by this package, and the service holds a short-TTL cache over
-	// both because pricing is read on every unlock attempt.
-	coinsHandler := coins.NewHandler(coins.NewService(coins.NewConfigStore(systemRepo), coins.NewVersionStore(db)))
+	// Coin economy: the settings key is owned by internal/system, the audit rows
+	// by internal/coins, and the config store holds a short-TTL cache over both
+	// because pricing is read on every wallet render and every unlock attempt.
+	//
+	// ONE config store and ONE repository are shared between the admin config
+	// surface, the wallet endpoints and the ledger. Sharing the store matters
+	// more than it looks: a second store is a second 30-second cache over the
+	// same row, so an admin's price change could be visible to the unlock path
+	// and invisible to the admin screen that just made it. Sharing the
+	// repository is what lets the unlock path open the transaction that spans
+	// the spend and the entitlement.
+	coinsConfig := coins.NewConfigStore(systemRepo)
+	coinsRepo := coins.NewRepository(db)
+	coinsService := coins.NewServiceWithRepository(coinsRepo, coinsConfig, coins.NewVersionStore(db))
+	coinsHandler := coins.NewHandler(coinsService)
+	coinsLedger := coins.NewLedger(coinsRepo, coinsConfig)
 	reviewHandler := review.NewHandler(review.NewService(review.NewRepository(db), notificationSvc))
 	scholarshipRepo := scholarship.NewRepository(db)
 	scholarshipSvc := scholarship.NewService(scholarshipRepo, db, systemSvc, notificationSvc)
@@ -518,7 +546,24 @@ func main() {
 	auth.SetScholarshipProviderHandler(scholarshipPHandler)
 	auth.SetInstitutionService(institutionSvc)
 	auth.SetNotifier(notificationSvc)
-	studentDashHandler := studentdashboard.NewHandler(studentdashboard.NewService(studentdashboard.NewRepository(db), notificationSvc))
+	// Hoisted above the coin wiring: the wallet's 402 body has to ask whether the
+	// caller has already finished their profile, and that answer is computed by
+	// this module's twelve checks rather than by a second copy of them inside
+	// internal/coins. One service, shared, so the two screens cannot disagree.
+	studentDashboardSvc := studentdashboard.NewService(studentdashboard.NewRepository(db), notificationSvc)
+	studentDashHandler := studentdashboard.NewHandler(studentDashboardSvc)
+
+	// The student-facing wallet: /api/v1/coins/{balance,transactions,allowance,unlock}.
+	//
+	// The profile-completion adapter is the only eligibility lookup wired. The
+	// RESOURCE lookup is deliberately left nil: 404 RESOURCE_NOT_FOUND needs a
+	// read of studyresources / mocktests / pressmedia / downloadcenter, and the
+	// gate slice is where those are consulted. The notifier is left nil for the
+	// same reason — the closed notification registry has no coins.debited row
+	// yet, so there is nothing to emit, and POST /unlock answers 503 anyway until
+	// the gates turn it on.
+	coinsWalletAPI := coins.NewUnlockAPI(coinsService, coinsLedger).
+		WithProfileEligibility(&profileCompletionAdapter{svc: studentDashboardSvc})
 	systemHandler := system.NewHandler(systemSvc)
 	toolsHandler := initModule(tools.NewRepository(db), tools.NewService, tools.NewHandler)
 	universityHandler := initModule(university.NewRepository(db), university.NewService, university.NewHandler)
@@ -649,6 +694,12 @@ func main() {
 	// to a user.
 	coinAdminRoleMW := middleware.RequireRole("superadmin", "super_admin")
 	coins.RegisterRoutes(router, authMW, coinAdminRoleMW, coinsHandler)
+	// The student wallet sits on authMW alone, not on this gate: every endpoint
+	// under /api/v1/coins returns the CALLER's own balance, allowance and
+	// history, and moves nothing. POST /unlock is mounted here but dark — it
+	// answers 503 until EconomyConfig.UnlockEndpointEnabled is set, which the
+	// slice that adds the first resource gate does.
+	coins.RegisterWalletRoutes(router, authMW, coinsWalletAPI)
 
 	// Mock tests: separate domain with nested questions/options. Browsing is
 	// public, submit + attempt results require auth, CRUD is superadmin-only.

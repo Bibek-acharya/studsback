@@ -96,6 +96,25 @@ type EconomyConfig struct {
 	Expiry             ExpiryConfig    `json:"expiry"`
 	Referral           ReferralConfig  `json:"referral"`
 	ClawbackWindowDays int64           `json:"clawback_window_days"`
+	// UnlockEndpointEnabled ships the write path, POST /api/v1/coins/unlock.
+	//
+	// It is DARK, and that is the decision this field exists to record. Nothing
+	// consumes an unlock yet: the resource gates — the thing that would make an
+	// unlock worth paying for — land in the next slice. Until they do, a live
+	// unlock endpoint lets a student spend real coins unlocking content they
+	// still have free access to, because the check that would make the purchase
+	// meaningful does not exist yet and nothing has been taken away. Charging
+	// for something that has not been gated is worse than charging for nothing:
+	// the coins are gone and the entitlement buys nothing, and the refund path
+	// (Reverse on a spend) is explicitly refused by the ledger.
+	//
+	// So the write endpoint is mounted but refuses with 503 until an admin turns
+	// this on, and the slice that adds the first gate is the one that turns it
+	// on. The three READ endpoints are unaffected and always available: they
+	// expose only the caller's own wallet, they move nothing, and they are what
+	// the frontend needs to build the unlock affordance before it can be paid
+	// for.
+	UnlockEndpointEnabled bool `json:"unlock_endpoint_enabled"`
 }
 
 // DefaultEconomyConfig is the contract when nothing is stored yet, and the
@@ -151,6 +170,10 @@ func DefaultEconomyConfig() EconomyConfig {
 			HoldDays:        7,
 		},
 		ClawbackWindowDays: 180,
+		// Explicit rather than left to the zero value, because "off" is a
+		// decision here and not an accident of a struct literal. See the field
+		// comment for why the write path ships dark.
+		UnlockEndpointEnabled: false,
 	}
 }
 
@@ -244,6 +267,9 @@ func (a AwardConfig) instalmentProduct() (int64, bool) {
 //     zero, or the allowance grants a free unlock of something that is supposed
 //     to be paid. The spec names video explicitly; the same rule is applied to
 //     documents and mock tests because the reason is identical;
+//   - unlock_endpoint_enabled requires every class to be priced above zero,
+//     because a live purchase endpoint over a free class fails every request
+//     for that class;
 //   - expiry.free_days > 0 and expiry.earned_days > 0, since a zero lifetime
 //     makes coins unusable the moment they are granted;
 //   - awards.profile_instalment * awards.profile_instalments equals
@@ -280,6 +306,26 @@ func ValidateEconomyConfig(cfg EconomyConfig) error {
 	for _, class := range classes {
 		if class.allowance > 0 && class.price <= 0 {
 			add(class.allowanceField, fmt.Sprintf("must be 0 while %s is 0", class.priceField))
+		}
+	}
+
+	// Turning the write path on is validated against the prices, because a class
+	// priced at zero is a free unlock and the ledger refuses it (Spend rejects a
+	// non-positive price) rather than granting it — so the endpoint would answer
+	// 400 for every purchase of that class while looking switched on. Failing the
+	// whole config write says it at the moment an admin pressed save, which is
+	// the only time anybody is looking.
+	//
+	// The refusal names the flag rather than the price, because the price is
+	// legal on its own: a zero price is a legitimate way to make one class
+	// free. What is refused is the COMBINATION of a free class and a live
+	// purchase endpoint.
+	if cfg.UnlockEndpointEnabled {
+		for _, class := range classes {
+			if class.price <= 0 {
+				add("unlock_endpoint_enabled",
+					fmt.Sprintf("must be false while %s is 0; a class priced at 0 cannot be bought and every unlock of it would fail", class.priceField))
+			}
 		}
 	}
 
