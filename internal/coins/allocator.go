@@ -188,8 +188,11 @@ func AllocateFEFO(lots []LotBalance, amount int64, now time.Time) (Allocation, e
 		// No partial result. Returning one would invite a caller that ignores
 		// the error to burn `taken` coins and think it had been asked for
 		// `amount`.
-		return Allocation{}, fmt.Errorf("%w: need %d, only %d available across %d open lot(s)",
-			ErrInsufficientCoins, amount, taken, len(alloc.Consumptions))
+		// Typed, so the 402 body can be built from the error without a second
+		// read. This path is reachable only when the cached projection and the
+		// lots disagree, and previously it reported available=0 in that case.
+		return Allocation{}, fmt.Errorf("%w across %d open lot(s)",
+			ErrInsufficient(amount, taken), len(alloc.Consumptions))
 	}
 	alloc.Taken = taken
 	return alloc, nil

@@ -558,10 +558,7 @@ func main() {
 	// The profile-completion adapter is the only eligibility lookup wired. The
 	// RESOURCE lookup is deliberately left nil: 404 RESOURCE_NOT_FOUND needs a
 	// read of studyresources / mocktests / pressmedia / downloadcenter, and the
-	// gate slice is where those are consulted. The notifier is left nil for the
-	// same reason — the closed notification registry has no coins.debited row
-	// yet, so there is nothing to emit, and POST /unlock answers 503 anyway until
-	// the gates turn it on.
+	// gate slice is where those are consulted.
 	coinsWalletAPI := coins.NewUnlockAPI(coinsService, coinsLedger).
 		WithProfileEligibility(&profileCompletionAdapter{svc: studentDashboardSvc})
 	systemHandler := system.NewHandler(systemSvc)
