@@ -720,15 +720,27 @@ func TestServiceGetEconomyConfigReadsThroughCache(t *testing.T) {
 func TestUpdateEconomyConfigPartialUpdatePersistsAndRecordsVersion(t *testing.T) {
 	svc, settings, versions, _ := testService(t)
 
+	// The base is seeded rather than left empty because the merge base has to
+	// satisfy the reachability invariant (see ValidateReachability): an empty
+	// store falls back to DefaultEconomyConfig, which breaks it, and then every
+	// write is refused before persistence — this test would end up measuring the
+	// refusal instead of the merge. The figures are the test's own; the shipped
+	// defaults are unchanged.
+	base := compliantEconomyConfig()
+	seedConfig(t, settings, base)
+
 	// Change one price, and the rest of the config must survive the round trip.
+	// Mock test rather than study resource: the compliant base has its cheapest
+	// price exactly equal to the lowest award, so raising the cheapest price
+	// would break rule 1, and this test is about the merge rather than that.
 	updated, err := svc.UpdateEconomyConfig(UpdateEconomyConfigRequest{
-		Prices: &UpdatePricesRequest{StudyResource: i64(60)},
+		Prices: &UpdatePricesRequest{MockTest: i64(65)},
 	}, 7)
 	if err != nil {
 		t.Fatalf("update: %v", err)
 	}
-	if updated.Prices.StudyResource != 60 {
-		t.Fatalf("study_resource=%d want 60", updated.Prices.StudyResource)
+	if updated.Prices.MockTest != 65 {
+		t.Fatalf("mock_test=%d want 65", updated.Prices.MockTest)
 	}
 	if updated.Referral.LifetimeCoinCap != 600 || updated.Expiry.EarnedDays != 365 {
 		t.Fatalf("update dropped unrelated config: %+v", updated)
@@ -750,7 +762,7 @@ func TestUpdateEconomyConfigPartialUpdatePersistsAndRecordsVersion(t *testing.T)
 	if err := json.Unmarshal([]byte(row.NewJSON), &next); err != nil {
 		t.Fatalf("new_json is not a config: %v", err)
 	}
-	if previous != DefaultEconomyConfig() {
+	if previous != base {
 		t.Fatalf("previous_json=%s want the pre-update config", row.PreviousJSON)
 	}
 	if next != updated {
@@ -867,15 +879,31 @@ func TestUpdateEconomyConfigValidatesTheMergedWhole(t *testing.T) {
 }
 
 func TestUpdateEconomyConfigReportsVersionFailure(t *testing.T) {
-	svc, _, versions, _ := testService(t)
+	svc, settings, versions, _ := testService(t)
 	versions.failErr = errors.New("insert failed")
+
+	// Seeded compliant base, for the same reason as the partial-update test:
+	// on the defaults this request would be refused by the reachability rule
+	// before it was ever written, and the test would still see an error while
+	// no longer covering the version-append failure it is named for.
+	seedConfig(t, settings, compliantEconomyConfig())
 
 	// The setting is already stored and the cache already invalidated, so the
 	// error is about the missing audit row rather than a lost change. Asserted
 	// so a future refactor cannot turn this into a silent success.
-	if _, err := svc.UpdateEconomyConfig(UpdateEconomyConfigRequest{
+	_, err := svc.UpdateEconomyConfig(UpdateEconomyConfigRequest{
 		ClawbackWindowDays: i64(90),
-	}, 5); err == nil {
+	}, 5)
+	if err == nil {
 		t.Fatal("want an error when the version row cannot be appended")
+	}
+	// ...and it is THAT error rather than a validation rejection. The write
+	// reached storage, which is what makes the missing audit row a real
+	// problem worth a test.
+	if errors.Is(err, ErrInvalidConfig) {
+		t.Fatalf("the request was refused by validation instead of reaching the version append: %v", err)
+	}
+	if settings.writes != 1 {
+		t.Fatalf("writes=%d want 1: the write itself must have succeeded for this test to mean anything", settings.writes)
 	}
 }

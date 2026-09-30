@@ -42,6 +42,22 @@ func (s *Service) GetEconomyConfig() (EconomyConfig, error) {
 //  3. persist and invalidate the cache, so the next read sees the new value;
 //  4. append the version row.
 //
+// Step 2 is two rules, not one, and both must pass:
+//
+//   - ValidateEconomyConfig: is every configured field individually legal?
+//   - ValidateReachability: does the earn loop reach the spend loop — does the
+//     lowest single award buy the cheapest item, and does no price exceed the
+//     largest single award? This is the write-path half of the check whose
+//     load-path half is a warning; see reachability.go for why the two are
+//     separate functions with different severities.
+//
+// The consequence of holding the reachability rule here is worth knowing before
+// the first admin tries the screen: the shipped defaults break it, the merge
+// base is the stored config, and a merge never shrinks the set of violations —
+// so while the stored config is non-compliant, every write is refused until one
+// request carries compliant figures. That is the intended forcing function; it
+// is also why the admin screen will have to send the figures together.
+//
 // Step 4 is a second statement rather than part of the same transaction:
 // system.Repository.SetSystemSetting takes its own *gorm.DB and exposes no way
 // to enlist in a caller's transaction, and internal/system is not ours to
@@ -59,6 +75,9 @@ func (s *Service) UpdateEconomyConfig(req UpdateEconomyConfigRequest, actorUserI
 
 	next := applyEconomyConfigUpdate(current, req)
 	if err := ValidateEconomyConfig(next); err != nil {
+		return EconomyConfig{}, err
+	}
+	if err := ValidateReachability(next); err != nil {
 		return EconomyConfig{}, err
 	}
 

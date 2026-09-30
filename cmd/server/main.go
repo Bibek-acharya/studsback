@@ -526,6 +526,29 @@ func main() {
 	// repository is what lets the unlock path open the transaction that spans
 	// the spend and the entitlement.
 	coinsConfig := coins.NewConfigStore(systemRepo)
+
+	// The coin reachability invariant is checked once, here, and only logged.
+	//
+	// This is deliberately NOT a logger.Fatal and deliberately not an error
+	// return. The stored coin_economy row and DefaultEconomyConfig both break
+	// both rules today (25 vs 40, 90 vs 80) and every gate is off, so a fatal
+	// check here would refuse to start the whole server over the deferred
+	// StudsToken pricing decision — taking the features that do work down with
+	// it. One named, greppable warning per boot is the right severity. The
+	// full reasoning, and the three things that would have to be true before
+	// promoting this to fatal, are in the "WHY THIS IS A WARNING AND NOT AN
+	// ERROR" block on coins.ReachabilityWarning — read it before changing this
+	// to a Fatal.
+	//
+	// A read failure is a warning too, for the same reason: this check is
+	// observability, and it must not become a new way for the server to refuse
+	// to boot. The economy still works if this line never prints.
+	if cfg, err := coinsConfig.Load(); err != nil {
+		logger.Warn("Coin economy reachability check did not run: config unreadable", "error", err)
+	} else if warning := coins.ReachabilityWarning(cfg); warning != "" {
+		logger.Warn(warning)
+	}
+
 	coinsRepo := coins.NewRepository(db)
 	coinsService := coins.NewServiceWithRepository(coinsRepo, coinsConfig, coins.NewVersionStore(db))
 	coinsHandler := coins.NewHandler(coinsService)

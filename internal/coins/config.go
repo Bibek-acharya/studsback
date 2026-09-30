@@ -332,6 +332,14 @@ func (a AwardConfig) instalmentProduct() (int64, bool) {
 // (03-api-contract.md §3.1). It is a pure function with no database, so the
 // rules are testable on their own.
 //
+// SCOPE: this is the FIELD-LEVEL validator. It is not the whole of what makes a
+// config acceptable. The reachability invariant — the lowest single award must
+// buy the cheapest item, and no price may exceed the largest single award — is
+// ValidateReachability in reachability.go, enforced on the same admin write and
+// deliberately not folded in here. Read that function's comment before treating
+// a nil error from this one as "the economy is sound": it means every field is
+// individually legal, not that the loop closes.
+//
 // The rules, in the order they are reported:
 //
 //   - every amount is a non-negative integer within the bigint-safe ceiling
@@ -514,6 +522,15 @@ func NewConfigStore(settings SettingStore) *ConfigStore {
 // package, so unreadable storage means external tampering. The consequence is
 // that recovery needs a database-level fix — noted rather than worked around
 // with a heuristic that would hide the tamper.
+//
+// Load DOES NOT ENFORCE THE REACHABILITY INVARIANT, and that is a decision
+// rather than an oversight. The stored row and the defaults it falls back to
+// both break it today (see reachability.go), so enforcing here would mean the
+// server refuses to start over an economy that has never been launched. It is
+// enforced as a hard error on the admin write instead, and reported as a named
+// startup warning by ReachabilityWarning. Do not add a call to
+// ValidateReachability to this function without reading the "WHY THIS IS A
+// WARNING AND NOT AN ERROR" block in reachability.go first.
 func (s *ConfigStore) Load() (EconomyConfig, error) {
 	now := s.now()
 	if cfg, ok := s.cache.get(now); ok {
