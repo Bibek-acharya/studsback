@@ -75,32 +75,69 @@ func approvalPendingEmail(name, kind string) (string, string) {
 	return subject, body
 }
 
+// studentRole is the ONLY authorization role the two public self-registration
+// paths may mint. Both are reachable without any credential, so neither is
+// allowed to take a role from the request: the session token is minted from the
+// persisted row and every middleware.RequireRole in the deployment reads the
+// claim out of it. The privileged roles come from SuperadminRegister (behind an
+// access code), InstitutionRegister and ScholarshipProviderRegister, each of
+// which sets its own role server-side.
+const studentRole = "student"
+
 func (s *Service) Register(req RegisterRequest) (*RegisterResponse, error) {
 	if s.emailExistsAcrossTypes(req.Email) {
 		return nil, errors.New("An account with this email already exists")
 	}
 
+	// ── the authorization role is SERVER-OWNED ─────────────────────────────────
+	//
+	// RegisterRequest binds a `role` field out of the request body, and that
+	// field is the onboarding PERSONA the student picked while signing up. It
+	// belongs on Preferences.Role and nowhere else.
+	//
+	// It used to be persisted straight onto User.Role, which made every
+	// RequireRole in the deployment self-service: the session token is minted
+	// from this row (Login, VerifyOTP, GoogleCallback) and middleware.RequireRole
+	// reads the claim straight out of it, so an anonymous caller could POST
+	// /api/v1/auth/register with {"role":"superadmin"}, verify the OTP and be
+	// holding a superadmin JWT. That walked past every admin group — including
+	// GET /api/v1/admin/mock-tests/:id, which returns a paper's full answer key
+	// with no coin check, and the study-resource draft listing — for the price
+	// of a free account.
+	//
+	// The privileged roles have their own sign-ups that set their own role
+	// behind an access code or an approval flow: SuperadminRegister,
+	// InstitutionRegister and ScholarshipProviderRegister. There is no
+	// legitimate reason for the public student path to accept one.
 	user := User{
 		Email:     req.Email,
 		FirstName: req.FirstName,
 		LastName:  req.LastName,
-		Role:      req.Role,
+		Role:      studentRole,
 	}
 
-	if user.Role == "" {
-		user.Role = "student"
+	// The persona the client chose is display data and is never consulted for
+	// authorization. It is preserved INDEPENDENTLY of the education level,
+	// because education_level has no `binding:"required"` and a request may
+	// legitimately omit it: nesting the persona inside that guard silently
+	// dropped it for exactly the registrations that were thinnest, which is how
+	// a security fix quietly becomes a data-loss fix. An absent persona keeps
+	// the historical "student" default rather than becoming an empty string.
+	persona := req.Role
+	if persona == "" {
+		persona = studentRole
 	}
-
+	prefs := &Preferences{Role: persona}
 	if req.EducationLevel != "" {
 		now := time.Now()
-		user.Preferences = &Preferences{
-			Role: user.Role,
-			Preferences: map[string]interface{}{
-				"education_level": req.EducationLevel,
-			},
-			CompletedAt: &now,
+		prefs.Preferences = map[string]interface{}{
+			"education_level": req.EducationLevel,
 		}
+		// CompletedAt means onboarding finished, so it belongs to the branch
+		// that actually carries the onboarding data and not to the row itself.
+		prefs.CompletedAt = &now
 	}
+	user.Preferences = prefs
 
 	if err := user.HashPassword(req.Password); err != nil {
 		return nil, errors.New("Failed to hash password")
@@ -464,7 +501,7 @@ func (s *Service) GoogleLoginOrRegister(googleID, email, givenName, familyName, 
 			FirstName: givenName,
 			LastName:  familyName,
 			GoogleID:  &googleID,
-			Role:      "student",
+			Role:      studentRole,
 		}
 		if err := s.repo.CreateUser(user); err != nil {
 			return nil, errors.New("Failed to create user: " + err.Error())
