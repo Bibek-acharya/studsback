@@ -140,7 +140,17 @@ func (s *Service) GetUniversityByID(id uint) (*UniversityResponse, []UniversityC
 	return &response, collegeResponses, nil
 }
 
-func (s *Service) AdminGetUniversityByID(id uint) (*UniversityResponse, []UniversityCollegeResponse, error) {
+// AdminGetUniversityByID is the privileged single read: it goes through
+// FindByIDFull, not the public FindByID, so it returns rows the public route
+// does not. Platform-admin only; see access.go.
+//
+// The public GetUniversityByID above is NOT guarded and must not be — it is
+// mounted on /api/v1/universities/:id with no auth at all.
+func (s *Service) AdminGetUniversityByID(v Viewer, id uint) (*UniversityResponse, []UniversityCollegeResponse, error) {
+	if err := s.authorizeCatalogue(v, "university admin read"); err != nil {
+		return nil, nil, err
+	}
+
 	uni, err := s.repo.FindByIDFull(id)
 	if err != nil {
 		return nil, nil, err
@@ -257,7 +267,14 @@ func (s *Service) GetUniversityScholarships(id uint, page, limit int, level stri
 	return scholarships[start:end], total, nil
 }
 
-func (s *Service) CreateUniversity(req CreateUniversityRequest) (*University, error) {
+// CreateUniversity adds a row to the platform's university directory.
+// Platform-admin only; see access.go. University has no owner column, so not
+// even an admin-created record records who added it.
+func (s *Service) CreateUniversity(v Viewer, req CreateUniversityRequest) (*University, error) {
+	if err := s.authorizeCatalogue(v, "university create"); err != nil {
+		return nil, err
+	}
+
 	req.Name = strings.TrimSpace(req.Name)
 	if req.Name == "" {
 		return nil, ErrNameRequired
@@ -405,7 +422,15 @@ func (s *Service) CreateUniversity(req CreateUniversityRequest) (*University, er
 	return uni, nil
 }
 
-func (s *Service) UpdateUniversity(id uint, req UpdateUniversityRequest) (*University, error) {
+// UpdateUniversity rewrites a university directory entry. Platform-admin only.
+// Not merely because the route says /admin: the fields it can set include
+// Verified, Popular, Rank and ReviewCount, which are the platform's curation of a
+// public reference page. access.go.
+func (s *Service) UpdateUniversity(v Viewer, id uint, req UpdateUniversityRequest) (*University, error) {
+	if err := s.authorizeCatalogue(v, "university update"); err != nil {
+		return nil, err
+	}
+
 	uni, err := s.repo.FindByIDFull(id)
 	if err != nil {
 		return nil, err
@@ -573,7 +598,14 @@ func (s *Service) UpdateUniversity(id uint, req UpdateUniversityRequest) (*Unive
 	return uni, nil
 }
 
-func (s *Service) DeleteUniversity(id uint) error {
+// DeleteUniversity soft-deletes a university. Platform-admin only. Soft, so the
+// row is recoverable in the database, but there is no restore route and no record
+// of who deleted it.
+func (s *Service) DeleteUniversity(v Viewer, id uint) error {
+	if err := s.authorizeCatalogue(v, "university delete"); err != nil {
+		return err
+	}
+
 	_, err := s.repo.FindByIDFull(id)
 	if err != nil {
 		return err

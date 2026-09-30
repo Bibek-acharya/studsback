@@ -242,7 +242,27 @@ func (h *Handler) Suggest(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"suggestions": suggestions})
 }
 
+// Reindex triggers a full embedding reindex across the platform.
+//
+// The role check comes FIRST, before embedding.IsEnabled(), and that ordering is
+// deliberate: IsEnabled is a configuration flag and the disabled branch answers
+// 202 with a message naming it, so checking afterwards would let any
+// authenticated tenant read the platform's embedding configuration by branching
+// on the status code. access.go has the full argument.
+//
+// The force flag is the destructive one — ReindexAllForce nulls every embedding
+// column on all seventeen tables and re-embeds them, including other tenants'
+// rows. Both flags are refused together; there is no safe variant worth
+// separating.
 func (h *Handler) Reindex(c *gin.Context) {
+	force := c.DefaultQuery("force", "false") == "true"
+
+	viewer := ViewerFrom(c)
+	if err := h.searchService.authorizeReindex(viewer, force); err != nil {
+		response.Error(c, http.StatusForbidden, ErrForbidden.Error())
+		return
+	}
+
 	if !embedding.IsEnabled() {
 		response.Success(c, http.StatusAccepted, "Embedding is not enabled. Set EMBEDDING_ENABLED=true in .env", nil)
 		return
@@ -252,7 +272,6 @@ func (h *Handler) Reindex(c *gin.Context) {
 		return
 	}
 	db := config.GetDB()
-	force := c.DefaultQuery("force", "false") == "true"
 	go func() {
 		var err error
 		if force {
@@ -271,7 +290,19 @@ func (h *Handler) Reindex(c *gin.Context) {
 	response.Success(c, http.StatusAccepted, msg, nil)
 }
 
+// ReindexStatus reports progress on the running sweep — which table, how many
+// rows processed, and the last error.
+//
+// Platform-admin only, on the same reasoning as the reindex itself: it is the
+// operational half of the same feature, it names a concrete table and row count
+// for a sweep spanning every tenant, and there is no non-admin consumer of it.
+// Leaving it on roleMW would have meant closing the door on the operation and
+// leaving the window open on its progress.
 func (h *Handler) ReindexStatus(c *gin.Context) {
+	if err := h.searchService.authorizeReindex(ViewerFrom(c), false); err != nil {
+		response.Error(c, http.StatusForbidden, ErrForbidden.Error())
+		return
+	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": embedding.GetReindexProgress()})
 }
 

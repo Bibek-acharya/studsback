@@ -1,6 +1,7 @@
 package university
 
 import (
+	"errors"
 	"strconv"
 	"strings"
 
@@ -16,6 +17,23 @@ type Handler struct {
 
 func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
+}
+
+// forbidden reports a service-layer authorisation refusal as 403, and false for
+// every other error so the caller falls through to its own handling.
+//
+// The handlers below already had a status chosen for the error they expected —
+// 404 for a missing row, 400 for a rejected field — and a role refusal arriving
+// at the same branch would have been reported as one of those. The middleware
+// normally answers first; this is the service repeating the check so a widened
+// gate cannot re-open the route, and when it is the thing refusing, the answer
+// has to be 403 to match. See access.go.
+func forbidden(c *gin.Context, err error) bool {
+	if errors.Is(err, ErrForbidden) {
+		response.Error(c, 403, ErrForbidden.Error())
+		return true
+	}
+	return false
 }
 
 func (h *Handler) GetUniversityFilterCounts(c *gin.Context) {
@@ -83,8 +101,11 @@ func (h *Handler) AdminGetUniversityByID(c *gin.Context) {
 		return
 	}
 
-	uni, colleges, err := h.service.AdminGetUniversityByID(uint(id))
+	uni, colleges, err := h.service.AdminGetUniversityByID(ViewerFrom(c), uint(id))
 	if err != nil {
+		if forbidden(c, err) {
+			return
+		}
 		response.Error(c, 404, "University not found")
 		return
 	}
@@ -211,7 +232,7 @@ func (h *Handler) CreateUniversity(c *gin.Context) {
 
 	req.Description = sanitize.HTML(req.Description)
 
-	uni, err := h.service.CreateUniversity(req)
+	uni, err := h.service.CreateUniversity(ViewerFrom(c), req)
 	if err != nil {
 		if err == ErrNameRequired {
 			response.Error(c, 400, "name is required")
@@ -244,8 +265,11 @@ func (h *Handler) UpdateUniversity(c *gin.Context) {
 		req.Description = &sanitized
 	}
 
-	uni, err := h.service.UpdateUniversity(uint(id), req)
+	uni, err := h.service.UpdateUniversity(ViewerFrom(c), uint(id), req)
 	if err != nil {
+		if forbidden(c, err) {
+			return
+		}
 		if err == ErrNameRequired {
 			response.Error(c, 400, "name is required")
 			return
@@ -266,8 +290,11 @@ func (h *Handler) DeleteUniversity(c *gin.Context) {
 		return
 	}
 
-	err = h.service.DeleteUniversity(uint(id))
+	err = h.service.DeleteUniversity(ViewerFrom(c), uint(id))
 	if err != nil {
+		if forbidden(c, err) {
+			return
+		}
 		response.Error(c, 404, "University not found")
 		return
 	}

@@ -20,6 +20,28 @@ func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
 }
 
+// forbidden reports a service-layer authorisation refusal as 403, and reports
+// false for every other error so the caller can fall through to its own
+// handling.
+//
+// It exists because the handlers below already had a status code chosen for the
+// error they were written to handle — 500 for a query failure, 404 for a missing
+// record, 400 for a rejected status string — and a role refusal arriving at the
+// same branch would have been reported as one of those. Answering a forbidden
+// call with 500 is not a security hole, but it makes the refusal invisible in
+// production metrics and tells the caller the wrong thing about why it failed.
+//
+// The middleware should have answered first. This is the service repeating the
+// check so a widened gate cannot re-open these routes, and when it is the thing
+// that refuses, the answer has to be 403 to match.
+func forbidden(c *gin.Context, err error) bool {
+	if errors.Is(err, ErrForbidden) {
+		response.Error(c, http.StatusForbidden, ErrForbidden.Error())
+		return true
+	}
+	return false
+}
+
 func (h *Handler) SubmitContactInquiry(c *gin.Context) {
 	var req ContactInquiryRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -42,8 +64,11 @@ func (h *Handler) GetContactInquiries(c *gin.Context) {
 	status := c.Query("status")
 	inquiryType := c.Query("type")
 
-	inquiries, total, err := h.service.GetContactInquiries(page, limit, status, inquiryType)
+	inquiries, total, err := h.service.GetContactInquiriesAsAdmin(ViewerFrom(c), page, limit, status, inquiryType)
 	if err != nil {
+		if forbidden(c, err) {
+			return
+		}
 		response.Error(c, http.StatusInternalServerError, "Failed to retrieve inquiries")
 		return
 	}
@@ -70,8 +95,11 @@ func (h *Handler) GetContactInquiryByID(c *gin.Context) {
 		return
 	}
 
-	inquiry, err := h.service.GetContactInquiryByID(uint(id))
+	inquiry, err := h.service.GetContactInquiryByIDAsAdmin(ViewerFrom(c), uint(id))
 	if err != nil {
+		if forbidden(c, err) {
+			return
+		}
 		response.Error(c, http.StatusNotFound, "Inquiry not found")
 		return
 	}
@@ -92,8 +120,11 @@ func (h *Handler) UpdateContactInquiryStatus(c *gin.Context) {
 		return
 	}
 
-	inquiry, err := h.service.UpdateContactInquiryStatus(uint(id), req.Status)
+	inquiry, err := h.service.UpdateContactInquiryStatusAsAdmin(ViewerFrom(c), uint(id), req.Status)
 	if err != nil {
+		if forbidden(c, err) {
+			return
+		}
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -108,7 +139,10 @@ func (h *Handler) DeleteContactInquiry(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.DeleteContactInquiry(uint(id)); err != nil {
+	if err := h.service.DeleteContactInquiryAsAdmin(ViewerFrom(c), uint(id)); err != nil {
+		if forbidden(c, err) {
+			return
+		}
 		if err.Error() == "record not found" {
 			response.Error(c, http.StatusNotFound, "Inquiry not found")
 			return
@@ -133,8 +167,11 @@ func (h *Handler) GetAds(c *gin.Context) {
 		active = &val
 	}
 
-	ads, total, err := h.service.GetAds(page, limit, pageFilter, positionFilter, active)
+	ads, total, err := h.service.GetAds(ViewerFrom(c), page, limit, pageFilter, positionFilter, active)
 	if err != nil {
+		if forbidden(c, err) {
+			return
+		}
 		response.Error(c, http.StatusInternalServerError, "Failed to retrieve ads")
 		return
 	}
@@ -179,8 +216,11 @@ func (h *Handler) GetAdByID(c *gin.Context) {
 		return
 	}
 
-	ad, err := h.service.GetAdByID(uint(id))
+	ad, err := h.service.GetAdByID(ViewerFrom(c), uint(id))
 	if err != nil {
+		if forbidden(c, err) {
+			return
+		}
 		response.Error(c, http.StatusNotFound, "Ad not found")
 		return
 	}
@@ -195,8 +235,11 @@ func (h *Handler) CreateAd(c *gin.Context) {
 		return
 	}
 
-	ad, err := h.service.CreateAd(req)
+	ad, err := h.service.CreateAd(ViewerFrom(c), req)
 	if err != nil {
+		if forbidden(c, err) {
+			return
+		}
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -217,8 +260,11 @@ func (h *Handler) UpdateAd(c *gin.Context) {
 		return
 	}
 
-	ad, err := h.service.UpdateAd(uint(id), req)
+	ad, err := h.service.UpdateAd(ViewerFrom(c), uint(id), req)
 	if err != nil {
+		if forbidden(c, err) {
+			return
+		}
 		if err.Error() == "record not found" {
 			response.Error(c, http.StatusNotFound, "Ad not found")
 			return
@@ -237,7 +283,10 @@ func (h *Handler) DeleteAd(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.DeleteAd(uint(id)); err != nil {
+	if err := h.service.DeleteAd(ViewerFrom(c), uint(id)); err != nil {
+		if forbidden(c, err) {
+			return
+		}
 		if err.Error() == "record not found" {
 			response.Error(c, http.StatusNotFound, "Ad not found")
 			return

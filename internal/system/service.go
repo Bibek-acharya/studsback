@@ -62,7 +62,13 @@ func (s *Service) SubmitContactInquiry(req ContactInquiryRequest) (*ContactInqui
 	return inquiry, nil
 }
 
-func (s *Service) GetContactInquiries(page, limit int, status, inquiryType string) ([]ContactInquiry, int64, error) {
+// GetContactInquiriesAsAdmin is the platform-wide inbox listing. Platform-admin
+// only; see access.go for why, and for why the institution principal that needs
+// an inbox already has its own scoped route.
+func (s *Service) GetContactInquiriesAsAdmin(v Viewer, page, limit int, status, inquiryType string) ([]ContactInquiry, int64, error) {
+	if err := s.authorizePlatformAdmin(v, "inquiry list"); err != nil {
+		return nil, 0, err
+	}
 	if page < 1 {
 		page = 1
 	}
@@ -73,10 +79,44 @@ func (s *Service) GetContactInquiries(page, limit int, status, inquiryType strin
 	return s.repo.FindContactInquiries(page, limit, status, inquiryType)
 }
 
-func (s *Service) GetContactInquiryByID(id uint) (*ContactInquiry, error) {
+// GetContactInquiryByIDAsAdmin reads one inquiry from the platform-wide inbox.
+// Platform-admin only. 404 for absent, which the handler already returns.
+func (s *Service) GetContactInquiryByIDAsAdmin(v Viewer, id uint) (*ContactInquiry, error) {
+	if err := s.authorizePlatformAdmin(v, "inquiry read"); err != nil {
+		return nil, err
+	}
 	return s.repo.FindContactInquiryByID(id)
 }
 
+// UpdateContactInquiryStatusAsAdmin is the platform-inbox status write:
+// platform-admin only, and the service is the authority. See access.go.
+//
+// UpdateContactInquiryStatus below is the unscoped twin that
+// internal/institution calls. Both exist; they are not interchangeable.
+func (s *Service) UpdateContactInquiryStatusAsAdmin(v Viewer, id uint, status string) (*ContactInquiry, error) {
+	if err := s.authorizePlatformAdmin(v, "inquiry status update"); err != nil {
+		return nil, err
+	}
+	return s.UpdateContactInquiryStatus(id, status)
+}
+
+// UpdateContactInquiryStatus sets the workflow status on an inquiry and notifies
+// the inquirer. It performs NO authorisation of its own.
+//
+// Kept unscoped on purpose, and the reason is a finding rather than an
+// oversight. internal/institution mounts institution.PUT("/inquiries/:id/status")
+// against this method with the id taken straight from the URL and no check that
+// the inquiry belongs to the calling institution, so an institution account can
+// currently move ANY inquiry on the platform into any status and overwrite the
+// internal Notes field. internal/institution is outside the scope of this fix.
+//
+// Until that module is fixed, this method must not be reachable from a
+// tenant-inclusive route. The two callers are therefore deliberately separated:
+// the system module's own /admin route goes through
+// UpdateContactInquiryStatusAsAdmin, which is guarded, and this one is the
+// internal-institution path. Collapsing them would either leave the admin route
+// unguarded or require editing the institution module's route wiring as part of
+// a fix scoped to this one.
 func (s *Service) UpdateContactInquiryStatus(id uint, status string) (*ContactInquiry, error) {
 	validStatuses := map[string]bool{
 		"new": true, "New": true, "read": true, "in_progress": true, "resolved": true, "closed": true, "Closed": true,
@@ -107,10 +147,40 @@ func (s *Service) UpdateContactInquiryStatus(id uint, status string) (*ContactIn
 	return inquiry, nil
 }
 
+// DeleteContactInquiryAsAdmin deletes an inquiry from the platform-wide inbox.
+// Platform-admin only; see access.go.
+//
+// Whether deleting an inquiry should exist at all, be scoped, or keep an audit
+// trail is a product question and is deliberately NOT answered here. What is
+// worth recording: the repository call is already a soft delete
+// (ContactInquiry carries DeletedAt), so the row is not unrecoverable today,
+// but nothing records WHO deleted a visitor's message, and the identifier is
+// entirely unscoped.
+func (s *Service) DeleteContactInquiryAsAdmin(v Viewer, id uint) error {
+	if err := s.authorizePlatformAdmin(v, "inquiry delete"); err != nil {
+		return err
+	}
+	return s.DeleteContactInquiry(id)
+}
+
+// DeleteContactInquiry soft-deletes an inquiry. It performs NO authorisation of
+// its own.
+//
+// Kept unscoped for the same reason, and with the same consequence, as
+// UpdateContactInquiryStatus above: internal/institution mounts
+// institution.DELETE("/inquiries/:id") against it with no ownership check, so an
+// institution account can currently delete ANY visitor's message on the
+// platform, not only the ones addressed to it. See access.go.
 func (s *Service) DeleteContactInquiry(id uint) error {
 	return s.repo.DeleteContactInquiry(id)
 }
 
+// GetInstitutionInquiries is the institution-scoped inbox. It is NOT part of the
+// platform inbox and deliberately takes no Viewer: internal/institution already
+// derives institutionID from the caller's own authenticated account before
+// calling it (getInstID), so the scope is the caller's to get right and is
+// applied in the query. That route is the reason the admin inbox above can be
+// platform-only without locking institutions out of their own messages.
 func (s *Service) GetInstitutionInquiries(institutionID uint, page, limit int, status, inquiryType, search string) ([]ContactInquiry, int64, error) {
 	if page < 1 {
 		page = 1
@@ -121,7 +191,20 @@ func (s *Service) GetInstitutionInquiries(institutionID uint, page, limit int, s
 	return s.repo.FindInstitutionInquiries(institutionID, page, limit, status, inquiryType, search)
 }
 
-func (s *Service) GetAds(page, limit int, pageFilter, positionFilter string, active *bool) ([]Ad, int64, error) {
+// The five ad-config methods below take a Viewer and are platform-admin only;
+// see access.go for why an Ad is first-party site configuration with no tenant
+// column that could scope it.
+//
+// GetActiveAds and TrackAdClick are the deliberate exceptions and take no
+// Viewer: GET /system/ads serves the active placements to anonymous visitors
+// with no auth at all, and a click counter is written by the public page. Gating
+// those would break the ad slots themselves, and they expose nothing privileged
+// — the public route already returns the same rows.
+
+func (s *Service) GetAds(v Viewer, page, limit int, pageFilter, positionFilter string, active *bool) ([]Ad, int64, error) {
+	if err := s.authorizePlatformAdmin(v, "ad list"); err != nil {
+		return nil, 0, err
+	}
 	if page < 1 {
 		page = 1
 	}
@@ -136,11 +219,17 @@ func (s *Service) GetActiveAds(page, position string) ([]Ad, error) {
 	return s.repo.FindActiveAds(page, position)
 }
 
-func (s *Service) GetAdByID(id uint) (*Ad, error) {
+func (s *Service) GetAdByID(v Viewer, id uint) (*Ad, error) {
+	if err := s.authorizePlatformAdmin(v, "ad read"); err != nil {
+		return nil, err
+	}
 	return s.repo.FindAdByID(id)
 }
 
-func (s *Service) CreateAd(req AdRequest) (*Ad, error) {
+func (s *Service) CreateAd(v Viewer, req AdRequest) (*Ad, error) {
+	if err := s.authorizePlatformAdmin(v, "ad create"); err != nil {
+		return nil, err
+	}
 	ad := &Ad{
 		Title:       req.Title,
 		ImageURL:    req.ImageURL,
@@ -177,7 +266,10 @@ func (s *Service) CreateAd(req AdRequest) (*Ad, error) {
 	return ad, nil
 }
 
-func (s *Service) UpdateAd(id uint, req AdRequest) (*Ad, error) {
+func (s *Service) UpdateAd(v Viewer, id uint, req AdRequest) (*Ad, error) {
+	if err := s.authorizePlatformAdmin(v, "ad update"); err != nil {
+		return nil, err
+	}
 	updates := map[string]interface{}{}
 	if req.Title != "" {
 		updates["title"] = req.Title
@@ -229,7 +321,10 @@ func (s *Service) UpdateAd(id uint, req AdRequest) (*Ad, error) {
 	return s.repo.UpdateAd(id, updates)
 }
 
-func (s *Service) DeleteAd(id uint) error {
+func (s *Service) DeleteAd(v Viewer, id uint) error {
+	if err := s.authorizePlatformAdmin(v, "ad delete"); err != nil {
+		return err
+	}
 	return s.repo.DeleteAd(id)
 }
 

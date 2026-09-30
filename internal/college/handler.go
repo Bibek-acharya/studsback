@@ -2,6 +2,7 @@ package college
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"strconv"
@@ -18,6 +19,23 @@ import (
 type Handler struct {
 	service         *Service
 	institutionRepo *institution.Repository
+}
+
+// forbidden reports a service-layer authorisation refusal as 403, and false for
+// every other error so the caller falls through to its own handling.
+//
+// Needed because the college handlers were written with a status chosen for the
+// error they expected — 400 for a rejected field, 404 for a missing row — and a
+// role refusal arriving at the same branch would have been reported as one of
+// those. The middleware normally answers first; this is the service repeating
+// the check so a widened gate cannot re-open the route, and when it is the thing
+// refusing, the answer has to be 403 to match.
+func forbidden(c *gin.Context, err error) bool {
+	if errors.Is(err, ErrForbidden) {
+		response.Error(c, http.StatusForbidden, ErrForbidden.Error())
+		return true
+	}
+	return false
 }
 
 // Rate limiter for log-comparison: max 10 requests per minute per IP
@@ -161,8 +179,11 @@ func (h *Handler) CreateCollege(c *gin.Context) {
 
 	req.Description = sanitize.HTML(req.Description)
 
-	result, err := h.service.CreateCollege(req)
+	result, err := h.service.CreateCollege(ViewerFrom(c), req)
 	if err != nil {
+		if forbidden(c, err) {
+			return
+		}
 		response.Error(c, 400, err.Error())
 		return
 	}
@@ -177,8 +198,11 @@ func (h *Handler) UploadCollegeImage(c *gin.Context) {
 		return
 	}
 
-	urls, err := h.service.UploadCollegeImage(file)
+	urls, err := h.service.UploadCollegeImage(ViewerFrom(c), file)
 	if err != nil {
+		if forbidden(c, err) {
+			return
+		}
 		response.Error(c, 500, "Failed to upload image")
 		return
 	}
@@ -204,8 +228,11 @@ func (h *Handler) UpdateCollege(c *gin.Context) {
 		req.Description = sanitize.HTML(req.Description)
 	}
 
-	result, err := h.service.UpdateCollege(uint(parsedID), req)
+	result, err := h.service.UpdateCollege(ViewerFrom(c), uint(parsedID), req)
 	if err != nil {
+		if forbidden(c, err) {
+			return
+		}
 		response.Error(c, 400, err.Error())
 		return
 	}
@@ -221,7 +248,10 @@ func (h *Handler) DeleteCollege(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.DeleteCollege(uint(parsedID)); err != nil {
+	if err := h.service.DeleteCollege(ViewerFrom(c), uint(parsedID)); err != nil {
+		if forbidden(c, err) {
+			return
+		}
 		response.Error(c, 404, err.Error())
 		return
 	}
@@ -237,8 +267,11 @@ func (h *Handler) ApproveCollege(c *gin.Context) {
 		return
 	}
 
-	result, err := h.service.ApproveCollege(uint(parsedID))
+	result, err := h.service.ApproveCollege(ViewerFrom(c), uint(parsedID))
 	if err != nil {
+		if forbidden(c, err) {
+			return
+		}
 		response.Error(c, 400, err.Error())
 		return
 	}
@@ -254,8 +287,11 @@ func (h *Handler) ToggleCollegeFeatured(c *gin.Context) {
 		return
 	}
 
-	result, err := h.service.ToggleCollegeFeatured(uint(parsedID))
+	result, err := h.service.ToggleCollegeFeatured(ViewerFrom(c), uint(parsedID))
 	if err != nil {
+		if forbidden(c, err) {
+			return
+		}
 		response.Error(c, 404, err.Error())
 		return
 	}
@@ -382,13 +418,25 @@ func (h *Handler) UpdateCollegeLocation(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "Invalid request body")
 		return
 	}
-	if err := h.service.UpdateCollegeLocation(uint(id), req.Latitude, req.Longitude); err != nil {
+	if err := h.service.UpdateCollegeLocation(ViewerFrom(c), uint(id), req.Latitude, req.Longitude); err != nil {
+		if forbidden(c, err) {
+			return
+		}
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
 	response.Success(c, http.StatusOK, "Location updated", gin.H{"id": id, "latitude": req.Latitude, "longitude": req.Longitude})
 }
 
+// UpdateInstitutionCollegeLocation is the route an institution account actually
+// uses to place its own pin, and it is correctly scoped: the college comes off
+// the caller's own institution_users row, never from a path parameter, and a
+// caller with no college attached is refused here.
+//
+// It is behind authMW alone and was already correct before the college access
+// work, which is why it is untouched. The service re-derives the same ownership
+// from the viewer it is handed rather than trusting the id resolved here, so the
+// check does not depend on this handler having gotten it right.
 func (h *Handler) UpdateInstitutionCollegeLocation(c *gin.Context) {
 	userID := c.GetUint("user_id")
 	instUser, err := h.institutionRepo.FindInstitutionUserByID(userID)
@@ -405,7 +453,10 @@ func (h *Handler) UpdateInstitutionCollegeLocation(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "Invalid request body")
 		return
 	}
-	if err := h.service.UpdateCollegeLocation(instUser.CollegeID, req.Latitude, req.Longitude); err != nil {
+	if err := h.service.UpdateCollegeLocation(ViewerFrom(c), instUser.CollegeID, req.Latitude, req.Longitude); err != nil {
+		if forbidden(c, err) {
+			return
+		}
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}

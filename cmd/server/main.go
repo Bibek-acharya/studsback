@@ -482,7 +482,13 @@ func main() {
 	admissionHandler := admission.NewHandler(admissionSvc)
 	authHandler := initModule(auth.NewRepository(db), auth.NewService, auth.NewHandler)
 	collegeRepo := college.NewRepository(db)
-	collegeSvc := college.NewService(collegeRepo)
+	// WithTenantLookup is what lets the college module answer "which college does
+	// this caller administer?" from institution_users.college_id at the SERVICE
+	// layer. The one tenant-scoped rule in that module — the map pin on
+	// PUT /admin/colleges/:id/location — is decided by this, so a route that
+	// takes an arbitrary :id cannot be pointed at somebody else's college. See
+	// internal/college/access.go.
+	collegeSvc := college.NewService(collegeRepo).WithTenantLookup(institutionRepo)
 	collegeHandler := college.NewHandler(collegeSvc, institutionRepo)
 	counsellingHandler := counselling.NewHandler(counselling.NewService(counselling.NewRepository(db), notificationSvc))
 
@@ -730,6 +736,35 @@ func main() {
 	authMW := middleware.Auth()
 	roleMW := middleware.RequireRole("admin", "super_admin", "scholarship_provider", "scholarship-provider", "Scholarship Provider", "scholarship_provider_subuser", "institution")
 
+	// Module-local gates for the four modules audited behind roleMW.
+	//
+	// roleMW is a multi-tenant list being used as an authorisation boundary, and
+	// for these four it granted too much: a scholarship_provider or institution
+	// account could read every visitor's contact message on the platform, rewrite
+	// site-wide ad and landing configuration, add and delete colleges and
+	// universities, and trigger a full embedding reindex that nulls every
+	// embedding column on the platform. roleMW is left exactly as it is — 17
+	// modules are wired to it, each configured for its own reasons, and narrowing
+	// it globally would break all of them.
+	//
+	// Each list below is built from the module's own PlatformAdminRoles() rather
+	// than being spelled out here, so the middleware at the edge and the
+	// service-layer checks in the module cannot drift apart. The service is the
+	// authority in all four: these gates are the cheaper first refusal, and a
+	// module handed the wide roleMW at the call site is still refused inside.
+	//
+	// See internal/{system,college,university,search}/access.go for the argument
+	// each rule rests on.
+	//
+	// college is deliberately absent from this list. Its one legitimate non-admin
+	// principal — an institution account moving its OWN college's map pin, keyed on
+	// institution_users.college_id — has to stay reachable, so that module decides
+	// per-record in the service instead of per-role here. See
+	// internal/college/access.go.
+	systemAdminRoleMW := middleware.RequireRole(system.PlatformAdminRoles()...)
+	universityAdminRoleMW := middleware.RequireRole(university.PlatformAdminRoles()...)
+	searchAdminRoleMW := middleware.RequireRole(search.PlatformAdminRoles()...)
+
 	usageTracker := analytics.NewUsageTracker(30 * time.Minute)
 	router.Use(usageTracker.Middleware())
 	analyticsHandler := analytics.NewHandler(analytics.NewService(db, usageTracker))
@@ -752,10 +787,10 @@ func main() {
 	scholarshipprovider.RegisterPublicRoutes(router, scholarshipPHandler)
 	scholarshipprovider.RegisterMessageRoutes(router, authMW, scholarshipPHandler)
 	studentdashboard.RegisterRoutes(router, authMW, roleMW, studentDashHandler)
-	system.RegisterRoutes(router, authMW, roleMW, systemHandler)
+	system.RegisterRoutes(router, authMW, roleMW, systemAdminRoleMW, systemHandler)
 	tools.RegisterRoutes(router, authMW, roleMW, toolsHandler)
-	university.RegisterRoutes(router, authMW, roleMW, universityHandler)
-	search.RegisterRoutes(router, authMW, roleMW, searchHandler)
+	university.RegisterRoutes(router, authMW, roleMW, universityAdminRoleMW, universityHandler)
+	search.RegisterRoutes(router, authMW, roleMW, searchAdminRoleMW, searchHandler)
 	chat.RegisterRoutes(router, chatHandler)
 	ai.RegisterRoutes(router, aiHandler)
 	location.RegisterRoutes(router, locationHandler)

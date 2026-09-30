@@ -14,10 +14,25 @@ import (
 
 type Service struct {
 	repo *Repository
+	// tenants answers "which college does this caller administer?" from
+	// institution_users.college_id. It is the field every non-admin rule in
+	// access.go turns on, and it is an interface so that rule can be tested
+	// against a stub. Nil in a service built without it, in which case
+	// TenantCollegeID returns 0 and every non-admin caller is denied — access.go
+	// explains why that is the safe direction.
+	tenants TenantCollegeLookup
 }
 
 func NewService(repo *Repository) *Service {
 	return &Service{repo: repo}
+}
+
+// WithTenantLookup supplies the institution_users lookup that access.go needs.
+// Called by cmd/server/main.go, which already builds an institution.Repository
+// and passes it to college.NewHandler.
+func (s *Service) WithTenantLookup(tenants TenantCollegeLookup) *Service {
+	s.tenants = tenants
+	return s
 }
 
 func (s *Service) GetColleges(filters CollegeFilters) (*CollegeListResponse, error) {
@@ -56,7 +71,14 @@ func (s *Service) GetCollegeByID(id uint) (*CollegeResponse, error) {
 	return &resp, nil
 }
 
-func (s *Service) CreateCollege(req CreateCollegeRequest) (*CollegeResponse, error) {
+// CreateCollege adds a row to the platform catalogue. Platform-admin only; see
+// access.go for why a college is a first-party catalogue entry with no tenant
+// column of its own.
+func (s *Service) CreateCollege(v Viewer, req CreateCollegeRequest) (*CollegeResponse, error) {
+	if err := s.authorizeCatalogue(v, "college create"); err != nil {
+		return nil, err
+	}
+
 	var featuredPrograms, amenities, profileTags []byte
 	var err error
 
@@ -123,7 +145,13 @@ func (s *Service) CreateCollege(req CreateCollegeRequest) (*CollegeResponse, err
 	return &resp, nil
 }
 
-func (s *Service) UploadCollegeImage(file *multipart.FileHeader) ([]string, error) {
+// UploadCollegeImage stores an image for the college editor. Platform-admin
+// only, and the check is first so a refused caller does not get to push bytes
+// into the object store.
+func (s *Service) UploadCollegeImage(v Viewer, file *multipart.FileHeader) ([]string, error) {
+	if err := s.authorizeCatalogue(v, "college image upload"); err != nil {
+		return nil, err
+	}
 	ct := file.Header.Get("Content-Type")
 	if !strings.HasPrefix(ct, "image/") {
 		return nil, fmt.Errorf("only image files are allowed")
@@ -137,7 +165,14 @@ func (s *Service) UploadCollegeImage(file *multipart.FileHeader) ([]string, erro
 	return []string{url}, nil
 }
 
-func (s *Service) UpdateCollege(id uint, req UpdateCollegeRequest) (*CollegeResponse, error) {
+// UpdateCollege rewrites a college profile. Platform-admin only, and not merely
+// because the route is called /admin: the fields it can set include Verified,
+// Claimed, Featured, Popular, Rating and Reviews, which are the platform's
+// curation of the catalogue rather than anything an institution owns. access.go.
+func (s *Service) UpdateCollege(v Viewer, id uint, req UpdateCollegeRequest) (*CollegeResponse, error) {
+	if err := s.authorizeCatalogue(v, "college update"); err != nil {
+		return nil, err
+	}
 	college, err := s.repo.FindByID(id)
 	if err != nil {
 		return nil, errors.New("college not found")
@@ -244,7 +279,13 @@ func (s *Service) UpdateCollege(id uint, req UpdateCollegeRequest) (*CollegeResp
 	return &resp, nil
 }
 
-func (s *Service) DeleteCollege(id uint) error {
+// DeleteCollege removes a college from the catalogue. Platform-admin only. It
+// is a soft delete (College carries DeletedAt), so a mistake here is recoverable
+// in the database but not from the API — there is no restore route.
+func (s *Service) DeleteCollege(v Viewer, id uint) error {
+	if err := s.authorizeCatalogue(v, "college delete"); err != nil {
+		return err
+	}
 	_, err := s.repo.FindByID(id)
 	if err != nil {
 		return errors.New("college not found")
@@ -257,7 +298,11 @@ func (s *Service) DeleteCollege(id uint) error {
 	return nil
 }
 
-func (s *Service) ApproveCollege(id uint) (*CollegeResponse, error) {
+// ApproveCollege is moderation. Platform-admin only.
+func (s *Service) ApproveCollege(v Viewer, id uint) (*CollegeResponse, error) {
+	if err := s.authorizeCatalogue(v, "college approve"); err != nil {
+		return nil, err
+	}
 	college, err := s.repo.FindByID(id)
 	if err != nil {
 		return nil, errors.New("college not found")
@@ -280,7 +325,11 @@ func (s *Service) ApproveCollege(id uint) (*CollegeResponse, error) {
 	return &resp, nil
 }
 
-func (s *Service) ToggleCollegeFeatured(id uint) (*CollegeResponse, error) {
+// ToggleCollegeFeatured is curation. Platform-admin only.
+func (s *Service) ToggleCollegeFeatured(v Viewer, id uint) (*CollegeResponse, error) {
+	if err := s.authorizeCatalogue(v, "college featured toggle"); err != nil {
+		return nil, err
+	}
 	_, err := s.repo.FindByID(id)
 	if err != nil {
 		return nil, errors.New("college not found")
@@ -400,7 +449,23 @@ func (s *Service) GetMapColleges(north, south, east, west float64) ([]CollegeMap
 	return dtos, nil
 }
 
-func (s *Service) UpdateCollegeLocation(id uint, lat, lng float64) error {
+// UpdateCollegeLocation moves a college's map pin.
+//
+// The ONE tenant-scoped rule in this module, and the reason the module is not
+// simply admin-only: a platform operator may move any college's pin, and an
+// institution account may move its own, where "its own" is decided by
+// institution_users.college_id. Before this took a Viewer, the route took an
+// arbitrary :id and sat behind the shared roleMW, so any institution account
+// could move any college's pin and corrupt a competitor's position in the
+// find-college map.
+//
+// The institution's dedicated /institution/college/location route is untouched
+// and still resolves the college from its own account, so nothing an institution
+// legitimately did here stops working.
+func (s *Service) UpdateCollegeLocation(v Viewer, id uint, lat, lng float64) error {
+	if err := s.authorizeLocation(v, id); err != nil {
+		return err
+	}
 	if lat < -90 || lat > 90 || lng < -180 || lng > 180 {
 		return errors.New("invalid coordinates: lat -90..90, lng -180..180")
 	}

@@ -165,7 +165,10 @@ func carouselRouter(t *testing.T, db *gorm.DB) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	passThrough := func(c *gin.Context) { c.Next() }
-	RegisterRoutes(r, passThrough, passThrough, NewHandler(NewService(NewRepository(db), nil)))
+	// The third argument is the module's own admin gate, which covers the inquiry
+	// inbox and the ad config only. This test exercises the public carousel
+	// surface, so it is passed through.
+	RegisterRoutes(r, passThrough, passThrough, passThrough, NewHandler(NewService(NewRepository(db), nil)))
 	return r
 }
 

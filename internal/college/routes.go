@@ -2,6 +2,30 @@ package college
 
 import "github.com/gin-gonic/gin"
 
+// RegisterRoutes mounts the public find-college surface, the college-catalogue
+// admin surface, and the institution's own location route.
+//
+// roleMW is passed in and is deliberately still the shared list from
+// cmd/server/main.go. That gate is
+// RequireRole("admin", "super_admin", "scholarship_provider", …, "institution"),
+// and narrowing it is NOT the fix here, for a reason specific to this module: an
+// institution account is a legitimate principal for one of these routes. It
+// administers a college, institution_users.college_id says which one, and
+// PUT /admin/colleges/:id/location has to stay reachable by that account or the
+// capability internal/institution and the institution dashboard already depend on
+// stops working. access.go has the full argument.
+//
+// So the role gate stays wide and the DECISION moves into the service, which is
+// the shape the jobs module already uses for a tenant-scoped route. The service
+// compares the college in the URL against the caller's own college and refuses
+// with 403 when they differ, and every catalogue route that no tenant owns is
+// platform-admin only there. TestCollegeLocationIsTenantScoped pins both halves —
+// a guard that only denied would pass every negative test here while breaking the
+// product.
+//
+// The service is the authority, not this file: passing a wider roleMW at the call
+// site cannot re-open anything, because nothing above the handler reads the role.
+// TestCollegeGateCannotBeWidenedByTheCaller pins that.
 func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 	if h == nil {
 		return

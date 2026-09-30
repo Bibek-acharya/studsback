@@ -58,7 +58,11 @@ func bannerRouter(t *testing.T, db *gorm.DB, role string) *gin.Engine {
 	})
 	passThrough := func(c *gin.Context) { c.Next() }
 	sysH := system.NewHandler(system.NewService(system.NewRepository(db), nil))
-	system.RegisterRoutes(r, passThrough, passThrough, sysH)
+	// Third gate argument is the system module's own admin gate (inbox + ads,
+	// built from system.PlatformAdminRoles in production). Passed through here
+	// because this test mounts the public notification/banner surface, which is
+	// not part of that gate.
+	system.RegisterRoutes(r, passThrough, passThrough, passThrough, sysH)
 	notifH := notification.NewHandler(notification.NewService(db))
 	notifH.RegisterRoutes(r.Group("/api/v1"), middleware.RequireRole("superadmin", "super_admin"))
 	return r
