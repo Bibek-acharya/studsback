@@ -96,7 +96,7 @@ func TestSubmitApplicationNotifiesAdmins(t *testing.T) {
 	notif := &captureNotifier{Audience: []notification.Ref{{Type: "user", ID: 1}}}
 	svc := NewServiceWithDB(NewRepository(db), db, notif)
 
-	if _, err := svc.SubmitApplication(job.ID, "Ada Lovelace", "ada@example.com", "9800000000", "resumes/r.pdf", ""); err != nil {
+	if _, err := svc.SubmitApplication(job.ID, "Ada Lovelace", "ada@example.com", "9800000000", "resumes/r.pdf", "", adminViewer().UserID); err != nil {
 		t.Fatalf("submit: %v", err)
 	}
 
@@ -121,7 +121,7 @@ func TestSubmitApplicationSkipsWhenAudienceEmpty(t *testing.T) {
 	notif := &captureNotifier{}
 	svc := NewServiceWithDB(NewRepository(db), db, notif)
 
-	if _, err := svc.SubmitApplication(job.ID, "Ada Lovelace", "ada@example.com", "9800000000", "resumes/r.pdf", ""); err != nil {
+	if _, err := svc.SubmitApplication(job.ID, "Ada Lovelace", "ada@example.com", "9800000000", "resumes/r.pdf", "", adminViewer().UserID); err != nil {
 		t.Fatalf("submit: %v", err)
 	}
 
@@ -143,7 +143,7 @@ func TestUpdateApplicationStatusNotifiesApplicant(t *testing.T) {
 	notif := &captureNotifier{}
 	svc := NewServiceWithDB(NewRepository(db), db, notif)
 
-	if _, err := svc.UpdateApplicationStatus(app.ID, UpdateApplicantStatusRequest{Status: "shortlisted"}); err != nil {
+	if _, err := svc.UpdateApplicationStatus(adminViewer(), app.ID, UpdateApplicantStatusRequest{Status: "shortlisted"}); err != nil {
 		t.Fatalf("update status: %v", err)
 	}
 
@@ -166,7 +166,7 @@ func TestUpdateApplicationStatusSkipsWithoutAccount(t *testing.T) {
 	notif := &captureNotifier{}
 	svc := NewServiceWithDB(NewRepository(db), db, notif)
 
-	if _, err := svc.UpdateApplicationStatus(app.ID, UpdateApplicantStatusRequest{Status: "shortlisted"}); err != nil {
+	if _, err := svc.UpdateApplicationStatus(adminViewer(), app.ID, UpdateApplicantStatusRequest{Status: "shortlisted"}); err != nil {
 		t.Fatalf("update status: %v", err)
 	}
 
@@ -193,7 +193,7 @@ func TestSendApplicantEmailStatusPathUsesPipeline(t *testing.T) {
 	notif := &captureNotifier{}
 	svc := NewServiceWithDB(NewRepository(db), db, notif)
 
-	if err := svc.SendApplicantEmail(app.ID, SendApplicantEmailRequest{Subject: "s", Body: "b", UpdateStatus: "rejected"}); err != nil {
+	if err := svc.SendApplicantEmail(adminViewer(), app.ID, SendApplicantEmailRequest{Subject: "s", Body: "b", UpdateStatus: "rejected"}); err != nil {
 		t.Fatalf("send applicant email: %v (manual email call still present?)", err)
 	}
 
@@ -220,7 +220,7 @@ func TestSendApplicantEmailCustomKeepsManualEmail(t *testing.T) {
 	notif := &captureNotifier{}
 	svc := NewServiceWithDB(NewRepository(db), db, notif)
 
-	err := svc.SendApplicantEmail(app.ID, SendApplicantEmailRequest{Subject: "Hello", Body: "World"})
+	err := svc.SendApplicantEmail(adminViewer(), app.ID, SendApplicantEmailRequest{Subject: "Hello", Body: "World"})
 	if err == nil {
 		t.Fatal("expected manual email enqueue error (asynq nil in tests), got nil")
 	}

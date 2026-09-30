@@ -1,6 +1,7 @@
 package jobs
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"mime"
@@ -203,7 +204,7 @@ func (h *Handler) SubmitApplication(c *gin.Context) {
 		}
 	}
 
-	app, err := h.service.SubmitApplication(jobID, fullName, email, phone, resumePath, coverLetterPath)
+	app, err := h.service.SubmitApplication(jobID, fullName, email, phone, resumePath, coverLetterPath, ViewerFrom(c).UserID)
 	if err != nil {
 		storage.DeleteObject(resumePath)
 		if coverLetterPath != "" {
@@ -228,7 +229,12 @@ func (h *Handler) ListApplications(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 
-	result := h.service.ListApplications(jobID, status, search, page, limit)
+	result, err := h.service.ListApplications(ViewerFrom(c), jobID, status, search, page, limit)
+	if err != nil {
+		respondApplicantError(c, err)
+		return
+	}
+
 	response.Success(c, 200, "Applications retrieved", result)
 }
 
@@ -245,9 +251,9 @@ func (h *Handler) UpdateApplicantStatus(c *gin.Context) {
 		return
 	}
 
-	app, err := h.service.UpdateApplicationStatus(id, req)
+	app, err := h.service.UpdateApplicationStatus(ViewerFrom(c), id, req)
 	if err != nil {
-		response.Error(c, 500, err.Error())
+		respondApplicantError(c, err)
 		return
 	}
 
@@ -269,9 +275,9 @@ func (h *Handler) UpdateApplicantNotes(c *gin.Context) {
 		return
 	}
 
-	app, err := h.service.UpdateApplicationNotes(id, req.Notes)
+	app, err := h.service.UpdateApplicationNotes(ViewerFrom(c), id, req.Notes)
 	if err != nil {
-		response.Error(c, 500, err.Error())
+		respondApplicantError(c, err)
 		return
 	}
 
@@ -291,8 +297,8 @@ func (h *Handler) SendApplicantEmail(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.SendApplicantEmail(id, req); err != nil {
-		response.Error(c, 500, err.Error())
+	if err := h.service.SendApplicantEmail(ViewerFrom(c), id, req); err != nil {
+		respondApplicantError(c, err)
 		return
 	}
 
@@ -300,15 +306,8 @@ func (h *Handler) SendApplicantEmail(c *gin.Context) {
 }
 
 func (h *Handler) ServeResume(c *gin.Context) {
-	id, err := parseID(c.Param("id"))
-	if err != nil {
-		response.Error(c, 400, "Invalid application ID")
-		return
-	}
-
-	app, err := h.service.GetApplicationByID(id)
-	if err != nil {
-		response.Error(c, 404, err.Error())
+	app, ok := h.authorizedApplication(c)
+	if !ok {
 		return
 	}
 
@@ -316,15 +315,8 @@ func (h *Handler) ServeResume(c *gin.Context) {
 }
 
 func (h *Handler) ServeCoverLetter(c *gin.Context) {
-	id, err := parseID(c.Param("id"))
-	if err != nil {
-		response.Error(c, 400, "Invalid application ID")
-		return
-	}
-
-	app, err := h.service.GetApplicationByID(id)
-	if err != nil {
-		response.Error(c, 404, err.Error())
+	app, ok := h.authorizedApplication(c)
+	if !ok {
 		return
 	}
 
@@ -334,6 +326,36 @@ func (h *Handler) ServeCoverLetter(c *gin.Context) {
 	}
 
 	h.serveFile(c, app.CoverLetterURL)
+}
+
+// authorizedApplication resolves :id and checks the caller may read it, writing
+// the error response itself and reporting ok=false when it may not.
+func (h *Handler) authorizedApplication(c *gin.Context) (*JobApplication, bool) {
+	id, err := parseID(c.Param("id"))
+	if err != nil {
+		response.Error(c, 400, "Invalid application ID")
+		return nil, false
+	}
+
+	app, err := h.service.GetApplicationByID(ViewerFrom(c), id)
+	if err != nil {
+		respondApplicantError(c, err)
+		return nil, false
+	}
+	return app, true
+}
+
+// respondApplicantError maps a service error from an applicant-scoped route.
+//
+// ErrApplicationNotFound is answered 404 whether the record is absent or merely
+// not the caller's — the same bytes either way, so walking ids teaches an
+// attacker nothing. See refuse() in access.go for why this is not a 403.
+func respondApplicantError(c *gin.Context, err error) {
+	if errors.Is(err, ErrApplicationNotFound) {
+		response.Error(c, 404, ErrApplicationNotFound.Error())
+		return
+	}
+	response.Error(c, 500, err.Error())
 }
 
 func (h *Handler) serveFile(c *gin.Context, filePath string) {

@@ -30,15 +30,15 @@ func NewServiceWithDB(repo *Repository, db *gorm.DB, notifier notification.Notif
 
 func (s *Service) CreateJob(req CreateJobRequest) (*Job, error) {
 	job := &Job{
-		Title:        req.Title,
-		Department:   req.Department,
-		Description:  req.Description,
-		Requirements: req.Requirements,
-		Location:     req.Location,
-		JobType:      req.JobType,
+		Title:         req.Title,
+		Department:    req.Department,
+		Description:   req.Description,
+		Requirements:  req.Requirements,
+		Location:      req.Location,
+		JobType:       req.JobType,
 		PositionsOpen: req.PositionsOpen,
-		SalaryRange:  req.SalaryRange,
-		Status:       req.Status,
+		SalaryRange:   req.SalaryRange,
+		Status:        req.Status,
 	}
 
 	if req.ApplicationDeadline != nil {
@@ -211,7 +211,15 @@ func (s *Service) GetDepartments() ([]string, error) {
 	return s.repo.GetDepartments()
 }
 
-func (s *Service) SubmitApplication(jobID uint, fullName, email, phone, resumeURL, coverLetterURL string) (*JobApplication, error) {
+// SubmitApplication records a job application.
+//
+// applicantUserID is the authenticated submitter, or 0 for a guest. The public
+// apply form is OptionalAuth, not Auth, so a signed-out applicant still submits
+// exactly as before; the id is stamped only when a valid token was presented,
+// and it is what later lets that person read their own record. See
+// JobApplication.ApplicantUserID for why the submitted email cannot stand in
+// for this.
+func (s *Service) SubmitApplication(jobID uint, fullName, email, phone, resumeURL, coverLetterURL string, applicantUserID uint) (*JobApplication, error) {
 	job, err := s.repo.FindJobByID(jobID)
 	if err != nil {
 		return nil, errors.New("job not found")
@@ -235,6 +243,9 @@ func (s *Service) SubmitApplication(jobID uint, fullName, email, phone, resumeUR
 		CoverLetterURL: coverLetterURL,
 		Status:         "pending",
 	}
+	if applicantUserID != 0 {
+		app.ApplicantUserID = &applicantUserID
+	}
 
 	if err := s.repo.CreateApplication(app); err != nil {
 		return nil, errors.New("failed to submit application")
@@ -253,7 +264,14 @@ func (s *Service) SubmitApplication(jobID uint, fullName, email, phone, resumeUR
 	return app, nil
 }
 
-func (s *Service) ListApplications(jobID uint, status, search string, page, limit int) *PaginatedApplicationsResponse {
+// ListApplications returns the applicants to one job. Admin only — see
+// authorizeJobRead: the response carries name, email and phone for every
+// applicant to the posting.
+func (s *Service) ListApplications(v Viewer, jobID uint, status, search string, page, limit int) (*PaginatedApplicationsResponse, error) {
+	if err := s.authorizeJobRead(jobID, v); err != nil {
+		return nil, err
+	}
+
 	if page < 1 {
 		page = 1
 	}
@@ -274,21 +292,21 @@ func (s *Service) ListApplications(jobID uint, status, search string, page, limi
 		Page:         page,
 		PerPage:      limit,
 		TotalPages:   int(math.Ceil(float64(total) / float64(limit))),
-	}
+	}, nil
 }
 
-func (s *Service) GetApplicationByID(id uint) (*JobApplication, error) {
-	app, err := s.repo.FindApplicationByID(id)
-	if err != nil {
-		return nil, errors.New("application not found")
-	}
-	return app, nil
+// GetApplicationByID returns one application to a viewer entitled to it: a
+// platform admin, or the applicant who submitted it. Returns
+// ErrApplicationNotFound for anyone else — including for an id that does not
+// exist, so the two are indistinguishable from outside.
+func (s *Service) GetApplicationByID(v Viewer, id uint) (*JobApplication, error) {
+	return s.authorizeApplicationRead(id, v)
 }
 
-func (s *Service) UpdateApplicationStatus(id uint, req UpdateApplicantStatusRequest) (*JobApplication, error) {
-	app, err := s.repo.FindApplicationByID(id)
+func (s *Service) UpdateApplicationStatus(v Viewer, id uint, req UpdateApplicantStatusRequest) (*JobApplication, error) {
+	app, err := s.authorizeApplicationWrite(id, v)
 	if err != nil {
-		return nil, errors.New("application not found")
+		return nil, err
 	}
 
 	app.Status = req.Status
@@ -303,10 +321,10 @@ func (s *Service) UpdateApplicationStatus(id uint, req UpdateApplicantStatusRequ
 	return app, nil
 }
 
-func (s *Service) UpdateApplicationNotes(id uint, notes string) (*JobApplication, error) {
-	app, err := s.repo.FindApplicationByID(id)
+func (s *Service) UpdateApplicationNotes(v Viewer, id uint, notes string) (*JobApplication, error) {
+	app, err := s.authorizeApplicationWrite(id, v)
 	if err != nil {
-		return nil, errors.New("application not found")
+		return nil, err
 	}
 
 	app.Notes = notes
@@ -336,23 +354,23 @@ func (s *Service) notifyApplicant(app *JobApplication) {
 	})
 }
 
-func (s *Service) SendApplicantEmail(id uint, req SendApplicantEmailRequest) error {
+// SendApplicantEmail sends platform email to an applicant, or rides the status
+// change through the notification pipeline. Admin only — before the ownership
+// check this was the sharpest edge in the module: any role in roleMW could email
+// any applicant on the platform by id.
+func (s *Service) SendApplicantEmail(v Viewer, id uint, req SendApplicantEmailRequest) error {
+	app, err := s.authorizeApplicationWrite(id, v)
+	if err != nil {
+		return err
+	}
+
 	if req.UpdateStatus != "" {
 		// The status-change email rides the notification pipeline
 		// (jobs.status_changed, EmailDefault) instead of the old manual send
 		// here — the manual call would double-email now that the pipeline
 		// emails on its own.
-		app, err := s.repo.FindApplicationByID(id)
-		if err != nil {
-			return fmt.Errorf("application not found")
-		}
-		_, err = s.UpdateApplicationStatus(id, UpdateApplicantStatusRequest{Status: req.UpdateStatus, Notes: app.Notes})
+		_, err = s.UpdateApplicationStatus(v, id, UpdateApplicantStatusRequest{Status: req.UpdateStatus, Notes: app.Notes})
 		return err
-	}
-
-	app, err := s.repo.FindApplicationByID(id)
-	if err != nil {
-		return fmt.Errorf("application not found")
 	}
 
 	if err := emailqueue.EnqueueGenericEmail(app.Email, req.Subject, req.Body); err != nil {
