@@ -6,7 +6,28 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
+// RegisterRoutes mounts the careers surface and the job-catalogue admin surface.
+//
+// adminRoleMW is passed in rather than built here, and it is deliberately NOT the
+// shared roleMW from cmd/server/main.go. That gate is
+// RequireRole("admin", "super_admin", "scholarship_provider", …, "institution") —
+// a multi-tenant role list shared by 18 modules, each of which was wired to it
+// for its own reasons. It is far wider than this one, and behind it an ordinary
+// paying customer could create, rewrite and delete postings on the platform's own
+// /careers page — and deleting a posting cascades through DeleteJob over every
+// applicant's resume and cover letter, destroying other people's documents.
+//
+// So the catalogue gets its own gate, exactly like coin config (coins/routes.go)
+// and study resources, built from jobs.PlatformAdminRoles() so the middleware
+// here and the service checks in access.go cannot drift. roleMW itself is left
+// alone: narrowing a list 18 modules depend on would break all of them.
+//
+// The gate is not the whole answer. Every catalogue handler passes a Viewer into
+// the service, which re-checks the role, so passing a wider gate back in at the
+// call site cannot re-open this — the service is the authority and the middleware
+// is the cheaper first refusal. TestJobCrudGateCannotBeWidenedByTheCaller pins
+// that.
+func RegisterRoutes(r *gin.Engine, authMW, adminRoleMW gin.HandlerFunc, h *Handler) {
 	if h == nil {
 		return
 	}
@@ -27,31 +48,40 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 		}
 	}
 
-	superadmin := v1.Group("/superadmin/jobs")
-	superadmin.Use(authMW)
-	superadmin.Use(roleMW)
+	// Job CRUD: platform admins only, and the guard is the module-local
+	// adminRoleMW rather than the shared roleMW. See the note on RegisterRoutes
+	// and the reasoning in access.go. DELETE /:id is the one to read twice — it
+	// takes every application to the posting and their stored documents with it.
+	jobAdmin := v1.Group("/superadmin/jobs")
+	jobAdmin.Use(authMW)
+	jobAdmin.Use(adminRoleMW)
 	{
-		superadmin.GET("", h.ListAllJobs)
-		superadmin.POST("", h.CreateJob)
-		superadmin.GET("/:id", h.GetJob)
-		superadmin.PUT("/:id", h.UpdateJob)
-		superadmin.DELETE("/:id", h.DeleteJob)
+		jobAdmin.GET("", h.ListAllJobs)
+		jobAdmin.POST("", h.CreateJob)
+		jobAdmin.GET("/:id", h.GetJob)
+		jobAdmin.PUT("/:id", h.UpdateJob)
+		jobAdmin.DELETE("/:id", h.DeleteJob)
 	}
 
-	// GET /:id/applicants is mounted here rather than in the roleMW group above
+	// GET /:id/applicants is mounted here rather than in the catalogue group above
 	// for one reason: consistency of the answer. It returns name, email and
 	// phone for every applicant to the posting — the same disclosure as the
 	// resume route and a one-call replacement for the walk over ids — so it is
-	// service-scoped like them. Left in the roleMW group it answered 403 with
-	// roleMW's "Insufficient permissions" while the per-id routes answered 404,
-	// which is two different answers for one rule and reintroduces exactly the
-	// distinction the 404 choice exists to remove.
+	// service-scoped like them. Left in the shared roleMW group it answered 403
+	// with roleMW's "Insufficient permissions" while the per-id routes answered
+	// 404, which is two different answers for one rule and reintroduces exactly
+	// the distinction the 404 choice exists to remove.
 	applicantData := v1.Group("/superadmin/jobs")
 	applicantData.Use(authMW)
 	{
 		applicantData.GET("/:id/applicants", h.ListApplications)
 	}
 
+	// The applicants group is behind authMW alone and takes no role gate at all,
+	// deliberately. adminRoleMW is not applied here either: it names admins only,
+	// and the applicant reading their own application is entitled on this module
+	// without being one. A gate here would answer 403 to the applicant before the
+	// service could admit them.
 	applicants := v1.Group("/superadmin/jobs/applicants")
 	applicants.Use(authMW)
 	// roleMW is deliberately NOT applied here, and its absence is the point.
@@ -76,6 +106,13 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 	// including every role roleMW used to let in. That is strictly narrower than
 	// what roleMW permitted except for self-reads, so nothing roleMW protected
 	// is exposed by dropping it.
+	//
+	// Two different answers in one module is not an inconsistency here, because
+	// these are two different rules: this group admits an applicant, the
+	// catalogue group admits only operators. Each answers within itself
+	// consistently — 404 for "not yours, or not there" on applicant records,
+	// 403 for "not an operator" on the catalogue. See ErrJobForbidden in
+	// access.go for why the catalogue refusal is a 403.
 	{
 		applicants.PUT("/:id/status", h.UpdateApplicantStatus)
 		applicants.PUT("/:id/notes", h.UpdateApplicantNotes)

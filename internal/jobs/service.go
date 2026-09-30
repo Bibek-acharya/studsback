@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"math"
 	"time"
 
@@ -18,17 +19,38 @@ type Service struct {
 	repo     *Repository
 	db       *gorm.DB
 	notifier notification.Notifier
+
+	// deleteObject is storage.DeleteObject in production. It is a field only so
+	// the delete cascade can be asserted in a test without a live object store;
+	// nothing else sets it. The nil fallback below keeps a Service built as a
+	// struct literal working.
+	deleteObject func(string) error
 }
 
 func NewService(repo *Repository, notifier notification.Notifier) *Service {
-	return &Service{repo: repo, notifier: notifier}
+	return &Service{repo: repo, notifier: notifier, deleteObject: storage.DeleteObject}
 }
 
 func NewServiceWithDB(repo *Repository, db *gorm.DB, notifier notification.Notifier) *Service {
-	return &Service{repo: repo, db: db, notifier: notifier}
+	return &Service{repo: repo, db: db, notifier: notifier, deleteObject: storage.DeleteObject}
 }
 
-func (s *Service) CreateJob(req CreateJobRequest) (*Job, error) {
+// deleteStoredObject removes one object from the store, returning its error so
+// a failed removal can be recorded rather than discarded.
+func (s *Service) deleteStoredObject(objectPath string) error {
+	if s.deleteObject != nil {
+		return s.deleteObject(objectPath)
+	}
+	return storage.DeleteObject(objectPath)
+}
+
+// CreateJob adds a posting to the platform's own catalogue. Platform-admin only:
+// see access.go for why the catalogue is first-party and who may change it.
+func (s *Service) CreateJob(v Viewer, req CreateJobRequest) (*Job, error) {
+	if err := s.authorizeJobAdmin(v, "create"); err != nil {
+		return nil, err
+	}
+
 	job := &Job{
 		Title:         req.Title,
 		Department:    req.Department,
@@ -53,7 +75,17 @@ func (s *Service) CreateJob(req CreateJobRequest) (*Job, error) {
 	return job, nil
 }
 
-func (s *Service) GetJobByID(id uint) (*Job, error) {
+// GetJobByID returns a posting to the catalogue's admin reader.
+//
+// Admin only, unlike GetPublishedJobByID below. This is the unfiltered read:
+// it answers for drafts and for internal fields the public shape omits, and it
+// carries the applicant count. The public route stays public and keeps using
+// GetPublishedJobByID, which is status-filtered.
+func (s *Service) GetJobByID(v Viewer, id uint) (*Job, error) {
+	if err := s.authorizeJobAdmin(v, "read"); err != nil {
+		return nil, err
+	}
+
 	job, err := s.repo.FindJobByID(id)
 	if err != nil {
 		return nil, errors.New("job not found")
@@ -72,7 +104,12 @@ func (s *Service) GetPublishedJobByID(id uint) (*Job, error) {
 	return job, nil
 }
 
-func (s *Service) UpdateJob(id uint, req UpdateJobRequest) (*Job, error) {
+// UpdateJob edits a posting. Platform-admin only — access.go.
+func (s *Service) UpdateJob(v Viewer, id uint, req UpdateJobRequest) (*Job, error) {
+	if err := s.authorizeJobAdmin(v, "update"); err != nil {
+		return nil, err
+	}
+
 	job, err := s.repo.FindJobByID(id)
 	if err != nil {
 		return nil, errors.New("job not found")
@@ -117,25 +154,84 @@ func (s *Service) UpdateJob(id uint, req UpdateJobRequest) (*Job, error) {
 	return job, nil
 }
 
-func (s *Service) DeleteJob(id uint) error {
+// DeleteJob removes a posting, and with it every application to it.
+//
+// Platform-admin only, and this is the sharpest edge in the module. The cascade
+// is what makes it one: it destroys other people's personal documents. Nothing
+// here is scoped to the caller, because there is no caller-scoped alternative —
+// a posting belongs to the platform, and an applicant has no claim on the
+// deletion of the job they applied to.
+//
+// WHAT CHANGED, because a delete is not something to quietly reshape:
+//
+// 1. Authorization. This was reachable by any role in the shared roleMW,
+// including "institution" and "scholarship_provider". Now admin only, at the
+// route and again here.
+//
+// 2. Order. The database rows were deleted AFTER the files, which meant a
+// failed transaction left live applications pointing at documents that had
+// already been destroyed — irrecoverable, because MinIO removal is not
+// reversible while the rows are only soft-deleted. The transaction now runs
+// first and the objects are removed after it commits. The failure mode that
+// replaces it is orphaned objects for applications whose rows are already gone,
+// which is recoverable and unreachable through the API. The document paths are
+// therefore read before the transaction, since a soft-deleted row is no longer
+// returned by an ordinary query.
+//
+// 3. Refusal on an unreadable document list. A failure to read the applications
+// used to be ignored and the delete proceeded, deleting the rows and stranding
+// every document in the bucket. It now refuses, because a delete that cannot
+// complete its own cleanup should not pretend to.
+//
+// 4. Record. DeleteObject's error was discarded, so a failed removal was
+// invisible. Every removed object is now counted and logged, and a failure
+// names the object.
+//
+// NOT CHANGED, and deliberately: the request shape. A single DELETE from an
+// admin still destroys every applicant's documents with no confirmation and no
+// dry run. Making that cost more — a confirmation parameter, an archive
+// endpoint, refusing while applications exist — is a product decision, because
+// it changes what the superadmin dashboard's delete button can do, and the
+// dashboard lives in another repository. It is recorded as the recommended
+// follow-up rather than landed here. Soft-deleted application rows remain
+// recoverable by an operator with Unscoped(); the objects do not, which is why
+// the log line above matters.
+func (s *Service) DeleteJob(v Viewer, id uint) error {
+	if err := s.authorizeJobAdmin(v, "delete"); err != nil {
+		return err
+	}
+
 	job, err := s.repo.FindJobByID(id)
 	if err != nil {
 		return errors.New("job not found")
 	}
 
 	apps, err := s.repo.ListApplicationsByJobForFiles(job.ID)
-	if err == nil {
-		for _, app := range apps {
-			if app.ResumeURL != "" {
-				storage.DeleteObject(app.ResumeURL)
-			}
-			if app.CoverLetterURL != "" {
-				storage.DeleteObject(app.CoverLetterURL)
-			}
-		}
+	if err != nil {
+		return errors.New("failed to read the applications attached to this job")
 	}
 
-	return s.repo.DeleteJob(id)
+	if err := s.repo.DeleteJob(id); err != nil {
+		return err
+	}
+
+	removed := 0
+	for _, app := range apps {
+		for _, objectPath := range []string{app.ResumeURL, app.CoverLetterURL} {
+			if objectPath == "" {
+				continue
+			}
+			if err := s.deleteStoredObject(objectPath); err != nil {
+				log.Printf("jobs: deleting job %d left %q in the object store: %v", id, objectPath, err)
+				continue
+			}
+			removed++
+		}
+	}
+	log.Printf("jobs: deleted job %d as user_id=%d role=%q; cascaded over %d applications and destroyed %d stored documents",
+		id, v.UserID, v.Role, len(apps), removed)
+
+	return nil
 }
 
 func (s *Service) autoCloseExpiredJobs() {
@@ -177,7 +273,14 @@ func (s *Service) ListPublishedJobs(department, search string, page, limit int) 
 	}
 }
 
-func (s *Service) ListAllJobs(status, search string, page, limit int) *PaginatedJobsResponse {
+// ListAllJobs is the unfiltered catalogue listing — drafts included — for the
+// superadmin dashboard. Platform-admin only, for the reasons in access.go. The
+// public /careers listing is a different method with a status filter.
+func (s *Service) ListAllJobs(v Viewer, status, search string, page, limit int) (*PaginatedJobsResponse, error) {
+	if err := s.authorizeJobAdmin(v, "list"); err != nil {
+		return nil, err
+	}
+
 	if page < 1 {
 		page = 1
 	}
@@ -204,7 +307,7 @@ func (s *Service) ListAllJobs(status, search string, page, limit int) *Paginated
 		Page:       page,
 		PerPage:    limit,
 		TotalPages: int(math.Ceil(float64(total) / float64(limit))),
-	}
+	}, nil
 }
 
 func (s *Service) GetDepartments() ([]string, error) {

@@ -36,9 +36,9 @@ func (h *Handler) CreateJob(c *gin.Context) {
 		return
 	}
 
-	job, err := h.service.CreateJob(req)
+	job, err := h.service.CreateJob(ViewerFrom(c), req)
 	if err != nil {
-		response.Error(c, 500, err.Error())
+		respondJobError(c, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -52,9 +52,9 @@ func (h *Handler) GetJob(c *gin.Context) {
 		return
 	}
 
-	job, err := h.service.GetJobByID(id)
+	job, err := h.service.GetJobByID(ViewerFrom(c), id)
 	if err != nil {
-		response.Error(c, 404, err.Error())
+		respondJobError(c, err, http.StatusNotFound)
 		return
 	}
 
@@ -75,9 +75,9 @@ func (h *Handler) UpdateJob(c *gin.Context) {
 		return
 	}
 
-	job, err := h.service.UpdateJob(id, req)
+	job, err := h.service.UpdateJob(ViewerFrom(c), id, req)
 	if err != nil {
-		response.Error(c, 500, err.Error())
+		respondJobError(c, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -91,12 +91,27 @@ func (h *Handler) DeleteJob(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.DeleteJob(id); err != nil {
-		response.Error(c, 500, err.Error())
+	if err := h.service.DeleteJob(ViewerFrom(c), id); err != nil {
+		respondJobError(c, err, http.StatusInternalServerError)
 		return
 	}
 
 	response.Success(c, 200, "Job deleted successfully", nil)
+}
+
+// respondJobError maps an error from a job-catalogue route.
+//
+// ErrJobForbidden is a 403 whatever the caller's fallback status was, so every
+// refusal for the same reason answers the same way no matter which of the five
+// handlers raised it. The fallback is the status that handler used for its other
+// failures and is unchanged. See ErrJobForbidden in access.go for why this is a
+// 403 where the applicant routes are a 404.
+func respondJobError(c *gin.Context, err error, fallback int) {
+	if errors.Is(err, ErrJobForbidden) {
+		response.Error(c, http.StatusForbidden, ErrJobForbidden.Error())
+		return
+	}
+	response.Error(c, fallback, err.Error())
 }
 
 func (h *Handler) ListPublishedJobs(c *gin.Context) {
@@ -115,7 +130,12 @@ func (h *Handler) ListAllJobs(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 
-	result := h.service.ListAllJobs(status, search, page, limit)
+	result, err := h.service.ListAllJobs(ViewerFrom(c), status, search, page, limit)
+	if err != nil {
+		respondJobError(c, err, http.StatusInternalServerError)
+		return
+	}
+
 	response.Success(c, 200, "Jobs retrieved", result)
 }
 

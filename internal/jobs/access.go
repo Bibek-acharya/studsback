@@ -49,10 +49,15 @@ import (
 // refuse helpers below.
 var ErrApplicationNotFound = errors.New("application not found")
 
-// platformAdminRoles are the roles that run the platform itself. They match the
+// PlatformAdminRoles are the roles that run the platform itself. They match the
 // two aliases the rest of the codebase treats as the same operator
 // ("superadmin" in auth.Service, "super_admin" in cmd/server/main.go's roleMW).
-func platformAdminRoles() []string {
+//
+// Exported because cmd/server/main.go builds the job-catalogue gate from this
+// list — middleware.RequireRole(PlatformAdminRoles()...) — so the middleware at
+// the edge and the checks in this file cannot drift apart. The service is the
+// authority either way; see authorizeJobAdmin.
+func PlatformAdminRoles() []string {
 	return []string{"admin", "super_admin", "superadmin"}
 }
 
@@ -65,7 +70,7 @@ type Viewer struct {
 // IsPlatformAdmin reports whether this viewer is a platform operator.
 func (v Viewer) IsPlatformAdmin() bool {
 	role := strings.ToLower(strings.TrimSpace(v.Role))
-	for _, adminRole := range platformAdminRoles() {
+	for _, adminRole := range PlatformAdminRoles() {
 		if role == adminRole {
 			return true
 		}
@@ -169,4 +174,76 @@ func (s *Service) authorizeJobRead(jobID uint, v Viewer) error {
 		return refuse("applicant listing for job", jobID, v, "admin only")
 	}
 	return nil
+}
+
+// WHO MAY EDIT THE JOB CATALOGUE — the second half of this module, and the part
+// the applicant fix deliberately left alone.
+//
+// These five routes (list, read, create, update, delete) were mounted behind the
+// shared roleMW in cmd/server/main.go, which admits "institution",
+// "scholarship_provider" and "scholarship_provider_subuser" alongside the
+// admins, and none of the handlers or service methods below checked anything.
+// An ordinary paying customer could therefore create postings on the platform's
+// own /careers page, rewrite an existing one, and delete one.
+//
+// Delete is the serious one. DeleteJob deletes every JobApplication row for the
+// posting and calls storage.DeleteObject on each applicant's resume and cover
+// letter — irreversible destruction of other people's personal documents, by an
+// account with no relationship to any of them. That is worse than the disclosure
+// fixed above: a read leaks, a delete cannot be undone.
+//
+// The rule is platform-admin only, and it follows from the model rather than
+// from a route name:
+//
+//   - Job has no owner column. Not institution_id, not employer_id, not
+//     created_by, and CreateJob is never handed the caller's identity, so not
+//     even an admin-created posting records who owns it. The catalogue behind
+//     /careers is first-party, the same conclusion access.go reaches for
+//     applicant reads.
+//   - A scholarship provider owns ProviderScholarship rows in
+//     internal/scholarshipprovider — a different table, already scoped by
+//     GetApplicationByIDAndProvider. It is never the owner of a Job, so
+//     granting it catalogue writes would again be granting on the strength of a
+//     URL path.
+//   - An institution account has no postings of its own here, so "the employer
+//     that posted the job may edit its job" resolves, in this schema, to "the
+//     platform's admins may edit any job". There is no non-admin caller left
+//     over the way there was for applicant self-reads.
+//
+// So unlike the applicant group there is no principal that a broad role gate
+// would wrongly exclude, which is why this one is a gate at all rather than a
+// service-only check: the middleware answers the role question before the
+// handler is reached and before the request body is parsed, and the service
+// repeats the check so that widening the gate at the call site cannot re-open
+// this. Both read the same list (PlatformAdminRoles) and both answer 403, so
+// there is one rule and one answer for it.
+
+// ErrJobForbidden is what a job-catalogue call from a non-admin returns.
+//
+// 403 here, not the 404 the applicant routes use, and the difference is
+// deliberate rather than stylistic. The applicant routes return 404 because the
+// record may not be the caller's and a 403 would confirm that a given id exists
+// — an existence oracle over sequential applicant ids. Job ids carry no such
+// secret: /careers/:id serves a published posting to anyone, and
+// /api/v1/careers lists them all. A caller refused here learns only their own
+// role, which they already know. Reporting it as "insufficient permissions"
+// also tells an operator the truth: the request failed on authorization, it did
+// not fail because a job was missing. A 403 is also what the gate at the route
+// returns for the same refusal, and one rule should not answer two ways.
+var ErrJobForbidden = errors.New("insufficient permissions")
+
+// authorizeJobAdmin refuses a catalogue call to anyone who is not a platform
+// operator, and is the authority for all five routes.
+//
+// Refused before any lookup, and without consulting the repository: this is a
+// role question, so there is no existence information to hide and nothing to
+// gain by touching the database. The reason is logged with the caller and role
+// so a 403 in production is still debuggable — the same reasoning that moved
+// the applicant routes' diagnostics into the log.
+func (s *Service) authorizeJobAdmin(v Viewer, action string) error {
+	if v.IsPlatformAdmin() {
+		return nil
+	}
+	log.Printf("jobs: denied %s job user_id=%d role=%q reason=job catalogue is platform-admin only", action, v.UserID, v.Role)
+	return ErrJobForbidden
 }

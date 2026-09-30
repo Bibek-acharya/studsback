@@ -461,7 +461,7 @@ func TestApplicantRoutesUseTheServiceAsTheGuard(t *testing.T) {
 	// Production shape: the group is behind authMW only.
 	svc, _, apps := seededJobsAccess(t)
 	production := gin.New()
-	RegisterRoutes(production, studentToken, middleware.RequireRole(platformAdminRoles()...), NewHandler(svc))
+	RegisterRoutes(production, studentToken, middleware.RequireRole(PlatformAdminRoles()...), NewHandler(svc))
 
 	// The applicant themselves, on the write route, gets the service's answer
 	// and not the middleware's — which proves the guard let them through.
@@ -482,7 +482,7 @@ func TestApplicantRoutesUseTheServiceAsTheGuard(t *testing.T) {
 	old := gin.New()
 	oldGroup := old.Group("/api/v1/superadmin/jobs/applicants")
 	oldGroup.Use(studentToken)
-	oldGroup.Use(middleware.RequireRole(platformAdminRoles()...))
+	oldGroup.Use(middleware.RequireRole(PlatformAdminRoles()...))
 	oldGroup.PUT("/:id/status", NewHandler(svc).UpdateApplicantStatus)
 
 	w = doJSON(old, http.MethodPut,
@@ -511,7 +511,7 @@ func TestInstitutionRoutesAnswerNotFoundNotForbidden(t *testing.T) {
 		c.Set("user_id", uint(40))
 		c.Set("user_role", "institution")
 		c.Next()
-	}, middleware.RequireRole(platformAdminRoles()...), NewHandler(svc))
+	}, middleware.RequireRole(PlatformAdminRoles()...), NewHandler(svc))
 
 	id := itoa(apps[1].ID) // an application that exists
 	absent := itoa(apps[1].ID + 1000)

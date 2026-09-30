@@ -760,7 +760,16 @@ func main() {
 	ai.RegisterRoutes(router, aiHandler)
 	location.RegisterRoutes(router, locationHandler)
 	follow.RegisterRoutes(router, authMW, followHandler)
-	jobs.RegisterRoutes(router, authMW, roleMW, jobsHandler)
+	// Job catalogue: platform admins only, deliberately NOT roleMW. roleMW admits
+	// "institution" and "scholarship_provider", and the job catalogue is the
+	// platform's own first-party postings — an institution account has no
+	// postings of its own here to own, and DELETE on one of them destroys every
+	// applicant's stored resume and cover letter (internal/jobs/routes.go,
+	// internal/jobs/access.go). The list is the jobs module's own
+	// PlatformAdminRoles(), so this gate and the service check it backs cannot
+	// disagree about who is a platform admin.
+	jobsAdminRoleMW := middleware.RequireRole(jobs.PlatformAdminRoles()...)
+	jobs.RegisterRoutes(router, authMW, jobsAdminRoleMW, jobsHandler)
 
 	// Study resources: admins only (superadmin guard, like notifications).
 	studyResourcesRoleMW := middleware.RequireRole("superadmin", "super_admin")
