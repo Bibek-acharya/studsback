@@ -108,16 +108,51 @@ func (s *Service) GetAdminTests(filters TestFilters, page, limit int) ([]AdminMo
 	return out, total, nil
 }
 
-// GetPublicTest returns the public detail projection without the answer key.
-func (s *Service) GetPublicTest(id uint) (*PublicMockTestDetailDTO, error) {
+// GetPublishedTest returns the row a PUBLIC reader is allowed to see, and counts
+// nothing.
+//
+// It exists separately from GetPublicTest because the two callers want different
+// things from the same read. The handler needs the row BEFORE it knows whether the
+// student is entitled to it — the paper is not served until the coin gate has
+// answered — and a view counted for a read the student was refused is engagement
+// reported for a paper they never saw. The gate's own ResourceLookup adapter also
+// needs it, for the 404 and for the title a receipt should name, and a lookup that
+// counted a view would inflate the counter once per gate call.
+//
+// It is the module's own definition of "a row the public may see" and it reuses
+// FindTestByID's published-only scoping rather than restating is_published, so
+// there is one answer to that question in this file.
+func (s *Service) GetPublishedTest(id uint) (*MockTest, error) {
 	test, err := s.repo.FindTestByID(id, true)
 	if err != nil {
 		return nil, ErrTestNotFound
 	}
+	return test, nil
+}
+
+// ServePublicTest projects an already-resolved published test into the public DTO
+// and counts the view.
+//
+// Split from the resolve so the coin gate has a place to sit: the handler resolves,
+// gates, and only then serves. See GetPublishedTest for why the count is here and
+// not there.
+func (s *Service) ServePublicTest(test *MockTest) *PublicMockTestDetailDTO {
 	detail := toPublicDetail(test)
 	// View counting is best-effort analytics.
-	_ = s.repo.IncrementViews(id)
-	return &detail, nil
+	_ = s.repo.IncrementViews(test.ID)
+	return &detail
+}
+
+// GetPublicTest returns the public detail projection without the answer key.
+//
+// It is the resolve-then-serve composition, kept as one call for the callers that
+// have no gate to run between the two.
+func (s *Service) GetPublicTest(id uint) (*PublicMockTestDetailDTO, error) {
+	test, err := s.GetPublishedTest(id)
+	if err != nil {
+		return nil, err
+	}
+	return s.ServePublicTest(test), nil
 }
 
 // GetAdminTest returns the full graph including the answer key.
@@ -220,6 +255,42 @@ func (s *Service) DeleteTest(id uint) error {
 // SubmitTest grades an attempt server-side. Client-supplied scores, correctness
 // flags or option text are ignored: the request only carries question_id and
 // option_id pairs, and every pair is validated against this test's own graph.
+//
+// ── THIS IS NOT WHERE THE COIN GATE GOES, and the reason is the product ──────
+//
+// 02-architecture.md §10 names this function as the integration point for the coin
+// check, and it is the obvious place: it is authenticated, it is where a student
+// gets value from a paper, and it already has a user id. It is still the wrong
+// place, and the reason is what has already happened by the time it runs.
+//
+// To reach SubmitTest a student has been through GetPublicTest, which returns
+// PublicMockTestDetailDTO: every question text and every option text, for the
+// whole paper. So a gate HERE would be a gate on the SCORE, after the content is
+// already in the student's hands. Refusing it means:
+//
+//   - the student has consumed the resource and is told they get nothing for it,
+//     which is strictly worse than the ungated product rather than a different
+//     product;
+//   - nothing is charged either, so the refusal is not even revenue — it is a
+//     support ticket about a mark that will not appear;
+//   - and it teaches the wrong model, because a student who opens twelve tabs
+//     learns that the paper was free and the score was the toll.
+//
+// The gate belongs where the paper is RELEASED — handler.go GetTest, the only
+// route in this module that returns a question or an option — and it is there.
+//
+// What this function DOES have to do, and does in the handler, is refuse a
+// submission from a student who was never served the paper. The questions and
+// option ids a submission needs are only obtainable from the paper, but they are
+// small sequential integers, so without a check a student who was refused the
+// content can enumerate them and read the ANSWER KEY off is_correct one bit at a
+// time. That is a bypass of the gate rather than a use of it, so the handler
+// asks the gate whether the student already holds the paper — a question that
+// never spends, because the money moved at the serve and must not move twice.
+//
+// The DTO invariant below is untouched and is the reason the gate cannot be
+// careless: is_correct and the explanations are the whole of what is at stake, and
+// a gate that leaked the key would be worse than no gate.
 func (s *Service) SubmitTest(id, userID uint, answers []AnswerInput) (*SubmitResultDTO, error) {
 	test, err := s.repo.FindTestByID(id, true)
 	if err != nil {

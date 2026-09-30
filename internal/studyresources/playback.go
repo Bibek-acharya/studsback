@@ -52,6 +52,41 @@ func (h *Handler) IssuePlaybackToken(c *gin.Context) {
 		return
 	}
 
+	// ── the coin gate ──────────────────────────────────────────────────────
+	//
+	// It runs HERE — after the playability check and BEFORE IssuePlaybackToken —
+	// and the ordering is the whole contract.
+	//
+	// AFTER the playability check, for the same reason the download gate runs after
+	// its publication check: a draft is a 404 whether or not anyone can pay for it.
+	// Gating first would answer 402 to a request for a video the public is not
+	// allowed to know exists, which both leaks the draft and leaves a student unable
+	// to tell "this does not exist" from "this costs 90 coins". A document asked
+	// for here is still a 400, not a price.
+	//
+	// BEFORE the token, and this is the load-bearing half. A token is a capability:
+	// it is what StreamResource accepts in place of a session, and it is minted
+	// with no storage access of its own. So a token issued and then ignored is not
+	// a gate at all — it is a bypass with extra steps, and a student who is refused
+	// here would still walk away holding a grant that opens the stream route for
+	// the next five minutes. Refusing BEFORE the mint is the only arrangement in
+	// which "gated" means "no bytes, ever".
+	//
+	// A nil gate means no gate: the check is skipped entirely rather than
+	// defaulting to "refuse", so a deployment that has not wired the economy serves
+	// playback exactly as it always has. That is the same reason the config ships
+	// with every gate off — the kill switch is off, and an absent switch is the off
+	// position.
+	if h.playbackGate != nil {
+		userID, _ := httpx.CurrentUserID(c)
+		decision := h.playbackGate.AuthorizePlayback(c.Request.Context(), userID,
+			uint64(resource.ID), resource.Title)
+		if !decision.Allowed {
+			writeGateRefusal(c, decision.Refusal)
+			return
+		}
+	}
+
 	ttl := utils.DefaultPlaybackTokenTTL
 	token, expiresAt, err := utils.IssuePlaybackToken(userID, resource.ID, ttl)
 	if err != nil {

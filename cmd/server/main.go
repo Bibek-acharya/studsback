@@ -507,6 +507,12 @@ func main() {
 	studyResourcesSvc := studyresources.NewService(studyresources.NewRepository(db))
 	studyResourcesHandler := studyresources.NewHandler(studyResourcesSvc)
 	pressMediaHandler := initModule(pressmedia.NewRepository(db), pressmedia.NewService, pressmedia.NewHandler)
+	// The mock-test service is held rather than inlined for the same reason as the
+	// study-resources one above: the coin economy's ResourceLookup reads the
+	// mock-tests table (mock_test_lookup.go), and the paper gate needs a handler to
+	// attach to.
+	mockTestsSvc := mocktests.NewService(mocktests.NewRepository(db))
+	mockTestsHandler := mocktests.NewHandler(mockTestsSvc)
 	downloadCenterHandler := initModule(downloadcenter.NewRepository(db), downloadcenter.NewService, downloadcenter.NewHandler)
 	// Coin economy: the settings key is owned by internal/system, the audit rows
 	// by internal/coins, and the config store holds a short-TTL cache over both
@@ -569,15 +575,28 @@ func main() {
 	// (study_resource_lookup.go) and is handed the studyresources service. See
 	// that file for why the import points that way rather than this one.
 	//
-	// The resource lookup now makes 404 RESOURCE_NOT_FOUND reachable for a
-	// study resource, and supplies the title that names a purchase in the debit
-	// receipt and in the wallet history. The three remaining classes — mock test,
-	// press media, download centre — are not wired, and an unlock naming one is
-	// a 404 until their slice lands rather than a purchase against the wrong
-	// table.
+	// The resource lookup now makes 404 RESOURCE_NOT_FOUND reachable for a study
+	// resource and a mock test, and supplies the title that names a purchase in the
+	// debit receipt and in the wallet history.
+	//
+	// It is a COMPOSITE of one adapter per owning module rather than a single
+	// lookup, and that is the whole point of the shape: internal/coins never learns
+	// which table holds which class, so adding press media or the download centre
+	// later is one more adapter in this list and no change to the wallet. The two
+	// remaining classes are not wired, and an unlock naming one is a 404 until
+	// their slice lands rather than a purchase against the wrong table.
 	coinsWalletAPI := coins.NewUnlockAPI(coinsService, coinsLedger).
 		WithProfileEligibility(&profileCompletionAdapter{svc: studentDashboardSvc}).
-		WithResourceLookup(coins.NewStudyResourceLookup(studyResourcesSvc))
+		WithResourceLookup(coins.NewResourceLookups(
+			coins.ClassLookup{
+				Classes: []string{coins.ResourceTypeStudyResource, coins.ResourceTypeVideo},
+				Lookup:  coins.NewStudyResourceLookup(studyResourcesSvc),
+			},
+			coins.ClassLookup{
+				Classes: []string{coins.ResourceTypeMockTest},
+				Lookup:  coins.NewMockTestLookup(mockTestsSvc),
+			},
+		))
 
 	// The download gate, and the one place a study-resource file is paid for.
 	//
@@ -591,7 +610,17 @@ func main() {
 	// path live means turning on BOTH: the gate is what makes a purchase
 	// meaningful, and the endpoint is what stops a student spending coins
 	// through a route that is cheaper than the one they are being charged on.
-	studyResourcesHandler.WithDownloadGate(coins.NewDownloadGate(coinsWalletAPI))
+	//
+	// The three gates below are the SAME *UnlockAPI answering three ports, and each
+	// has its own switch: gates_enabled.study_resource for downloads,
+	// gates_enabled.video for playback, gates_enabled.mock_test for papers. They
+	// are wired independently on purpose — the kill switch is only a kill switch
+	// if the classes can be turned on and off one at a time — and all three ship
+	// dark, so a deployment that has set none of them behaves byte-identically to
+	// one that has not heard of the coin economy.
+	studyResourcesHandler.WithDownloadGate(coins.NewDownloadGate(coinsWalletAPI)).
+		WithPlaybackGate(coins.NewPlaybackGate(coinsWalletAPI))
+	mockTestsHandler.WithPaperGate(coins.NewPaperGate(coinsWalletAPI))
 	systemHandler := system.NewHandler(systemSvc)
 	toolsHandler := initModule(tools.NewRepository(db), tools.NewService, tools.NewHandler)
 	universityHandler := initModule(university.NewRepository(db), university.NewService, university.NewHandler)
@@ -731,7 +760,9 @@ func main() {
 
 	// Mock tests: separate domain with nested questions/options. Browsing is
 	// public, submit + attempt results require auth, CRUD is superadmin-only.
-	mockTestsHandler := initModule(mocktests.NewRepository(db), mocktests.NewService, mocktests.NewHandler)
+	// The handler is the one built at line 515, not a fresh one: that is the object
+	// the paper gate is attached to, and building a second here would silently drop
+	// the gate from the registered routes.
 	mocktests.RegisterRoutes(router, authMW, studyResourcesRoleMW, mockTestsHandler)
 
 	// Media & press + download center: superadmin-guarded like study resources.

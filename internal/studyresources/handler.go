@@ -46,6 +46,14 @@ type Handler struct {
 	// handler the way they always have. See download_gate.go for the port and why
 	// it is declared on this side.
 	gate DownloadGate
+	// playbackGate is the same check on video playback, as a separate port. It is
+	// separate because a playback grant is always the video class and the class
+	// must not be a caller-chosen argument; see playback_gate.go. It is also
+	// separately switchable, which is the point: gates_enabled.video and
+	// gates_enabled.study_resource are independent kill switches and a deployment
+	// that wants to charge for a video must be able to do so without touching the
+	// document route.
+	playbackGate PlaybackGate
 }
 
 func NewHandler(service *Service) *Handler {
@@ -57,6 +65,14 @@ func NewHandler(service *Service) *Handler {
 // a failure mode.
 func (h *Handler) WithDownloadGate(gate DownloadGate) *Handler {
 	h.gate = gate
+	return h
+}
+
+// WithPlaybackGate wires the coin gate on video playback. Called once from
+// main.go, and independently of WithDownloadGate: the two answer to different
+// switches, and wiring one must not imply the other.
+func (h *Handler) WithPlaybackGate(gate PlaybackGate) *Handler {
+	h.playbackGate = gate
 	return h
 }
 
