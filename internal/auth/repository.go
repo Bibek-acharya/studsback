@@ -27,8 +27,37 @@ func (r *Repository) FindUserByEmail(email string) (*User, error) {
 	return &user, nil
 }
 
+// CreateUser inserts a student and guarantees it has a referral code.
+//
+// The code is assigned HERE rather than at each of the six creation call sites in
+// service.go, and this is the one place the argument for a chokepoint is reversed
+// relative to profile_award.go. That file explains why hooking SaveUser is wrong:
+// the dependency inverts and the chokepoint is incomplete. Both objections are
+// about an award that reaches OUT of this module. This one does not — minting a
+// code is a property of the users table and needs no other module, so it belongs
+// here rather than in six service methods.
+//
+// Six call sites is also the argument. A signup that could reach the database
+// without a code is a signup whose referrer is silently not credited, and it would
+// be one of six, so the test that would catch it (a signup on any path) is not a
+// test anybody would think to write.
+//
+// A failure to mint a code FAILS the insert. That is deliberate and it is the one
+// place in the referral flow where an error is propagated rather than logged: a
+// student with no code cannot share an invite link at all, so a silent failure here
+// produces an account that is permanently un-referrable and there is no later
+// event to heal it. Compare applyAttribution, which cannot fail the signup because
+// a referral is a bonus and an account is not.
 func (r *Repository) CreateUser(user *User) error {
-	return r.db.Create(user).Error
+	if err := r.db.Create(user).Error; err != nil {
+		return err
+	}
+	code, err := ensureReferralCode(r.db, user.ID)
+	if err != nil {
+		return err
+	}
+	user.ReferralCode = code
+	return nil
 }
 
 func (r *Repository) SaveUser(user *User) error {

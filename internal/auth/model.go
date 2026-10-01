@@ -16,32 +16,61 @@ type Preferences struct {
 }
 
 type User struct {
-	ID                  uint           `gorm:"primarykey" json:"id"`
-	CreatedAt           time.Time      `json:"created_at"`
-	UpdatedAt           time.Time      `json:"updated_at"`
-	DeletedAt           gorm.DeletedAt `gorm:"index" json:"-"`
-	Email               string         `gorm:"uniqueIndex;not null" json:"email" binding:"required,email"`
-	Password            *string        `json:"-"`
-	FirstName           string         `gorm:"not null" json:"first_name" binding:"required"`
-	LastName            string         `gorm:"not null" json:"last_name" binding:"required"`
-	MiddleName          string         `gorm:"default:''" json:"middle_name"`
-	Phone               string         `gorm:"default:''" json:"phone"`
-	AlternatePhone      string         `gorm:"default:''" json:"alternate_phone"`
-	DateOfBirth         string         `gorm:"default:''" json:"date_of_birth"`
-	Gender              string         `gorm:"default:''" json:"gender"`
-	Nationality         string         `gorm:"default:''" json:"nationality"`
-	Address             string         `gorm:"type:text;default:''" json:"address"`
-	Bio                 string         `gorm:"type:text;default:''" json:"bio"`
-	GoogleID            *string        `gorm:"uniqueIndex;default:null" json:"google_id"`
-	ImageURL            string         `gorm:"default:''" json:"image_url"`
-	Role                string         `gorm:"default:'student'" json:"role"`
-	Status              string         `gorm:"default:'active'" json:"status"`
-	LastLoginAt         *time.Time     `json:"last_login_at"`
-	ScheduledDeletionAt *time.Time     `json:"scheduled_deletion_at,omitempty"`
-	TOTPSecret          string         `gorm:"default:''" json:"-"`
-	TOTPEnabled         bool           `gorm:"default:false" json:"totp_enabled"`
-	TOTPVerified        bool           `gorm:"default:false" json:"-"`
-	Preferences         *Preferences   `gorm:"type:jsonb;serializer:json;default:'null'" json:"preferences,omitempty"`
+	ID             uint           `gorm:"primarykey" json:"id"`
+	CreatedAt      time.Time      `json:"created_at"`
+	UpdatedAt      time.Time      `json:"updated_at"`
+	DeletedAt      gorm.DeletedAt `gorm:"index" json:"-"`
+	Email          string         `gorm:"uniqueIndex;not null" json:"email" binding:"required,email"`
+	Password       *string        `json:"-"`
+	FirstName      string         `gorm:"not null" json:"first_name" binding:"required"`
+	LastName       string         `gorm:"not null" json:"last_name" binding:"required"`
+	MiddleName     string         `gorm:"default:''" json:"middle_name"`
+	Phone          string         `gorm:"default:''" json:"phone"`
+	AlternatePhone string         `gorm:"default:''" json:"alternate_phone"`
+	DateOfBirth    string         `gorm:"default:''" json:"date_of_birth"`
+	Gender         string         `gorm:"default:''" json:"gender"`
+	Nationality    string         `gorm:"default:''" json:"nationality"`
+	Address        string         `gorm:"type:text;default:''" json:"address"`
+	Bio            string         `gorm:"type:text;default:''" json:"bio"`
+	GoogleID       *string        `gorm:"uniqueIndex;default:null" json:"google_id"`
+	ImageURL       string         `gorm:"default:''" json:"image_url"`
+	// ReferralCode is this account's own invite code — the one it hands out. It is
+	// NOT the code the account arrived with; that lives in user_referral.
+	//
+	// A pointer, nullable, with a UNIQUE index, for three reasons that pull in the
+	// same direction:
+	//
+	//   - Nullable because the backfill is a SEPARATE, BATCHED migration over an
+	//     existing table, so for a window after deploy some rows have a code and
+	//     some do not. NOT NULL would fail every insert until the backfill ran, and
+	//     AutoMigrate adding a NOT NULL column to a table with rows is exactly the
+	//     kind of migration that has to be right first time.
+	//   - Nullable so that a NULL is distinguishable from an empty string: "has no
+	//     code yet" and "has an empty code" are different states and the backfill
+	//     has to tell them apart.
+	//   - Unique, because two accounts sharing a code means a referral credited to
+	//     whichever of them the lookup happened to find. A unique index is the only
+	//     thing that makes that impossible; a check in Go would race, and the
+	//     codebase has already been bitten by exactly this shape twice (the
+	//     UNIQUE (account_id, account_seq) the spec declared and no schema ever
+	//     created).
+	//
+	// The index is on the column as stored, which is why generation and any
+	// comparison must both go through utils.NormalizeReferralCode: the stored form
+	// is upper-case and separator-free, so "Ab3dEf9" cannot become a second
+	// spelling of an existing code that the index cannot see.
+	//
+	// 16 characters is ReferralCodeLength (10) with headroom, so a normalisation
+	// change that lengthens a code does not need a migration to store it.
+	ReferralCode        *string      `gorm:"type:varchar(16);uniqueIndex" json:"referral_code,omitempty"`
+	Role                string       `gorm:"default:'student'" json:"role"`
+	Status              string       `gorm:"default:'active'" json:"status"`
+	LastLoginAt         *time.Time   `json:"last_login_at"`
+	ScheduledDeletionAt *time.Time   `json:"scheduled_deletion_at,omitempty"`
+	TOTPSecret          string       `gorm:"default:''" json:"-"`
+	TOTPEnabled         bool         `gorm:"default:false" json:"totp_enabled"`
+	TOTPVerified        bool         `gorm:"default:false" json:"-"`
+	Preferences         *Preferences `gorm:"type:jsonb;serializer:json;default:'null'" json:"preferences,omitempty"`
 }
 
 func (u *User) HashPassword(password string) error {

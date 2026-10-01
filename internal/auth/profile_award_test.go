@@ -166,7 +166,10 @@ func TestWritePath2GooglePictureDownloadAwards(t *testing.T) {
 	// an error for a non-http URL, localPic is "", and the save does not happen.
 	// So the award must NOT fire — this pins that the call sits inside the
 	// branch that actually changed a completion field, not merely in the method.
-	if _, err := s.GoogleLoginOrRegister("google-2", "path2@example.com", "Asha", "Rai", ""); err != nil {
+	// The trailing "" is the referral code, a parameter of the same call: these
+	// tests are about the award, and a signup that arrived without an invite
+	// attributes nothing.
+	if _, err := s.GoogleLoginOrRegister("google-2", "path2@example.com", "Asha", "Rai", "", ""); err != nil {
 		t.Fatalf("GoogleLoginOrRegister: %v", err)
 	}
 	if len(awarder.Calls) != 0 {
@@ -194,7 +197,7 @@ func TestWritePath2GoogleExistingUserSaveDoesNotAward(t *testing.T) {
 
 	// This existing user has no GoogleID, so line ~510 takes the branch that sets
 	// it and calls SaveUser.
-	if _, err := s.GoogleLoginOrRegister("google-2b", "path2b@example.com", "Asha", "Rai", ""); err != nil {
+	if _, err := s.GoogleLoginOrRegister("google-2b", "path2b@example.com", "Asha", "Rai", "", ""); err != nil {
 		t.Fatalf("GoogleLoginOrRegister: %v", err)
 	}
 	if len(awarder.Calls) != 0 {

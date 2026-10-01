@@ -148,7 +148,19 @@ func (s *Service) Register(req RegisterRequest) (*RegisterResponse, error) {
 		return nil, errors.New("Failed to generate OTP")
 	}
 
-	utils.StoreOTP(req.Email, otp, user)
+	// The referral code is staged WITH the pending account, not applied here.
+	//
+	// This branch of the flow does not create the account — Register deliberately
+	// only stages it, and the row is written by VerifyOTP once the email is proven.
+	// There is no id to attribute until then, and attributing a row that does not
+	// exist yet would mean either writing a referral for an account that later
+	// fails its OTP, or holding a transaction open across an email round trip.
+	//
+	// So the code rides in the OTP store until VerifyOTP consumes the entry. That
+	// makes the OTP store load-bearing for referral attribution, which is why
+	// VerifyOTP reads the whole staged entry rather than just the account — see
+	// SendOTP for the path that would otherwise drop it.
+	utils.StoreOTPWithReferral(req.Email, otp, "", user, req.ReferralCode)
 
 	// Don't send email here - frontend will call /send-otp after user clicks "Verify Account"
 
@@ -319,8 +331,23 @@ func (s *Service) SendOTP(email string, otpType string) error {
 		return errors.New("Failed to generate OTP")
 	}
 
-	_, data := utils.GetOTPData(email)
-	utils.StoreOTPWithType(email, otp, otpType, data)
+	// The WHOLE staged entry, not just the account. SendOTP is on the mainline
+	// registration path — Register deliberately does not mail the OTP, the
+	// frontend calls /send-otp once the student clicks "verify account" — so a
+	// re-store that carried back only (type, data) would drop the referral code
+	// for precisely the students who took the ordinary route. That is an
+	// under-counted referral on the most common path in the product, caused by a
+	// line that looks like a harmless re-stage.
+	//
+	// GetOTPData is still used below for the `data == nil` guard that decides
+	// whether this is a registration at all.
+	otpType, data, referral, staged := utils.GetOTPStaged(email)
+	if !staged {
+		// Nothing pending: a plain verification for an account that already exists,
+		// or a password reset. Nothing to carry forward.
+		otpType = ""
+	}
+	utils.StoreOTPWithReferral(email, otp, otpType, data, referral)
 
 	if emailErr := utils.SendOTPEmail(email, otp); emailErr != nil {
 		log.Printf("Warning: failed to send OTP email to %s: %v", email, emailErr)
@@ -330,8 +357,18 @@ func (s *Service) SendOTP(email string, otpType string) error {
 	return nil
 }
 
+// VerifyOTP is user-creation path 1-3 of 6: it is where an OTP registration
+// becomes a row, and it is THREE paths rather than one because the staged account
+// may be a student, an institution or a scholarship provider. See internal/auth/
+// referral.go for the full enumeration.
 func (s *Service) VerifyOTP(email, otp string) (*LoginResponse, error) {
-	valid, otpType, data := utils.VerifyOTP(email, otp)
+	// VerifyOTPWithReferral, not VerifyOTP: the referral code the invitee arrived
+	// with is captured on RegisterRequest and lives in the OTP store for the ten
+	// minutes between the two calls, and this is the only point at which the
+	// request that carried it is still reachable through the store. Verified
+	// together with the code rather than read afterwards, because this call
+	// CONSUMES the entry — a follow-up read would find nothing.
+	valid, otpType, data, referral := utils.VerifyOTPWithReferral(email, otp)
 	if !valid {
 		return nil, errors.New("Invalid or expired OTP")
 	}
@@ -351,6 +388,16 @@ func (s *Service) VerifyOTP(email, otp string) (*LoginResponse, error) {
 		if err := s.repo.CreateScholarshipProviderUser(&providerUser); err != nil {
 			return nil, errors.New("Failed to create scholarship provider account")
 		}
+
+		// ── user-creation path 3 of 6 ────────────────────────────────────────────
+		// A row in scholarship_provider_users, NOT in users. See internal/auth/
+		// referral.go for why the table has to be named.
+		s.applyAttribution(context.Background(), ReferralSubject{
+			Kind: ReferralSubjectProvider,
+			ID:   providerUser.ID,
+			Code: referral,
+			Path: "verify_otp_provider",
+		})
 
 		if notifierInstance != nil {
 			_ = notifierInstance.Notify(context.Background(), notification.NotifyRequest{
@@ -389,6 +436,15 @@ func (s *Service) VerifyOTP(email, otp string) (*LoginResponse, error) {
 		if err := s.repo.CreateInstitutionUser(&institutionUser); err != nil {
 			return nil, errors.New("Failed to create institution account")
 		}
+
+		// ── user-creation path 2 of 6 ────────────────────────────────────────────
+		// A row in institution_users, NOT in users.
+		s.applyAttribution(context.Background(), ReferralSubject{
+			Kind: ReferralSubjectInstitution,
+			ID:   institutionUser.ID,
+			Code: referral,
+			Path: "verify_otp_institution",
+		})
 
 		settings := institution.InstitutionSettings{
 			InstitutionID: institutionUser.ID,
@@ -446,6 +502,25 @@ func (s *Service) VerifyOTP(email, otp string) (*LoginResponse, error) {
 	// write path that fires before the student has ever authenticated.
 	s.awardProfile(context.Background(), user.ID)
 
+	// ── user-creation path 1 of 4: referral attribution ───────────────────────
+	//
+	// The referral code arrives on RegisterRequest, is carried through the OTP
+	// store by VerifyOTPWithReferral above, and is applied HERE — after
+	// CreateUser, because attribution needs the new account's id, and the id only
+	// exists once the row does.
+	//
+	// Under the Student's Referrer subject, because this is the branch that
+	// creates an auth.User. The two branches above create rows in
+	// institution_users and scholarship_provider_users, and they attribute
+	// against their own subjects — which is the whole reason ReferredKind exists
+	// (see internal/coins/referral_model.go).
+	s.applyAttribution(context.Background(), ReferralSubject{
+		Kind: ReferralSubjectUser,
+		ID:   user.ID,
+		Code: referral,
+		Path: "verify_otp",
+	})
+
 	if notifierInstance != nil {
 		_ = notifierInstance.Notify(context.Background(), notification.NotifyRequest{
 			EventKey:   notification.EventAccountWelcome,
@@ -493,7 +568,15 @@ type googleLoginResult struct {
 	TOTPEnabled bool
 }
 
-func (s *Service) GoogleLoginOrRegister(googleID, email, givenName, familyName, picture string) (*googleLoginResult, error) {
+// GoogleLoginOrRegister is user-creation path 4 of 6. See internal/auth/referral.go
+// for the enumeration.
+//
+// referralCode arrives as an argument because this method runs from a Google
+// redirect callback: the request that carried the invite code is the one that
+// STARTED the OAuth dance and it was answered with a 302 a minute and a half ago.
+// The code has to be persisted client-side across the redirect (the /r/[code]
+// capture route) and handed back here.
+func (s *Service) GoogleLoginOrRegister(googleID, email, givenName, familyName, picture, referralCode string) (*googleLoginResult, error) {
 	user, err := s.repo.FindUserByEmail(email)
 	if err != nil {
 		_, instErr := s.repo.FindInstitutionUserByEmail(email)
@@ -512,6 +595,23 @@ func (s *Service) GoogleLoginOrRegister(googleID, email, givenName, familyName, 
 		if err := s.repo.CreateUser(user); err != nil {
 			return nil, errors.New("Failed to create user: " + err.Error())
 		}
+
+		// ── user-creation path 4 of 6 ────────────────────────────────────────────
+		//
+		// Inside the creation branch and not after it. An EXISTING user arriving
+		// with a code is the case the UNIQUE (referred_kind, referred_user_id)
+		// constraint exists to refuse — an established account re-entering an
+		// invite code to farm both sides is fraud mechanism 3 in
+		// 05-economy-and-fraud.md §3.2 — and calling applyAttribution outside this
+		// branch would send every Google sign-in of an already-referred student at
+		// the coin system on every login. Attribute at creation, once, or not at
+		// all.
+		s.applyAttribution(context.Background(), ReferralSubject{
+			Kind: ReferralSubjectUser,
+			ID:   user.ID,
+			Code: referralCode,
+			Path: "google_login",
+		})
 	} else {
 		if user.GoogleID == nil || *user.GoogleID == "" {
 			user.GoogleID = &googleID
@@ -751,7 +851,9 @@ func (s *Service) InstitutionRegister(req InstitutionRegisterRequest) (*Register
 		return nil, errors.New("Failed to generate OTP")
 	}
 
-	utils.StoreOTP(req.Email, otp, institutionUser)
+	// Staged with the invite code for the same reason Register stages it: this
+	// function does not create the row, VerifyOTP does. See Register's comment.
+	utils.StoreOTPWithReferral(req.Email, otp, "", institutionUser, req.ReferralCode)
 
 	return &RegisterResponse{
 		Email:       institutionUser.Email,
@@ -795,7 +897,9 @@ func (s *Service) InstitutionLogin(req InstitutionLoginRequest) (*LoginResponse,
 	}, nil
 }
 
-func (s *Service) InstitutionGoogleLoginOrRegister(googleID, email, name string) (*InstitutionUser, string, error) {
+// InstitutionGoogleLoginOrRegister is user-creation path 5 of 6, and it writes to
+// institution_users rather than users. See internal/auth/referral.go.
+func (s *Service) InstitutionGoogleLoginOrRegister(googleID, email, name, referralCode string) (*InstitutionUser, string, error) {
 	_, err := s.repo.FindInstitutionUserByEmailOrGoogleID(email, googleID)
 	if err != nil {
 		_, userErr := s.repo.FindUserByEmail(email)
@@ -817,6 +921,15 @@ func (s *Service) InstitutionGoogleLoginOrRegister(googleID, email, name string)
 		if err := s.repo.CreateInstitutionUser(instUser); err != nil {
 			return nil, "", errors.New("Failed to create institution account: " + err.Error())
 		}
+
+		// ── user-creation path 5 of 6 ────────────────────────────────────────────
+		// Creation branch only, for the reason given at path 4.
+		s.applyAttribution(context.Background(), ReferralSubject{
+			Kind: ReferralSubjectInstitution,
+			ID:   instUser.ID,
+			Code: referralCode,
+			Path: "google_institution",
+		})
 	} else {
 		if instUser.GoogleID == nil || *instUser.GoogleID == "" {
 			instUser.GoogleID = &googleID
@@ -863,7 +976,8 @@ func (s *Service) ScholarshipProviderRegister(req ScholarshipProviderRegisterReq
 		return nil, errors.New("Failed to generate OTP")
 	}
 
-	utils.StoreOTP(req.Email, otp, providerUser)
+	// Staged with the invite code, as above.
+	utils.StoreOTPWithReferral(req.Email, otp, "", providerUser, req.ReferralCode)
 
 	return &RegisterResponse{
 		Email:       providerUser.Email,
@@ -1440,7 +1554,9 @@ func (s *Service) ClaimRegister(req ClaimRegisterRequest) (*RegisterResponse, er
 	if err != nil {
 		return nil, errors.New("Failed to generate OTP")
 	}
-	utils.StoreOTP(req.Email, otp, institutionUser)
+	// Staged with the invite code. This is an unauthenticated public signup route,
+	// so it is a real user-creation path — see ClaimRegisterRequest.ReferralCode.
+	utils.StoreOTPWithReferral(req.Email, otp, "", institutionUser, req.ReferralCode)
 
 	if notifierInstance != nil {
 		audience, _ := notifierInstance.ForRoles(context.Background(), "superadmin", "admin")
@@ -1699,7 +1815,9 @@ func (s *Service) ScholarshipProviderLogin(req ScholarshipProviderLoginRequest) 
 	}, nil
 }
 
-func (s *Service) ScholarshipProviderGoogleLoginOrRegister(googleID, email, name string) (*ScholarshipProviderUser, string, error) {
+// ScholarshipProviderGoogleLoginOrRegister is user-creation path 6 of 6, and it
+// writes to scholarship_provider_users. See internal/auth/referral.go.
+func (s *Service) ScholarshipProviderGoogleLoginOrRegister(googleID, email, name, referralCode string) (*ScholarshipProviderUser, string, error) {
 	_, err := s.repo.FindScholarshipProviderUserByEmailOrGoogleID(email, googleID)
 	if err != nil {
 		_, userErr := s.repo.FindUserByEmail(email)
@@ -1721,6 +1839,15 @@ func (s *Service) ScholarshipProviderGoogleLoginOrRegister(googleID, email, name
 		if err := s.repo.CreateScholarshipProviderUser(providerUser); err != nil {
 			return nil, "", errors.New("Failed to create scholarship provider account: " + err.Error())
 		}
+
+		// ── user-creation path 6 of 6 ────────────────────────────────────────────
+		// Creation branch only, for the reason given at path 4.
+		s.applyAttribution(context.Background(), ReferralSubject{
+			Kind: ReferralSubjectProvider,
+			ID:   providerUser.ID,
+			Code: referralCode,
+			Path: "google_provider",
+		})
 	} else {
 		if providerUser.GoogleID == nil || *providerUser.GoogleID == "" {
 			providerUser.GoogleID = &googleID

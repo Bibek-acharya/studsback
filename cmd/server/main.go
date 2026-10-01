@@ -308,6 +308,8 @@ func main() {
 		&coins.ResourceUnlock{},
 		&coins.UserFreeAllowance{},
 		&coins.RewardGrant{},
+		&coins.UserReferral{},
+		&coins.ReferralCapSlot{},
 		&pressmedia.PressMediaItem{},
 		&downloadcenter.DownloadItem{},
 		&domain.Conversation{},
@@ -350,6 +352,17 @@ func main() {
 			// migration list below, where a failure is only a warning.
 			if err := coins.EnsureEntitlementIndexes(db); err != nil {
 				logger.Fatal("Failed to create coin entitlement constraints", "error", err)
+			}
+			// The referral table is the same trap with a different symptom. Without
+			// this, user_referral exists with the composite UNIQUE from its struct
+			// tags and NOTHING else: no CHECK on the state machine, no UNIQUE on
+			// phone_hash or device_hash — which is the control that actually
+			// prevents the same person being counted twice, as distinct from the cap
+			// which only bounds the loss — and no ceiling on the monthly cap slot.
+			// That is a referral programme that looks correct in a schema dump and
+			// enforces nothing.
+			if err := coins.EnsureReferralIndexes(db); err != nil {
+				logger.Fatal("Failed to create referral constraints", "error", err)
 			}
 		}
 		if err := allowAnonymousScholarshipApplications(db); err != nil {
@@ -402,6 +415,9 @@ func main() {
 		}
 		if err := migrations.CreateStudsTokenEntitlements(db); err != nil {
 			logger.Warn("Failed to run StudsToken entitlement migration", "error", err)
+		}
+		if err := migrations.CreateUserReferralAttribution(db); err != nil {
+			logger.Warn("Failed to run referral attribution migration", "error", err)
 		}
 		// Cleanup dangling sub-users with provider_id = 0 from previous bug
 		if err := db.Exec("DELETE FROM provider_access_users WHERE provider_id = 0").Error; err != nil {
@@ -634,6 +650,28 @@ func main() {
 		nil, // no notifier: coins.credited is emitted by the award itself
 	)
 	auth.SetProfileAwarder(&profileAwarderAdapter{svc: profileAwardSvc})
+
+	// Referral attribution: the second earn mechanic, and the only one with a fraud
+	// surface.
+	//
+	// Wired as two seams for the same reason the profile award is. auth owns the
+	// TRIGGER — it is the only module that inserts into users,
+	// institution_users and scholarship_provider_users — and declares a one-method
+	// port. coins owns the ATTRIBUTION table and every uniqueness and cap
+	// constraint on it. Neither imports the other; the adapter in
+	// referral_wiring.go, in this package, is the only place the two vocabularies
+	// meet.
+	//
+	// NOT an award yet. Attribution records that a code was accepted; it pays
+	// nothing. Qualification, the 7-day reserved hold, the release and the clawback
+	// are the next slice, and the columns and the single-transaction settlement
+	// seam they need already exist (coins.SettleReferral). Wiring this here means
+	// the four (really six) user-creation paths start recording referrals the moment
+	// this deploys, which is the whole point of doing attribution and payment
+	// separately: the relationship is worth capturing from the first day even while
+	// the payout is still dark.
+	referralSvc := coins.NewReferralService(coinsRepo, coinsLedger)
+	auth.SetReferralAttributor(&referralAttributorAdapter{svc: referralSvc})
 
 	coinsWalletAPI := coins.NewUnlockAPI(coinsService, coinsLedger).
 		WithProfileEligibility(&profileCompletionAdapter{svc: studentDashboardSvc}).

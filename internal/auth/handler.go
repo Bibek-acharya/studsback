@@ -159,6 +159,35 @@ func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
 }
 
+// referralCodeFrom reads an invite code out of the request.
+//
+// Query, then cookie. The cookie is there because the OAuth dance loses the query
+// string: Google returns the browser to a callback URL that carries `code` and
+// `state` and nothing else, so a code captured as `?ref=...` on the invite link has
+// to survive the round trip somehow. The query is read first because a direct
+// navigation to a registration URL with the code in it should win over whatever a
+// stale cookie holds.
+//
+// /r/[code] is the capture route and is NOT part of this slice — it is the student
+// -facing surface 04-implementation-plan.md §5.2 step 4, which lands with /referral
+// in the next one. The handler reads the code from wherever the client supplies it
+// so this seam is wired and testable now and the capture route is a pure addition
+// later.
+func referralCodeFrom(c *gin.Context) string {
+	if code := c.Query("ref"); code != "" {
+		return code
+	}
+	if cookie, err := c.Cookie(referralCodeCookie); err == nil {
+		return cookie
+	}
+	return ""
+}
+
+// referralCodeCookie is where the client parks an invite code across the Google
+// redirect. SameSite=Lax so it survives a top-level navigation back from Google
+// and is not sent on a cross-site subrequest.
+const referralCodeCookie = "referral_code"
+
 func (h *Handler) Register(c *gin.Context) {
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -359,7 +388,12 @@ func (h *Handler) GoogleCallback(c *gin.Context) {
 		return
 	}
 
-	result, err := h.service.GoogleLoginOrRegister(googleUser.ID, googleUser.Email, googleUser.GivenName, googleUser.FamilyName, googleUser.Picture)
+	// The invite code, captured before the token is minted. See
+	// referralCodeFrom: the OAuth round trip drops the original query string, so
+	// this comes from the cookie the /r/[code] capture route sets.
+	result, err := h.service.GoogleLoginOrRegister(googleUser.ID, googleUser.Email,
+		googleUser.GivenName, googleUser.FamilyName, googleUser.Picture,
+		referralCodeFrom(c))
 	if err != nil {
 		h.redirectError(c, err.Error())
 		return
@@ -646,7 +680,8 @@ func (h *Handler) InstitutionGoogleCallback(c *gin.Context) {
 		return
 	}
 
-	_, jwtToken, err := h.service.InstitutionGoogleLoginOrRegister(googleUser.ID, googleUser.Email, googleUser.Name)
+	_, jwtToken, err := h.service.InstitutionGoogleLoginOrRegister(googleUser.ID, googleUser.Email,
+		googleUser.Name, referralCodeFrom(c))
 	if err != nil {
 		h.redirectError(c, err.Error())
 		return
@@ -837,7 +872,8 @@ func (h *Handler) ScholarshipProviderGoogleCallback(c *gin.Context) {
 		return
 	}
 
-	providerUser, jwtToken, err := h.service.ScholarshipProviderGoogleLoginOrRegister(googleUser.ID, googleUser.Email, googleUser.Name)
+	providerUser, jwtToken, err := h.service.ScholarshipProviderGoogleLoginOrRegister(googleUser.ID,
+		googleUser.Email, googleUser.Name, referralCodeFrom(c))
 	if err != nil {
 		h.redirectError(c, err.Error())
 		return

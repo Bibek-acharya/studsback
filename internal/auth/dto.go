@@ -9,6 +9,20 @@ type RegisterRequest struct {
 	LastName       string `json:"last_name" binding:"required"`
 	Role           string `json:"role"`
 	EducationLevel string `json:"education_level"`
+	// ReferralCode is the code from the invite link, captured at /r/[code] and sent
+	// by the client on registration.
+	//
+	// Deliberately WITHOUT a binding tag. An invite code is a field a student may
+	// simply not have, and a `binding:"required"` or a length constraint here
+	// would turn "arrived without an invite" into a 400 on the product's main
+	// registration path. It is also never an error to send a wrong one: the code is
+	// normalised and looked up, an unknown code simply attributes nothing, and
+	// nothing tells the client whether the code existed — which is deliberate, so
+	// that this endpoint is not an oracle for testing codes against.
+	//
+	// The whole field is a string the server stages and looks up. No amount, no
+	// role, nothing that could change what the signup is worth.
+	ReferralCode string `json:"referral_code"`
 }
 
 type LoginRequest struct {
@@ -125,9 +139,12 @@ type PreferencesResponse struct {
 }
 
 type InstitutionRegisterRequest struct {
-	InstitutionName          string `json:"institution_name" binding:"required"`
-	RegistrationNumber       string `json:"registration_number"`
-	Email                    string `json:"email" binding:"required,email"`
+	InstitutionName    string `json:"institution_name" binding:"required"`
+	RegistrationNumber string `json:"registration_number"`
+	Email              string `json:"email" binding:"required,email"`
+	// ReferralCode is the invite code, carried to VerifyOTP the same way
+	// RegisterRequest's is. See that field for why it has no binding tag.
+	ReferralCode             string `json:"referral_code"`
 	ContactNumber            string `json:"contact_number"`
 	Province                 string `json:"province"`
 	District                 string `json:"district"`
@@ -261,9 +278,12 @@ type ScholarshipProviderRegisterRequest struct {
 	ProviderName       string `json:"provider_name" binding:"required"`
 	RegistrationNumber string `json:"registration_number" binding:"required"`
 	Email              string `json:"email" binding:"required,email"`
-	ContactNumber      string `json:"contact_number"`
-	PANNumber          string `json:"pan_number" binding:"omitempty,len=9,numeric"`
-	WebsiteURL         string `json:"website_url"`
+	// ReferralCode is the invite code, carried to VerifyOTP the same way
+	// RegisterRequest's is. See that field for why it has no binding tag.
+	ReferralCode  string `json:"referral_code"`
+	ContactNumber string `json:"contact_number"`
+	PANNumber     string `json:"pan_number" binding:"omitempty,len=9,numeric"`
+	WebsiteURL    string `json:"website_url"`
 }
 
 type ScholarshipProviderApprovalRequest struct {
@@ -294,10 +314,17 @@ type UpdateProfileAccessRequest struct {
 }
 
 type ClaimRegisterRequest struct {
-	CollegeID                uint   `json:"college_id" binding:"required"`
-	InstitutionName          string `json:"institution_name" binding:"required"`
-	RegistrationNumber       string `json:"registration_number" binding:"required"`
-	Email                    string `json:"email" binding:"required,email"`
+	CollegeID          uint   `json:"college_id" binding:"required"`
+	InstitutionName    string `json:"institution_name" binding:"required"`
+	RegistrationNumber string `json:"registration_number" binding:"required"`
+	Email              string `json:"email" binding:"required,email"`
+	// ReferralCode is the invite code. This is an UNAUTHENTICATED public signup
+	// route — a college claiming its own profile — so it is a genuine
+	// user-creation path and a missed code here is a missed referral exactly as much
+	// as a missed code on the student form is. It reaches the institution branch of
+	// VerifyOTP, so the call site itself is shared; what this field buys is the
+	// code's arrival.
+	ReferralCode             string `json:"referral_code"`
 	ContactNumber            string `json:"contact_number"`
 	Province                 string `json:"province"`
 	District                 string `json:"district"`
