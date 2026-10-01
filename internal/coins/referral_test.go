@@ -259,7 +259,7 @@ func TestReferralFingerprintNamespacesByKind(t *testing.T) {
 // The referred kinds and statuses are the closed sets the CHECK constraints
 // enforce. Asserted here because a kind or status added to a Go list but not to a
 // CHECK is a write the database refuses — and the failure would surface as an
-// INSERT error in the next slice rather than here.
+// INSERT error in the qualification pass rather than here.
 func TestReferralVocabulariesAreClosed(t *testing.T) {
 	if len(ReferredKinds) != 3 {
 		t.Errorf("ReferredKinds has %d entries, want 3 (user, institution, provider). "+
@@ -279,9 +279,19 @@ func TestReferralVocabulariesAreClosed(t *testing.T) {
 		}
 	}
 
-	// Four states: pending now, the other three written by the next slice.
-	if len(ReferralStatuses) != 4 {
-		t.Errorf("ReferralStatuses has %d entries, want 4", len(ReferralStatuses))
+	// FIVE states now: pending and qualified are written by the code, expired by the
+	// qualification pass, and rejected/clawedback by an operator.
+	//
+	// The count grew from four to five with 'expired', and it is pinned because the
+	// CHECK constraint in referral_indexes.go has to be widened in the same commit. A
+	// state added here without widening the CHECK fails on the first write in
+	// production rather than here, which is the worst place to find out — and this is
+	// the only assertion that connects the Go vocabulary to that constraint's name.
+	if len(ReferralStatuses) != 5 {
+		t.Errorf("ReferralStatuses has %d entries, want 5 (pending, qualified, expired, "+
+			"clawedback, rejected). If a state was added, chk_user_referral_status has to "+
+			"list it too, or every write of the new state is refused by the database",
+			len(ReferralStatuses))
 	}
 	// pending and rejected are distinct on purpose, and clawedback is spelled as one
 	// word because that is what the CHECK says.
@@ -292,6 +302,35 @@ func TestReferralVocabulariesAreClosed(t *testing.T) {
 	if ReferralClawedBack != "clawedback" {
 		t.Errorf("ReferralClawedBack = %q, want \"clawedback\" to match chk_user_referral_status",
 			ReferralClawedBack)
+	}
+	// 'expired' and 'clawedback' are BOTH terminal and must never be conflated, because
+	// the only question anyone asks of them is whether this student ever got coins: a
+	// clawback answers yes-then-no, an expiry answers never. Folding them together
+	// loses that answer, which is the first thing a support or fraud review asks.
+	if ReferralExpired == ReferralClawedBack {
+		t.Error("expired and clawedback are the same constant. An expiry never paid and a " +
+			"clawback takes back something that did; they are different support answers")
+	}
+	// And the terminal list is the three that never pay, so nothing that CAN pay is in
+	// it — a qualified referral is terminal for further ATTEMPTS, not for payment.
+	wantTerminal := []string{ReferralExpired, ReferralClawedBack, ReferralRejected}
+	if len(ReferralTerminalStatuses) != len(wantTerminal) {
+		t.Fatalf("ReferralTerminalStatuses has %d entries, want %d", len(ReferralTerminalStatuses), len(wantTerminal))
+	}
+	for _, want := range wantTerminal {
+		if !IsTerminalReferralStatus(want) {
+			t.Errorf("%q is not terminal, so settlement would not refuse it", want)
+		}
+	}
+	for _, notTerminal := range []string{ReferralPending, ReferralQualified} {
+		if IsTerminalReferralStatus(notTerminal) {
+			t.Errorf("%q is reported as terminal; settlement refuses terminal statuses, so "+
+				"this would make a referral that can still pay be unpayable", notTerminal)
+		}
+	}
+	if IsTerminalReferralStatus("") || IsTerminalReferralStatus("PENDING") {
+		t.Error("IsTerminalReferralStatus matched an empty or mis-cased status; it compares " +
+			"exactly, and a fuzzy match would refuse a typo'd state for a new reason")
 	}
 }
 
@@ -448,27 +487,47 @@ func TestAttributionCarriesNoReferrerParameter(t *testing.T) {
 	}
 }
 
-// The service's exported surface is two entry points, on purpose.
+// The service's exported surface is three entry points plus two wiring seams, on
+// purpose.
 //
 // ApplyReferral records a relationship. SettleReferral pays one, as a single
-// transaction. claimCapSlot and readReferralForUpdate are steps of the state machine
-// and are unexported so that a caller cannot run one out of order — a cap slot
-// claimed without a grant, or a settlement's status read without its lock.
+// transaction. QualifyPendingReferrals is the pass that decides which referrals
+// SettleReferral is called for. claimCapSlot and readReferralForUpdate are steps of
+// the state machine and are unexported so that a caller cannot run one out of order —
+// a cap slot claimed without a grant, or a settlement's status read without its lock.
+//
+// THIS LIST GREW FROM TWO TO THREE, and the reason is worth recording rather than
+// absorbing into an allow-list: the qualification pass cannot be a method on
+// something else, because the decision "is this referral payable" has to be the SAME
+// code that SettleReferral uses to refuse an early payment. A second implementation
+// of that question is how a sweep and a settlement come to disagree about one row.
+// Splitting them for tidiness would have bought nothing and cost the invariant.
+//
+// WithQualifiers and WithNotifier are also in the list, and they are different in
+// kind: neither moves a coin or reads a row. They are wiring seams, shaped as builder
+// methods because the qualification ports must be OPTIONAL at construction — attribution
+// needs neither, and a deployment missing the phone-verification flow must still record
+// every referral from day one.
 //
 // This is an assertion on names, which is coarse. The point is not that nothing can
-// be added; it is that a third exported method is a step of the state machine that
-// has to be argued for in review rather than added in passing.
-func TestReferralServiceExposesOnlyItsTwoEntryPoints(t *testing.T) {
+// be added; it is that a fourth exported METHOD that touches the state machine has to
+// be argued for in review rather than added in passing.
+func TestReferralServiceExposesOnlyItsEntryPoints(t *testing.T) {
 	typ := reflect.TypeOf(&ReferralService{})
 	allowed := map[string]bool{
-		"ApplyReferral":  true,
-		"SettleReferral": true,
+		"ApplyReferral":           true,
+		"SettleReferral":          true,
+		"QualifyPendingReferrals": true,
+		"WithQualifiers":          true,
+		"WithNotifier":            true,
 	}
 	for i := 0; i < typ.NumMethod(); i++ {
 		if name := typ.Method(i).Name; !allowed[name] {
-			t.Errorf("ReferralService exports %q. Attribution has two entry points — "+
-				"record a referral, settle one — and a third exported helper is a step "+
-				"of the referral state machine that can then be called out of order", name)
+			t.Errorf("ReferralService exports %q. The state machine has three entry points — "+
+				"record a referral, settle one, run the qualification pass — and a fourth "+
+				"exported method that touches the state machine can be called out of order. "+
+				"WithQualifiers and WithNotifier are in the allow-list because they only "+
+				"attach wiring and move no coins", name)
 		}
 	}
 }

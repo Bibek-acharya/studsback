@@ -1326,10 +1326,13 @@ type WalletBalance struct {
 	// projection, and a wallet render is not the place to find out that it and
 	// the postings disagree.
 	TotalAvailable int64
-	// TotalReserved is the outstanding referral holds on their accounts: coins
-	// that are promised and not yet issued. §2.4 requires coins_pending to be
-	// this figure rather than a separate one, precisely so it can never disagree
-	// with this endpoint.
+	// TotalReserved is coins promised but not yet issued. It is ALWAYS ZERO from the
+	// earn path: a referral payout credits the referrer directly rather than
+	// reserving against their balance, so nothing in coins writes `reserved`. The
+	// field survives because Reserve/ReleaseReserved are general ledger primitives
+	// and a reservation is the right shape for a mechanic that promises coins before
+	// issuing them. It is NOT a referral figure, and 03-api-contract.md §2.4's
+	// coins_pending was removed rather than redefined for exactly this reason.
 	TotalReserved int64
 	// Buckets is the per-bucket view, already in FEFO order.
 	Buckets []BucketBalance

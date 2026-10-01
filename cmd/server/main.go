@@ -419,6 +419,15 @@ func main() {
 		if err := migrations.CreateUserReferralAttribution(db); err != nil {
 			logger.Warn("Failed to run referral attribution migration", "error", err)
 		}
+		// Widen chk_user_referral_status to carry 'expired'. Separate from the migration
+		// above because that one called EnsureReferralIndexes when the constraint already
+		// existed, and EnsureReferralIndexes is idempotent on the constraint NAME rather
+		// than on its expression — so it left the four-value vocabulary in place and the
+		// first expiry write would have been refused by it. See
+		// migrations/20261002_widen_referral_status_for_expiry.go.
+		if err := migrations.WidenReferralStatusForExpiry(db); err != nil {
+			logger.Warn("Failed to widen the referral status vocabulary", "error", err)
+		}
 		// Cleanup dangling sub-users with provider_id = 0 from previous bug
 		if err := db.Exec("DELETE FROM provider_access_users WHERE provider_id = 0").Error; err != nil {
 			logger.Warn("Failed to cleanup dangling sub-users", "error", err)
@@ -670,7 +679,34 @@ func main() {
 	// this deploys, which is the whole point of doing attribution and payment
 	// separately: the relationship is worth capturing from the first day even while
 	// the payout is still dark.
-	referralSvc := coins.NewReferralService(coinsRepo, coinsLedger)
+	//
+	// The two qualification ports are attached here rather than being constructor
+	// parameters, and the phone one is nil ON PURPOSE.
+	//
+	// WithQualifiers takes the SAME profile-completion adapter the profile award uses
+	// above, deliberately not a second implementation of the twelve checks: a student
+	// paid against one definition of "complete" while the page shows them another is
+	// the drift profile_award.go exists to prevent.
+	//
+	// The phone argument is nil because THERE IS NO PHONE VERIFICATION IN THIS
+	// SCHEMA. auth.User carries `Phone string` with no verification state;
+	// docs/coin-system/01-current-state-and-feasibility.md §3.4 records that grepping
+	// for is_phone_verified / phone_verified returns nothing, and
+	// 04-implementation-plan.md §2.3 calls adding `phone_verified_at` "a launch
+	// blocker for the referral earn, not a nice-to-have".
+	//
+	// So §5.2's second condition cannot be evaluated, and the qualification pass
+	// therefore pays nothing — it fails CLOSED and counts the referrals it declined,
+	// rather than substituting "has a non-empty phone", which would let anyone type
+	// ten digits and qualify. The nil is here so that adding the verification flow is
+	// a one-argument change at the wiring, in the one place that knows the dependency
+	// is missing.
+	referralSvc := coins.NewReferralService(coinsRepo, coinsLedger).
+		WithQualifiers(
+			&profilePercentAdapter{svc: studentDashboardSvc},
+			nil, // coins.PhoneVerification: no implementation exists yet
+		).
+		WithNotifier(notificationSvc)
 	auth.SetReferralAttributor(&referralAttributorAdapter{svc: referralSvc})
 
 	coinsWalletAPI := coins.NewUnlockAPI(coinsService, coinsLedger).
@@ -884,6 +920,19 @@ func main() {
 	// slice that adds the first resource gate does.
 	coins.RegisterWalletRoutes(router, authMW, coinsWalletAPI)
 
+	// The student's own referral summary: their code, their standing against the
+	// monthly cap, and their referrals with enough state to be honest about what has
+	// not paid out yet. authMW alone, owner-scoped — every query filters on the
+	// CALLER's id and there is no parameter through which anybody else's could be
+	// named. An institution or scholarship-provider account calling it gets its own
+	// (empty) view, exactly as it gets its own empty wallet.
+	//
+	// The invite base URL is config.AppConfig.FrontendURL rather than a constant
+	// here, because a shareable link assembled from a guessed host is a broken invite
+	// on every deployment that is not localhost.
+	coins.RegisterReferralRoutes(router, authMW,
+		coins.NewReferralAPI(referralSvc, config.AppConfig.FrontendURL))
+
 	// Mock tests: separate domain with nested questions/options. Browsing is
 	// public, submit + attempt results require auth, CRUD is superadmin-only.
 	// The handler is the one built at line 515, not a fresh one: that is the object
@@ -924,6 +973,31 @@ func main() {
 		db,
 		config.AppConfig.CoinsReconcileInterval,
 		config.AppConfig.CoinsReconcileTimeout,
+	)
+
+	// Referral qualification: the pass that pays a referral whose invitee has
+	// qualified and whose 7-day window has closed.
+	//
+	// A SEPARATE ticker from the reconciler above, deliberately, and
+	// internal/coins/referral_qualification.go's header gives the three reasons: a
+	// read-only invariant checker that also paid money would make its "healthy" report
+	// conflate "the ledger is consistent" with "a payout worked", "just run it again"
+	// would mean "move money again", and the two want opposite cadences — the
+	// reconciler hourly is plenty, this wants to be quick because it is the delay
+	// between a student finishing their profile and seeing what they earned.
+	//
+	// It is constructed with the SAME referralSvc the attribution port holds, because
+	// it is the same referral state machine: attribution records the relationship,
+	// this advances it. Two services over one table would be two answers to "is this
+	// referral paid".
+	//
+	// Nothing is wired for phone verification, so this pass currently settles nothing
+	// and says so in every log line it writes. That is the intended behaviour of an
+	// unimplementable rule — see referral_qualification.go.
+	go coins.StartReferralQualifier(
+		referralSvc,
+		config.AppConfig.CoinsReferralQualifyInterval,
+		config.AppConfig.CoinsReferralQualifyTimeout,
 	)
 
 	logger.Info("All routes registered", "port", config.AppConfig.Port)

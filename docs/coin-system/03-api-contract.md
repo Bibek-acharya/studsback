@@ -37,7 +37,7 @@ comparison after lowercasing, and both spellings exist in the codebase.
 | GET | `/api/v1/coins/transactions` | required | Paginated ledger history |
 | GET | `/api/v1/coins/allowance` | required | Free allowance status |
 | POST | `/api/v1/coins/unlock` | required | Spend coins to unlock a resource |
-| GET | `/api/v1/referral/me` | required | My code, link, and stats |
+| GET | `/api/v1/referrals` | required | My code, link, and stats |
 | POST | `/api/v1/referral/validate` | optional | Validate a code pre-registration |
 | GET | `/api/v1/referrals/mine` | required | My referrals and their status |
 | GET | `/api/v1/study-resources/mine` | required | My uploads and approval status |
@@ -54,7 +54,7 @@ the cached projection, never from `SUM()` over postings.
   "success": true,
   "data": {
     "total_available": 145,          // SUM(posted_balance - reserved) across user accounts
-    "total_reserved": 60,            // pending referral holds
+    "total_reserved": 0,             // coins promised but not yet issued; see below
     "buckets": [
       { "bucket": "FREE",   "balance": 40, "expires_at": "2026-10-26T00:00:00Z", "lot_count": 1 },
       { "bucket": "EARNED", "balance": 105,"expires_at": null,              "lot_count": 3 }
@@ -76,6 +76,13 @@ the cached projection, never from `SUM()` over postings.
 
 `expires_at` is surfaced per bucket, not as a global terms link. A student must be
 able to see *which* coins expire and when without reading a T&C page.
+
+`total_reserved` is currently **always 0**. The referral mechanic no longer
+reserves from the referrer — coins are credited directly and the 7-day wait lives
+in the referral row's state machine — so nothing in the earn path writes
+`reserved`. The field stays because `Reserve`/`ReleaseReserved` are general
+ledger primitives, and a reservation is the right shape for a future mechanic that
+promises coins before issuing them. It is not a referral figure.
 
 ### 2.2 `GET /api/v1/coins/transactions`
 
@@ -179,27 +186,129 @@ designed object, not a string:
 eligibility — a completed profile does not appear. It is the same payload the UI
 needs to render the motivating empty state, so the two cannot drift.
 
-### 2.4 `GET /api/v1/referral/me`
+### 2.4 `GET /api/v1/referrals`
+
+Owner-scoped: every query filters on the caller's own id, and no parameter can
+name another account. Unauthenticated is `401`; any database failure is `500`.
+There is no `403` and no `404` — a caller with no referrals gets zeros, which is
+a true answer rather than a missing resource.
+
+> **Corrected against the implementation.** This section previously specified
+> `GET /api/v1/referral/me` and a `coins_pending` figure. The path is now
+> `/api/v1/referrals` (one path per resource), and `coins_pending` is **gone**:
+> a referral payout no longer reserves from the referrer, so there is no reserved
+> balance to report, and a "pending" figure pointing at a column nothing writes
+> would be the exact disagreement the old sentence existed to prevent.
 
 ```jsonc
 {
   "success": true,
+  "message": "Referral summary",
   "data": {
-    "referral_code": "STU-7K2M9Q",
-    "referral_link": "https://studsphere.com/r/STU-7K2M9Q",
+    "referral_code": "STU-7K2M9Q",                    // null before the backfill reaches the account
+    "referral_link": "https://studsphere.com/r/STU-7K2M9Q",   // null if no base URL is configured
+    "qualification_available": false,                 // see below
+    "qualification_notice": "Referral StudsTokens cannot be added yet. …",
+    "referral_hold_days": 7,                          // so the UI renders the same date this body computes
     "stats": {
-      "invited": 14, "qualified": 9, "pending": 3, "rejected": 2,
-      "coins_earned_total": 540, "coins_pending": 180,
+      "invited": 14, "qualified": 9, "pending": 3, "expired": 1, "rejected": 1,
+      "coins_earned_total": 540,
       "this_month_qualified": 4,
       "monthly_cap_remaining": 6,
-      "lifetime_cap_remaining": 1460
-    }
+      "lifetime_cap_remaining": 60
+    },
+    "referrals": [                                    // the caller's own rows, newest first
+      {
+        "referral_id": 913,
+        "status": "pending",
+        "referred_kind": "user",
+        "referred_at": "2026-09-26T06:00:00Z",
+        "eligible_at": "2026-10-03T06:00:00Z",       // referred_at + referral_hold_days
+        "state": "waiting_for_window",
+        "awarded_coins": 0
+      },
+      {
+        "referral_id": 907,
+        "status": "qualified",
+        "referred_kind": "user",
+        "referred_at": "2026-09-14T06:00:00Z",
+        "eligible_at": "2026-09-21T06:00:00Z",
+        "qualified_at": "2026-09-20T11:30:00Z",       // met §5.2's bar
+        "settled_at": "2026-09-22T02:00:00Z",         // coins granted — a separate fact, may be days later
+        "state": "settled",
+        "awarded_coins": 60
+      }
+    ]
   }
 }
 ```
 
-`coins_pending` reflects the `reserved` balance, not a separate figure, so it can
-never disagree with `GET /coins/balance`.
+**`coins_pending` is replaced by per-referral `status` + `eligible_at`.** "Three
+referrals have not paid yet" is answerable by counting rows the page is already
+rendering, and it cannot disagree with anything because there is no second number
+to disagree with. Do not reintroduce an aggregate.
+
+`stats.pending` counts **only** rows in status `pending` — those that have not
+qualified and may still pay. Terminal rows are counted in `expired` and `rejected`
+instead, so `invited == qualified + pending + expired + rejected` holds and no row
+that can never pay is ever reported as one that might.
+
+Two subtleties a client must not get wrong:
+
+- **`qualified` counts `clawedback` too.** A referral that qualified and was then
+  reversed on a fraud finding *did* qualify. Rendering "0 qualified" to a student
+  who was genuinely credited and then had it taken back is worse than showing no
+  number at all, so clawedback is folded into the qualified count and reported as
+  a separate per-row `state`. `coins_earned_total` sums `awarded_coins` and so
+  still includes a clawed-back lot — which is why it is a separate number from the
+  wallet balance rather than derived from it.
+- **`qualified` is not "paid".** It is a status, and a qualified row is still
+  waiting for its window to close. Only `settled_at` says the coins moved.
+
+The cap figures come from `referral_cap_slot` — the table the settlement is
+refused by — not from counting referral rows, because a cap that counts something
+other than what it pays is decorative. `lifetime_cap_remaining` is the derived
+ceiling from 05 §2.4, not a counter.
+
+Per-row `state` is derived, not stored, and is what the page should render. It
+exists because a raw `status` cannot tell "come back on the 3rd" from "your friend
+has not finished yet", and those are different things for a student to do.
+
+| `status` | `state` | Meaning |
+|---|---|---|
+| `pending`, window still open | `waiting_for_window` | The fraud window is still running. Nothing to do. |
+| `pending`, window closed | `waiting_for_invitee` | The invitee has not finished. Not the student's fault (06 §7). |
+| `qualified` | `settled` | Coins granted. |
+| `expired` | `expired` | Terminal, never pays. |
+| `clawedback` | `clawedback` | Paid, then reversed on a fraud finding. |
+| `rejected` | `rejected` | Disqualified before payout. |
+
+A qualified row is emitted as `settled` even in the same run that qualified it, so
+a client must use `settled_at` — not `state` — to decide whether coins have moved.
+
+`reason` is set only for a terminal row and is never a penalty sentence (06 §7).
+
+Two further states exist as **frontend-only** concepts and are never emitted by
+this endpoint: `unverifiable` (render when `qualification_available` is false) and
+`settling` (qualified, window still running — currently unreachable, since the
+qualification pass settles a row in the same transaction that qualifies it, so
+there is no observable moment in between).
+
+**`qualification_available` is `false` in every deployment today.** It is derived
+from the same `PhoneVerification` port the qualification pass refuses on when it
+is nil, so the page cannot claim referrals are earnable while the pass pays none.
+It is the one field here that is about the server rather than the student, and it
+exists so the page can say *why* nothing has paid instead of spinning forever.
+
+`referral_link` is `null` rather than a bare `/r/CODE`: a relative link is
+meaningless in a copied string or an email, and a link that silently omits its
+host ships broken on every host that is not localhost.
+
+The invitee's identity is **not** exposed — no name, email, phone, or referred
+user id (07 §5.2). A sequential id plus `referred_kind` is the most a referral
+discloses about the other person. `expires_at` is not currently emitted for a
+referral row; the per-lot expiry dates live on the wallet endpoint, which reads
+the caller's own lots.
 
 ### 2.5 `POST /api/v1/referral/validate`
 

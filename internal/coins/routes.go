@@ -64,3 +64,29 @@ func RegisterWalletRoutes(r *gin.Engine, authMW gin.HandlerFunc, api *UnlockAPI)
 		wallet.POST("/unlock", api.UnlockResource)
 	}
 }
+
+// RegisterReferralRoutes mounts GET /api/v1/referrals (03-api-contract.md §2.4).
+//
+// A third mount rather than a group inside RegisterWalletRoutes, and the reason is
+// the one the function above already gives: these are different resources with a
+// different disclosure surface, and lumping a referral summary in with the wallet
+// would make "add a role gate here" a question about coin pricing.
+//
+// It is authMW alone, for the wallet's reason inverted. The wallet needs no role gate
+// because a student has no special role beyond being authenticated; referrals need no
+// role gate because every row returned belongs to the CALLER — `institution` and
+// `scholarship_provider` are legitimate authenticated principals here and get their
+// own (empty) view, which is exactly what they get from the wallet. Adding
+// RequireRole here would be an entitlement decision about which account types may
+// hold StudsTokens, and that is not this route's to make.
+func RegisterReferralRoutes(r *gin.Engine, authMW gin.HandlerFunc, api *ReferralAPI) {
+	if r == nil || api == nil {
+		return
+	}
+
+	referrals := r.Group("/api/v1/referrals")
+	referrals.Use(authMW)
+	{
+		referrals.GET("", api.Me)
+	}
+}

@@ -35,7 +35,6 @@ package coins
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -109,7 +108,66 @@ func openReferralSchema(t *testing.T) *gorm.DB {
 		t.Fatalf("truncate referral tables: %v", err.Error())
 	}
 	assertReferralConstraintsPresent(t, db)
+	assertStatusVocabularyIsWidened(t, db)
 	return db
+}
+
+// assertStatusVocabularyIsWidened proves chk_user_referral_status ACCEPTS 'expired'.
+//
+// A presence assertion is not enough and the difference is the whole point of this
+// fixture. addConstraint is idempotent on the constraint NAME, so on a schema where
+// chk_user_referral_status already exists with the old four-value expression,
+// EnsureReferralIndexes leaves it exactly as it found it — the constraint is present,
+// correctly named, and refusing every expiry write. Every test in this file would then
+// pass while the mechanic could never expire a referral in production.
+//
+// So the fixture writes a referral in each declared status, which is the only assertion
+// immune to how Postgres chooses to render the expression. A refused insert is caught
+// here, at the fixture, rather than in whichever test happened to run first against real
+// data.
+func assertStatusVocabularyIsWidened(t *testing.T, db *gorm.DB) {
+	t.Helper()
+	// A referral row that satisfies every other CHECK, so the status is the only thing
+	// that can refuse the insert.
+	//
+	// The rows are DELETED afterwards rather than left in place, because this fixture
+	// hands its pool to tests that count rows exactly — and an earlier draft left five
+	// rows behind, which broke eleven tests in this file and two in the qualification
+	// file. A fixture that pollutes the table it is guarding is worse than no fixture.
+	for i, status := range ReferralStatuses {
+		referrer, referred := 9000+uint(i), 9500+uint(i)
+		if err := db.Exec(
+			`INSERT INTO user_referral (referrer_user_id, referred_kind, referred_user_id,
+			                           referral_code, status, created_at, updated_at)
+			 VALUES (?, 'user', ?, 'K7M2QX9RT4', ?, now(), now())`,
+			referrer, referred, status,
+		).Error; err != nil {
+			// Clean up before failing, so the next test in the run is not also poisoned.
+			db.Exec(`DELETE FROM user_referral WHERE referrer_user_id >= 9000`)
+			t.Fatalf("the declared status %q was refused by chk_user_referral_status: %v.\n"+
+				"The constraint is present but its EXPRESSION is stale. addConstraint is "+
+				"idempotent on the constraint name, so a schema that already has it is not "+
+				"replaced — replaceCheck and migrations.WidenReferralStatusForExpiry exist "+
+				"for exactly this, and every expiry test below is vacuous until one of them runs",
+				status, err)
+		}
+	}
+	// And an undeclared one is still refused, because a widened vocabulary must not become
+	// an open one.
+	undeclaredRefused := db.Exec(
+		`INSERT INTO user_referral (referrer_user_id, referred_kind, referred_user_id,
+		                           referral_code, status, created_at, updated_at)
+		 VALUES (9999, 'user', 9998, 'K7M2QX9RT4', 'expired_but_not_really', now(), now())`,
+	).Error != nil
+
+	// Clean up before asserting, so a failure below does not leak rows either.
+	if err := db.Exec(`DELETE FROM user_referral WHERE referrer_user_id >= 9000`).Error; err != nil {
+		t.Fatalf("clean up the vocabulary probe: %v", err)
+	}
+	if !undeclaredRefused {
+		t.Error("an undeclared status was accepted; the state machine is a closed set and a " +
+			"typo'd status qualifies for nothing, invisibly")
+	}
 }
 
 // assertReferralConstraintsPresent is the fixture's own guard.
@@ -237,6 +295,26 @@ func seedReferred(t *testing.T, f *referralFixture, email string) uint {
 	return id
 }
 
+// referralsFor returns one referrer's rows, oldest first.
+//
+// The scoped reader, for assertions about a specific referrer. referrals() below returns
+// everything, which is right for the attribution tests and wrong for anything that then
+// indexes [0]: this package's tests share one truncated pool, so the lowest id in the
+// table belongs to whichever test ran first.
+func referralsFor(t *testing.T, db *gorm.DB, referrerID uint) []UserReferral {
+	t.Helper()
+	var rows []UserReferral
+	if err := db.Raw(
+		`SELECT id, referrer_user_id, referred_kind, referred_user_id, referral_code,
+		        status, awarded_coins, source_path, cap_period, cap_slot,
+		        hold_journal_id, grant_journal_id, created_at, updated_at
+		   FROM user_referral WHERE referrer_user_id = ? ORDER BY id`, referrerID,
+	).Scan(&rows).Error; err != nil {
+		t.Fatalf("read referrals for %d: %v", referrerID, err.Error())
+	}
+	return rows
+}
+
 // referrals returns every row, oldest first.
 func referrals(t *testing.T, db *gorm.DB) []UserReferral {
 	t.Helper()
@@ -310,7 +388,7 @@ func TestAttributionEndToEndThroughVerifyOTP(t *testing.T) {
 		t.Errorf("source_path = %q, want %q", row.SourcePath, "verify_otp")
 	}
 	if row.AwardedCoins != 0 {
-		t.Errorf("awarded_coins = %d, want 0: qualification is the next slice", row.AwardedCoins)
+		t.Errorf("awarded_coins = %d, want 0: nothing has qualified yet", row.AwardedCoins)
 	}
 	if row.GrantJournalID != nil || row.HoldJournalID != nil {
 		t.Error("an attribution row carries a journal id; nothing has been paid yet")
@@ -613,9 +691,6 @@ func TestSecondGenerationReferralCreditsTheDirectReferrerOnly(t *testing.T) {
 	// C, referred by B.
 	cID := seedReferred(t, f, "c@example.com")
 
-	fundReferrer(t, ledger, aID, 4)
-	fundReferrer(t, ledger, bID, 4)
-
 	// link attributes AND SETTLES one generation, and returns whom it credited.
 	link := func(referred uint, code, path string) uint {
 		t.Helper()
@@ -626,13 +701,12 @@ func TestSecondGenerationReferralCreditsTheDirectReferrerOnly(t *testing.T) {
 		if err != nil || !res.Attributed {
 			t.Fatalf("%s: attributed=%v reason=%q err=%v", path, res.Attributed, res.Reason, err)
 		}
-		if _, err := ledger.Reserve(context.Background(), ReserveRequest{
-			UserID: res.ReferrerUserID, ReasonCode: ReasonReferralHold,
-			RefType: RefUserReferral, RefID: uint64(res.ReferralID),
-			IdempotencyKey: fmt.Sprintf("chain-hold:%d", res.ReferralID), CreatedBy: "test",
-		}); err != nil {
-			t.Fatalf("hold for referral %d: %v", res.ReferralID, err)
-		}
+		// Backdate past the 7-day wait. §3.3's model held coins from the referrer for
+		// seven days and this test placed that hold; the model is retired (see
+		// referral.go), so there is no hold and no reason to seed the referrer's balance
+		// before the grant. What remains is the window, and agePastWindow is what makes a
+		// freshly-attributed referral payable at all.
+		agePastWindow(t, db, res.ReferralID)
 		if _, err := f.svc.SettleReferral(context.Background(), res.ReferralID); err != nil {
 			t.Fatalf("settle referral %d: %v", res.ReferralID, err)
 		}
@@ -687,7 +761,6 @@ func TestSecondGenerationReferralCreditsTheDirectReferrerOnly(t *testing.T) {
 		"CH4N0000003", cID).Error; err != nil {
 		t.Fatalf("give C a code: %v", err)
 	}
-	fundReferrer(t, ledger, cID, 2)
 	if got := link(dID, "CH4N0000003", "verify_otp"); got != cID {
 		t.Errorf("C->D credited user %d, want C (%d)", got, cID)
 	}
@@ -877,7 +950,6 @@ func TestNoAccountIsCreditedBeyondItsDirectInvitees(t *testing.T) {
 		t.Fatalf("code the tail: %v", err)
 	}
 	for i := 0; i < depth; i++ {
-		fundReferrer(t, ledger, ids[i], 2)
 	}
 
 	for i := 1; i <= depth; i++ {
@@ -893,13 +965,7 @@ func TestNoAccountIsCreditedBeyondItsDirectInvitees(t *testing.T) {
 				"shape a pyramid scheme takes, and CPA 2075 s.16(2)(p) prohibits it",
 				i, res.ReferrerUserID, ids[i-1])
 		}
-		if _, err := ledger.Reserve(context.Background(), ReserveRequest{
-			UserID: res.ReferrerUserID, ReasonCode: ReasonReferralHold,
-			RefType: RefUserReferral, RefID: uint64(res.ReferralID),
-			IdempotencyKey: fmt.Sprintf("deep-hold:%d", res.ReferralID), CreatedBy: "test",
-		}); err != nil {
-			t.Fatalf("link %d hold: %v", i, err)
-		}
+		agePastWindow(t, db, res.ReferralID)
 		if _, err := f.svc.SettleReferral(context.Background(), res.ReferralID); err != nil {
 			t.Fatalf("link %d settle: %v", i, err)
 		}
@@ -971,13 +1037,8 @@ func TestTheEleventhReferralInAMonthDoesNotPay(t *testing.T) {
 	f := &referralFixture{svc: NewReferralService(NewRepository(db), ledger), db: db}
 
 	referrerID := seedReferrer(t, f, "capped@example.com", "K7M2QX9RT4")
-	// A referral award is held against coins the referrer already holds, so the
-	// referrer needs a balance deep enough for the whole cap.
-	fundReferrer(t, ledger, referrerID, 20)
-
-	// Ten referrals, each settled. Settlement is the next slice's job, so each one is
-	// staged the way that slice will stage it: a referral row in pending, a hold
-	// placed, then SettleReferral.
+	// Ten referrals, each settled. Each is staged the way the qualification pass stages
+	// it: a referral row in pending, aged past its 7-day window, then SettleReferral.
 	settle := func(n int) error {
 		referredID := seedReferred(t, f, fmt.Sprintf("capped-invitee-%d@example.com", n))
 		res, err := f.svc.ApplyReferral(context.Background(), Attribution{
@@ -987,18 +1048,7 @@ func TestTheEleventhReferralInAMonthDoesNotPay(t *testing.T) {
 		if err != nil || !res.Attributed {
 			return fmt.Errorf("stage referral %d: attributed=%v reason=%q err=%v", n, res.Attributed, res.Reason, err)
 		}
-		// The next slice places the hold on qualification; place it here so the
-		// settlement has something to release.
-		if _, err := ledger.Reserve(context.Background(), ReserveRequest{
-			UserID:         referrerID,
-			ReasonCode:     ReasonReferralHold,
-			RefType:        RefUserReferral,
-			RefID:          uint64(res.ReferralID),
-			IdempotencyKey: fmt.Sprintf("referral-hold:%d:%d", referrerID, res.ReferralID),
-			CreatedBy:      "test",
-		}); err != nil {
-			return fmt.Errorf("place hold %d: %w", n, err)
-		}
+		agePastWindow(t, db, res.ReferralID)
 		_, err = f.svc.SettleReferral(context.Background(), res.ReferralID)
 		return err
 	}
@@ -1144,7 +1194,6 @@ func TestTheConfiguredCapCanTightenTheSchemaCeiling(t *testing.T) {
 		).Error; err != nil {
 			t.Fatalf("fill three slots: %v", err)
 		}
-		fundReferrer(t, ledger, referrerID, 4)
 
 		// With the config at 3, the fourth is refused even though the schema would
 		// permit slot 4. This is the "tighten mid-incident without a deploy" property.
@@ -1156,13 +1205,7 @@ func TestTheConfiguredCapCanTightenTheSchemaCeiling(t *testing.T) {
 		if err != nil || !res.Attributed {
 			t.Fatalf("stage: attributed=%v reason=%q err=%v", res.Attributed, res.Reason, err)
 		}
-		if _, err := ledger.Reserve(context.Background(), ReserveRequest{
-			UserID: referrerID, ReasonCode: ReasonReferralHold,
-			RefType: RefUserReferral, RefID: uint64(res.ReferralID),
-			IdempotencyKey: fmt.Sprintf("tightened-hold:%d", res.ReferralID), CreatedBy: "test",
-		}); err != nil {
-			t.Fatalf("hold: %v", err)
-		}
+		agePastWindow(t, db, res.ReferralID)
 		if _, err := svc.SettleReferral(context.Background(), res.ReferralID); !errors.Is(err, ErrCapReached) {
 			t.Errorf("the fourth settlement with a cap of 3 returned %v, want ErrCapReached", err)
 		}
@@ -1174,8 +1217,7 @@ func TestTheConfiguredCapCanTightenTheSchemaCeiling(t *testing.T) {
 		svc := NewReferralService(NewRepository(db), ledger)
 		f := &referralFixture{svc: svc, db: db}
 
-		referrerID := seedReferrer(t, f, "raised@example.com", "K7M2QX9RT4")
-		fundReferrer(t, ledger, referrerID, 2)
+		seedReferrer(t, f, "raised@example.com", "K7M2QX9RT4")
 		referredID := seedReferred(t, f, "raised-invitee@example.com")
 		res, err := svc.ApplyReferral(context.Background(), Attribution{
 			ReferredKind: SubjectUser, ReferredUserID: referredID,
@@ -1184,13 +1226,7 @@ func TestTheConfiguredCapCanTightenTheSchemaCeiling(t *testing.T) {
 		if err != nil || !res.Attributed {
 			t.Fatalf("stage: %v", err)
 		}
-		if _, err := ledger.Reserve(context.Background(), ReserveRequest{
-			UserID: referrerID, ReasonCode: ReasonReferralHold,
-			RefType: RefUserReferral, RefID: uint64(res.ReferralID),
-			IdempotencyKey: fmt.Sprintf("raised-hold:%d", res.ReferralID), CreatedBy: "test",
-		}); err != nil {
-			t.Fatalf("hold: %v", err)
-		}
+		agePastWindow(t, db, res.ReferralID)
 		_, err = svc.SettleReferral(context.Background(), res.ReferralID)
 		if !errors.Is(err, ErrInvalidConfig) {
 			t.Errorf("a monthly_cap of 50 (above the ceiling of %d) returned %v, want "+
@@ -1317,7 +1353,9 @@ func TestReferralStatusAndKindChecksAreEnforced(t *testing.T) {
 	referrerID := seedReferrer(t, f, "states@example.com", "K7M2QX9RT4")
 	id := seedReferred(t, f, "states-invitee@example.com")
 
-	// Every declared status is accepted, so the next slice can write them.
+	// Every declared status is accepted, so the qualification pass can write them. The
+	// presence of each is also asserted by the fixture's assertStatusVocabularyIsWidened,
+	// which proves the CHECK ACCEPTS it rather than merely existing.
 	for i, status := range ReferralStatuses {
 		target := id + uint(i)*0 // keep the same referred id: only the last may win
 		_ = target
@@ -1543,23 +1581,30 @@ func TestConcurrentAttributionsToOneReferrerAllLand(t *testing.T) {
 
 // ── the settlement seam ───────────────────────────────────────────────────────
 
-// SettleReferral is ONE unit: the hold is released and the grant is written in the
-// same transaction, and a failure of either rolls back both.
+// SettleReferral is ONE unit: the claim, the cap slot and the money commit together,
+// and a failure of any of them leaves none of them behind.
 //
-// This is the gap Phase 1 recorded and this phase was told to close. ledger.go says:
-// "converting a hold into a grant is ReleaseReserved followed by Grant, and in two
-// transactions that leaves a window in which the coins are unheld. The referral phase
-// must do both in one transaction."
+// This is the gap Phase 1 recorded and the phase after it was told to close.
+// ledger.go: "converting a hold into a grant is ReleaseReserved followed by Grant, and
+// in two transactions that leaves a window in which the coins are unheld. The referral
+// phase must do both in one transaction and should say so where it does."
 //
-// The window is the danger, so the test measures it: after a settlement that fails
-// midway, the hold must still be PENDING and the reserved balance must still be
-// held. A released hold with no grant would leave coins unheld AND unpaid — the
-// referrer could spend nothing and the referral pays on the next attempt, which is
-// tolerable; the reverse, a grant with the hold still reserved, would leave coins
-// both spendable and promised.
-func TestSettlementIsOneUnitAndRollsBackAsOne(t *testing.T) {
+// THAT PROPERTY SURVIVED THE RETIREMENT OF THE HOLD, and keeping it is a deliberate
+// choice rather than an inheritance. The original reason for one transaction was that a
+// release and a grant had to be atomic with each other; there is no release any more, so
+// that reason is gone. What remains is a reason of its own — the reward_grant CLAIM and
+// the money must be one unit, because a claim committed without its money makes every
+// later attempt a silent no-op, and money committed without its claim pays twice on the
+// next pass. Neither half is achievable across two transactions, so it stays one.
+//
+// The referrer is NOT funded first. Under the old model it had to be, because the
+// award was reserved out of its own balance; under this one the faucet pays directly,
+// so a referrer who has never held a coin is paid a referral award. That is the change
+// the whole slice exists to make, and it is asserted rather than described.
+func TestSettlementIsOneUnitAndPaysFromTheFaucet(t *testing.T) {
 	db := openReferralSchema(t)
 	f := &referralFixture{svc: NewReferralService(NewRepository(db), testLedger(t, db, nil)), db: db}
+	award := DefaultEconomyConfig().Awards.ReferralReferrer
 
 	referrerID := seedReferrer(t, f, "settle@example.com", "K7M2QX9RT4")
 	referredID := seedReferred(t, f, "settle-invitee@example.com")
@@ -1572,64 +1617,80 @@ func TestSettlementIsOneUnitAndRollsBackAsOne(t *testing.T) {
 	}
 	referralID := res.ReferralID
 
-	// Give the referrer something to hold, then place the hold.
-	//
-	// A balance is required and the requirement is the mechanic's: a referral award
-	// is FUNDED from the referrer's own coins and held, so the referrer must already
-	// have some. Reserve refuses with ErrHoldExceedsBalance otherwise, which is
-	// correct — §2.3's model is "referral qualified → reserved += 60 (student holds
-	// it, cannot spend it)", i.e. the platform's issuance is matched by a hold on
-	// coins the referrer already holds, not a fresh grant.
-	ledger := f.svc.ledger
-	fundReferrer(t, ledger, referrerID, 20)
-	hold, err := ledger.Reserve(context.Background(), ReserveRequest{
-		UserID: referrerID, ReasonCode: ReasonReferralHold,
-		RefType: RefUserReferral, RefID: uint64(referralID),
-		IdempotencyKey: fmt.Sprintf("settle-hold:%d", referralID), CreatedBy: "test",
-	})
-	if err != nil {
-		t.Fatalf("place hold: %v", err)
-	}
-	if got := userReserved(t, db, referrerID); got != hold.Amount {
-		t.Fatalf("reserved = %d, want %d", got, hold.Amount)
+	// Past the wait. A referral is not payable the moment it is attributed — see
+	// TestTheWindowGateRejectsAReferralInsideItsWindow — so this is the one line every
+	// settlement test needs, and its absence is why the first run of this slice failed
+	// in eight places at once.
+	agePastWindow(t, db, referralID)
+
+	// The referrer holds NOTHING. Under the retired hold model this test could not
+	// exist: Reserve refuses on a zero balance, which is the bug this slice fixes.
+	if got := userPosted(t, db, referrerID); got != 0 {
+		t.Fatalf("the fixture funds the referrer with %d coins; this test exists to prove "+
+			"a referral pays a referrer who holds none", got)
 	}
 	before := userPosted(t, db, referrerID)
 
-	// The happy path: one call, both halves.
 	grant, err := f.svc.SettleReferral(context.Background(), referralID)
 	if err != nil {
 		t.Fatalf("settle: %v", err)
 	}
-	if grant.Amount != DefaultEconomyConfig().Awards.ReferralReferrer {
-		t.Errorf("granted %d, want %d", grant.Amount, DefaultEconomyConfig().Awards.ReferralReferrer)
+	if grant.Amount != award {
+		t.Errorf("granted %d, want %d", grant.Amount, award)
 	}
-	if got := userReserved(t, db, referrerID); got != 0 {
-		t.Errorf("reserved = %d after settlement, want 0: the hold was not released", got)
-	}
-	if got, want := userPosted(t, db, referrerID), before+DefaultEconomyConfig().Awards.ReferralReferrer; got != want {
+	if got, want := userPosted(t, db, referrerID), before+award; got != want {
 		t.Errorf("posted = %d, want %d", got, want)
 	}
-	// One hold journal, REVERSED, and one grant journal, POSTED.
+	// Nothing is reserved, before or after. There is no hold.
+	if got := userReserved(t, db, referrerID); got != 0 {
+		t.Errorf("reserved = %d, want 0: a settlement reserves nothing under this model", got)
+	}
+	// ONE journal for this referral, and it is the grant.
 	if n := countRows(t, db,
 		`SELECT count(*) FROM coin_journal WHERE ref_type = ? AND ref_id = ?`,
-		RefUserReferral, referralID); n != 2 {
-		t.Errorf("%d journals for referral %d, want 2 (the hold and the grant)", n, referralID)
+		RefUserReferral, referralID); n != 1 {
+		t.Errorf("%d journals for referral %d, want 1 (the grant; the hold journal is gone)",
+			n, referralID)
 	}
-	row := referrals(t, f.db)[0]
+	// And it is POSTED rather than PENDING, which under the hold model was the hold's
+	// state and is now unreachable for a referral at all.
+	if n := countRows(t, db,
+		`SELECT count(*) FROM coin_journal WHERE ref_type = ? AND ref_id = ? AND state = ?`,
+		RefUserReferral, referralID, StatePosted); n != 1 {
+		t.Errorf("%d POSTED journals for referral %d, want 1", n, referralID)
+	}
+
+	// Read the ONE row this test created rather than the first row in the table.
+	//
+	// referrals() is ordered by id, and this fixture shares a truncated pool with the rest
+	// of the file — so `[0]` is only correct while this is the test that runs first. An
+	// earlier draft indexed `[0]` and asserted row.Status, which passes until another test
+	// leaves a lower id behind, at which point it fails for a reason that has nothing to
+	// do with settlement. Scoped by referrer is the assertion that stays true.
+	rows := referralsFor(t, f.db, referrerID)
+	if len(rows) != 1 {
+		t.Fatalf("%d referrals for referrer %d, want 1", len(rows), referrerID)
+	}
+	row := rows[0]
 	if row.Status != ReferralQualified {
 		t.Errorf("status = %q, want %q", row.Status, ReferralQualified)
 	}
 	if row.GrantJournalID == nil || *row.GrantJournalID != grant.JournalID {
 		t.Errorf("grant_journal_id = %v, want %s", row.GrantJournalID, grant.JournalID)
 	}
-	if row.HoldJournalID == nil || *row.HoldJournalID != hold.JournalID {
-		t.Errorf("hold_journal_id = %v, want %s", row.HoldJournalID, hold.JournalID)
+	// hold_journal_id is PERMANENTLY NULL under this model. The column is kept for audit
+	// (referral_model.go explains why) but nothing writes it, and asserting that here is
+	// what keeps a future "let me restore the hold" edit from being a silent no-op.
+	if row.HoldJournalID != nil {
+		t.Errorf("hold_journal_id = %v, want NULL: the reserved-hold model is retired", row.HoldJournalID)
 	}
 	if row.CapSlot == nil || row.CapPeriod == nil {
 		t.Error("the settlement recorded no cap slot, so this referral is paid but " +
 			"uncounted against the monthly cap")
 	}
-	// And the reward_grant claim, once, linking the award to the journal.
+
+	// The reward_grant claim, once, linking the award to the journal — the two halves of
+	// the one-transaction property.
 	grants := grantRows(t, db, referrerID)
 	if len(grants) != 1 {
 		t.Errorf("%d reward_grant rows, want 1", len(grants))
@@ -1642,25 +1703,35 @@ func TestSettlementIsOneUnitAndRollsBackAsOne(t *testing.T) {
 			"one unit or a retry pays twice")
 	}
 
-	// A second settlement pays nothing. The claim is the once-only gate.
-	before2 := userPosted(t, db, referrerID)
-	if _, err := f.svc.SettleReferral(context.Background(), referralID); err != nil {
-		t.Fatalf("second settle: %v", err)
+	// A second settlement pays nothing — and now says so, rather than returning a zero
+	// result, because "we already paid this" and "this may never be paid" are different
+	// operational answers and the qualification pass has to tell them apart.
+	if _, err := f.svc.SettleReferral(context.Background(), referralID); !errors.Is(err, ErrReferralAlreadyPaid) {
+		t.Errorf("a repeated settlement returned %v, want ErrReferralAlreadyPaid", err)
 	}
-	if got := userPosted(t, db, referrerID); got != before2 {
-		t.Errorf("a repeated settlement moved the balance from %d to %d", before2, got)
+	if got := userPosted(t, db, referrerID); got != before+award {
+		t.Errorf("a repeated settlement moved the balance from %d to %d", before+award, got)
 	}
 	if n := len(grantRows(t, db, referrerID)); n != 1 {
 		t.Errorf("%d reward_grant rows after two settlements, want 1", n)
 	}
 }
 
-// The rollback half. A settlement whose grant cannot proceed must leave the hold
-// intact — that is the whole argument for combining them.
-func TestSettlementRollsBackBothHalvesOnFailure(t *testing.T) {
+// The rollback half: a settlement that cannot proceed leaves NOTHING behind — no claim,
+// no cap slot, no status change.
+//
+// The original version of this test re-priced the award so the grant would disagree with
+// the hold's amount, which was the only failure available while a hold existed. With no
+// hold there is nothing to disagree with, so the failure is injected the way a real one
+// arrives: the referrer has consumed their monthly cap.
+//
+// That is a strictly better injection than re-pricing, because it exercises the cap step
+// — which sits BETWEEN the claim and the money — so the rollback is proven across the
+// whole transaction rather than at its tail. TestAFailedSettlementLeavesTheClaimRetryable
+// covers the same ordering from the qualification side.
+func TestSettlementRollsBackEveryStepOnFailure(t *testing.T) {
 	db := openReferralSchema(t)
-	ledger := testLedger(t, db, nil)
-	svc := NewReferralService(NewRepository(db), ledger)
+	svc := NewReferralService(NewRepository(db), testLedger(t, db, nil))
 	f := &referralFixture{svc: svc, db: db}
 
 	referrerID := seedReferrer(t, f, "rollback@example.com", "K7M2QX9RT4")
@@ -1673,73 +1744,86 @@ func TestSettlementRollsBackBothHalvesOnFailure(t *testing.T) {
 		t.Fatalf("stage: %v", err)
 	}
 	referralID := res.ReferralID
+	agePastWindow(t, db, referralID)
 
-	if _, err := ledger.Grant(context.Background(), GrantRequest{
-		UserID: referrerID, ReasonCode: ReasonResourceApproved,
-		IdempotencyKey: "seed-resource-rollback", CreatedBy: "test",
-	}); err != nil {
-		t.Fatalf("seed balance: %v", err)
-	}
-	hold, err := ledger.Reserve(context.Background(), ReserveRequest{
-		UserID: referrerID, ReasonCode: ReasonReferralHold,
-		RefType: RefUserReferral, RefID: uint64(referralID),
-		IdempotencyKey: fmt.Sprintf("rollback-hold:%d", referralID), CreatedBy: "test",
-	})
-	if err != nil {
-		t.Fatalf("hold: %v", err)
+	// The referrer's month is full, so the cap step refuses — after the claim has been
+	// written and before any money moves.
+	if err := db.Exec(
+		`INSERT INTO referral_cap_slot (referrer_user_id, month_key, slot, referral_id, coins, awarded_at)
+		 SELECT ?, ?, g, 400000 + g, 60, now() FROM generate_series(1, ?) g`,
+		referrerID, ReferralMonthKey(time.Now().UTC()), ReferralCapSlotCeiling,
+	).Error; err != nil {
+		t.Fatalf("fill the cap: %v", err)
 	}
 
-	// Re-price the award between the hold and its settlement, so the settlement's
-	// check — "the hold and the grant must move the same number of coins" — refuses
-	// AFTER the hold has been released inside the transaction. That is the exact
-	// position the two-transaction window would have left open.
-	//
-	// A FROZEN ACCOUNT was tried first and is the wrong injection: Ledger.Grant does
-	// not check for one — only Spend does, via frozenAccounts — so freezing changes
-	// nothing and the settlement succeeds. Re-pricing is deterministic, exercises the
-	// real refusal path, and is a real operational event rather than a contrived one.
-	repriced := NewLedger(NewRepository(db), repricedConfig(t, 30))
-	svc2 := NewReferralService(NewRepository(db), repriced)
-
-	postedBefore := userPosted(t, db, referrerID)
-	reservedBefore := userReserved(t, db, referrerID)
-
-	if _, err := svc2.SettleReferral(context.Background(), referralID); err == nil {
-		t.Fatal("a settlement whose hold and grant disagree on the amount succeeded")
+	if _, err := svc.SettleReferral(context.Background(), referralID); !errors.Is(err, ErrCapReached) {
+		t.Fatalf("a capped settlement returned %v, want ErrCapReached", err)
 	}
 
-	// The assertion that matters: the hold is STILL open and the coins are STILL
-	// reserved. Two separate transactions would have released it and left the
-	// referrer with neither the hold nor the grant.
-	if got := userReserved(t, db, referrerID); got != reservedBefore {
-		t.Errorf("reserved = %d after a failed settlement, want %d — the hold was released "+
-			"even though the grant failed, which is the two-transaction window this seam "+
-			"exists to close", got, reservedBefore)
+	// No money. The faucet and the referrer are both untouched.
+	if got := userPosted(t, db, referrerID); got != 0 {
+		t.Errorf("posted = %d after a failed settlement, want 0", got)
 	}
-	if got := userPosted(t, db, referrerID); got != postedBefore {
-		t.Errorf("posted = %d after a failed settlement, want %d", got, postedBefore)
+	if got := settleCoins(t, db, referrerID); got != 0 {
+		t.Errorf("paid %d coins after a failed settlement", got)
 	}
-	if n := countRows(t, db,
-		`SELECT count(*) FROM coin_journal WHERE id = ? AND state = 'PENDING'`, hold.JournalID); n != 1 {
-		t.Error("the hold journal is no longer PENDING after a failed settlement")
-	}
-	// And the claim row rolled back too, so the retry is possible.
+	// No claim. THIS is the assertion that matters: a claim committed without its money
+	// makes every later attempt a silent no-op, and the referral would be lost forever
+	// with a row claiming it was paid.
 	if n := len(grantRows(t, db, referrerID)); n != 0 {
 		t.Errorf("%d reward_grant rows survived a failed settlement; a committed claim "+
-			"without its money would make every later attempt a no-op", n)
+			"without its money makes every later attempt a no-op", n)
 	}
-	if got := userReserved(t, db, referrerID); got != hold.Amount {
-		t.Errorf("reserved = %d, want the original hold of %d", got, hold.Amount)
+	// No journal.
+	if n := countRows(t, db, `SELECT count(*) FROM coin_journal`); n != 0 {
+		t.Errorf("%d journals after a failed settlement, want 0", n)
+	}
+	// No cap slot consumed by the failed attempt — the existing ten are the ones the
+	// fixture wrote.
+	if n := countRows(t, db,
+		`SELECT count(*) FROM referral_cap_slot WHERE referrer_user_id = ?`, referrerID); n != ReferralCapSlotCeiling {
+		t.Errorf("%d cap slots after a failed settlement, want the %d the fixture wrote",
+			n, ReferralCapSlotCeiling)
+	}
+	// No state change.
+	if got := referralStatus(t, db, referralID); got != ReferralPending {
+		t.Errorf("status = %q after a failed settlement, want %q", got, ReferralPending)
+	}
+
+	// Freeing the cap makes it payable, so nothing was consumed by the failure.
+	if err := db.Exec(`DELETE FROM referral_cap_slot WHERE referrer_user_id = ?`, referrerID).Error; err != nil {
+		t.Fatalf("free the cap: %v", err)
+	}
+	if _, err := svc.SettleReferral(context.Background(), referralID); err != nil {
+		t.Fatalf("settlement after the cap was freed: %v", err)
+	}
+	if got := settleCoins(t, db, referrerID); got != DefaultEconomyConfig().Awards.ReferralReferrer {
+		t.Errorf("paid %d after a successful retry, want %d",
+			got, DefaultEconomyConfig().Awards.ReferralReferrer)
 	}
 }
 
-// A referral with no open hold is not settled. Paying it would create coins against
-// a hold that does not exist, which is how a balance stops being explainable.
-func TestSettlementRefusesAReferralWithNoHold(t *testing.T) {
+// A referral with NO HOLD settles normally, and this test was the opposite.
+//
+// IT WAS: "a referral with no open hold is not settled", asserting ErrNotFound. That
+// encoded the §3.3 model directly — the award was reserved from the referrer, so a
+// referral without a hold had nothing to release and paying it would "create coins
+// against a hold that does not exist".
+//
+// That model was rejected. Reserve refuses a hold larger than the referrer's balance, so
+// under the old rule a student with a zero balance — the overwhelmingly common case, and
+// the population an earn mechanic exists for — could not be paid for referring anybody.
+// The test was not wrong about the model it encoded; the model was wrong.
+//
+// So the assertion is inverted, and deliberately so rather than deleted: a test that is
+// simply removed records nothing, while an inverted one carries the reason it was
+// inverted and fails loudly if the mechanic drifts back toward reserving anything. The
+// referrer below is never funded and no hold is ever placed, and the settlement pays.
+func TestSettlementPaysAReferralThatHasNoHoldAtAll(t *testing.T) {
 	db := openReferralSchema(t)
-	ledger := testLedger(t, db, nil)
-	svc := NewReferralService(NewRepository(db), ledger)
+	svc := NewReferralService(NewRepository(db), testLedger(t, db, nil))
 	f := &referralFixture{svc: svc, db: db}
+	award := DefaultEconomyConfig().Awards.ReferralReferrer
 
 	referrerID := seedReferrer(t, f, "nohold@example.com", "K7M2QX9RT4")
 	referredID := seedReferred(t, f, "nohold-invitee@example.com")
@@ -1750,11 +1834,68 @@ func TestSettlementRefusesAReferralWithNoHold(t *testing.T) {
 	if err != nil || !res.Attributed {
 		t.Fatalf("stage: %v", err)
 	}
-	if _, err := svc.SettleReferral(context.Background(), res.ReferralID); !errors.Is(err, ErrNotFound) {
-		t.Errorf("settling a referral with no hold returned %v, want ErrNotFound", err)
+	agePastWindow(t, db, res.ReferralID)
+
+	// The fixture proves the premise: a zero balance and no hold anywhere.
+	if got := userPosted(t, db, referrerID); got != 0 {
+		t.Fatalf("the referrer holds %d coins; this test exists to prove a holdless, "+
+			"balance-less referrer is paid", got)
+	}
+	if n := countRows(t, db, `SELECT count(*) FROM coin_journal`); n != 0 {
+		t.Fatalf("%d journals before the settlement, want 0 — there is no hold to release", n)
+	}
+
+	grant, err := svc.SettleReferral(context.Background(), res.ReferralID)
+	if err != nil {
+		t.Fatalf("settling a referral with no hold returned %v. It used to return "+
+			"ErrNotFound: the reserved-hold model is retired and nothing is withheld from "+
+			"the referrer any more", err)
+	}
+	if grant.Amount != award {
+		t.Errorf("granted %d, want %d", grant.Amount, award)
+	}
+	if got := settleCoins(t, db, referrerID); got != award {
+		t.Errorf("paid %d coins, want %d", got, award)
+	}
+	if n := len(grantRows(t, db, referrerID)); n != 1 {
+		t.Errorf("%d reward_grant rows, want 1", n)
+	}
+	if got := referralStatus(t, db, res.ReferralID); got != ReferralQualified {
+		t.Errorf("status = %q, want %q", got, ReferralQualified)
+	}
+	// And nothing was ever reserved, so the no-overdraft CHECK was never in play.
+	if got := userReserved(t, db, referrerID); got != 0 {
+		t.Errorf("reserved = %d, want 0", got)
+	}
+}
+
+// A referral INSIDE its window is not settled, whatever else is true.
+//
+// This is the refusal that replaced the hold check in the same position in this file:
+// both answer "may this pay now?", and the window is what the answer now depends on.
+func TestSettlementRefusesAReferralInsideItsWindow(t *testing.T) {
+	db := openReferralSchema(t)
+	svc := NewReferralService(NewRepository(db), testLedger(t, db, nil))
+	f := &referralFixture{svc: svc, db: db}
+
+	referrerID := seedReferrer(t, f, "early@example.com", "K7M2QX9RT4")
+	referredID := seedReferred(t, f, "early-invitee@example.com")
+	res, err := svc.ApplyReferral(context.Background(), Attribution{
+		ReferredKind: SubjectUser, ReferredUserID: referredID,
+		ReferralCode: "K7M2QX9RT4", SourcePath: "verify_otp",
+	})
+	if err != nil || !res.Attributed {
+		t.Fatalf("stage: %v", err)
+	}
+	// NOT backdated: the seven-day wait is entirely ahead of this referral.
+	if _, err := svc.SettleReferral(context.Background(), res.ReferralID); !errors.Is(err, ErrReferralNotYetPayable) {
+		t.Errorf("settling a referral inside its window returned %v, want ErrReferralNotYetPayable", err)
 	}
 	if n := len(grantRows(t, db, referrerID)); n != 0 {
-		t.Errorf("%d reward_grant rows for a holdless settlement, want 0", n)
+		t.Errorf("%d reward_grant rows for an early settlement, want 0", n)
+	}
+	if got := settleCoins(t, db, referrerID); got != 0 {
+		t.Errorf("paid %d coins for a referral inside its window", got)
 	}
 }
 
@@ -1776,17 +1917,11 @@ func TestSettlementRefusesAClawedBackOrRejectedReferral(t *testing.T) {
 			if err != nil || !res.Attributed {
 				t.Fatalf("stage: %v", err)
 			}
-			if err := db.Exec(
-				`INSERT INTO coin_journal (id, entry_type, state, scope, idempotency_key,
-				                           request_fingerprint, reason_code, ref_type, ref_id,
-				                           created_at, metadata)
-				 VALUES (gen_random_uuid(), 'ADJUST', 'PENDING', 'user', ?, '\x00', ?, ?, ?,
-				         now(), '{"amount":60,"account_id":1}'::jsonb)`,
-				fmt.Sprintf("final-hold-%s", status), ReasonReferralHold,
-				RefUserReferral, res.ReferralID,
-			).Error; err != nil {
-				t.Fatalf("stage a hold: %v", err)
-			}
+			// Past the window, so the ONLY thing refusing the settlement is the
+			// terminal status. Without the backdate this test would pass for the wrong
+			// reason — the window would refuse it first and the assertion about
+			// ErrImmutable would be satisfied by a different gate.
+			agePastWindow(t, db, res.ReferralID)
 			if err := db.Exec(`UPDATE user_referral SET status = ? WHERE id = ?`,
 				status, res.ReferralID).Error; err != nil {
 				t.Fatalf("move to %s: %v", status, err)
@@ -1815,8 +1950,10 @@ func TestCapSlotsAndLedgerJournalsAgree(t *testing.T) {
 	ledger := testLedger(t, db, nil)
 	f := &referralFixture{svc: NewReferralService(NewRepository(db), ledger), db: db}
 
+	// No seed funding: the award is paid from the faucet, so the referrer needs nothing.
+	// fundReferrer was here only to satisfy the retired hold, and leaving it would have
+	// meant the referrer's referral coins were indistinguishable from its seed money.
 	referrerID := seedReferrer(t, f, "agree@example.com", "K7M2QX9RT4")
-	fundReferrer(t, ledger, referrerID, 6)
 
 	const referrals = 5
 	for n := 1; n <= referrals; n++ {
@@ -1828,13 +1965,7 @@ func TestCapSlotsAndLedgerJournalsAgree(t *testing.T) {
 		if err != nil || !res.Attributed {
 			t.Fatalf("stage %d: %v", n, err)
 		}
-		if _, err := ledger.Reserve(context.Background(), ReserveRequest{
-			UserID: referrerID, ReasonCode: ReasonReferralHold,
-			RefType: RefUserReferral, RefID: uint64(res.ReferralID),
-			IdempotencyKey: fmt.Sprintf("agree-hold:%d", res.ReferralID), CreatedBy: "test",
-		}); err != nil {
-			t.Fatalf("hold %d: %v", n, err)
-		}
+		agePastWindow(t, db, res.ReferralID)
 		if _, err := f.svc.SettleReferral(context.Background(), res.ReferralID); err != nil {
 			t.Fatalf("settle %d: %v", n, err)
 		}
@@ -1855,64 +1986,46 @@ func TestCapSlotsAndLedgerJournalsAgree(t *testing.T) {
 			"referrals and the ledger counts money, and they must be counting the same "+
 			"things or the cap does not bound issuance", grants, slots)
 	}
-	// And the money is exactly the configured award per settlement — no more, no
-	// less, and never the hold amount if it differs.
+	// And the money is exactly the configured award per settlement — no more and no less.
 	coins := referralCoinsPaid(t, db, referrerID)
 	want := int64(referrals) * DefaultEconomyConfig().Awards.ReferralReferrer
 	if coins != want {
 		t.Errorf("paid %d coins for %d referrals, want %d", coins, referrals, want)
 	}
-	// Nothing left held: every hold was released.
+	// Nothing was ever reserved. Under the old model this assertion was "every hold was
+	// released"; the stronger version of it now is that no hold exists at all.
 	if got := userReserved(t, db, referrerID); got != 0 {
-		t.Errorf("%d coins still reserved after %d settlements: a released hold is "+
-			"missing, which is precisely the two-transaction window the seam closes",
+		t.Errorf("%d coins reserved after %d settlements; nothing is held under this model",
 			got, referrals)
+	}
+	if n := countRows(t, db,
+		`SELECT count(*) FROM coin_journal WHERE reason_code = ?`, ReasonReferralHold); n != 0 {
+		t.Errorf("%d REFERRAL_HOLD journals exist after %d settlements, want 0", n, referrals)
 	}
 }
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-// repricedConfig returns a ConfigStore holding the default economy with
-// awards.referral_referrer changed.
+// agePastWindow backdates a referral past the configured wait, so a test can settle it.
 //
-// Used to simulate an operator re-pricing between a referral's qualification and its
-// settlement — a real event, and the one the settlement's amount check exists for.
-func repricedConfig(t *testing.T, referrerCoins int64) *ConfigStore {
+// EVERY settlement test in this file needs it, and it is a helper rather than something
+// each test writes because forgetting it produces a confusing failure: the settlement is
+// refused with ErrReferralNotYetPayable, which looks like a bug in the cap or the claim
+// and is actually just the seven-day wait. That is exactly how this file's first run
+// after the model change failed — in eight places, none of which named the real cause.
+//
+// The default window plus a day, so the referral is unambiguously past it rather than
+// exactly on the boundary.
+func agePastWindow(t *testing.T, db *gorm.DB, referralID uint) {
 	t.Helper()
-	cfg := DefaultEconomyConfig()
-	cfg.Awards.ReferralReferrer = referrerCoins
-	encoded, err := json.Marshal(cfg)
-	if err != nil {
-		t.Fatalf("marshal repriced config: %v", err)
-	}
-	settings := newFakeSettings()
-	settings.values[EconomyConfigSettingKey] = string(encoded)
-	return NewConfigStore(settings)
-}
-
-// fundReferrer gives a referrer enough coins to hold a referral award.
-//
-// In instalments rather than one grant, because a single grant of N×60 would be ONE
-// lot and the settlement's release would act on a hold against a lot that no longer
-// represents a clean 60 — which is fine for a happy-path assertion and useless for
-// the rollback test. Several smaller lots also better resemble a real balance.
-//
-// RESOURCE_APPROVED is the reason used, at a re-priced amount, purely so the referrer
-// has coins that are not themselves referral coins: a test that funded the referrer
-// with referral awards could not tell a referral payment from its own seed money.
-func fundReferrer(t *testing.T, ledger *Ledger, referrerID uint, lots int) {
-	t.Helper()
-	amount := DefaultEconomyConfig().Awards.ResourceApproved
-	for i := 0; i < lots; i++ {
-		if _, err := ledger.Grant(context.Background(), GrantRequest{
-			UserID:         referrerID,
-			ReasonCode:     ReasonResourceApproved,
-			IdempotencyKey: fmt.Sprintf("seed-funding:%d:%d", referrerID, i),
-			CreatedBy:      "test",
-		}); err != nil {
-			t.Fatalf("fund referrer %d (lot %d of %d, %d coins each): %v",
-				referrerID, i, lots, amount, err)
-		}
+	days := DefaultEconomyConfig().Referral.HoldDays + 1
+	// Interpolated, not bound: pgx infers a placeholder's type from the surrounding
+	// expression, and `?` next to `interval '... days'` would be inferred as text. The
+	// value is an int literal from this file's own call sites.
+	if err := db.Exec(fmt.Sprintf(
+		`UPDATE user_referral SET created_at = created_at - interval '%d days' WHERE id = ?`,
+		days), referralID).Error; err != nil {
+		t.Fatalf("age referral %d by %d days: %v", referralID, days, err)
 	}
 }
 

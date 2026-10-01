@@ -81,6 +81,25 @@ type Config struct {
 	// check cannot overlap the next tick or hold a connection indefinitely.
 	CoinsReconcileTimeout time.Duration
 
+	// CoinsReferralQualifyInterval is how often the referral qualification pass
+	// runs. It pays the referrals whose invitee has qualified and whose 7-day
+	// window has closed.
+	//
+	// DELIBERATELY SHORTER than the reconciliation interval, and the reason is that
+	// the two jobs answer different questions on different clocks. Reconciliation is a
+	// read-only invariant check over aggregates, so hourly is plenty. Qualification
+	// moves money, so the interval is also the delay between a student finishing
+	// their profile and seeing the coins they earned — and an earn mechanic that pays
+	// on a nightly lag reads as broken even when it is working. 15 minutes keeps that
+	// delay invisible without paying for a ticker: the pass is a single indexed
+	// SELECT that returns nothing when no referral is waiting.
+	CoinsReferralQualifyInterval time.Duration
+	// CoinsReferralQualifyTimeout bounds one qualification pass. Each referral in a
+	// pass is its own transaction holding its own per-user advisory lock, so this is
+	// what stops a degraded database from leaving a pass running across several ticks
+	// with a transaction open.
+	CoinsReferralQualifyTimeout time.Duration
+
 	EsewaTestMode     bool
 	EsewaMerchantCode string
 	EsewaSecretKey    string
@@ -167,8 +186,10 @@ func Load() {
 			"STUDY_RESOURCE_VIDEO_TRANSCODE_TIMEOUT", 10*time.Minute,
 		),
 
-		CoinsReconcileInterval: getEnvDuration("COINS_RECONCILE_INTERVAL", time.Hour),
-		CoinsReconcileTimeout:  getEnvDuration("COINS_RECONCILE_TIMEOUT", 2*time.Minute),
+		CoinsReconcileInterval:       getEnvDuration("COINS_RECONCILE_INTERVAL", time.Hour),
+		CoinsReconcileTimeout:        getEnvDuration("COINS_RECONCILE_TIMEOUT", 2*time.Minute),
+		CoinsReferralQualifyInterval: getEnvDuration("COINS_REFERRAL_QUALIFY_INTERVAL", 15*time.Minute),
+		CoinsReferralQualifyTimeout:  getEnvDuration("COINS_REFERRAL_QUALIFY_TIMEOUT", 2*time.Minute),
 
 		EsewaTestMode:     getEnv("ESEWA_TEST_MODE", "true") == "true",
 		EsewaMerchantCode: getEnv("ESEWA_MERCHANT_CODE", "EPAYTEST"),

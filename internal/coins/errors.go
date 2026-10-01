@@ -57,6 +57,32 @@ var (
 	ErrHoldExceedsBalance  = errors.New("hold exceeds available balance")
 )
 
+// The referral sentinels, for the qualification state machine. All three are
+// REFUSALS rather than failures, and all three are distinct because "the mechanic
+// did the right thing" and the reason it did are different operational answers —
+// the qualification pass counts them separately, and support asks which one
+// happened.
+//
+//	ErrReferralNotYetPayable the referral is inside its referral.hold_days wait, or
+//	    its invitee has not qualified yet. THE NORMAL CASE on every pass: almost
+//	    every pending referral is inside its wait, and a pass that treats that as an
+//	    error has nothing to report.
+//	ErrReferralAlreadyPaid a settlement was attempted on a referral that already
+//	    has a reward_grant claim. Its own sentinel rather than ErrImmutable so a
+//	    caller can tell "we already paid this" from "this must never be paid",
+//	    without string-matching an error message.
+//	ErrQualificationUnverifiable NO phone-verification port is wired, so this build
+//	    cannot establish §5.2's second condition at all. Not ErrNoDatabase and not
+//	    ErrInvalidArgument: nothing is broken and nothing the caller sent is wrong,
+//	    and the only correct response is to pay nothing. It is exported and given a
+//	    sentinel precisely so that state is loud rather than looking like a quiet
+//	    pass that found nothing to do.
+var (
+	ErrReferralNotYetPayable     = errors.New("referral is not yet payable")
+	ErrReferralAlreadyPaid       = errors.New("referral has already been paid")
+	ErrQualificationUnverifiable = errors.New("referral qualification cannot be verified in this build")
+)
+
 // The entitlement sentinels, for the resource_unlock / user_free_allowance
 // domain (02-architecture.md §5). Appended, not reorganised: the block above is
 // the ledger's vocabulary, and mixing the two would blur which errors a spend can

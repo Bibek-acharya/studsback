@@ -20,18 +20,45 @@
 // a future well-meaning request ("let B's invitees also thank A") can quietly
 // overturn — the same way a transfer path would.
 //
-// ── what this slice does NOT do ───────────────────────────────────────────────
+// ── the hold model is GONE, and it is worth writing down why ─────────────────
 //
-// No qualification, no 7-day reserved hold, no release, no clawback. Those are the
-// next slice, and the seams they need are here: the status column and its CHECK
-// exist, and SettleReferral exists as the ONE place that can later turn a hold
-// into a grant — combining what the ledger splits across two transactions.
+// The previous slice settled §3.3 as written: a referral award was RESERVED FROM
+// THE REFERRER for seven days and then released into their balance, because
+// "referral qualified → reserved += 60 (student holds it, cannot spend it)". Its
+// commit message flagged the problem and this file is the answer.
 //
-// See the ledger's own note at ledger.go:1308-1313, which recorded that
-// "converting a hold into a grant is ReleaseReserved followed by Grant, and in two
-// transactions that leaves a window in which the coins are unheld" and that "the
-// referral phase must do both in one transaction and should say so where it does".
-// The answer is in-settle-referral below.
+// The model required the referrer to already hold coins. Reserve refuses a hold
+// larger than the available balance, so a student with a zero balance — which is
+// the overwhelmingly common case, and precisely the population an earn mechanic
+// exists to serve — could not be paid for referring anyone at all. The mechanic
+// was least available to the people it was built for.
+//
+// So the award is now credited directly from the faucet, exactly as the profile
+// award is, and the seven days are enforced by the REFERRAL ROW'S STATE MACHINE
+// instead: pending until the window has elapsed AND the invitee qualifies.
+// Nobody's coins are reserved, so there is nothing to release, nothing to claw
+// back, and no student is locked out of earning for having no balance.
+//
+// Three things survived that change on purpose:
+//
+//   - SettleReferral is still ONE transaction. The property earned in 2d6c2aa —
+//     claim, cap slot and money all committing together — is not up for
+//     renegotiation, and grantInTx below still runs on the caller's handle rather
+//     than opening its own.
+//   - Reserve and ReleaseReserved are untouched. They are general, they are
+//     tested, and referral indexes.go's fraud notes say a future hold-bearing
+//     mechanic will want them. Only the referral's USE of them is gone.
+//   - the claim-before-grant order is unchanged, and it is now the ONLY once-only
+//     gate rather than one of two, which is why the double-pass test in
+//     referral_qualification_pg_test.go asserts it rather than assuming it.
+//
+// What the change costs: "clawback" no longer describes anything automatic.
+// Nothing is reserved, so a referral that fails the fraud window simply never
+// paid, and the only reversal that exists is an operator reversing a grant that
+// DID pay. referral_qualification.go says what is reachable and what is not.
+//
+// Qualification, the driver that runs it, and the student's own view of a
+// referral are in referral_qualification.go and referral_api.go.
 package coins
 
 import (
@@ -46,6 +73,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"studsphere/backend/internal/notification"
 	"studsphere/backend/internal/shared/utils"
 )
 
@@ -127,25 +155,88 @@ type ReferralAttributionPort interface {
 	ApplyReferral(ctx context.Context, attr Attribution) (AttributionResult, error)
 }
 
-// ReferralService applies attribution and owns the fraud controls.
+// ReferralService applies attribution, settles referrals, and runs the
+// qualification pass. Owns every fraud control.
 type ReferralService struct {
 	repo   *Repository
 	ledger *Ledger
 	now    func() time.Time
+
+	// completion and phone are the qualification ports. Both are OPTIONAL AT
+	// CONSTRUCTION and MANDATORY IN EFFECT, which is the shape that matters:
+	//
+	//   - nil completion means "this build cannot measure a profile", and
+	//     qualification refuses every referral rather than guessing.
+	//   - nil phone is not a hypothetical. There is no phone-verification state in
+	//     this schema at all (see referral_model.go's PhoneVerifiedAt), so in
+	//     production today phone IS nil and NOTHING settles. That is the correct
+	//     fail-closed posture: a referral paid because someone typed a number into
+	//     a profile form is not a referral reward, it is a reward for typing.
+	//
+	// Optional-at-construction rather than required-in-the-signature so that
+	// attribution — which needs neither — cannot be blocked by a qualification
+	// dependency, and so a deployment missing the verification flow still records
+	// every referral from day one. See referral_qualification.go.
+	completion ProfileCompletion
+	phone      PhoneVerification
+
+	// notifier announces a settlement. Optional, nil is silent.
+	notifier referralNotifier
 }
 
-// NewReferralService wires the attribution service.
+// referralNotifier announces a credit. Optional, like profileAwardNotifier.
+//
+// A SEPARATE interface from profileAwardNotifier rather than a reuse: the referral
+// copy is a different event with a different cause, and sharing the type would let
+// a test's recording notifier stand in for both without noticing.
+type referralNotifier interface {
+	Notify(ctx context.Context, req notification.NotifyRequest) error
+}
+
+// NewReferralService wires the referral service.
 //
 // ledger is required rather than optional: the cap slot is claimed with the
 // AWARDED coin amount, and a service that could not read the config would have to
 // invent one. See NewProfileAwardService for the same argument about a required
 // dependency.
+//
+// The qualification ports are attached afterwards, by WithQualifiers. See the
+// field comment for why they are not constructor parameters.
 func NewReferralService(repo *Repository, ledger *Ledger) *ReferralService {
 	return &ReferralService{
 		repo:   repo,
 		ledger: ledger,
 		now:    func() time.Time { return time.Now().UTC() },
 	}
+}
+
+// WithQualifiers attaches the two ports qualification reads through, replacing
+// whichever was there. Returns the service so it chains onto the constructor.
+//
+// completion is the SAME port the profile award uses — ProfileCompletion,
+// satisfied by studentdashboard's adapter over the twelve checks. Deliberately
+// not a second definition: a reimplementation would let a student be qualified
+// against one meaning of "complete profile" while the page shows them another.
+//
+// phone has no implementation anywhere in this codebase, and that is a FINDING
+// rather than an omission — read referral_qualification.go.
+func (s *ReferralService) WithQualifiers(completion ProfileCompletion, phone PhoneVerification) *ReferralService {
+	if s == nil {
+		return s
+	}
+	s.completion = completion
+	s.phone = phone
+	return s
+}
+
+// WithNotifier attaches the settlement announcement seam. Used by tests to count
+// emissions without a notification outbox, mirroring ProfileAwardService.
+func (s *ReferralService) WithNotifier(n referralNotifier) *ReferralService {
+	if s == nil {
+		return s
+	}
+	s.notifier = n
+	return s
 }
 
 // ApplyReferral attributes a new account to the referrer its code names.
@@ -376,50 +467,60 @@ func (s *ReferralService) claimCapSlot(ctx context.Context, tx *TxContext, refer
 
 // ReferralMonthKey is the 'YYYY-MM' calendar month of t in UTC.
 //
-// Exported because the next slice's qualification sweep groups by it, and a month
-// key computed two different ways in two files is a cap that resets twice.
+// Exported because the qualification pass groups by it, and a month key computed two
+// different ways in two files is a cap that resets twice.
 func ReferralMonthKey(t time.Time) string {
 	return t.UTC().Format("2006-01")
 }
 
-// ── the single-transaction seam ───────────────────────────────────────────────
+// ── settlement ────────────────────────────────────────────────────────────────
 
 // SettleReferral turns a qualified referral into paid coins, as ONE unit.
 //
-// This is the answer to the gap Phase 1 recorded and this phase was told to close.
-// ledger.go:1308-1313: "converting a hold into a grant is ReleaseReserved followed
-// by Grant, and in two transactions that leaves a window in which the coins are
-// unheld. The referral phase must do both in one transaction and should say so
-// where it does."
+// Called by the qualification pass and by nothing else. It refuses any referral
+// that is not currently payable, so the 7-day window cannot be paid early even by
+// a caller that forgot to check.
 //
-// So it does. The ordering, and why each step is where it is:
+// ── the ordering, and why each step is where it is ───────────────────────────
 //
-//  1. CLAIM the reward_grant row for this referral, ON CONFLICT DO NOTHING.
-//     First, because it is the once-only gate: a no-row-returned means this
-//     referral has already been paid and nothing after it runs. Claiming after the
-//     grant would let a crash between them pay the same referral twice, and a
-//     unique constraint written after the money does not prevent that.
-//  2. CLAIM a monthly cap slot. Before any coins move, so a capped referrer causes
-//     no partial payment.
-//  3. RELEASE the hold and GRANT, both on the caller's transaction.
+//  1. Re-read the referral FOR UPDATE and decide whether it is payable at all:
+//     not terminal, not already qualified, and past the referral.hold_days
+//     window. A decision taken on a row another transaction is changing is not a
+//     decision, which is what readReferralForUpdate's FOR UPDATE is for.
+//  2. CLAIM the reward_grant row for this referral, ON CONFLICT DO NOTHING.
+//     Before any coins move, and it is the once-only gate: no row returned means
+//     this referral has already been paid and nothing after it runs. Claiming
+//     after the grant would let a crash between them pay the same referral twice,
+//     and a unique constraint written after the money does not prevent that.
+//  3. CLAIM a monthly cap slot. Still before any coins move, so a capped referrer
+//     causes no partial payment.
+//  4. GRANT, on the caller's transaction — one InUserTx, one COMMIT.
 //
-// Steps 3's two halves are where the two-transaction problem would live, and they
-// are avoided by not calling Ledger.ReleaseReserved and Ledger.Grant at all:
-// both open their own transaction through InUserTx, and InUserTx inside InUserTx is
-// a nested transaction GORM resolves with a SAVEPOINT — which commits with the
-// outer transaction or rolls back with it. releaseAndGrantInTx below is the
-// body of both, driven directly on tx so there is no second COMMIT to be early.
+// ── why step 4 does not just call Ledger.Grant ───────────────────────────────
 //
-// The consequence, which is the point: a released hold without its grant is not
-// reachable. If the grant fails, the release rolls back with it and the coins stay
-// held — which is the safe direction, because a hold is a promise the balance
-// already reflects and a grant that is missing is a referral that pays on the next
-// qualification attempt. The opposite failure — grant committed, release rolled
-// back — would leave coins both held and spendable, and it is not representable.
+// Because Ledger.Grant opens its own InUserTx, and InUserTx inside InUserTx is a
+// nested transaction GORM resolves with a SAVEPOINT — which does commit and roll
+// back with the outer one. So the two-transaction window the ledger's note warns
+// about would in fact close anyway. grantInTx below is written out regardless, for
+// three reasons: the outer transaction must also carry the claim INSERT and the
+// state UPDATE, and interleaving nested savepoints that write the same balance
+// rows is harder to read than one function that does the whole settlement; the
+// exported Ledger.Grant keeps its own tested body; and a change to either ledger
+// primitive then has one obvious place to be reflected rather than two.
 //
-// This slice does NOT call SettleReferral: qualification, the 7-day hold and the
-// clawback are the next slice, and nothing here advances a referral past 'pending'
-// on its own. It exists, tested, as the place the next slice's state machine calls.
+// The consequence, which is the point: a claim without its money is not
+// reachable. If the grant fails the whole transaction rolls back, including the
+// claim, so the next pass can retry. The opposite — money committed, claim rolled
+// back — would pay the same referral again on the next pass, and it is not
+// representable because both are the same COMMIT.
+//
+// NOTHING IS HELD ANY MORE. The previous version of this function released a
+// seven-day hold and then granted, because §3.3's model reserved the award from
+// the referrer first. That required the referrer to already hold coins, so the
+// mechanic refused to pay the students it existed for. There is no hold here, no
+// reserved balance to release, and no ordering constraint between two steps,
+// because there are now only one. The single transaction is kept because it was
+// earned, not because the hold needed it.
 func (s *ReferralService) SettleReferral(ctx context.Context, referralID uint) (GrantResult, error) {
 	if s == nil || s.repo == nil || s.ledger == nil {
 		return GrantResult{}, ErrNoDatabase
@@ -443,8 +544,14 @@ func (s *ReferralService) SettleReferral(ctx context.Context, referralID uint) (
 		if err != nil {
 			return err
 		}
-		if ref.Status == ReferralClawedBack || ref.Status == ReferralRejected {
-			return fmt.Errorf("%w: referral %d is %s and must not be paid", ErrImmutable, referralID, ref.Status)
+		// The window and the terminal states, checked HERE rather than only by the
+		// caller. This is the only place coins move for a referral, so it is the
+		// only place that can be CERTAIN an early payment is refused. A check in the
+		// qualification pass alone would be one forgotten call away from paying a
+		// three-day-old referral, which is precisely the window the seven days exist
+		// to observe.
+		if err := s.refusalFor(ref, cfg); err != nil {
+			return err
 		}
 
 		// 1. the once-only claim.
@@ -473,22 +580,22 @@ func (s *ReferralService) SettleReferral(ctx context.Context, referralID uint) (
 			return err
 		}
 
-		// 3. release the hold, then grant, on THIS transaction.
-		grant, err := s.releaseAndGrantInTx(ctx, tx, ref)
+		// 3. the grant, on THIS transaction. No hold to release: see the header.
+		grant, err := s.grantInTx(tx, ref, referrerCoins)
 		if err != nil {
 			return err
 		}
 
 		month := ReferralMonthKey(s.now().UTC())
+		now := s.now().UTC()
 		if err := tx.DB().Exec(
 			`UPDATE user_referral
 			    SET status = ?, awarded_coins = ?, cap_period = ?, cap_slot = ?,
-			        hold_journal_id = COALESCE(hold_journal_id, ?), grant_journal_id = ?,
-			        qualified_at = COALESCE(qualified_at, ?), released_at = ?, updated_at = ?
+			        grant_journal_id = ?, qualified_at = COALESCE(qualified_at, ?),
+			        released_at = ?, updated_at = ?
 			  WHERE id = ?`,
 			ReferralQualified, referrerCoins, month, slot,
-			nullableString(grant.HoldJournalID), grant.JournalID,
-			s.now().UTC(), s.now().UTC(), s.now().UTC(), referralID,
+			grant.JournalID, now, now, now, referralID,
 		).Error; err != nil {
 			return fmt.Errorf("record settlement of referral %d: %w", referralID, err)
 		}
@@ -496,105 +603,151 @@ func (s *ReferralService) SettleReferral(ctx context.Context, referralID uint) (
 			Update("journal_id", grant.JournalID).Error; err != nil {
 			return fmt.Errorf("link referral award to journal %s: %w", grant.JournalID, err)
 		}
-		out = grant.GrantResult
+		out = grant
 		return nil
 	})
 	if err != nil {
 		return GrantResult{}, err
 	}
+	s.announce(ctx, referralID, out)
 	return out, nil
 }
 
-// referralGrant is the internal shape of a settled referral's money movement: the
-// hold that was lifted and the grant that paid for it, both already posted.
-type referralGrant struct {
-	HoldJournalID string
-	GrantResult
+// refusalFor is the payability gate: nil when this referral may be paid now, and a
+// typed error carrying WHY when it may not.
+//
+// Split out from SettleReferral so the qualification pass asks exactly the same
+// question through exactly the same code. A pass carrying its own copy of "is this
+// payable yet" is how a settlement and a qualification sweep come to disagree about
+// the same row, and one of them is then wrong in a way nothing observes.
+//
+// The three refusals, and why each is a distinct answer:
+//
+//   - terminal status (expired / clawedback / rejected): nothing will ever pay
+//     this. ErrImmutable, because the row's own state is the reason.
+//   - already qualified: ErrReferralAlreadyPaid, its own sentinel rather than
+//     ErrImmutable, because "we already paid this" and "this must never pay" are
+//     different operational answers and the pass needs to tell them apart without
+//     string-matching a message.
+//   - window not elapsed: ErrReferralNotYetPayable. The common case on every pass,
+//     not an incident.
+func (s *ReferralService) refusalFor(ref UserReferral, cfg EconomyConfig) error {
+	if IsTerminalReferralStatus(ref.Status) {
+		return fmt.Errorf("%w: referral %d is %s and must not be paid", ErrImmutable, ref.ID, ref.Status)
+	}
+	if ref.Status == ReferralQualified {
+		return fmt.Errorf("%w: referral %d was settled at %s", ErrReferralAlreadyPaid, ref.ID, ref.QualifiedAt)
+	}
+	if wait := s.windowRemaining(ref, cfg); wait > 0 {
+		return fmt.Errorf("%w: referral %d has %s of its %d-day wait left",
+			ErrReferralNotYetPayable, ref.ID, wait.Round(time.Second), cfg.Referral.HoldDays)
+	}
+	return nil
 }
 
-// releaseAndGrantInTx is the body of both Ledger.ReleaseReserved and
-// Ledger.Grant, run on the caller's open transaction.
+// windowRemaining is how much of the wait is still to run, floored at zero.
 //
-// It exists because calling the two exported methods would each open their own
-// InUserTx, and a nested transaction is a SAVEPOINT — which does commit and roll
-// back with the outer one, so the two-transaction window would in fact close. It
-// is written here anyway for three reasons: the outer transaction must also carry
-// the claim INSERT and the state UPDATE, and interleaving four nested savepoints
-// with two of them writing the same balance rows is harder to read than one
-// function that does the whole settlement; the callers of ReleaseReserved and
-// Grant keep their own tested bodies untouched; and a change to either ledger
-// primitive then has one obvious place to be reflected rather than two.
+// The window is measured from the referral's CREATED_AT, not from the moment the
+// invitee qualified, and that is a change of BEHAVIOUR rather than a rewording — in
+// the direction that pays people EARLIER.
 //
-// Both halves are ordered: release first, then grant. The reverse order would be
-// wrong in the one window that matters — the no-overdraft CHECK evaluates
-// posted - reserved, so granting first while the hold is still reserved can make a
-// student's available balance dip below zero transiently and the grant's own
-// posting would be refused on a balance that is about to be corrected.
-func (s *ReferralService) releaseAndGrantInTx(ctx context.Context, tx *TxContext, ref UserReferral) (referralGrant, error) {
-	var out referralGrant
+// §3.3 held the coins for seven days AFTER qualification, so a referral's payout was
+// (qualification + 7 days). With nothing reserved there is no hold to wait out, so the
+// wait runs from attribution and payout is (max(attribution, qualification) + whatever
+// is left of the 7 days). For a prompt invitee the two are the same, to within hours.
+// For an invitee who took three weeks to finish their profile, the old model would have
+// paid three weeks later than this one does.
+//
+// So this is a mechanic that got MORE generous by losing its hold, which is the opposite
+// of the usual direction of these changes and therefore worth writing down: the risk
+// here is somebody assuming the change made it stricter and re-adding a post-
+// qualification wait to "fix" that. The seven days are still the fraud window 05 §3.3
+// chose them for — SEON's production signal for a recycled number appears in 24-72
+// hours — and what changed is only that the window gates PAYMENT rather than RELEASE.
+//
+// What did NOT change, and is pinned by TestARewardableQualificationNeverExpires: there
+// is no deadline. A referral whose invitee finishes at any point still pays.
+func (s *ReferralService) windowRemaining(ref UserReferral, cfg EconomyConfig) time.Duration {
+	holdDays := cfg.Referral.HoldDays
+	if holdDays <= 0 {
+		// A configured zero means no wait, and that is a legitimate operator
+		// setting rather than a missing dependency: "referral.hold_days >= 0" is the
+		// config's own validation rule, the knob exists so an operator can change
+		// the window without a deploy, and Load always yields the defaults for an
+		// absent value, so an unwired config cannot be mistaken for zero.
+		return 0
+	}
+	eligibleAt := ref.CreatedAt.UTC().AddDate(0, 0, int(holdDays))
+	now := s.now().UTC()
+	if !now.Before(eligibleAt) {
+		return 0
+	}
+	return eligibleAt.Sub(now)
+}
+
+// announce sends coins.credited for one settlement.
+//
+// AFTER the transaction, for profile_award.go's reason: the coins are the fact and
+// the announcement is a courtesy, so a failing notification outbox must not roll
+// back an award the student earned. Keyed on the journal id, so a retried announce
+// is the same occurrence rather than a second credit notice for one credit.
+//
+// coins.credited and NOT a referral-specific key, and that is a decision rather
+// than a shortcut. The registry is closed and boot-validated — ValidateRegistry is
+// logger.Fatal in cmd/server/main.go — so a new constant needs a Registry row, a
+// test and a 09 copy review, or the server does not start. Meanwhile
+// coins.credited's own Registry comment already names this case: its body "says
+// nothing about WHY the coins arrived" precisely because one key must render for
+// every producer of a credit, and it names "the referral and upload awards" as the
+// others. So the existing key already fits, and the alternative is widening the
+// registry to say something the existing key already says. 09's "If the student
+// says an email never arrived" table lists referral.qualified / referral.released
+// / referral.revoked, which is a stale draft from before coins.credited landed;
+// that doc should be corrected rather than the code widened.
+//
+// The data keys are named to match the template exactly, because the templates
+// carry missingkey=error and a missing key is a dropped notification rather than a
+// blank line. There is deliberately no "step": that is the profile ladder's key and
+// a referral has no step.
+func (s *ReferralService) announce(ctx context.Context, referralID uint, grant GrantResult) {
+	if s.notifier == nil || grant.JournalID == "" {
+		// The empty journal id is the already-settled case: SettleReferral returns a
+		// zero GrantResult for a replay, and announcing that would tell a student
+		// their coins arrived a second time.
+		return
+	}
+	_ = s.notifier.Notify(ctx, notification.NotifyRequest{
+		EventKey:   notification.EventCoinsCredited,
+		Recipients: []notification.Ref{{Type: "user", ID: s.referrerFor(referralID)}},
+		Data: map[string]any{
+			"coins":   grant.Amount,
+			"balance": grant.Available,
+		},
+		OccurrenceKey: notification.EventCoinsCredited + ":" + grant.JournalID,
+		CorrelationID: grant.JournalID,
+	})
+}
+
+// grantInTx is the body of Ledger.Grant, run on the caller's open transaction
+// against the referral's referrer.
+//
+// amount is passed in rather than re-read from config here, because the caller read
+// the config OUTSIDE the transaction — ledger.go gives the reason (a config read
+// inside a transaction holding a user lock can issue a query on another connection
+// and start the lock_timeout clock) and re-reading would both repeat the mistake
+// and risk disagreeing with the figure the cap slot was claimed at.
+func (s *ReferralService) grantInTx(tx *TxContext, ref UserReferral, amount int64) (GrantResult, error) {
 	refType := RefUserReferral
 	refID := uint64(ref.ID)
 	now := s.now().UTC()
 
-	// The hold. A referral with no open hold is not settled but not broken either:
-	// the qualification slice places one before calling here, and a referral that
-	// reached 'qualified' without one would mean the hold was already lifted. Both
-	// are ErrNotFound from FindOpenHold and both mean "do not grant", so the
-	// transaction rolls back rather than paying an unreconciled award.
-	hold, err := tx.FindOpenHold(ReasonReferralHold, refType, &refID)
-	if err != nil {
-		return out, err
-	}
-	if hold == nil {
-		return out, fmt.Errorf("%w: referral %d has no open %s to release", ErrNotFound, ref.ID, ReasonReferralHold)
-	}
-	held, accountID, err := holdMetadata(hold)
-	if err != nil {
-		return out, err
-	}
-	changed, err := tx.SetJournalState(hold.ID, StatePending, StateReversed, map[string]any{
-		"released_at":  now.Format(time.RFC3339),
-		"released_by":  "system:referral",
-		"release_note": "referral qualified and settled",
-	})
-	if err != nil {
-		return out, err
-	}
-	if !changed {
-		// Already released between the read and the write. Under the user lock this
-		// cannot happen, and it is checked anyway so the invariant is enforced
-		// rather than assumed — the same reasoning as ReleaseReserved.
-		return out, fmt.Errorf("%w: hold %s was released under this referral", ErrImmutable, hold.ID)
-	}
-	if err := tx.ApplyReserved(map[uint]int64{accountID: -held}, hold.ID); err != nil {
-		return out, err
-	}
-	out.HoldJournalID = hold.ID
-
-	// The grant. Same shape as Ledger.Grant, minus the config read (already done
-	// by the caller, outside the transaction, for the reason ledger.go gives) and
-	// plus the grantSpec lookup the caller resolved.
 	spec, ok := grantSpecs[ReasonReferralQualified]
 	if !ok {
-		return out, fmt.Errorf("%w: reason %s is not a grant this ledger can make", ErrInvalidArgument, ReasonReferralQualified)
+		return GrantResult{}, fmt.Errorf("%w: reason %s is not a grant this ledger can make", ErrInvalidArgument, ReasonReferralQualified)
 	}
-	cfg, err := s.ledger.config.Load()
+	days, err := s.grantExpiryDays()
 	if err != nil {
-		return out, err
-	}
-	amount := spec.amount(cfg)
-	if amount != held {
-		// The hold and the grant must move the same number of coins. If an operator
-		// re-prices referral_referrer between the hold and its settlement, the
-		// difference is a pricing decision nobody made deliberately for THIS
-		// referral, and paying either figure would make the ledger unexplainable:
-		// the student would hold a balance that does not match its journal.
-		return out, fmt.Errorf("%w: referral %d held %d coins and is configured to pay %d",
-			ErrInvalidConfig, ref.ID, held, amount)
-	}
-	days := spec.expiryDays(cfg)
-	if days <= 0 {
-		return out, fmt.Errorf("%w: the expiry for bucket %s is configured to %d days", ErrInvalidArgument, spec.bucket, days)
+		return GrantResult{}, err
 	}
 	expiresAt := now.AddDate(0, 0, int(days))
 
@@ -620,32 +773,32 @@ func (s *ReferralService) releaseAndGrantInTx(ctx context.Context, tx *TxContext
 	}
 	created, err := tx.InsertJournal(journal)
 	if err != nil {
-		return out, err
+		return GrantResult{}, err
 	}
 	if !created {
 		// The reward_grant claim above already gates this, so reaching here means
 		// the two disagree about whether this referral was paid. Roll back rather
 		// than commit a claim row whose money is not this transaction's — the same
 		// refusal profile_award.go's grantStep makes.
-		return out, fmt.Errorf("referral %d settled twice: grant key %q conflicts without a claim row", ref.ID, key)
+		return GrantResult{}, fmt.Errorf("referral %d settled twice: grant key %q conflicts without a claim row", ref.ID, key)
 	}
 
 	userAccount, err := tx.EnsureUserAccount(ref.ReferrerUserID, spec.bucket)
 	if err != nil {
-		return out, err
+		return GrantResult{}, err
 	}
 	faucet, err := tx.SystemAccountID(SystemEarnedFaucet)
 	if err != nil {
-		return out, err
+		return GrantResult{}, err
 	}
 	if err := tx.InsertPostings(journal.ID, []PostingLeg{
 		{Seq: 1, AccountID: userAccount, Amount: amount},
 		{Seq: 2, AccountID: faucet, Amount: -amount},
 	}); err != nil {
-		return out, err
+		return GrantResult{}, err
 	}
 	if err := tx.ApplyPosted(map[uint]int64{userAccount: amount, faucet: -amount}, journal.ID); err != nil {
-		return out, err
+		return GrantResult{}, err
 	}
 	lot := &CoinLot{
 		AccountID: userAccount,
@@ -656,13 +809,13 @@ func (s *ReferralService) releaseAndGrantInTx(ctx context.Context, tx *TxContext
 		CreatedAt: now,
 	}
 	if err := tx.CreateLot(lot); err != nil {
-		return out, err
+		return GrantResult{}, err
 	}
 	available, err := availableForUser(tx, ref.ReferrerUserID)
 	if err != nil {
-		return out, err
+		return GrantResult{}, err
 	}
-	out.GrantResult = GrantResult{
+	return GrantResult{
 		JournalID:   journal.ID,
 		Amount:      amount,
 		Bucket:      spec.bucket,
@@ -670,8 +823,21 @@ func (s *ReferralService) releaseAndGrantInTx(ctx context.Context, tx *TxContext
 		ExpiresAt:   &expiresAt,
 		Available:   available,
 		JournalTime: now,
+	}, nil
+}
+
+// grantExpiryDays is the referral grant's lot lifetime, read through the cache.
+//
+// Its own method so the one place that resolves it is named. Ledger.Grant refuses
+// a non-positive expiry rather than writing a lot that never expires, and that
+// refusal has to survive being reproduced here — a copy that defaulted to "no
+// expiry" would quietly create a permanent lot that no config edit can close.
+func (s *ReferralService) grantExpiryDays() (int64, error) {
+	cfg, err := s.ledger.config.Load()
+	if err != nil {
+		return 0, err
 	}
-	return out, nil
+	return grantSpecs[ReasonReferralQualified].expiryDays(cfg), nil
 }
 
 // referrerFor reads the referrer off a referral so the advisory lock can be taken
@@ -698,14 +864,20 @@ func (s *ReferralService) referrerFor(referralID uint) uint {
 // FOR UPDATE rather than a plain SELECT because two settlements of the same
 // referral would otherwise both read 'pending' and both proceed to the claim —
 // which the claim insert would resolve, so this is belt-and-braces rather than the
-// mechanism. It is here because the STATUS is read to make a decision (a
-// clawed-back referral must not be paid) and a decision taken on a row another
-// transaction is changing is not a decision.
+// mechanism. It is here because the STATUS is read to make a decision (a terminal
+// referral must not be paid, and one inside its wait window must not be paid
+// early) and a decision taken on a row another transaction is changing is not a
+// decision.
+//
+// created_at is selected as well as the state because the payability gate measures
+// the wait from it, and reading the window from a value the UPDATE is free to
+// rewrite would make the gate decide on a different number than the row carries.
 func readReferralForUpdate(tx *TxContext, referralID uint) (UserReferral, error) {
 	var ref UserReferral
 	if err := tx.DB().Raw(
 		`SELECT id, referrer_user_id, referred_kind, referred_user_id, referral_code, status,
-		        awarded_coins, created_at, updated_at
+		        awarded_coins, cap_period, cap_slot, grant_journal_id, qualified_at,
+		        created_at, updated_at
 		   FROM user_referral WHERE id = ? FOR UPDATE`, referralID,
 	).Scan(&ref).Error; err != nil {
 		return UserReferral{}, fmt.Errorf("read referral %d: %w", referralID, err)
@@ -726,6 +898,13 @@ func readReferralForUpdate(tx *TxContext, referralID uint) (UserReferral, error)
 // The referral id is in the code rather than in a separate column, so one UNIQUE
 // constraint does the work — the same reasoning reward_grant_model.go gives for
 // its own composite index.
+//
+// This is now the ONLY once-only gate. Under the hold model it backed up the
+// journal's per-referral idempotency key; now that there is no hold, the
+// idempotency key still exists (grantInTx builds it from the same two ids) but the
+// claim is what runs first, so it is the gate. Two independent uniqueness
+// constraints on the same fact is defence in depth, not redundancy to be pruned,
+// and the double-pass test asserts both.
 func ReferralAwardCode(referralID uint) string {
 	return "REFERRAL_BONUS:" + strconv.FormatUint(uint64(referralID), 10)
 }
@@ -765,7 +944,7 @@ func HashFraudIdentifier(key []byte, keyID string, value string) []byte {
 // Used to recognise "this same pair of accounts has been seen before" without
 // storing either id in a table whose whole purpose is to be joined against. Not
 // used for the cap — the cap is a count, not a match — and provided here so the
-// fraud-matching tables the next slice adds all draw on one implementation.
+// fraud-matching tables all draw on one implementation.
 func ReferralFingerprint(referrerUserID, referredUserID uint, referredKind string) string {
 	sum := sha256.Sum256([]byte(fmt.Sprintf("%s:%d:%d", referredKind, referrerUserID, referredUserID)))
 	return fmt.Sprintf("%x", sum[:])
@@ -784,9 +963,12 @@ func validReferredKind(kind string) bool {
 //
 // Written rather than imported because this package's other nullable-journal
 // writes are all on *string columns where a nil pointer is already NULL, and these
-// are on text columns fed from a Go string. The COALESCE on hold_journal_id is
-// what makes the write idempotent: a second settlement must not erase the hold it
-// did not place.
+// are on text columns fed from a Go string.
+//
+// Its one remaining caller is the qualification pass's terminal-state write, where
+// an empty reason must be NULL rather than "" — an empty-string reason is a
+// terminal row with no recorded cause, which is the support ticket the column
+// exists to prevent.
 func nullableString(s string) any {
 	if s == "" {
 		return nil

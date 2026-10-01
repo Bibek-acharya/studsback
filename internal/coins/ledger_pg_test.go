@@ -49,6 +49,8 @@ import (
 	"testing"
 	"time"
 
+	"studsphere/backend/internal/shared/config"
+
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -85,6 +87,23 @@ var corePool *gorm.DB
 // unaffected: this TestMain only creates and drops coreSchema.
 func TestMain(m *testing.M) {
 	code := 1
+
+	// The shared logger lazily Init()s on first use, and Init reads
+	// config.AppConfig.GinMode. AppConfig is a nil pointer until the real config
+	// is loaded, so ANY test in this package that reaches a logging path panics
+	// on a nil dereference rather than merely logging to nowhere.
+	//
+	// This belongs here, once, rather than in each test: reconcile_pg_test.go
+	// already sets config defensively with the comment "same pattern as the
+	// notification tests", and the qualifier's own tests did not, so they passed
+	// in a full-package run purely because an earlier test happened to leave
+	// AppConfig populated and PANICKED when run on their own. A test that only
+	// passes because of its neighbours is not a test.
+	oldAppConfig := config.AppConfig
+	if config.AppConfig == nil {
+		config.AppConfig = &config.Config{}
+	}
+
 	if dsn := os.Getenv("COINS_TEST_DSN"); dsn == "" {
 		// No database. Every test skips itself, so the run is a pass.
 		code = m.Run()
@@ -98,6 +117,7 @@ func TestMain(m *testing.M) {
 			fmt.Fprintf(os.Stderr, "coins integration: %v\n", err)
 		}
 	}
+	config.AppConfig = oldAppConfig
 	os.Exit(code)
 }
 

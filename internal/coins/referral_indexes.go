@@ -21,6 +21,7 @@
 package coins
 
 import (
+	"fmt"
 	"strings"
 
 	"gorm.io/gorm"
@@ -85,12 +86,19 @@ func EnsureReferralIndexes(db *gorm.DB) error {
 
 		// ── CHECK constraints ───────────────────────────────────────────────
 		// The state machine is a closed set rather than free text. A typo in a
-		// status is not a harmless string here: the next slice's qualification and
-		// clawback sweeps filter ON these values, so a row that says 'pening' is a
-		// referral that qualifies for nothing and is clawed back for nothing,
-		// invisibly.
-		addCheck("chk_user_referral_status", `user_referral`,
-			`status IN ('pending', 'qualified', 'clawedback', 'rejected')`),
+		// status is not a harmless string here: the qualification pass and the
+		// student's own endpoint both filter ON these values, so a row that says
+		// 'pening' is a referral that qualifies for nothing and is clawed back for
+		// nothing, invisibly.
+		//
+		// The status CHECK is REPLACED rather than added-if-absent, and that is
+		// applied after this list rather than inside it — see replaceCheck. The
+		// vocabulary is expected to grow ('expired' arrived with the qualification
+		// pass), and addConstraint's IF NOT EXISTS is keyed on the CONSTRAINT NAME
+		// rather than on its expression, so a schema that already carries
+		// chk_user_referral_status would keep the four-value expression forever and
+		// refuse every expiry write. A constraint whose definition can silently
+		// disagree with the code that owns it is worse than one brief lock at boot.
 		addCheck("chk_user_referral_kind", `user_referral`,
 			`referred_kind IN ('user', 'institution', 'provider')`),
 
@@ -147,5 +155,84 @@ func EnsureReferralIndexes(db *gorm.DB) error {
 			return err
 		}
 	}
-	return nil
+	// The status CHECK runs after the list rather than inside it, because it is a
+	// comparison followed by a conditional write rather than one statement. See
+	// replaceCheck.
+	return replaceCheck(db, "chk_user_referral_status", `user_referral`,
+		`status IN ('pending', 'qualified', 'expired', 'clawedback', 'rejected')`)
+}
+
+// replaceCheck makes a CHECK's definition follow the code that owns it.
+//
+// addConstraint is idempotent on the constraint NAME, which is right for a
+// definition that never changes and wrong for one that does: a CHECK added by an
+// earlier build keeps its earlier expression, and every write the new build makes is
+// then refused by a constraint whose name is still the one it created. That failure
+// surfaces as one INSERT error on the first affected row in production, which is the
+// worst place to discover it. 'expired' is exactly that case: a new value in an
+// existing closed set, on a table that already carries the constraint.
+//
+// So: read what the constraint currently says, and only touch it when it differs.
+// The alternative — DROP IF EXISTS then ADD on every boot — leaves a window in which
+// the constraint does not exist at all, on a rolling deploy where another instance is
+// still serving traffic. That window is small, and it is exactly the window in which a
+// write the constraint exists to refuse would succeed, so it is not a risk worth
+// taking for a comparison that costs one catalogue query per boot.
+//
+// Cost is one query plus, on a mismatch, one brief ACCESS EXCLUSIVE lock to replace
+// the constraint. It runs once per process start, on a table this codebase creates
+// from scratch at boot anyway.
+func replaceCheck(db *gorm.DB, name, table, expression string) error {
+	var existing *string
+	if err := db.Raw(
+		`SELECT pg_get_constraintdef(oid) FROM pg_constraint
+		  WHERE conname = ? AND conrelid = ?::regclass`, name, table,
+	).Scan(&existing).Error; err != nil {
+		return fmt.Errorf("read constraint %s: %w", name, err)
+	}
+	if existing != nil && checkLiteralSet(*existing) == checkLiteralSet(expression) {
+		return nil
+	}
+	if err := db.Exec(`ALTER TABLE ` + table + ` DROP CONSTRAINT IF EXISTS ` + name).Error; err != nil {
+		return fmt.Errorf("drop constraint %s: %w", name, err)
+	}
+	return db.Exec(addCheck(name, table, expression)).Error
+}
+
+// checkLiteralSet reduces a CHECK body to the ORDERED SET of string literals it
+// compares against, so the comparison is about MEANING rather than formatting.
+//
+// Postgres renders an IN list as `status = ANY (ARRAY['pending'::text,
+// 'qualified'::text, ...])`, which shares no characters with the source
+// `status IN ('pending', 'qualified', ...)`. Comparing the source text would never
+// match and would replace the constraint on every single boot, which is the exact
+// failure mode this function exists to avoid.
+//
+// Comparing the literal sequence is enough for the closed vocabularies this guards:
+// every use of replaceCheck is a membership test over string literals, and a change
+// to that set is exactly the change that has to be detected. Ordered rather than
+// sorted, because pg_get_constraintdef preserves the order the expression listed them
+// in, so a reorder is not a change worth taking a lock for.
+//
+// Deliberately NOT a general CHECK differ. If somebody changes the SHAPE of an
+// expression rather than its vocabulary, this will not notice — and the honest fix
+// then is to name the constraint differently, so it becomes a new object rather than a
+// silent replacement of a live one.
+func checkLiteralSet(expression string) string {
+	var literals []string
+	inQuote := false
+	current := strings.Builder{}
+	for _, r := range expression {
+		switch {
+		case r == '\'':
+			if inQuote {
+				literals = append(literals, current.String())
+				current.Reset()
+			}
+			inQuote = !inQuote
+		case inQuote:
+			current.WriteRune(r)
+		}
+	}
+	return strings.Join(literals, ",")
 }
