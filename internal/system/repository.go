@@ -62,6 +62,35 @@ func (r *Repository) UserIDByEmail(email string) (uint, error) {
 	return id, err
 }
 
+// FindContactInquiryOwnedBy loads an inquiry ONLY if it is addressed to
+// institutionID.
+//
+// The ownership test lives in the WHERE clause rather than in Go, and that is the
+// point: `WHERE id = ? AND institution_id = ?` returns gorm.ErrRecordNotFound for
+// somebody else's row, so "not yours" and "does not exist" are the same database
+// result and cannot be told apart by a caller who probes ids. Doing this as
+// FindByID followed by an `if` would produce the same refusal but would have
+// loaded the row first, and the load is where a future field added to the
+// SELECT would leak.
+//
+// A NULL institution_id cannot match an equality test, which is the behaviour we
+// want rather than a side effect: a platform-level inquiry has no tenant, so no
+// tenant owns it. Every write path goes through here.
+func (r *Repository) FindContactInquiryOwnedBy(id, institutionID uint) (*ContactInquiry, error) {
+	if institutionID == 0 {
+		// A caller with no institution id is not the owner of anything. Stated
+		// explicitly because institution.getInstID reads the id off the context
+		// and a missing id is 0, and `institution_id = 0` must never be a match.
+		return nil, gorm.ErrRecordNotFound
+	}
+	var inquiry ContactInquiry
+	err := r.db.Where("id = ? AND institution_id = ?", id, institutionID).First(&inquiry).Error
+	if err != nil {
+		return nil, err
+	}
+	return &inquiry, nil
+}
+
 func (r *Repository) UpdateContactInquiryStatus(id uint, status string) (*ContactInquiry, error) {
 	inquiry, err := r.FindContactInquiryByID(id)
 	if err != nil {

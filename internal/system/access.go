@@ -36,12 +36,16 @@ import (
 //     ForRoles("superadmin", "admin") and nobody else — the module already
 //     decided who the audience for an inquiry is, in code, before this file
 //     existed.
-//   - The tenant that legitimately needs to see inquiries addressed to it
-//     ALREADY HAS ITS OWN ROUTE, and it is already scoped: institution.GET
-//         ("/inquiries") in internal/institution calls GetInstitutionInquiries
-//         with the id off the caller's own authenticated account. That route is
-//     the answer to "which non-admin principal needs the inbox", and it means
-//     admin-only here locks nobody out. There is no second inbox to widen.
+//   - The tenant that legitimately needs to see AND WRITE inquiries addressed to
+//     it ALREADY HAS ITS OWN ROUTE, and it is now scoped on both sides:
+//     institution.GET("/inquiries") calls GetInstitutionInquiries with the id off
+//         the caller's own authenticated account, and institution.PUT("/inquiries/:id/status")
+//         and institution.DELETE("/inquiries/:id") call
+//         UpdateContactInquiryStatusForInstitution and
+//         DeleteContactInquiryForInstitution, which refuse anything not addressed
+//         to that id. That route is the answer to "which non-admin principal needs
+//     the inbox", and it means admin-only here locks nobody out. There is no
+//     second inbox to widen.
 //
 // Ad is a different shape of record and gets the same answer for a different
 // reason. Ad has no institution column at all: it carries Page, Position,
@@ -56,15 +60,27 @@ import (
 // it so that a caller who passes the wide roleMW back in cannot re-open this.
 // Both read PlatformAdminRoles, and both answer 403.
 //
-// KNOWN GAP, NOT FIXED HERE, in internal/institution (a different module):
-// institution.PUT("/inquiries/:id/status") and institution.DELETE("/inquiries/:id")
-// call the UNSCOPED UpdateContactInquiryStatus and DeleteContactInquiry below
-// with an id straight from the URL and no check that the inquiry belongs to the
-// caller. An institution account can therefore still change the status of, and
-// delete, ANY inquiry on the platform, including other institutions' and
-// guests'. That is why the unscoped pair is kept rather than deleted: removing
-// them is the fix, and it belongs to the module that owns those routes. See the
-// note on UpdateContactInquiryStatus.
+// THE SECOND HALF OF THAT FINDING IS NOW FIXED, and it is worth recording what it
+// was because the read side was always scoped and only the write side was not.
+//
+// internal/institution mounted institution.PUT("/inquiries/:id/status") and
+// institution.DELETE("/inquiries/:id") against the UNSCOPED
+// UpdateContactInquiryStatus and DeleteContactInquiry below, with an id straight
+// from the URL. So an institution account could read only its own inbox and yet
+// could move ANY visitor's message on the platform into any status, overwrite the
+// internal Notes field, and delete it — rows it could not even see.
+//
+// Both tenant routes now go through UpdateContactInquiryStatusForInstitution and
+// DeleteContactInquiryForInstitution, which check ownership in the WHERE clause
+// and answer ErrInquiryNotFound (404, not 403: a caller probing for another
+// tenant's ids must not learn that an id exists). A platform-level inquiry
+// (institution_id NULL) is unreachable to every tenant through the tenant path,
+// which is consistent with GetInstitutionInquiries never returning those rows.
+//
+// The unscoped pair is KEPT rather than deleted, on purpose and for a narrower
+// reason than before: they are the primitive the admin path and the tenant path
+// both sit on, and UpdateContactInquiryStatusAsAdmin guards the admin one by role.
+// Nothing outside this module should call either directly.
 
 // ErrForbidden is what an inbox or ad call from a non-admin returns.
 //

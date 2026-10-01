@@ -2,6 +2,7 @@ package institution
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -2380,8 +2381,17 @@ func (h *Handler) UpdateInquiryStatus(c *gin.Context) {
 		return
 	}
 
-	inquiry, err := h.systemSvc.UpdateContactInquiryStatus(uint(id), req.Status)
+	// Scoped to the calling institution. This used to pass the id from the URL to
+	// the unscoped system method, which meant an institution could move ANY
+	// visitor's inquiry on the platform into any status — rows it cannot even read,
+	// since GET /inquiries has always filtered on institution_id.
+	inquiry, err := h.systemSvc.UpdateContactInquiryStatusForInstitution(getInstID(c), uint(id), req.Status)
 	if err != nil {
+		if errors.Is(err, system.ErrInquiryNotFound) {
+			// 404, not 403: an ownership refusal must not confirm that the id exists.
+			response.Error(c, http.StatusNotFound, "Inquiry not found")
+			return
+		}
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -2401,7 +2411,14 @@ func (h *Handler) DeleteInquiry(c *gin.Context) {
 		return
 	}
 
-	if err := h.systemSvc.DeleteContactInquiry(uint(id)); err != nil {
+	// Scoped to the calling institution, for the same reason as UpdateInquiryStatus:
+	// the unscoped call let an institution delete ANY visitor's message on the
+	// platform, including rows it has no way to read.
+	if err := h.systemSvc.DeleteContactInquiryForInstitution(getInstID(c), uint(id)); err != nil {
+		if errors.Is(err, system.ErrInquiryNotFound) {
+			response.Error(c, http.StatusNotFound, "Inquiry not found")
+			return
+		}
 		response.Error(c, http.StatusInternalServerError, "Failed to delete inquiry")
 		return
 	}

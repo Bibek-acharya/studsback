@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"studsphere/backend/internal/notification"
+
+	"gorm.io/gorm"
 )
 
 type Service struct {
@@ -100,29 +102,113 @@ func (s *Service) UpdateContactInquiryStatusAsAdmin(v Viewer, id uint, status st
 	return s.UpdateContactInquiryStatus(id, status)
 }
 
+// ErrInquiryNotFound is what a tenant write returns for an inquiry that does not
+// exist or is not addressed to them.
+//
+// Declared here rather than reused from gorm because the refusal is the module's
+// public contract: internal/institution maps it to 404, and the reason it is 404
+// rather than 403 is in the note on UpdateContactInquiryStatusForInstitution.
+var ErrInquiryNotFound = errors.New("inquiry not found")
+
+// validInquiryStatuses is the workflow vocabulary, shared by both writers.
+var validInquiryStatuses = map[string]bool{
+	"new": true, "New": true, "read": true, "in_progress": true, "resolved": true, "closed": true, "Closed": true,
+	"In Contact": true, "Follow Up": true, "Admitted": true,
+}
+
+// notifyInquiryReplied tells the inquirer their inquiry moved, when they have a
+// registered account.
+//
+// Doc 07: "if registered account; else email" — the guest email copy is a P3 seam,
+// silently skipped until that path exists. Extracted from the status writer because
+// the ownership check and the notification now live on two paths that must not
+// drift: an admin write and a tenant write both move an inquiry, and a visitor
+// should hear about it either way.
+func (s *Service) notifyInquiryReplied(inquiry *ContactInquiry) {
+	if s.notifier == nil || inquiry == nil || inquiry.Email == "" {
+		return
+	}
+	userID, err := s.repo.UserIDByEmail(inquiry.Email)
+	if err != nil || userID == 0 {
+		return
+	}
+	_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
+		EventKey:   notification.EventSystemInquiryReplied,
+		Recipients: []notification.Ref{{Type: "user", ID: userID}},
+		Data:       map[string]any{"subject": inquiry.Subject},
+	})
+}
+
+// UpdateContactInquiryStatusForInstitution moves an inquiry's status, refusing
+// anything not addressed to institutionID.
+//
+// This is the tenant path and the ONLY tenant path. It exists because the method
+// that used to serve internal/institution performed no authorisation at all: the
+// handler passed it an id straight from the URL, so an institution account could
+// move ANY visitor's message on the platform into any status and overwrite the
+// internal Notes field. The read side was always scoped — GetInstitutionInquiries
+// filters on institution_id — so the exposure was write-only and total.
+//
+// WHY 404 AND NOT 403, and why the check is in the repository. The refusal is an
+// ownership answer, not a role answer. `system`'s own ErrForbidden documents that
+// a 403 is for role refusals where the caller learns nothing about existence; that
+// reasoning does not transfer here, because a caller probing ids for another
+// tenant's inbox must not be able to learn which ids exist. "Not yours" and "not
+// there" are therefore the same answer. See Repository.FindContactInquiryOwnedBy.
+//
+// A platform-level inquiry (institution_id NULL) is unreachable through here by
+// construction, which matches what a tenant can already read: GetInstitutionInquiries
+// never returns those rows either.
+func (s *Service) UpdateContactInquiryStatusForInstitution(institutionID, id uint, status string) (*ContactInquiry, error) {
+	if !validInquiryStatuses[status] {
+		return nil, errors.New("invalid status")
+	}
+	// Load scoped first. On an unowned id this returns before the write is
+	// attempted, so a refused call cannot have touched the row.
+	inquiry, err := s.repo.FindContactInquiryOwnedBy(id, institutionID)
+	if err != nil {
+		return nil, ErrInquiryNotFound
+	}
+	updated, err := s.repo.UpdateContactInquiryStatus(inquiry.ID, status)
+	if err != nil {
+		return nil, err
+	}
+	s.notifyInquiryReplied(updated)
+	return updated, nil
+}
+
+// DeleteContactInquiryForInstitution soft-deletes an inquiry, refusing anything
+// not addressed to institutionID. Same rule and same 404 as
+// UpdateContactInquiryStatusForInstitution; see there for why the check is an
+// ownership test rather than a role one.
+func (s *Service) DeleteContactInquiryForInstitution(institutionID, id uint) error {
+	if _, err := s.repo.FindContactInquiryOwnedBy(id, institutionID); err != nil {
+		return ErrInquiryNotFound
+	}
+	if err := s.repo.DeleteContactInquiry(id); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrInquiryNotFound
+		}
+		return err
+	}
+	return nil
+}
+
 // UpdateContactInquiryStatus sets the workflow status on an inquiry and notifies
 // the inquirer. It performs NO authorisation of its own.
 //
-// Kept unscoped on purpose, and the reason is a finding rather than an
-// oversight. internal/institution mounts institution.PUT("/inquiries/:id/status")
-// against this method with the id taken straight from the URL and no check that
-// the inquiry belongs to the calling institution, so an institution account can
-// currently move ANY inquiry on the platform into any status and overwrite the
-// internal Notes field. internal/institution is outside the scope of this fix.
+// Kept unscoped on purpose, and the reason is a finding rather than an oversight:
+// this is the platform-admin path, and admin-only is enforced one layer up in
+// UpdateContactInquiryStatusAsAdmin. It is deliberately NOT the tenant path any
+// more — internal/institution now calls
+// UpdateContactInquiryStatusForInstitution, which owns the inquiry it writes.
 //
-// Until that module is fixed, this method must not be reachable from a
-// tenant-inclusive route. The two callers are therefore deliberately separated:
-// the system module's own /admin route goes through
-// UpdateContactInquiryStatusAsAdmin, which is guarded, and this one is the
-// internal-institution path. Collapsing them would either leave the admin route
-// unguarded or require editing the institution module's route wiring as part of
-// a fix scoped to this one.
+// If you are adding a caller, the question is which of the three you want:
+// AsAdmin (platform, guarded by role), ForInstitution (tenant, guarded by
+// ownership), or this one (unguarded — and nothing outside this module should
+// want it).
 func (s *Service) UpdateContactInquiryStatus(id uint, status string) (*ContactInquiry, error) {
-	validStatuses := map[string]bool{
-		"new": true, "New": true, "read": true, "in_progress": true, "resolved": true, "closed": true, "Closed": true,
-		"In Contact": true, "Follow Up": true, "Admitted": true,
-	}
-	if !validStatuses[status] {
+	if !validInquiryStatuses[status] {
 		return nil, errors.New("invalid status")
 	}
 
@@ -131,31 +217,18 @@ func (s *Service) UpdateContactInquiryStatus(id uint, status string) (*ContactIn
 		return nil, err
 	}
 
-	// Notify the inquirer when they have a registered account (doc 07:
-	// "if registered account; else email" — guest email copy is a P3 seam,
-	// silently skipped here until that path exists).
-	if s.notifier != nil && inquiry.Email != "" {
-		if userID, err := s.repo.UserIDByEmail(inquiry.Email); err == nil && userID != 0 {
-			_ = s.notifier.Notify(context.Background(), notification.NotifyRequest{
-				EventKey:   notification.EventSystemInquiryReplied,
-				Recipients: []notification.Ref{{Type: "user", ID: userID}},
-				Data:       map[string]any{"subject": inquiry.Subject},
-			})
-		}
-	}
-
+	s.notifyInquiryReplied(inquiry)
 	return inquiry, nil
 }
 
 // DeleteContactInquiryAsAdmin deletes an inquiry from the platform-wide inbox.
 // Platform-admin only; see access.go.
 //
-// Whether deleting an inquiry should exist at all, be scoped, or keep an audit
-// trail is a product question and is deliberately NOT answered here. What is
-// worth recording: the repository call is already a soft delete
-// (ContactInquiry carries DeletedAt), so the row is not unrecoverable today,
-// but nothing records WHO deleted a visitor's message, and the identifier is
-// entirely unscoped.
+// Whether deleting an inquiry should exist at all, or keep an audit trail, is a
+// product question and is deliberately NOT answered here. What is worth recording:
+// the repository call is already a soft delete (ContactInquiry carries DeletedAt),
+// so the row is not unrecoverable today, but nothing records WHO deleted a
+// visitor's message.
 func (s *Service) DeleteContactInquiryAsAdmin(v Viewer, id uint) error {
 	if err := s.authorizePlatformAdmin(v, "inquiry delete"); err != nil {
 		return err
@@ -166,11 +239,9 @@ func (s *Service) DeleteContactInquiryAsAdmin(v Viewer, id uint) error {
 // DeleteContactInquiry soft-deletes an inquiry. It performs NO authorisation of
 // its own.
 //
-// Kept unscoped for the same reason, and with the same consequence, as
-// UpdateContactInquiryStatus above: internal/institution mounts
-// institution.DELETE("/inquiries/:id") against it with no ownership check, so an
-// institution account can currently delete ANY visitor's message on the
-// platform, not only the ones addressed to it. See access.go.
+// Unscoped for the same reason as UpdateContactInquiryStatus: it is the primitive
+// the two guarded entry points sit on. The tenant path is
+// DeleteContactInquiryForInstitution.
 func (s *Service) DeleteContactInquiry(id uint) error {
 	return s.repo.DeleteContactInquiry(id)
 }
