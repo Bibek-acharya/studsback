@@ -80,6 +80,7 @@ const (
 	EventPaymentSubscriptionRecorded   = "payment.subscription_recorded"
 	EventContentSaved                  = "content.saved"
 	EventCoinsDebited                  = "coins.debited"
+	EventCoinsCredited                 = "coins.credited"
 )
 
 type EventDef struct {
@@ -180,6 +181,31 @@ var Registry = map[string]EventDef{
 	EventCoinsDebited: ev(EventCoinsDebited, "account", PriorityNormal, "StudsTokens used",
 		"{{.coins}} StudsTokens were used to unlock a {{.item}}. Your balance is {{.balance}}.",
 		"/user/dashboard/resources", RecipientExplicit, true, ""),
+	// coins.credited (03-api-contract.md §5): coins arrived without being spent.
+	// Deliberately the mirror of coins.debited — same category, same priority, same
+	// account link — because a credit and a debit are the same event seen from two
+	// sides, and a student whose balance moves needs to be able to answer "why".
+	//
+	// EmailDefault true for the same reason as the debit: 09's "if the student says
+	// an email never arrived" list is about a movement on their own account, and a
+	// missing credit notice is exactly as confusing as a missing receipt.
+	//
+	// The copy obeys 09's three hard bans, and the constraint is statutory rather
+	// than stylistic: no "free" (CPA 2075 s.16), no currency figure beside the coin
+	// figure, and none of prize/award/win/raffle/draw (Income Tax Act 2058 s.5/88A
+	// defines windfall gain to include "lottery, gift, prize, baksis, award for
+	// winning"). The word "earned" is the approved substitute and appears in 09's
+	// own reply block, which says a student "earn StudsTokens by completing your
+	// profile".
+	//
+	// The body says nothing about WHY the coins arrived. The profile ladder pays in
+	// five instalments, so a credit notice that named a profile step would be wrong
+	// for the referral and upload awards that share this event key, and one event
+	// key must render for every producer of a credit. The cause is in the wallet's
+	// transaction list, which is where a student looks for it.
+	EventCoinsCredited: ev(EventCoinsCredited, "account", PriorityNormal, "StudsTokens earned",
+		"{{.coins}} StudsTokens were added to your balance. Your balance is {{.balance}}.",
+		"/user/dashboard/resources", RecipientExplicit, true, ""),
 }
 
 // ev() has no Transactional/DedupeWin params; set P2 attrs that differ from
@@ -243,7 +269,7 @@ func ValidateRegistry() error {
 		EventSocialInviteAccepted, EventSocialReviewModerated, EventSocialForumModerated,
 		EventMessageOfflineFallback, EventJobsApplicationReceived, EventJobsStatusChanged,
 		EventProjectshikshaStatusChanged, EventPaymentSubscriptionRecorded, EventContentSaved,
-		EventCoinsDebited} {
+		EventCoinsDebited, EventCoinsCredited} {
 		if _, ok := Registry[k]; !ok {
 			return fmt.Errorf("constant %s missing from Registry", k)
 		}

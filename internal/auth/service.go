@@ -440,6 +440,12 @@ func (s *Service) VerifyOTP(email, otp string) (*LoginResponse, error) {
 		return nil, errors.New("Failed to create user")
 	}
 
+	// Write path 8 of 8. email and preferences.onboarding_completed both arrive
+	// pre-set on a registration that carried an education level, so this path can
+	// cross a threshold on the very save that creates the account. It is the one
+	// write path that fires before the student has ever authenticated.
+	s.awardProfile(context.Background(), user.ID)
+
 	if notifierInstance != nil {
 		_ = notifierInstance.Notify(context.Background(), notification.NotifyRequest{
 			EventKey:   notification.EventAccountWelcome,
@@ -518,6 +524,17 @@ func (s *Service) GoogleLoginOrRegister(googleID, email, givenName, familyName, 
 		if localPic != "" {
 			user.ImageURL = localPic
 			s.repo.SaveUser(user)
+			// Write path 3 of 8. image_url is one of the twelve completion checks,
+			// and this is the only path that sets it WITHOUT going through
+			// UpdateProfile — a Google sign-in that downloads and stores a
+			// profile picture moves a completion field on its own.
+			//
+			// Without this call a student who signed up with Google and let the
+			// picture download land would score higher on their profile page than
+			// one who uploaded a photo through the form, and would be paid less
+			// for the same profile. That is the incentive-to-use-one-form bug the
+			// award must not have.
+			s.awardProfile(context.Background(), user.ID)
 		}
 	}
 
@@ -602,6 +619,13 @@ func (s *Service) UpdateProfile(userID uint, req UpdateProfileRequest) (*Profile
 		return nil, errors.New("Failed to update profile")
 	}
 
+	// Write path 1 of 8. This is the main one, and the only one the
+	// implementation plan named. It is also the path the profile picture upload
+	// handler funnels through, so a student who completes their profile entirely
+	// by uploading a photo and using this form is paid exactly like one who used
+	// every field. See profile_award.go for the full enumeration.
+	s.awardProfile(context.Background(), userID)
+
 	return &ProfileResponse{
 		ID:             user.ID,
 		Email:          user.Email,
@@ -640,6 +664,13 @@ func (s *Service) SavePreferences(userID uint, req SavePreferencesRequest) (*Pre
 	if err := s.repo.UpdatePreferences(user, prefs); err != nil {
 		return nil, errors.New("Failed to save preferences")
 	}
+
+	// Write path 4 of 8. preferences.onboarding_completed is a completion check,
+	// and UpdatePreferences (repository.go:47) is a DIFFERENT repository method
+	// from SaveUser — this is the path that proves a SaveUser hook would have
+	// been incomplete. A student who finished onboarding here and touched nothing
+	// else moves this field and no other.
+	s.awardProfile(context.Background(), userID)
 
 	user, err = s.repo.FindUserByID(userID)
 	if err != nil {
@@ -1832,6 +1863,11 @@ func (s *Service) CreateEducationEntry(userID uint, req EducationEntryRequest) (
 		return nil, err
 	}
 
+	// Write path 5 of 8. "has an education entry" is the twelfth completion
+	// check, and it lives in a different table entirely — no user row is touched
+	// here, which is the second reason a SaveUser hook would have missed it.
+	s.awardProfile(context.Background(), userID)
+
 	return &EducationEntryResponse{
 		ID:              entry.ID,
 		Level:           entry.Level,
@@ -1866,6 +1902,13 @@ func (s *Service) UpdateEducationEntry(entryID, userID uint, req EducationEntryR
 		return nil, err
 	}
 
+	// Write path 6 of 8. An update cannot change whether an entry EXISTS, so it
+	// cannot newly satisfy the education check — but it is called anyway, and
+	// deliberately: the award re-reads completion and claims only unclaimed steps,
+	// so a redundant call is a no-op, while a MISSING call here would be one more
+	// place a student could be short-changed after a backfill or a data fix.
+	s.awardProfile(context.Background(), userID)
+
 	return &EducationEntryResponse{
 		ID:              entry.ID,
 		Level:           entry.Level,
@@ -1881,7 +1924,21 @@ func (s *Service) UpdateEducationEntry(entryID, userID uint, req EducationEntryR
 }
 
 func (s *Service) DeleteEducationEntry(entryID, userID uint) error {
-	return s.repo.DeleteEducationEntry(entryID, userID)
+	if err := s.repo.DeleteEducationEntry(entryID, userID); err != nil {
+		return err
+	}
+
+	// Write path 7 of 8, and the one that proves the award must tolerate a DECREASE.
+	//
+	// Deleting a student's last education entry drops completion by one twelfth.
+	// Nothing is awarded here — no new threshold is crossed in the upward
+	// direction — and that is the correct outcome, not an oversight. Awards are
+	// never revoked and never re-paid: the ladder's claim rows are permanent, so a
+	// student who drops to 20% and climbs back to 100% collects nothing the second
+	// time. Calling the award on the downward path is what makes that true rather
+	// than accidental, and it costs one claim insert that conflicts.
+	s.awardProfile(context.Background(), userID)
+	return nil
 }
 
 func (s *Service) GetUserSessions(userID uint) ([]UserSession, error) {

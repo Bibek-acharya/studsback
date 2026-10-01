@@ -399,18 +399,38 @@ func ProfileCompletion(user *auth.User, educationCount int64) int {
 // profile is not a finished one. A student told to "finish" a profile that is
 // 11/12 complete is being told to chase a coin award that will not arrive.
 func (s *Service) ProfileComplete(ctx context.Context, userID uint) (bool, error) {
-	user, err := s.repo.GetUserByID(userID)
+	percent, err := s.ProfileCompletionPercent(ctx, userID)
 	if err != nil {
 		return false, err
 	}
+	return percent >= 100, nil
+}
+
+// ProfileCompletionPercent is ProfileComplete's percentage form, and it exists
+// because the profile AWARD is a five-instalment ladder over the same twelve
+// checks, so it needs to know how far along the student is, not just whether
+// they are finished.
+//
+// Both forms read through this one method rather than each loading the user and
+// the education count separately: a second implementation of the lookup is a
+// second answer to "how complete is this profile", and the two disagreeing would
+// mean the wallet offering to pay for a step the dashboard says is already done.
+func (s *Service) ProfileCompletionPercent(ctx context.Context, userID uint) (int, error) {
+	if err := ctx.Err(); err != nil {
+		return 0, err
+	}
+	user, err := s.repo.GetUserByID(userID)
+	if err != nil {
+		return 0, err
+	}
 	if user == nil {
-		return false, nil
+		return 0, nil
 	}
 	educationCount, err := s.repo.CountEducationEntries(userID)
 	if err != nil {
-		return false, err
+		return 0, err
 	}
-	return ProfileCompletion(user, educationCount) >= 100, nil
+	return ProfileCompletion(user, educationCount), nil
 }
 
 func (s *Service) GetRecentApplications(userID uint) ([]RecentApplication, error) {

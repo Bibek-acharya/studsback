@@ -32,6 +32,12 @@ func CreateCoinLedger(db *gorm.DB) error {
 	if err := db.AutoMigrate(coins.LedgerModels...); err != nil {
 		return err
 	}
+	// reward_grant carries the once-only award ledger, not double entry, so it is
+	// a separate slice — see coins.RewardGrantModels for why lumping it in with
+	// the five ledger tables would put an award table on the reconciliation path.
+	if err := db.AutoMigrate(coins.RewardGrantModels...); err != nil {
+		return err
+	}
 	if err := coins.EnsurePostgresIndexes(db); err != nil {
 		return err
 	}

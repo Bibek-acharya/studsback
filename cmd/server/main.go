@@ -307,6 +307,7 @@ func main() {
 		&coins.CoinLot{},
 		&coins.ResourceUnlock{},
 		&coins.UserFreeAllowance{},
+		&coins.RewardGrant{},
 		&pressmedia.PressMediaItem{},
 		&downloadcenter.DownloadItem{},
 		&domain.Conversation{},
@@ -614,6 +615,26 @@ func main() {
 	// later is one more adapter in this list and no change to the wallet. The two
 	// remaining classes are not wired, and an unlock naming one is a 404 until
 	// their slice lands rather than a purchase against the wrong table.
+	// The profile-completion AWARD: the first earn mechanic.
+	//
+	// Wired as three seams rather than one call, and the dependency arrows all
+	// point one way. auth owns the trigger (it is the only module that writes the
+	// twelve completion fields) and declares a one-method port for it; coins owns
+	// the ladder and declares a port for the completion percentage; the adapter
+	// that satisfies the latter lives HERE because studentdashboard is a third
+	// module and neither of the other two may import it.
+	//
+	// auth is wired before coinsWalletAPI only because studentDashboardSvc is
+	// needed for both and is constructed above; there is no ordering requirement
+	// between the award and the wallet.
+	profileAwardSvc := coins.NewProfileAwardService(
+		coinsRepo,
+		coinsLedger,
+		&profilePercentAdapter{svc: studentDashboardSvc},
+		nil, // no notifier: coins.credited is emitted by the award itself
+	)
+	auth.SetProfileAwarder(&profileAwarderAdapter{svc: profileAwardSvc})
+
 	coinsWalletAPI := coins.NewUnlockAPI(coinsService, coinsLedger).
 		WithProfileEligibility(&profileCompletionAdapter{svc: studentDashboardSvc}).
 		WithResourceLookup(coins.NewResourceLookups(

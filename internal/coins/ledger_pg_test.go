@@ -144,6 +144,13 @@ func openCoreSchema(dsn string) (*gorm.DB, error) {
 	if err := pooled.AutoMigrate(LedgerModels...); err != nil {
 		return nil, fmt.Errorf("automigrate: %w", err)
 	}
+	// reward_grant is a separate slice from LedgerModels on purpose (see
+	// RewardGrantModels), so the ledger harness has to migrate it too — otherwise
+	// every profile-award test fails on a missing relation while the ledger tests
+	// pass, which reads as a broken award rather than a missing fixture.
+	if err := pooled.AutoMigrate(RewardGrantModels...); err != nil {
+		return nil, fmt.Errorf("automigrate reward_grant: %w", err)
+	}
 	if err := EnsurePostgresIndexes(pooled); err != nil {
 		return nil, fmt.Errorf("ensure indexes: %w", err)
 	}
@@ -186,6 +193,13 @@ func openLedgerSchema(t *testing.T) *gorm.DB {
 	if err := corePool.Exec(`DELETE FROM coin_account WHERE kind = 'USER'`).Error; err != nil {
 		t.Fatalf("clear user accounts: %v", err.Error())
 	}
+	// reward_grant is the award ledger, created by the same harness. It is cleared
+	// here as well as in the award fixture so a test that forgets its own reset
+	// cannot read a previous test's award as its own, and so the row-count
+	// assertions below can include it.
+	if err := corePool.Exec(`DELETE FROM reward_grant`).Error; err != nil {
+		t.Fatalf("clear reward_grant: %v", err.Error())
+	}
 	// The chart of accounts is the one thing whose ROWS survive, because its
 	// identities are part of the fixture, but its cached balances are reset: the
 	// postings they project were just truncated, and a stale balance would make
@@ -201,7 +215,7 @@ func openLedgerSchema(t *testing.T) *gorm.DB {
 	// Every test in this file asserts on exact counts, so a reset that did not
 	// happen must be loud here rather than quietly producing a coin-flip five
 	// lines later.
-	for _, table := range []string{"coin_journal", "coin_posting", "coin_lot"} {
+	for _, table := range []string{"coin_journal", "coin_posting", "coin_lot", "reward_grant"} {
 		if n := countRows(t, corePool, `SELECT count(*) FROM `+table); n != 0 {
 			t.Fatalf("%s rows after reset = %d, want 0", table, n)
 		}
