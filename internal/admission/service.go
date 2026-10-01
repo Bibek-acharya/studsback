@@ -78,6 +78,34 @@ func (s *Service) GetByID(id uint) (*Admission, error) {
 	return s.repo.FindByID(id)
 }
 
+// GetByIDForApplicant is the applicant-facing read: their own application, or
+// ErrAdmissionNotFound.
+//
+// This is the fix for the ownership hole in the plain GET /admissions/:id. That
+// route is mounted on the protected group AND on the admin group, and the handler
+// did its ownership comparison in the handler — after loading the row — so the
+// check existed in one of two places and the service, which every other caller
+// went through, had none. Update below already refused a non-owner in the service;
+// GetByID did not, at any layer.
+//
+// ErrAdmissionNotFound rather than 403: an Admission row's very existence is
+// information about a person who applied to a college, so a refusal that
+// confirmed the id would leak what the 404 does not. See ErrAdmissionNotFound.
+//
+// A row with no UserID is not owned by anybody and is therefore admin-only: it is
+// an application submitted without an account, and there is no applicant to
+// match it against.
+func (s *Service) GetByIDForApplicant(id, userID uint) (*Admission, error) {
+	admission, err := s.repo.FindByID(id)
+	if err != nil {
+		return nil, ErrAdmissionNotFound
+	}
+	if admission.UserID == nil || *admission.UserID != userID {
+		return nil, ErrAdmissionNotFound
+	}
+	return admission, nil
+}
+
 func (s *Service) Update(id uint, userID uint, userRole string, req UpdateAdmissionRequest) (*Admission, error) {
 	admission, err := s.repo.FindByID(id)
 	if err != nil {
@@ -155,10 +183,29 @@ func (s *Service) Delete(id uint, userID uint) error {
 	return s.repo.Delete(id)
 }
 
+// UpdateStatus moves an application's workflow status and notifies the applicant.
+//
+// The reviewer id is `userID`, which is the CALLER and the operator recording the
+// decision — it is not the applicant. The notification below then uses
+// *admission.UserID as the recipient, which is the applicant. Those two are
+// different people and conflating them is how the previous version of this method
+// came to look like it was checking ownership when it was not.
+//
+// It checks nothing about who may call it. That is deliberate and is the shape the
+// module uses everywhere: the route supplies a platform-admin gate before the
+// handler runs (see PlatformAdminRoles), and the handler does not re-derive it.
+// Before this was pinned, the route supplied the shared multi-tenant roleMW, which
+// any institution or scholarship_provider account satisfied — so any tenant could
+// mark any applicant's application approved or rejected, and overwrite the
+// reviewer and review-time fields on a row belonging to somebody else.
+//
+// There is no tenant-scoped variant on purpose. See PlatformAdminRoles: what a
+// college should see of its own applicants is a product decision, and this method
+// stays admin-only until that is answered deliberately.
 func (s *Service) UpdateStatus(id uint, req UpdateAdmissionStatusRequest, userID uint) (*Admission, error) {
 	admission, err := s.repo.FindByID(id)
 	if err != nil {
-		return nil, errors.New("admission not found")
+		return nil, ErrAdmissionNotFound
 	}
 
 	now := time.Now()

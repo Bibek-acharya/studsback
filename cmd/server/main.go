@@ -866,7 +866,13 @@ func main() {
 	analyticsHandler.RegisterRoutes(router, authMW, middleware.RequireRole("superadmin", "super_admin"))
 	analyticsHandler.RegisterPublicRoutes(router)
 
-	admission.RegisterRoutes(router, authMW, roleMW, admissionHandler)
+	// NO roleMW. The admission module derives its own operator gate from
+	// admission.PlatformAdminRoles(); passing the shared multi-tenant list admitted
+	// institution and scholarship_provider accounts to every applicant's PII. The
+	// signature no longer accepts one so it cannot be passed back in. The remaining
+	// modules below still take it, and each is a separate question — this says
+	// nothing about the other 16.
+	admission.RegisterRoutes(router, authMW, admissionHandler)
 	auth.RegisterRoutes(router, authMW, roleMW, authHandler)
 	college.RegisterRoutes(router, authMW, roleMW, collegeHandler)
 	counselling.RegisterRoutes(router, authMW, roleMW, counsellingHandler)

@@ -59,6 +59,12 @@ func (h *Handler) GetMyAdmissions(c *gin.Context) {
 	response.Success(c, 200, "Admissions retrieved successfully", resp)
 }
 
+// GetByID is the OPERATOR read, behind the platform-admin gate in RegisterRoutes.
+//
+// It performs no ownership check because there is no ownership question here: the
+// gate has already established that the caller runs the platform, which owns the
+// queue. The refusal lives in the route rather than in this handler on purpose, so
+// it is answered before the body is parsed and before any lookup.
 func (h *Handler) GetByID(c *gin.Context) {
 	id, err := parseID(c.Param("id"))
 	if err != nil {
@@ -72,18 +78,37 @@ func (h *Handler) GetByID(c *gin.Context) {
 		return
 	}
 
-	if userID, exists := c.Get("user_id"); exists {
-		if uid := userID.(uint); admission.UserID != nil && *admission.UserID != uid {
-			role, _ := c.Get("user_role")
-			roleStr := ""
-			if r, ok := role.(string); ok {
-				roleStr = r
-			}
-			if roleStr != "admin" && roleStr != "super_admin" {
-				response.Error(c, 403, "You can only view your own admissions")
-				return
-			}
-		}
+	resp := toAdmissionResponse(admission)
+	response.Success(c, 200, "Admission retrieved successfully", resp)
+}
+
+// GetMyAdmissionByID is the APPLICANT read: their own application, or 404.
+//
+// This handler used to be GetByID on both route groups, with the ownership
+// comparison performed here — after the row was loaded, and only for a row that
+// HAD a UserID. Two consequences: the check lived in the one layer that a future
+// caller could bypass by calling the service directly, and an application
+// submitted without an account (UserID nil) skipped the comparison entirely, so
+// it was readable by any authenticated user.
+//
+// Both are now the service's job. GetByIDForApplicant refuses a non-owner and a
+// row with no applicant with the same ErrAdmissionNotFound, so "not yours" and
+// "not there" are one answer — see ErrAdmissionNotFound for why that must not be a
+// 403 on a table of applicant PII.
+func (h *Handler) GetMyAdmissionByID(c *gin.Context) {
+	id, err := parseID(c.Param("id"))
+	if err != nil {
+		response.Error(c, 400, "Invalid admission ID")
+		return
+	}
+
+	userID, _ := c.Get("user_id")
+	uid, _ := userID.(uint)
+
+	admission, err := h.service.GetByIDForApplicant(id, uid)
+	if err != nil {
+		response.Error(c, 404, "Admission not found")
+		return
 	}
 
 	resp := toAdmissionResponse(admission)
