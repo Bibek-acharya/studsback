@@ -100,6 +100,26 @@ type Config struct {
 	// with a transaction open.
 	CoinsReferralQualifyTimeout time.Duration
 
+	// CoinsExpirySweepInterval is how often the expiry sweep runs.
+	//
+	// HOURLY, and the reason is that expiry has no user-visible delay in the way
+	// qualification does. A lapsed lot is already unspendable the moment its
+	// ExpiresAt passes — openLotQuery excludes it — so the sweep is not what stops a
+	// student spending expired coins, it is what makes the BALANCE they are shown
+	// true. That is worth doing promptly and not worth doing often, because the pass
+	// is a write per expired lot and there is nothing to write until one lapses.
+	//
+	// The same hour as the reconciler is deliberate rather than convenient: the two
+	// are complementary halves of one question ("is this balance true?"), so
+	// running them on the same clock means one log line's worth of elapsed time can
+	// be read as a single story.
+	CoinsExpirySweepInterval time.Duration
+	// CoinsExpirySweepTimeout bounds one sweep pass. Each lot in a pass is its own
+	// transaction holding its own per-user advisory lock, and InUserTx sets
+	// lock_timeout = 3s, so this is what stops a degraded database from leaving a
+	// pass running across several ticks.
+	CoinsExpirySweepTimeout time.Duration
+
 	EsewaTestMode     bool
 	EsewaMerchantCode string
 	EsewaSecretKey    string
@@ -190,6 +210,8 @@ func Load() {
 		CoinsReconcileTimeout:        getEnvDuration("COINS_RECONCILE_TIMEOUT", 2*time.Minute),
 		CoinsReferralQualifyInterval: getEnvDuration("COINS_REFERRAL_QUALIFY_INTERVAL", 15*time.Minute),
 		CoinsReferralQualifyTimeout:  getEnvDuration("COINS_REFERRAL_QUALIFY_TIMEOUT", 2*time.Minute),
+		CoinsExpirySweepInterval:     getEnvDuration("COINS_EXPIRY_SWEEP_INTERVAL", time.Hour),
+		CoinsExpirySweepTimeout:      getEnvDuration("COINS_EXPIRY_SWEEP_TIMEOUT", 5*time.Minute),
 
 		EsewaTestMode:     getEnv("ESEWA_TEST_MODE", "true") == "true",
 		EsewaMerchantCode: getEnv("ESEWA_MERCHANT_CODE", "EPAYTEST"),

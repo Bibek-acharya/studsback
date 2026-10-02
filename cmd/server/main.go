@@ -1017,6 +1017,23 @@ func main() {
 		config.AppConfig.CoinsReferralQualifyTimeout,
 	)
 
+	// Coin expiry sweep: burns lots whose ExpiresAt has passed so the balance a
+	// student is SHOWN matches the coins they can SPEND.
+	//
+	// A SEPARATE ticker from both the reconciler and the qualifier, for the same
+	// kind of reason each of those is separate: this one moves money, it wants its
+	// own timeout, and "healthy" means something different here than anywhere else
+	// upstream. A pass that burns nothing is a healthy pass, not an idle one.
+	//
+	// It shares the reconciler's HOUR, deliberately — expiry and reconciliation are
+	// the two halves of one question ("is this balance true?"), so on the same clock
+	// a single day's logs read as one story.
+	go coins.StartExpirySweeper(
+		coins.NewExpirySweeper(coinsRepo, coinsLedger),
+		config.AppConfig.CoinsExpirySweepInterval,
+		config.AppConfig.CoinsExpirySweepTimeout,
+	)
+
 	logger.Info("All routes registered", "port", config.AppConfig.Port)
 
 	go func() {

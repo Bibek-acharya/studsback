@@ -98,6 +98,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // ScopeUser is the journal scope for every journal this package writes. The
@@ -219,6 +220,73 @@ func (tx *TxContext) UserID() uint { return tx.userID }
 // DB is the transaction handle. Exposed so ledger.go can read; every WRITE in
 // this package goes through a named method below.
 func (tx *TxContext) DB() *gorm.DB { return tx.db }
+
+// ── expiry sweep selection ────────────────────────────────────────────────────
+
+// ClaimExpiredLots returns the lots whose expiry has passed and that still hold
+// coins, claiming them for this worker.
+//
+// FOR UPDATE SKIP LOCKED is the whole of the concurrency story, and both halves
+// matter. Without SKIP LOCKED, two workers sweeping at once would serialise on the
+// first row and one would block behind the other's entire batch; with it, each
+// worker gets disjoint rows and they run in parallel.
+//
+// The lock is taken HERE and released when THIS transaction ends, which is before
+// burnLot opens its own — so two workers can genuinely select the same lot. That
+// gap is safe because the burn is idempotent: the loser's `expire:lot:<id>` insert
+// finds the key taken and takes the replay path. The claim is therefore an
+// optimisation for throughput, NOT the correctness mechanism. The unique index is.
+//
+// `consumed < granted` is what makes a second pass free: a burned lot is marked
+// fully consumed, so it is never selected again whatever the journal says.
+//
+// The caller asks for limit+1 so it can tell "hit the bound" from "finished".
+func (r *Repository) ClaimExpiredLots(ctx context.Context, now time.Time, limit int) ([]ExpiringLot, error) {
+	var lots []CoinLot
+	err := r.db.WithContext(ctx).
+		Where("expires_at IS NOT NULL AND expires_at <= ? AND consumed < granted", now).
+		Order("expires_at ASC").
+		Limit(limit).
+		Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).
+		Find(&lots).Error
+	if err != nil {
+		return nil, err
+	}
+	if len(lots) == 0 {
+		return nil, nil
+	}
+
+	// ONE query for the whole batch rather than one per lot: the alternative is N
+	// round trips before any work starts, on a table that is large precisely because
+	// the economy is working.
+	accountIDs := make([]uint, 0, len(lots))
+	for _, lot := range lots {
+		accountIDs = append(accountIDs, lot.AccountID)
+	}
+	var owners []struct {
+		AccountID   uint
+		OwnerUserID *uint
+	}
+	if err := r.db.WithContext(ctx).
+		Model(&CoinAccount{}).
+		Select("id AS account_id, owner_user_id").
+		Where("id IN ?", accountIDs).
+		Find(&owners).Error; err != nil {
+		return nil, err
+	}
+	byAccount := make(map[uint]uint, len(owners))
+	for _, row := range owners {
+		if row.OwnerUserID != nil {
+			byAccount[row.AccountID] = *row.OwnerUserID
+		}
+	}
+
+	out := make([]ExpiringLot, 0, len(lots))
+	for _, lot := range lots {
+		out = append(out, ExpiringLot{Lot: lot, OwnerUserID: byAccount[lot.AccountID]})
+	}
+	return out, nil
+}
 
 // ── journal ──────────────────────────────────────────────────────────────────
 
@@ -638,11 +706,15 @@ func (tx *TxContext) CreateLot(lot *CoinLot) error {
 	if lot.ExpiresAt != nil {
 		expiresAt = *lot.ExpiresAt
 	}
-	if err := tx.db.Exec(
+	// RETURNING id, and assigning it back onto the struct. This used to be a plain
+	// Exec, which left lot.ID at its zero value — so EVERY GrantResult.LotID was 0
+	// and any consumer that looked the lot up by it found nothing. The insert and
+	// the id come back in one round trip, which is why this is not a second query.
+	if err := tx.db.Raw(
 		`INSERT INTO coin_lot (account_id, journal_id, bucket, granted, consumed, expires_at, created_at)
-		 VALUES (?, ?, ?, ?, 0, ?, ?)`,
+		 VALUES (?, ?, ?, ?, 0, ?, ?) RETURNING id`,
 		lot.AccountID, lot.JournalID, lot.Bucket, lot.Granted, expiresAt, lot.CreatedAt,
-	).Error; err != nil {
+	).Scan(&lot.ID).Error; err != nil {
 		return fmt.Errorf("create lot: %w", err)
 	}
 	return nil
