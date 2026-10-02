@@ -65,6 +65,102 @@ func (a *AdminAPI) SupportUser(c *gin.Context) {
 	response.Success(c, http.StatusOK, "Coin history", view)
 }
 
+// EconomyHealth is 05 §5's dashboard: the stored rollup plus the trends that need a
+// window.
+//
+// The trends are here rather than in the rollup because they are a function of the
+// window the reader chose, not of the day. DaysOfCurrencyOnHand needs a trailing
+// window to divide by; storing one figure per day would mean storing a figure whose
+// meaning changes when the reader changes the date range.
+type EconomyHealth struct {
+	// Days are oldest first, so a chart reads left to right without the client
+	// sorting — and a mis-sorted series is a mis-read trend, which is the one failure
+	// these metrics cannot have.
+	Days []CoinEconomyDaily `json:"days"`
+	// Summary is the window aggregate.
+	Summary HealthSummary `json:"summary"`
+	// Target is 05 §5's derived fraud threshold, so a dashboard renders the line it
+	// is judged against rather than hardcoding it beside the number.
+	Target float64 `json:"referral_share_target"`
+	// MetricVersion is the definition version these days were rolled up under. A
+	// client mixing versions would draw a trend across a definition change.
+	MetricVersion int `json:"metric_version"`
+	// WindowDays is how many days were returned.
+	WindowDays int `json:"window_days"`
+}
+
+// HealthSummary is the window aggregate, and every figure in it is either a total or
+// an average of DEFINED days.
+//
+// The "of defined days" is the load-bearing part. Averaging over all days would fold
+// the idle ones in as zeros, which turns "the economy was quiet on Tuesday" into "the
+// economy shrank on Tuesday" — the same false-zero problem the per-row defined flags
+// exist to prevent, one level up.
+type HealthSummary struct {
+	CoinsIssued  int64 `json:"coins_issued"`
+	CoinsSpent   int64 `json:"coins_spent"`
+	CoinsExpired int64 `json:"coins_expired"`
+	// FaucetSinkRatio is over the whole window, not an average of daily ratios.
+	// Averaging ratios is wrong arithmetic — a day with 1 coin spent contributes as
+	// much as a day with 10,000 — and the window total is the figure 05's 0.7–1.3
+	// band is about.
+	FaucetSinkRatio        float64 `json:"faucet_sink_ratio"`
+	FaucetSinkRatioDefined bool    `json:"faucet_sink_ratio_defined"`
+	// Velocity likewise, over the window.
+	Velocity        float64 `json:"velocity"`
+	VelocityDefined bool    `json:"velocity_defined"`
+	// ReferralShare is the window's fraud ratio.
+	ReferralShare        float64 `json:"referral_share"`
+	ReferralShareDefined bool    `json:"referral_share_defined"`
+	ReferralShareHealthy bool    `json:"referral_share_healthy"`
+	// DaysAboveTarget is how many DEFINED days exceeded the fraud threshold. 05 says
+	// treat this as "monitored weekly, not an incident discovered later", and a
+	// single day's breach is often noise; a week of them is not.
+	DaysAboveTarget int `json:"days_above_target"`
+	DaysDefined     int `json:"days_defined"`
+	// DaysOfCurrencyOnHand is the window's outstanding balance over the window's daily
+	// average spend — "how long the currency lasts at the current burn rate". Undefined
+	// when nothing was spent in the window, because the division has no meaning and a
+	// very large number would read as infinite supply.
+	DaysOfCurrencyOnHand        float64 `json:"days_of_currency_on_hand"`
+	DaysOfCurrencyOnHandDefined bool    `json:"days_of_currency_on_hand_defined"`
+}
+
+// EconomyHealthWindow reads the stored rollup and computes the window trends.
+//
+// windowDays of 0 or less means HealthDefaultWindow. The bound exists because this is
+// reachable by anyone who can read coin PRICING, and an unbounded window would return
+// the whole history to an operator console.
+func (a *AdminAPI) EconomyHealth(c *gin.Context) {
+	if a == nil || a.ledger == nil {
+		response.Error(c, http.StatusInternalServerError, "Economy health is not available")
+		return
+	}
+	window, err := strconv.Atoi(c.DefaultQuery("days", "0"))
+	if err != nil || window <= 0 {
+		window = HealthDefaultWindow
+	}
+	if window > HealthMaxWindow {
+		window = HealthMaxWindow
+	}
+
+	health, err := a.ledger.EconomyHealth(c.Request.Context(), window)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Could not read the economy health")
+		return
+	}
+	response.Success(c, http.StatusOK, "Economy health", health)
+}
+
+// HealthDefaultWindow is the default trailing window in days.
+//
+// 30, because 05 §5's alert bands are stated as MONTHLY ("outside 0.7–1.3 monthly")
+// and a 7-day window would alert on ordinary day-to-day variation.
+const HealthDefaultWindow = 30
+
+// HealthMaxWindow bounds the response.
+const HealthMaxWindow = 365
+
 // AdminAPI serves the admin coin endpoints that need a Ledger rather than a Service.
 //
 // It is a separate type from Handler for the same reason RegisterRoutes takes a

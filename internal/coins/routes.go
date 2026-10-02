@@ -14,7 +14,7 @@ import "github.com/gin-gonic/gin"
 // (02-architecture.md §7, 03-api-contract.md §1).
 //
 // The remaining admin coin endpoint in 03-api-contract.md §3 — economy-daily — is
-// not here yet.
+// mounted below, behind the same gate.
 func RegisterRoutes(r *gin.Engine, authMW, adminRoleMW gin.HandlerFunc, h *Handler, adminAPI *AdminAPI) {
 	if h == nil {
 		return
@@ -43,6 +43,11 @@ func RegisterRoutes(r *gin.Engine, authMW, adminRoleMW gin.HandlerFunc, h *Handl
 		// 03 §3.2: the signed correction. Deliberately NOT a "set balance" — see
 		// adjust.go's header for why the prohibition is the design.
 		admin.POST("/adjust/:userId", adminAPI.AdjustCoins)
+		// 03 §3, the last of the three: 05 §5's health dashboard. On THIS gate
+		// because it reads the same ledger the adjust endpoint writes, and an
+		// operator who can correct a balance is exactly the person who needs to
+		// know whether the corrections are rising.
+		admin.GET("/economy-daily", adminAPI.EconomyHealth)
 	}
 }
 

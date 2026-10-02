@@ -310,6 +310,12 @@ func main() {
 		&coins.RewardGrant{},
 		&coins.UserReferral{},
 		&coins.ReferralCapSlot{},
+		// The daily rollup. It is listed EXPLICITLY alongside the other coin models
+		// rather than through coins.EconomyDailyModels because every model in this
+		// AutoMigrate list is named, and a spread of a package-level slice here would
+		// be the first one — a reader would have to go and find what it contains to
+		// know what gets created.
+		&coins.CoinEconomyDaily{},
 		&pressmedia.PressMediaItem{},
 		&downloadcenter.DownloadItem{},
 		&domain.Conversation{},
@@ -1037,11 +1043,26 @@ func main() {
 	// It shares the reconciler's HOUR, deliberately — expiry and reconciliation are
 	// the two halves of one question ("is this balance true?"), so on the same clock
 	// a single day's logs read as one story.
+	expirySweeper := coins.NewExpirySweeper(coinsRepo, coinsLedger)
 	go coins.StartExpirySweeper(
-		coins.NewExpirySweeper(coinsRepo, coinsLedger),
+		expirySweeper,
 		config.AppConfig.CoinsExpirySweepInterval,
 		config.AppConfig.CoinsExpirySweepTimeout,
 	)
+
+	// The daily economy rollup: 05 §5's health metrics, which are the only thing
+	// that makes Phase 5's "tune prices, earn rates and the referral cap against the
+	// health metrics" possible. Without it, tuning has no evidence.
+	//
+	// Its own ticker, DAILY, sharing the ExpirySweeper above because it reads the
+	// same tables through the same repository — two objects over one ledger would be
+	// two answers to "what happened yesterday".
+	//
+	// YESTERDAY, deliberately. Today's row is still being written to, so a rollup
+	// covering it would be a partial day that then needed replacing — and since the
+	// rollup is idempotent, rolling up the day before last as well is free and closes
+	// the gap a restart across midnight would otherwise leave.
+	go coins.StartEconomyRollup(expirySweeper, config.AppConfig.CoinsEconomyRollupHour)
 
 	logger.Info("All routes registered", "port", config.AppConfig.Port)
 

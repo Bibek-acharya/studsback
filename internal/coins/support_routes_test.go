@@ -127,6 +127,65 @@ func TestCoinAdminGateAndPlatformAdminRolesDisagree(t *testing.T) {
 		t.Error("the coin admin gate no longer admits either superadmin spelling")
 	}
 }
+
+// Every admin coin route, walked, for every role that must be refused.
+//
+// This exists because the previous test asserted the gate on ONE route, and a gate
+// that is applied per-route rather than per-group is exactly the kind of thing that is
+// correct today and wrong after someone adds a route. Walking the group's whole
+// inventory means a route added next month without the gate fails HERE rather than in
+// production.
+//
+// The ledger is nil, so a role that DOES get through gets a 500 from the handler. That
+// is the signal used below to tell "refused at the gate" (403) from "admitted and then
+// failed for want of a database" (500) — and it means this test needs no database.
+func TestNoNonOperatorRoleReachesANYAdminCoinRoute(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	refused := []string{
+		"institution", "scholarship_provider", "scholarship-provider",
+		"Scholarship Provider", "scholarship_provider_subuser", "user", "student",
+		"college", "employer", "counsellor", "", // no role at all
+	}
+	// Every route the admin group mounts, with a concrete id where the path needs one.
+	// Kept as an explicit list rather than derived from r.Routes() because a derived
+	// list would only prove the gate on the routes that exist — and the failure mode
+	// is a route that exists and was never checked.
+	paths := []struct{ method, path string }{
+		{"GET", "/api/v1/admin/coins/economy"},
+		{"PUT", "/api/v1/admin/coins/economy"},
+		{"GET", "/api/v1/admin/coins/economy-daily"},
+		{"GET", "/api/v1/admin/coins/users/4242"},
+		{"POST", "/api/v1/admin/coins/adjust/4242"},
+	}
+
+	for _, tc := range paths {
+		for _, role := range refused {
+			r := supportRouteServer(t, role)
+			w := doAdminRequest(r, tc.method, tc.path)
+			if w.Code != http.StatusForbidden {
+				t.Errorf("%s %s: role %q was NOT refused at the gate (got %d) — body %s",
+					tc.method, tc.path, role, w.Code, strings.TrimSpace(w.Body.String()))
+			}
+		}
+	}
+
+	// And the converse, so the loop above cannot pass by every route 403-ing for an
+	// unrelated reason (a typo in the path, say, which would 404 rather than 403 — but
+	// assert the admission explicitly rather than assume it).
+	for _, tc := range paths {
+		r := supportRouteServer(t, "superadmin")
+		w := doAdminRequest(r, tc.method, tc.path)
+		if w.Code == http.StatusForbidden {
+			t.Errorf("%s %s: a superadmin was refused — the route is unreachable to everyone",
+				tc.method, tc.path)
+		}
+		if w.Code == http.StatusNotFound {
+			t.Errorf("%s %s: 404 — the path in this test does not match a mounted route, "+
+				"so the refusal assertions above proved nothing", tc.method, tc.path)
+		}
+	}
+}
+
 func TestTheAdminCoinRouteSurfaceIsExactlyThis(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
@@ -145,6 +204,10 @@ func TestTheAdminCoinRouteSurfaceIsExactlyThis(t *testing.T) {
 		// path is where the operator saw which student they were correcting, and
 		// it is in the access log next to it.
 		"POST /api/v1/admin/coins/adjust/:userId",
+		// 05 §5's dashboard, on the same gate: it reads the ledger the adjust
+		// endpoint writes, so an operator who can correct a balance is exactly the
+		// person who needs to see whether corrections are rising.
+		"GET /api/v1/admin/coins/economy-daily",
 	}
 	if len(got) != len(want) {
 		t.Fatalf("admin coin route count = %d, want %d\n got: %v\nwant: %v", len(got), len(want), got, want)

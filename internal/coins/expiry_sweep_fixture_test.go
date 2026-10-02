@@ -61,11 +61,26 @@ func newExpiryEnv(t *testing.T) *expiryEnv {
 	if err := EnsurePostgresIndexes(pool); err != nil {
 		t.Fatalf("ensure indexes: %v", err)
 	}
+	// The rollup table is part of this schema, so the harness migrates it too — the
+	// alternative is a harness that passes the sweep tests and fails the rollup ones
+	// for a reason that has nothing to do with either.
+	if err := pool.AutoMigrate(EconomyDailyModels...); err != nil {
+		t.Fatalf("automigrate economy daily: %v", err)
+	}
 	t.Cleanup(func() { pool.Exec(`DROP SCHEMA IF EXISTS ` + schema + ` CASCADE`) })
 
 	repo := NewRepository(pool)
+	// The prices are DROPPED to 1 for this harness. The shipped config prices a
+	// study-resource unlock at 40 while the profile award is 5, so without this a
+	// fixture that grants one award and spends cannot spend — and the rollup tests
+	// need both. The economy's actual numbers are not what these tests are about;
+	// hardcoding them here would make every figure in the rollup assertions a
+	// function of the config, which is exactly the coupling that made them brittle
+	// in the first draft.
+	cfg := DefaultEconomyConfig()
+	cfg.Prices.StudyResource = 1
 	settings := newFakeSettings()
-	encoded, err := json.Marshal(DefaultEconomyConfig())
+	encoded, err := json.Marshal(cfg)
 	if err != nil {
 		t.Fatalf("encode config: %v", err)
 	}
@@ -133,6 +148,33 @@ func (e *expiryEnv) systemBalance(t *testing.T, systemType string) int64 {
 		t.Fatalf("read system balance %s: %v", systemType, err)
 	}
 	return balance.PostedBalance
+}
+
+// grantReason makes one grant under a SPECIFIC reason, so a fixture can set the
+// referral share rather than leaving every grant a profile award. The reason is the
+// only thing that distinguishes a referral award from any other in the rollup, so a
+// fixture that cannot vary it cannot test the fraud ratio.
+func (e *expiryEnv) grantReason(t *testing.T, userID uint, reason, key string, expiry time.Duration) (GrantResult, uint) {
+	t.Helper()
+	grant, err := e.ledger.Grant(context.Background(), GrantRequest{
+		UserID:         userID,
+		ReasonCode:     reason,
+		IdempotencyKey: key,
+	})
+	if err != nil {
+		t.Fatalf("grant %s: %v", key, err)
+	}
+	if err := e.pool.Model(&CoinLot{}).Where("id = ?", grant.LotID).
+		UpdateColumn("expires_at", time.Now().UTC().Add(expiry)).Error; err != nil {
+		t.Fatalf("set lot expiry: %v", err)
+	}
+	return grant, grant.LotID
+}
+
+// today is the current UTC day, truncated. Used by the rollup tests so a fixture
+// written "now" lands in the row being asserted on rather than in yesterday's.
+func (e *expiryEnv) today() time.Time {
+	return time.Now().UTC().Truncate(24 * time.Hour)
 }
 
 func u64str(v uint) string {

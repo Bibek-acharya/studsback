@@ -18,8 +18,34 @@ func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
 }
 
+// ready reports whether this Handler can serve, answering 500 and returning false if
+// it cannot.
+//
+// The SAME principle RegisterRoutes already applies to a nil AdminAPI, in that
+// function's own comment: "a nil AdminAPI would register the support route onto a nil
+// receiver, which panics on the first request rather than at boot. Refusing to mount
+// is the loud version." A Handler built with a nil Service was left without that
+// guard, so the loud version was available for the config endpoints and not for the
+// other two — an inconsistency rather than a decision.
+//
+// A nil Service means main.go wired a constructor wrong. That is a boot-time mistake,
+// and it should read as one: a 500 with a plain message in the access log, not a
+// panic that takes the request goroutine and surfaces as a stack trace in the error
+// tracker with no mention of coins.
+func (h *Handler) ready(c *gin.Context) bool {
+	if h == nil || h.service == nil {
+		response.Error(c, http.StatusInternalServerError,
+			"Coin economy is not available")
+		return false
+	}
+	return true
+}
+
 // GetEconomyConfig handles GET /api/v1/admin/coins/economy.
 func (h *Handler) GetEconomyConfig(c *gin.Context) {
+	if !h.ready(c) {
+		return
+	}
 	config, err := h.service.GetEconomyConfig()
 	if err != nil {
 		response.Error(c, statusForError(err), err.Error())
@@ -31,6 +57,9 @@ func (h *Handler) GetEconomyConfig(c *gin.Context) {
 // UpdateEconomyConfig handles PUT /api/v1/admin/coins/economy. The body is a
 // partial update: an omitted key keeps its current value.
 func (h *Handler) UpdateEconomyConfig(c *gin.Context) {
+	if !h.ready(c) {
+		return
+	}
 	var req UpdateEconomyConfigRequest
 	if err := c.ShouldBind(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())

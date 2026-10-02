@@ -120,6 +120,19 @@ type Config struct {
 	// pass running across several ticks.
 	CoinsExpirySweepTimeout time.Duration
 
+	// CoinsEconomyRollupHour is the UTC hour at which the daily economy rollup runs.
+	//
+	// A HOUR rather than an interval, because this job's output is time-indexed by
+	// definition — every figure is indexed by the UTC day it describes, and 08 asks
+	// for TRENDS across those days. An interval-based schedule would drift with
+	// process start, so the rollup would land at a different hour after every deploy
+	// and a day could be rolled up twice, hours apart, or not at all.
+	//
+	// 02:00 UTC by default: late enough that the previous day's journals have all
+	// landed (midnight UTC is the boundary and every upstream timestamp is UTC),
+	// early enough that a morning operator sees yesterday rather than nothing.
+	CoinsEconomyRollupHour int
+
 	EsewaTestMode     bool
 	EsewaMerchantCode string
 	EsewaSecretKey    string
@@ -212,6 +225,7 @@ func Load() {
 		CoinsReferralQualifyTimeout:  getEnvDuration("COINS_REFERRAL_QUALIFY_TIMEOUT", 2*time.Minute),
 		CoinsExpirySweepInterval:     getEnvDuration("COINS_EXPIRY_SWEEP_INTERVAL", time.Hour),
 		CoinsExpirySweepTimeout:      getEnvDuration("COINS_EXPIRY_SWEEP_TIMEOUT", 5*time.Minute),
+		CoinsEconomyRollupHour:       getEnvHourOfDay("COINS_ECONOMY_ROLLUP_HOUR_UTC", 2),
 
 		EsewaTestMode:     getEnv("ESEWA_TEST_MODE", "true") == "true",
 		EsewaMerchantCode: getEnv("ESEWA_MERCHANT_CODE", "EPAYTEST"),
@@ -267,6 +281,22 @@ func getEnvInt(key string, defaultValue int) int {
 // getEnvDuration parses a Go duration value ("10m", "90s", "1h"). Unparsable
 // or non-positive values fall back to defaultValue so a typo can never turn
 // into an unbounded or instantly-expiring timeout.
+// getEnvHourOfDay reads a UTC hour in [0, 23], falling back to defaultValue for a
+// missing, unparsable or OUT-OF-RANGE value.
+//
+// The range check is the point. getEnvInt would happily return 25, and a schedule
+// built by adding 25 hours to midnight is not a schedule — it drifts a day per run
+// and the rollup would silently stop landing on the same day. A bad config value
+// should cost an operator their chosen hour, not the job.
+func getEnvHourOfDay(key string, defaultValue int) int {
+	if value := os.Getenv(key); value != "" {
+		if i, err := strconv.Atoi(value); err == nil && i >= 0 && i < 24 {
+			return i
+		}
+	}
+	return defaultValue
+}
+
 func getEnvDuration(key string, defaultValue time.Duration) time.Duration {
 	if value := os.Getenv(key); value != "" {
 		if d, err := time.ParseDuration(strings.TrimSpace(value)); err == nil && d > 0 {
