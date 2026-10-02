@@ -929,7 +929,7 @@ func main() {
 	// is a phantom role here — it appears in allow-lists but is never assigned
 	// to a user.
 	coinAdminRoleMW := middleware.RequireRole("superadmin", "super_admin")
-	coins.RegisterRoutes(router, authMW, coinAdminRoleMW, coinsHandler)
+	coins.RegisterRoutes(router, authMW, coinAdminRoleMW, coinsHandler, coins.NewAdminAPI(coinsLedger))
 	// The student wallet sits on authMW alone, not on this gate: every endpoint
 	// under /api/v1/coins returns the CALLER's own balance, allowance and
 	// history, and moves nothing. POST /unlock is mounted here but dark — it

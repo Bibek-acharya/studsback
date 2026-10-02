@@ -288,6 +288,133 @@ func (r *Repository) ClaimExpiredLots(ctx context.Context, now time.Time, limit 
 	return out, nil
 }
 
+// ── support view reads ────────────────────────────────────────────────────────
+//
+// Four queries, all keyed on the user, and none of them is a SUM over the whole
+// table. Each returns the CACHED projection alongside the COMPUTED one where both
+// exist, because the comparison between them is the product: a support engineer
+// handed a single number has been told what the wallet already said.
+
+// SupportAccountsForUser returns every bucket account a user holds, with its cached
+// balance and the same figure summed from the postings.
+//
+// The correlated SUM is per account rather than one total so the endpoint can name
+// WHICH account drifted. A single "these don't match" with no account is a support
+// ticket that goes nowhere.
+func (r *Repository) SupportAccountsForUser(ctx context.Context, userID uint) ([]SupportAccountView, error) {
+	var rows []SupportAccountView
+	err := r.db.WithContext(ctx).Raw(`
+		SELECT a.id            AS account_id,
+		       COALESCE(a.bucket, '') AS bucket,
+		       a.kind          AS kind,
+		       (a.closed_at IS NOT NULL) AS closed,
+		       COALESCE(b.posted_balance, 0) AS cached_posted,
+		       COALESCE(b.reserved, 0)      AS cached_reserved,
+		       COALESCE((SELECT SUM(p.amount) FROM coin_posting p
+		                 WHERE p.account_id = a.id), 0) AS computed_posted
+		  FROM coin_account a
+		  LEFT JOIN coin_account_balance b ON b.account_id = a.id
+		 WHERE a.owner_user_id = ?
+		 ORDER BY a.id`, userID).Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	// reserved is only on the balance row and has no postings-side equivalent: a
+	// reservation is a column on the projection, not a posting. The computed value
+	// is therefore the cached one by definition, and Drifted only compares posted.
+	for i := range rows {
+		rows[i].ComputedReserved = rows[i].CachedReserved
+		rows[i].Drifted = rows[i].CachedPosted != rows[i].ComputedPosted
+	}
+	return rows, nil
+}
+
+// SupportLotsForUser returns every lot a user holds, oldest first.
+//
+// Oldest first because the question support is usually asking is "which grant is
+// this?" and the oldest unexpired lot is the one a student thinks of as "the one
+// from my profile".
+func (r *Repository) SupportLotsForUser(ctx context.Context, userID uint) ([]CoinLot, error) {
+	var lots []CoinLot
+	err := r.db.WithContext(ctx).Raw(`
+		SELECT l.id, l.account_id, l.journal_id, l.bucket, l.granted, l.consumed, l.expires_at, l.created_at
+		  FROM coin_lot l
+		  JOIN coin_account a ON a.id = l.account_id
+		 WHERE a.owner_user_id = ?
+		 ORDER BY l.created_at ASC, l.id ASC`, userID).Scan(&lots).Error
+	if err != nil {
+		return nil, err
+	}
+	return lots, nil
+}
+
+// SupportJournalsForUser returns a user's journals, newest first, each with its
+// legs and the net it moved FOR THAT USER.
+//
+// The net is a correlated SUM filtered on the user's own accounts, not the sum of
+// the legs — a grant is two legs totalling zero across a user account and the
+// faucet, so summing the legs would report zero for every award.
+//
+// An EXPIRE journal is included alongside the others rather than being filtered out
+// as an internal detail: a student whose coins lapsed is asking why, and "we burned
+// them" is the answer they need to hear from the same screen.
+func (r *Repository) SupportJournalsForUser(ctx context.Context, userID uint, limit int) ([]SupportJournalView, error) {
+	var rows []SupportJournalView
+	err := r.db.WithContext(ctx).Raw(`
+		SELECT j.id, j.entry_type, j.state, j.reason_code, j.ref_type, j.ref_id,
+		       j.idempotency_key, j.effective_at, j.created_by, j.metadata,
+		       COALESCE((SELECT SUM(p.amount) FROM coin_posting p
+		                  JOIN coin_account pa ON pa.id = p.account_id
+		                 WHERE p.journal_id = j.id AND pa.owner_user_id = ?), 0) AS amount,
+		       COALESCE((SELECT COUNT(*) FROM coin_posting p2
+		                  JOIN coin_account pa2 ON pa2.id = p2.account_id
+		                 WHERE p2.journal_id = j.id AND pa2.owner_user_id = ?), 0) AS legs
+		  FROM coin_journal j
+		 WHERE j.scope = ? AND j.created_by IS NOT NULL
+		   AND (j.id IN (SELECT p3.journal_id FROM coin_posting p3
+		                   JOIN coin_account pa3 ON pa3.id = p3.account_id
+		                  WHERE pa3.owner_user_id = ?))
+		 ORDER BY j.effective_at DESC, j.id DESC
+		 LIMIT ?`, userID, userID, ScopeUser, userID, limit).Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	if len(rows) == 0 {
+		return []SupportJournalView{}, nil
+	}
+
+	ids := make([]string, 0, len(rows))
+	for _, row := range rows {
+		ids = append(ids, row.ID)
+	}
+	var postings []struct {
+		JournalID string `gorm:"column:journal_id"`
+		Seq       int16  `gorm:"column:seq"`
+		AccountID uint   `gorm:"column:account_id"`
+		Amount    int64  `gorm:"column:amount"`
+		LotID     *uint  `gorm:"column:lot_id"`
+	}
+	if err := r.db.WithContext(ctx).Raw(
+		`SELECT journal_id, seq, account_id, amount, lot_id FROM coin_posting
+		  WHERE journal_id IN ? ORDER BY journal_id, seq`, ids).Scan(&postings).Error; err != nil {
+		return nil, err
+	}
+	byJournal := make(map[string][]SupportPostingView, len(rows))
+	for _, posting := range postings {
+		byJournal[posting.JournalID] = append(byJournal[posting.JournalID], SupportPostingView{
+			Seq: posting.Seq, AccountID: posting.AccountID, Amount: posting.Amount, LotID: posting.LotID,
+		})
+	}
+	for i := range rows {
+		legs := byJournal[rows[i].ID]
+		if legs == nil {
+			legs = []SupportPostingView{}
+		}
+		rows[i].Postings = legs
+	}
+	return rows, nil
+}
+
 // ── journal ──────────────────────────────────────────────────────────────────
 
 // InsertJournal writes the journal head, or reports that the (scope,

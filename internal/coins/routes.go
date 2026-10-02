@@ -13,11 +13,18 @@ import "github.com/gin-gonic/gin"
 // studyResourcesRoleMW and the notifications gate
 // (02-architecture.md §7, 03-api-contract.md §1).
 //
-// The other admin coin endpoints in 03-api-contract.md §3 — economy-daily,
-// users/:id, adjust — belong to the ledger slice and are not here.
-func RegisterRoutes(r *gin.Engine, authMW, adminRoleMW gin.HandlerFunc, h *Handler) {
+// The other two admin coin endpoints in 03-api-contract.md §3 — economy-daily and
+// adjust — are not here yet.
+func RegisterRoutes(r *gin.Engine, authMW, adminRoleMW gin.HandlerFunc, h *Handler, adminAPI *AdminAPI) {
 	if h == nil {
 		return
+	}
+	if adminAPI == nil {
+		// A nil AdminAPI would register the support route onto a nil receiver, which
+		// panics on the first request rather than at boot. Refusing to mount is the
+		// loud version: the config endpoints still work and the operator finds out
+		// immediately that a constructor call is missing.
+		adminAPI = &AdminAPI{}
 	}
 
 	v1 := r.Group("/api/v1")
@@ -27,6 +34,12 @@ func RegisterRoutes(r *gin.Engine, authMW, adminRoleMW gin.HandlerFunc, h *Handl
 	{
 		admin.GET("/economy", h.GetEconomyConfig)
 		admin.PUT("/economy", h.UpdateEconomyConfig)
+		// 04 §6: the support view, the tool that answers "why does this student have
+		// 30 coins". Read-only, and on THIS gate rather than its own — an operator
+		// who can rewrite coin pricing and an operator who can read any student's
+		// coin history are the same trust boundary, and splitting them would imply a
+		// distinction the product does not make.
+		admin.GET("/users/:id", adminAPI.SupportUser)
 	}
 }
 
