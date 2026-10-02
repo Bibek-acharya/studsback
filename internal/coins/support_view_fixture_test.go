@@ -68,6 +68,22 @@ func newSupportEnv(t *testing.T) *supportEnv {
 }
 
 // grant makes one grant and returns its result and lot id.
+// available reads the spendable balance from the CACHED projection, the same
+// number the wallet shows. Shared so the support view's assertions and the
+// adjustment's agree on what "the balance" means.
+func (e *supportEnv) available(t *testing.T, userID uint) int64 {
+	t.Helper()
+	var account CoinAccount
+	if err := e.pool.Where("owner_user_id = ? AND bucket = ?", userID, BucketEarned).First(&account).Error; err != nil {
+		t.Fatalf("read account for user %d: %v", userID, err)
+	}
+	var balance CoinAccountBalance
+	if err := e.pool.Where("account_id = ?", account.ID).First(&balance).Error; err != nil {
+		t.Fatalf("read balance for user %d: %v", userID, err)
+	}
+	return balance.PostedBalance - balance.Reserved
+}
+
 func (e *supportEnv) grant(t *testing.T, userID uint, key, reason, refTypeName string, refIDValue uint) (GrantResult, uint) {
 	t.Helper()
 	grant, err := e.ledger.Grant(context.Background(), GrantRequest{

@@ -141,6 +141,10 @@ func TestTheAdminCoinRouteSurfaceIsExactlyThis(t *testing.T) {
 		"GET /api/v1/admin/coins/economy",
 		"PUT /api/v1/admin/coins/economy",
 		"GET /api/v1/admin/coins/users/:id",
+		// The target is in the PATH, not the body — see AdjustCoins. The
+		// path is where the operator saw which student they were correcting, and
+		// it is in the access log next to it.
+		"POST /api/v1/admin/coins/adjust/:userId",
 	}
 	if len(got) != len(want) {
 		t.Fatalf("admin coin route count = %d, want %d\n got: %v\nwant: %v", len(got), len(want), got, want)
@@ -157,8 +161,59 @@ func TestTheAdminCoinRouteSurfaceIsExactlyThis(t *testing.T) {
 }
 
 func doAdminRequest(r *gin.Engine, method, path string) *httptest.ResponseRecorder {
-	req := httptest.NewRequest(method, path, strings.NewReader(""))
+	return doAdminRequestWith(r, method, path, "", "")
+}
+
+func doAdminRequestWith(r *gin.Engine, method, path, body, idempotencyKey string) *httptest.ResponseRecorder {
+	req := httptest.NewRequest(method, path, strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	if idempotencyKey != "" {
+		req.Header.Set("Idempotency-Key", idempotencyKey)
+	}
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 	return w
+}
+
+// THE refusal. An Idempotency-Key header is REQUIRED, not defaulted: an operator
+// double-clicking a support console is the normal case, and a server-generated key
+// would make the second click a second movement. 400 rather than 428, because the
+// body is not the problem and a precondition code would read as "your client is
+// wrong".
+func TestAnAdjustmentWithoutAnIdempotencyKeyIsRefused(t *testing.T) {
+	r := supportRouteServer(t, "superadmin")
+	w := doAdminRequestWith(r, "POST", "/api/v1/admin/coins/adjust/4242",
+		`{"amount":25,"reason":"GOODWILL"}`, "")
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("an adjustment with no Idempotency-Key returned %d, want 400 — body %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "Idempotency-Key") {
+		t.Errorf("the error does not name the missing header: %s", w.Body.String())
+	}
+}
+
+// A malformed target in the PATH is a 400, checked before the body is even read —
+// the same ordering rule SupportUser follows, and for the same reason.
+func TestAnAdjustmentForAMalformedTargetIsRefused(t *testing.T) {
+	r := supportRouteServer(t, "superadmin")
+	for _, id := range []string{"abc", "0", "-1"} {
+		w := doAdminRequestWith(r, "POST", "/api/v1/admin/coins/adjust/"+id,
+			`{"amount":25,"reason":"GOODWILL"}`, "key-1")
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("target %q returned %d, want 400 — body %s", id, w.Code, w.Body.String())
+		}
+	}
+}
+
+// And the tenant roles are still refused, because the gate is the whole security
+// boundary of a money-moving endpoint.
+func TestATenantCannotPostAnAdjustment(t *testing.T) {
+	for _, role := range []string{"institution", "scholarship_provider", "user", "student", ""} {
+		r := supportRouteServer(t, role)
+		w := doAdminRequestWith(r, "POST", "/api/v1/admin/coins/adjust/4242",
+			`{"amount":25,"reason":"GOODWILL"}`, "key-1")
+		if w.Code != http.StatusForbidden {
+			t.Errorf("role %q posted an adjustment: got %d, want 403 — body %s", role, w.Code, w.Body.String())
+		}
+	}
 }

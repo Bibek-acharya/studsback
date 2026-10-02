@@ -13,8 +13,8 @@ import "github.com/gin-gonic/gin"
 // studyResourcesRoleMW and the notifications gate
 // (02-architecture.md §7, 03-api-contract.md §1).
 //
-// The other two admin coin endpoints in 03-api-contract.md §3 — economy-daily and
-// adjust — are not here yet.
+// The remaining admin coin endpoint in 03-api-contract.md §3 — economy-daily — is
+// not here yet.
 func RegisterRoutes(r *gin.Engine, authMW, adminRoleMW gin.HandlerFunc, h *Handler, adminAPI *AdminAPI) {
 	if h == nil {
 		return
@@ -40,6 +40,9 @@ func RegisterRoutes(r *gin.Engine, authMW, adminRoleMW gin.HandlerFunc, h *Handl
 		// coin history are the same trust boundary, and splitting them would imply a
 		// distinction the product does not make.
 		admin.GET("/users/:id", adminAPI.SupportUser)
+		// 03 §3.2: the signed correction. Deliberately NOT a "set balance" — see
+		// adjust.go's header for why the prohibition is the design.
+		admin.POST("/adjust/:userId", adminAPI.AdjustCoins)
 	}
 }
 

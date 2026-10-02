@@ -407,6 +407,15 @@ func main() {
 		if err := migrations.AddStudyResourceApprovalColumns(db); err != nil {
 			logger.Warn("Failed to run study resource approval migration", "error", err)
 		}
+		if err := migrations.AddAdjustmentReasonConstraint(db); err != nil {
+			// Warn, not Fatal, and the reason is worth recording: the SERVICE still
+			// validates the reason, so a missing constraint narrows the protection to
+			// paths that go through coins.Adjust and leaves raw writers unchecked. A
+			// Fatal here would refuse to boot on a database whose ledger migration has
+			// not run, which is a deployment-order problem, not a reason to take every
+			// working feature down.
+			logger.Warn("Failed to add the adjustment-reason constraint; the service check still applies but raw journal writers are unchecked", "error", err)
+		}
 		if err := migrations.CreateMockTestTables(db); err != nil {
 			logger.Warn("Failed to run mock test tables migration", "error", err)
 		}
