@@ -81,6 +81,12 @@ const (
 	EventContentSaved                  = "content.saved"
 	EventCoinsDebited                  = "coins.debited"
 	EventCoinsCredited                 = "coins.credited"
+	// EventStudyResourceApproved and EventStudyResourceRejected are the two halves
+	// of the §5.3 moderation decision, and they are separate keys rather than one
+	// with a status in the body because they are different events to a student: one
+	// is their material going live, the other is a refusal they can act on.
+	EventStudyResourceApproved         = "studyresource.approved"
+	EventStudyResourceRejected         = "studyresource.rejected"
 )
 
 type EventDef struct {
@@ -206,6 +212,23 @@ var Registry = map[string]EventDef{
 	EventCoinsCredited: ev(EventCoinsCredited, "account", PriorityNormal, "StudsTokens earned",
 		"{{.coins}} StudsTokens were added to your balance. Your balance is {{.balance}}.",
 		"/user/dashboard/resources", RecipientExplicit, true, ""),
+
+	// The moderation decision. Both are Transactional, because the state machine
+	// writes the row and then announces inside the same transaction and a commit
+	// that silently dropped the announcement would leave a student who uploaded
+	// material with no word about what happened to it — the exact gap 09's support
+	// list exists to close.
+	EventStudyResourceApproved: ev(EventStudyResourceApproved, "studyresource", PriorityNormal,
+		"Your upload is live",
+		"{{.title}} is now available to students. StudsTokens have been added to your balance.",
+		"/user/dashboard/resources", RecipientExplicit, true, ""),
+	// The rejection body carries the reason, and says "was not approved" rather
+	// than "failed": 06 §7 forbids dressing a moderation decision as a loss, and
+	// the reason is the only part the student can act on.
+	EventStudyResourceRejected: ev(EventStudyResourceRejected, "studyresource", PriorityNormal,
+		"Your upload was not approved",
+		"{{.title}} was not approved. Reason: {{.reason}}.",
+		"/user/dashboard/resources", RecipientExplicit, true, ""),
 }
 
 // ev() has no Transactional/DedupeWin params; set P2 attrs that differ from
@@ -214,6 +237,14 @@ func init() {
 	def := Registry[EventAccountApprovalPending]
 	def.Transactional = true
 	Registry[EventAccountApprovalPending] = def
+	// Both §5.3 moderation decisions are transactional: the row is written and the
+	// announcement sent inside one transaction, so a dropped announcement on a
+	// committed row would be the gap this is here to close.
+	for _, k := range []string{EventStudyResourceApproved, EventStudyResourceRejected} {
+		d := Registry[k]
+		d.Transactional = true
+		Registry[k] = d
+	}
 	for _, k := range []string{EventAccountNewDeviceLogin, EventMessageOfflineFallback} {
 		def := Registry[k]
 		def.DedupeWin = time.Hour
@@ -269,7 +300,8 @@ func ValidateRegistry() error {
 		EventSocialInviteAccepted, EventSocialReviewModerated, EventSocialForumModerated,
 		EventMessageOfflineFallback, EventJobsApplicationReceived, EventJobsStatusChanged,
 		EventProjectshikshaStatusChanged, EventPaymentSubscriptionRecorded, EventContentSaved,
-		EventCoinsDebited, EventCoinsCredited} {
+		EventCoinsDebited, EventCoinsCredited,
+		EventStudyResourceApproved, EventStudyResourceRejected} {
 		if _, ok := Registry[k]; !ok {
 			return fmt.Errorf("constant %s missing from Registry", k)
 		}

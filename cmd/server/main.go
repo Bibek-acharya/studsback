@@ -404,6 +404,9 @@ func main() {
 		if err := migrations.AddStudyResourceVideoColumns(db); err != nil {
 			logger.Warn("Failed to run study resource video/publish migration", "error", err)
 		}
+		if err := migrations.AddStudyResourceApprovalColumns(db); err != nil {
+			logger.Warn("Failed to run study resource approval migration", "error", err)
+		}
 		if err := migrations.CreateMockTestTables(db); err != nil {
 			logger.Warn("Failed to run mock test tables migration", "error", err)
 		}
@@ -743,7 +746,11 @@ func main() {
 	// dark, so a deployment that has set none of them behaves byte-identically to
 	// one that has not heard of the coin economy.
 	studyResourcesHandler.WithDownloadGate(coins.NewDownloadGate(coinsWalletAPI)).
-		WithPlaybackGate(coins.NewPlaybackGate(coinsWalletAPI))
+		WithPlaybackGate(coins.NewPlaybackGate(coinsWalletAPI)).
+		WithApproval(
+			studyresources.NewApprovalService(studyResourcesSvc.Repo(), coins.NewResourceApprovedAward(coinsLedger)).
+				WithNotifier(notificationSvc),
+		)
 	mockTestsHandler.WithPaperGate(coins.NewPaperGate(coinsWalletAPI))
 	systemHandler := system.NewHandler(systemSvc)
 	toolsHandler := initModule(tools.NewRepository(db), tools.NewService, tools.NewHandler)

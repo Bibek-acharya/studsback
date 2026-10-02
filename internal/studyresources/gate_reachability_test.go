@@ -57,7 +57,17 @@ func TestStudyResourceRouteSurfaceIsExactlyThis(t *testing.T) {
 		"GET /api/v1/admin/study-resources",
 		"POST /api/v1/admin/study-resources",
 		"POST /api/v1/admin/study-resources/:id/file",
+		// The §5.3 moderation queue and its two decisions. Approve publishes AND
+		// pays the uploader in one step; reject never pays and requires a reason.
+		"GET /api/v1/admin/study-resources/pending",
+		"POST /api/v1/admin/study-resources/:id/approve",
+		"POST /api/v1/admin/study-resources/:id/reject",
 		"PUT /api/v1/admin/study-resources/:id",
+		// The student upload and my-uploads surface: authMW alone, no role gate,
+		// because the whole design is that a student's submission is NOT an admin
+		// action and arrives pending, unpublished and unpaid.
+		"POST /api/v1/study-resources",
+		"GET /api/v1/study-resources/mine",
 		// Public metadata browsing. No bytes, no drafts.
 		"GET /api/v1/study-resources",
 		"GET /api/v1/study-resources/:id",

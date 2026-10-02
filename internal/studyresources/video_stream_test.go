@@ -85,10 +85,20 @@ func TestLegacyResourcesRemainPublished(t *testing.T) {
 		}
 	}
 
+	// The approval columns, added the same way production does it. The default is
+	// the load-bearing part and this test is what holds it: approval_status
+	// defaults to 'approved' so every row that existed before moderation existed
+	// keeps its published state. A 'pending_review' default here would make the
+	// entire legacy catalogue vanish from the public list the moment the column
+	// landed, and nothing else in the suite would notice.
 	for _, stmt := range []string{
 		`ALTER TABLE study_resources ADD COLUMN is_published BOOLEAN NOT NULL DEFAULT TRUE`,
 		`ALTER TABLE study_resources ADD COLUMN duration_seconds INT NOT NULL DEFAULT 0`,
 		`ALTER TABLE study_resources ADD COLUMN views INT NOT NULL DEFAULT 0`,
+		`ALTER TABLE study_resources ADD COLUMN approval_status TEXT NOT NULL DEFAULT 'approved'`,
+		`ALTER TABLE study_resources ADD COLUMN reviewed_by INTEGER`,
+		`ALTER TABLE study_resources ADD COLUMN reviewed_at DATETIME`,
+		`ALTER TABLE study_resources ADD COLUMN reject_reason TEXT`,
 	} {
 		if err := db.Exec(stmt).Error; err != nil {
 			t.Fatalf("apply %q: %v", stmt, err)

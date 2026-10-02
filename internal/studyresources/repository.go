@@ -20,15 +20,34 @@ type ResourceFilters struct {
 	Type   string
 	Course string
 	Year   string
+	// UploaderID restricts to one uploader's rows. The student's "my uploads"
+	// list sets it; nothing public does.
+	UploaderID uint
+	// ApprovalStatus restricts the moderation queue to one status. Set ONLY by the
+	// admin queue.
+	//
+	// It is honoured only when PublishedOnly is false, and that coupling is the
+	// point rather than an accident: a pending or rejected row must never be
+	// reachable by a public read, and the public list's only defence is
+	// is_published. If a future caller passes both, publication wins and the
+	// approval filter is dropped — a public list that could be widened into
+	// showing unreviewed uploads is the one failure this column invites.
+	ApprovalStatus string
 	// PublishedOnly restricts the query to published rows. The public list
-	// sets it; the admin list leaves it false so drafts stay visible.
+	// sets it; the admin list leaves it false so drafts and pending rows stay
+	// visible.
 	PublishedOnly bool
 }
 
 func (r *Repository) buildQuery(filters ResourceFilters) *gorm.DB {
 	q := r.db.Model(&StudyResource{})
+	if filters.UploaderID > 0 {
+		q = q.Where("uploaded_by = ?", filters.UploaderID)
+	}
 	if filters.PublishedOnly {
 		q = q.Where("is_published = ?", true)
+	} else if filters.ApprovalStatus != "" {
+		q = q.Where("approval_status = ?", filters.ApprovalStatus)
 	}
 	if filters.Search != "" {
 		lower := "%" + strings.ToLower(filters.Search) + "%"

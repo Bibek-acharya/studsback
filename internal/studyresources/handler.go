@@ -54,6 +54,10 @@ type Handler struct {
 	// that wants to charge for a video must be able to do so without touching the
 	// document route.
 	playbackGate PlaybackGate
+	// approval is the §5.3 state machine, wired separately and optional. Nil means
+	// this build has no moderation, and every approval route answers 500 rather
+	// than quietly publishing something.
+	approval *ApprovalService
 }
 
 func NewHandler(service *Service) *Handler {
@@ -127,6 +131,205 @@ func (h *Handler) ListResources(c *gin.Context) {
 	data["courses"] = courses
 
 	response.Success(c, http.StatusOK, "Study resources fetched successfully", data)
+}
+
+// WithApproval wires the §5.3 state machine. A handler without it serves the
+// pre-moderation surface — the admin CRUD only — which is what every existing
+// caller and every existing test constructs. See approval.go for why the port is
+// allowed to be absent on this side and not on the approve path.
+func (h *Handler) WithApproval(approval *ApprovalService) *Handler {
+	h.approval = approval
+	return h
+}
+
+// SubmitResource is POST /api/v1/study-resources — a STUDENT upload for review.
+//
+// It is the same multipart shape as the admin CreateResource and it reuses the
+// same storage path, deliberately: the file policy (type whitelist, 20MB cap,
+// object prefix) is one policy and having a second implementation of it would be
+// a second set of rules for the same bytes.
+//
+// What differs is what happens next, and that is the whole feature: the row is
+// pending_review, unpublished, and pays nothing. See approval.go.
+func (h *Handler) SubmitResource(c *gin.Context) {
+	if h.approval == nil {
+		response.Error(c, http.StatusInternalServerError, "Submissions are not available")
+		return
+	}
+	fileHeader, err := c.FormFile("file")
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "File is required")
+		return
+	}
+
+	var req CreateResourceRequest
+	if err := c.ShouldBind(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	resourceType, err := NormalizeType(req.ResourceType)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	userID, ok := httpx.CurrentUserID(c)
+	if !ok {
+		response.Error(c, http.StatusUnauthorized, "Authentication required")
+		return
+	}
+
+	upload, err := uploadFile(c.Request.Context(), fileHeader, resourceType)
+	if err != nil {
+		response.Error(c, statusForUploadError(err), err.Error())
+		return
+	}
+
+	resource := newResourceFromRequest(req, fileHeader, upload, resourceType, userID)
+	submitted, err := h.approval.Submit(userID, *resource)
+	if err != nil {
+		// The upload succeeded and the row did not, so the object is an orphan.
+		_ = storage.DeleteObject(upload.ObjectPath)
+		response.Error(c, http.StatusInternalServerError, "Failed to submit resource")
+		return
+	}
+
+	// 202, not 201: nothing is created in the sense the student cares about. The
+	// file exists, and it is not available to anyone yet. 201 would say "here is
+	// your resource" for something they cannot open.
+	response.Success(c, http.StatusAccepted, "Resource submitted for review", submitted)
+}
+
+// MyUploads is GET /api/v1/study-resources/mine — the student's own submissions
+// with their approval state.
+//
+// Needed because "awaiting review" is otherwise unanswerable, and a student who
+// cannot tell whether their upload landed will upload it again.
+func (h *Handler) MyUploads(c *gin.Context) {
+	userID, ok := httpx.CurrentUserID(c)
+	if !ok {
+		response.Error(c, http.StatusUnauthorized, "Authentication required")
+		return
+	}
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+
+	// Filtered by UploaderID from the session, never from a query parameter: a
+	// caller who could name the uploader would be reading somebody else's list.
+	resources, total, err := h.service.GetResources(ResourceFilters{UploaderID: userID}, page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch your uploads")
+		return
+	}
+	page, limit = normalizePageLimit(page, limit)
+	response.Success(c, http.StatusOK, "Your uploads", gin.H{
+		"page": page, "limit": limit, "total": total, "study_resources": resources,
+	})
+}
+
+// PendingReviewQueue is GET /api/v1/admin/study-resources/pending — the §5.3
+// moderation queue.
+//
+// Registered BEFORE the `:id` routes on purpose: gin would otherwise match
+// "pending" against the `:id` parameter and answer with a not-found for the queue.
+func (h *Handler) PendingReviewQueue(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+
+	resources, total, err := h.service.GetResources(ResourceFilters{ApprovalStatus: ApprovalPending}, page, limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch the review queue")
+		return
+	}
+	page, limit = normalizePageLimit(page, limit)
+	response.Success(c, http.StatusOK, "Pending review queue", gin.H{
+		"page": page, "limit": limit, "total": total, "study_resources": resources,
+	})
+}
+
+// ApproveResource is POST /api/v1/admin/study-resources/:id/approve.
+//
+// Publishes and pays in one step. The response reports the amount credited, read
+// from the ledger, because an admin who has just moved a student's balance wants
+// to see the figure rather than trust that something happened.
+func (h *Handler) ApproveResource(c *gin.Context) {
+	if h.approval == nil {
+		response.Error(c, http.StatusInternalServerError, "Approval is not available")
+		return
+	}
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid resource ID")
+		return
+	}
+	reviewerID, ok := httpx.CurrentUserID(c)
+	if !ok {
+		response.Error(c, http.StatusUnauthorized, "Authentication required")
+		return
+	}
+
+	resource, err := h.approval.Approve(uint(id), reviewerID)
+	if err != nil {
+		writeApprovalError(c, err)
+		return
+	}
+	response.Success(c, http.StatusOK, "Resource approved and published", resource)
+}
+
+// RejectResource is POST /api/v1/admin/study-resources/:id/reject.
+//
+// A reason is required (approval.go). The 400 for a missing reason is deliberate
+// rather than a validation nicety: without one the student is told nothing they can
+// act on and will simply resubmit.
+func (h *Handler) RejectResource(c *gin.Context) {
+	if h.approval == nil {
+		response.Error(c, http.StatusInternalServerError, "Approval is not available")
+		return
+	}
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid resource ID")
+		return
+	}
+	reviewerID, ok := httpx.CurrentUserID(c)
+	if !ok {
+		response.Error(c, http.StatusUnauthorized, "Authentication required")
+		return
+	}
+
+	var req RejectResourceRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	resource, err := h.approval.Reject(uint(id), reviewerID, req.RejectReason)
+	if err != nil {
+		writeApprovalError(c, err)
+		return
+	}
+	response.Success(c, http.StatusOK, "Resource rejected", resource)
+}
+
+// writeApprovalError maps the state machine's refusals onto statuses.
+//
+// 404 for a not-pending row and for a missing one: an admin probing ids learns
+// nothing about which ids exist, and this table is the queue they already have
+// open. 409 for the unwired-grant case is a bug report rather than a user error,
+// which is why it is a distinct status from a 500 — nothing the admin did is wrong,
+// but it must not read as a generic outage.
+func writeApprovalError(c *gin.Context, err error) {
+	switch {
+	case errors.Is(err, ErrApprovalNotPending):
+		response.Error(c, http.StatusNotFound, "Resource not found")
+	case errors.Is(err, ErrApprovalUnconfigured):
+		response.Error(c, http.StatusConflict, "Approval is unavailable: the StudsToken award is not connected")
+	case errors.Is(err, ErrRejectReasonRequired):
+		response.Error(c, http.StatusBadRequest, err.Error())
+	default:
+		response.Error(c, http.StatusInternalServerError, "Failed to record the decision")
+	}
 }
 
 func (h *Handler) AdminListResources(c *gin.Context) {

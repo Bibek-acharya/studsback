@@ -25,6 +25,32 @@ func normalizePageLimit(page, limit int) (int, int) {
 	return page, limit
 }
 
+// mustLoad is the test fixture's read-back helper. It is here rather than in the
+// test file because a test that cannot read the row it just wrote is asserting
+// against its own assumptions, and because ApprovalService has no other read for
+// "what does the row actually say now".
+func (a *ApprovalService) mustLoad(id uint) StudyResource {
+	resource, err := a.repo.FindResourceByID(id)
+	if err != nil {
+		return StudyResource{}
+	}
+	return *resource
+}
+
+// Repo exposes the repository to the module's own other objects.
+//
+// It exists for one caller: cmd/server builds the ApprovalService from the SAME
+// repository the Service already holds, rather than constructing a second one over
+// the same table. Two repositories over one table is two places for a future
+// query to be scoped differently, and the approval path is exactly where that
+// would be invisible.
+func (s *Service) Repo() *Repository {
+	if s == nil {
+		return nil
+	}
+	return s.repo
+}
+
 func (s *Service) GetResources(filters ResourceFilters, page, limit int) ([]StudyResource, int64, error) {
 	page, limit = normalizePageLimit(page, limit)
 	resources, total, err := s.repo.FindAll(filters, page, limit)

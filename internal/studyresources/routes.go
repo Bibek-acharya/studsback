@@ -56,6 +56,24 @@ func RegisterRoutes(r *gin.Engine, authMW, superadminRoleMW gin.HandlerFunc, h *
 			admin.PUT("/:id", h.UpdateResource)
 			admin.POST("/:id/file", h.ReplaceResourceFile)
 			admin.DELETE("/:id", h.DeleteResource)
+			// The §5.3 moderation queue and its two decisions. They live on the
+			// SAME superadmin gate as the CRUD above rather than on a new one,
+			// because moderation IS admin work and there is no tenant whose claim
+			// to it exists.
+			admin.GET("/pending", h.PendingReviewQueue)
+			admin.POST("/:id/approve", h.ApproveResource)
+			admin.POST("/:id/reject", h.RejectResource)
+		}
+
+		// The STUDENT upload and my-uploads surface. Separate from the admin group
+		// above and mounted on authMW alone, which is the whole point: a student's
+		// resource arrives as pending_review, unpublished, and pays nothing. It
+		// becomes visible and paid only when an admin approves it.
+		student := v1.Group("/study-resources")
+		student.Use(authMW)
+		{
+			student.POST("", h.SubmitResource)
+			student.GET("/mine", h.MyUploads)
 		}
 	}
 }
