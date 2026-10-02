@@ -1,8 +1,14 @@
 package scholarship
 
-import "github.com/gin-gonic/gin"
+import (
+	"net/http"
 
-func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
+	"studsphere/backend/internal/shared/response"
+
+	"github.com/gin-gonic/gin"
+)
+
+func RegisterRoutes(r *gin.Engine, authMW gin.HandlerFunc, h *Handler) {
 	if h == nil {
 		return
 	}
@@ -45,9 +51,20 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			provider.POST("/payments/:id/approve", h.ApprovePayment)
 		}
 
+		// Platform admin ONLY, from this module's own role list rather than the
+		// shared roleMW. See access.go: ScholarshipApplication carries a guardian's
+		// name and phone, both parents' occupations, the household's monthly income
+		// and family size, the permanent and temporary address to ward and tole, and
+		// a documents blob — and ApplicationFindAll has no provider predicate, so a
+		// provider account reaching it through roleMW saw EVERY applicant's, not its
+		// own.
+		//
+		// No provider capability is lost: a provider reviewing applications to its own
+		// scholarships goes through internal/scholarshipprovider, whose queries all
+		// filter on provider_id.
 		admin := v1.Group("/admin")
 		admin.Use(authMW)
-		admin.Use(roleMW)
+		admin.Use(RequirePlatformAdmin())
 		{
 			admin.GET("/scholarships", h.GetAllApplications)
 			admin.GET("/scholarships/list", h.AdminListScholarships)
@@ -63,5 +80,24 @@ func RegisterRoutes(r *gin.Engine, authMW, roleMW gin.HandlerFunc, h *Handler) {
 			admin.POST("/payments/verify-esewa", h.VerifyPendingEsewaPayments)
 			admin.POST("/payments/send-admit-cards", h.SendAdmitCards)
 		}
+	}
+}
+
+// RequirePlatformAdmin is the operator gate for /admin.
+//
+// Refused before the handler and before the body is parsed, so it is a role
+// question answered with no lookup and nothing to disclose. It reads the same
+// PlatformAdminRoles() as the module's IsPlatformAdmin, so the middleware at the
+// edge and any service-level check cannot drift apart.
+func RequirePlatformAdmin() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		role, _ := c.Get("user_role")
+		roleStr, _ := role.(string)
+		if !IsPlatformAdmin(roleStr) {
+			response.Error(c, http.StatusForbidden, "This route is restricted to platform administrators")
+			c.Abort()
+			return
+		}
+		c.Next()
 	}
 }

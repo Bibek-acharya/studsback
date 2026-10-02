@@ -883,7 +883,11 @@ func main() {
 	projectshiksha.RegisterRoutes(router, authMW, roleMW, projectShikshaHandler)
 	faq.RegisterRoutes(router, authMW, roleMW, faqHandler)
 	review.RegisterRoutes(router, authMW, roleMW, reviewHandler)
-	scholarship.RegisterRoutes(router, authMW, roleMW, scholarshipHandler)
+	// NO roleMW, same reasoning as admission above: this module's admin group carries
+	// applicant and GUARDIAN PII including household income, so it derives its own
+	// gate from scholarship.PlatformAdminRoles(). Provider-owned application review
+	// lives in internal/scholarshipprovider and is filtered by provider_id.
+	scholarship.RegisterRoutes(router, authMW, scholarshipHandler)
 	scholarshipprovider.RegisterRoutes(router, authMW, roleMW, scholarshipPHandler)
 	scholarshipprovider.RegisterPublicRoutes(router, scholarshipPHandler)
 	scholarshipprovider.RegisterMessageRoutes(router, authMW, scholarshipPHandler)
