@@ -147,6 +147,31 @@ func (s *Service) Notify(ctx context.Context, req NotifyRequest) error {
 	})
 }
 
+// Sent reports whether an occurrence has already been delivered to a recipient.
+//
+// It exists for the callers that run on a TIMER rather than in response to a request.
+// The coin expiry reminder job runs hourly and must not re-send the same 30-day
+// notice twenty-four times a day, and the only honest way to know what has already
+// gone out is to ask the store that received it.
+//
+// On the Service rather than being left to each caller to query the table, because
+// occurrence keys are stored per RECIPIENT — (account_type, account_id,
+// occurrence_key) — so the question is about this package's schema, and four callers
+// each hand-rolling that query is four chances to get the scoping wrong.
+//
+// Read-only and cheap: it is a single indexed lookup, and the callers that use it are
+// all batch jobs that have already touched every candidate row.
+func (s *Service) Sent(ctx context.Context, occurrenceKey string, recipient Ref) (bool, error) {
+	if s == nil || s.repo == nil || occurrenceKey == "" {
+		return false, nil
+	}
+	existing, err := s.repo.FindByOccurrenceKey(s.db.WithContext(ctx), recipient.Type, recipient.ID, occurrenceKey)
+	if err != nil {
+		return false, fmt.Errorf("notification: look up occurrence %s: %w", occurrenceKey, err)
+	}
+	return existing != nil, nil
+}
+
 // NotifyTx writes inbox rows (+ outbox dispatch row) inside the caller's
 // transaction — emission is atomic with the business mutation (doc 03 §3).
 func (s *Service) NotifyTx(ctx context.Context, tx *gorm.DB, req NotifyRequest) error {

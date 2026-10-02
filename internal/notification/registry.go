@@ -85,8 +85,55 @@ const (
 	// of the §5.3 moderation decision, and they are separate keys rather than one
 	// with a status in the body because they are different events to a student: one
 	// is their material going live, the other is a refusal they can act on.
-	EventStudyResourceApproved         = "studyresource.approved"
-	EventStudyResourceRejected         = "studyresource.rejected"
+	EventStudyResourceApproved = "studyresource.approved"
+	EventStudyResourceRejected = "studyresource.rejected"
+
+	// ── Phase 5: the referral programme's own three events ─────────────────────
+	//
+	// These existed in 03-api-contract.md §5 from the start and were never added to
+	// the registry. The referral payout was announced through the generic
+	// EventCoinsCredited instead, which is a real defect rather than a cosmetic gap:
+	// a student whose friend qualified was told "200 StudsTokens were added to your
+	// balance" with no indication that a person they invited had done anything. The
+	// cause is the entire content of the event.
+	//
+	// Separate keys rather than one with a status in the body, for the same reason
+	// the two moderation events are separate: these are three different facts to a
+	// student, and one of them is bad news.
+	//
+	//   qualified — the invitee met the conditions, and the award is being held.
+	//   released  — the hold has passed and the coins are now the referrer's.
+	//   revoked   — the payout was taken back. A student's balance went DOWN, which
+	//               is why this one is not a credit event under any circumstances.
+	EventReferralQualified = "referral.qualified"
+	EventReferralReleased  = "referral.released"
+	EventReferralRevoked   = "referral.revoked"
+
+	// ── Phase 5: the per-lot expiry reminders ────────────────────────────────
+	//
+	// 04 §7 asks for "reminders at 30 / 7 / 1 days, per lot". This is deliberately
+	// NOT EventAllowanceExpiring: that event is about the included starter unlocks,
+	// which are a single per-account entitlement with one date. These are about EARNED
+	// coin lots, each with its own expiry and its own balance, and a student told
+	// "your included unlocks end on 12 November" must not read that as their earned
+	// coins ending on the 12th.
+	//
+	// One event with a `days` value rather than three keys (coins.expiring_30 etc.)
+	// because the copy differs only in that one figure, and a third key would triple
+	// the registry for no extra information.
+	EventCoinsExpiring = "coins.expiring"
+	// EventCoinsExpired is the sweep telling a student their coins lapsed. 04 §7
+	// says "never silently delete an expired balance … and always tell the student",
+	// and this event is the second half of that sentence made executable.
+	EventCoinsExpired = "coins.expired"
+
+	// ── 03 §5, still missing ─────────────────────────────────────────────────
+	//
+	// Both named in the §5 table from the beginning and neither implemented. The
+	// allowance is an entitlement rather than a grant (02-architecture.md §5), so
+	// "expiring" is about losing access to included unlocks, not about coins.
+	EventAllowanceExpiring = "allowance.expiring"
+	EventAllowanceExpired  = "allowance.expired"
 )
 
 type EventDef struct {
@@ -229,6 +276,85 @@ var Registry = map[string]EventDef{
 		"Your upload was not approved",
 		"{{.title}} was not approved. Reason: {{.reason}}.",
 		"/user/dashboard/resources", RecipientExplicit, true, ""),
+
+	// ── Phase 5 rows ─────────────────────────────────────────────────────────
+	//
+	// The copy on every one of these obeys 09's three hard bans, and the bans are
+	// asserted by coin_events_registry_test.go against the template text rather than
+	// left to this review — a template is data, so it can be edited by anyone with
+	// registry access without anyone reading it as prose.
+	//
+	// 06 §1.4 is the other constraint and it shapes two of these bodies: expiry is
+	// stated as a DATE or a day count, never as a countdown and never with urgency.
+	// 09's row on this is unambiguous — "limited time (on earned StudsTokens): delete
+	// the phrase" — because a student who earned a coin over twelve months is not
+	// being sold anything.
+
+	// referral.qualified: the invitee did the thing, and the coins are being held
+	// rather than paid. The hold is named because the wait is a policy the student
+	// would otherwise read as a delay with no end.
+	EventReferralQualified: ev(EventReferralQualified, "referral", PriorityNormal,
+		"Friend signed up",
+		"Your friend joined and {{.coins}} StudsTokens are held for you. They are added to your balance on {{.releases_on}}.",
+		"/user/dashboard/referral", RecipientExplicit, true, ""),
+
+	// referral.released: the hold has passed and the coins are the student's.
+	EventReferralReleased: ev(EventReferralReleased, "referral", PriorityNormal,
+		"Referral StudsTokens added",
+		"{{.coins}} StudsTokens were added to your balance for {{.friend}}. Your balance is {{.balance}}.",
+		"/user/dashboard/referral", RecipientExplicit, true, ""),
+
+	// referral.revoked: the payout was taken back. This one is the reason the three
+	// are separate events — a balance going DOWN must never be announced as a credit,
+	// and it must say why, or the student sees coins disappear with no explanation.
+	//
+	// The balance is stated because after a revocation the student needs to know what
+	// they are left with, not just what went.
+	EventReferralRevoked: ev(EventReferralRevoked, "referral", PriorityCritical,
+		"Referral StudsTokens removed",
+		"{{.coins}} StudsTokens were removed from your balance for a referral that was reversed. Your balance is {{.balance}}.",
+		"/user/dashboard/referral", RecipientExplicit, true, ""),
+
+	// coins.expiring: the 30 / 7 / 1-day notice for ONE lot.
+	//
+	// `days` is what makes this one event rather than three, and `coins` is the lot's
+	// OWN remaining balance rather than the student's total — telling someone
+	// "5 StudsTokens expire on 12 November" when their balance is 300 is actionable,
+	// and "you have StudsTokens expiring" is not.
+	//
+	// The FEFO note is in the body because it is the one thing a student cannot
+	// derive: which of their lots goes first is a policy decision, not arithmetic,
+	// and a student who assumes it is arithmetic will be surprised the wrong way.
+	EventCoinsExpiring: ev(EventCoinsExpiring, "account", PriorityNormal,
+		"StudsTokens expiring soon",
+		"{{.coins}} StudsTokens expire on {{.expires_at}}, in {{.days}} days. We spend the StudsTokens that expire soonest first.",
+		"/user/dashboard/coins", RecipientExplicit, true, ""),
+
+	// coins.expired: the sweep has burned them.
+	//
+	// PriorityCritical and stated in the past tense, because unlike every other coin
+	// event this one reports value that is ALREADY GONE. There is nothing to do with
+	// this notification — it exists so the balance a student sees is explainable, and
+	// because 04 §7 requires it: "never silently delete an expired balance … and
+	// always tell the student."
+	EventCoinsExpired: ev(EventCoinsExpired, "account", PriorityCritical,
+		"StudsTokens expired",
+		"{{.coins}} StudsTokens expired on {{.expires_at}} and were removed from your balance. Your balance is {{.balance}}.",
+		"/user/dashboard/coins", RecipientExplicit, true, ""),
+
+	// allowance.expiring / allowance.expired: losing INCLUDED UNLOCKS, which is not
+	// the same thing as losing coins — a student whose allowance lapses still has
+	// every coin they earned. The copy says "included unlocks" throughout rather
+	// than "StudsTokens", because conflating the two is how a student ends up
+	// believing a balance they can see has been taken away.
+	EventAllowanceExpiring: ev(EventAllowanceExpiring, "account", PriorityNormal,
+		"Included unlocks expiring soon",
+		"Your included unlocks expire on {{.expires_at}}, in {{.days}} days.",
+		"/user/dashboard/coins", RecipientExplicit, true, ""),
+	EventAllowanceExpired: ev(EventAllowanceExpired, "account", PriorityCritical,
+		"Included unlocks expired",
+		"Your included unlocks expired on {{.expires_at}}. You can still unlock anything using StudsTokens in your balance.",
+		"/user/dashboard/coins", RecipientExplicit, true, ""),
 }
 
 // ev() has no Transactional/DedupeWin params; set P2 attrs that differ from
@@ -249,6 +375,62 @@ func init() {
 		def := Registry[k]
 		def.DedupeWin = time.Hour
 		Registry[k] = def
+	}
+
+	// The coin events that fire from the hourly sweep get a dedupe window, and are
+	// deliberately NOT Transactional.
+	//
+	// The "not transactional" is the part worth being sure about, because 03 §5 reads
+	// as though it means the opposite. `Transactional` does NOT mean "rolled back with
+	// the transaction that caused it" — see service.go, where a transactional
+	// definition is `continue`d straight past the delivery loop: "Transactional events
+	// handled by their own email paths; notification deliveries only for
+	// inbox-bearing events." It means NO INBOX ROW.
+	//
+	// So marking a reminder transactional would do the opposite of what a reminder is
+	// for: a student who never opens their email would get no notice at all that their
+	// coins are about to lapse. These belong in the notification centre, which is
+	// where a student looks, and email is the copy that arrives on its own.
+	//
+	// (03 §5's sentence about being emitted inside the same transaction is therefore
+	// NOT implemented anywhere — Notify enqueues in its own transaction regardless of
+	// this flag. Recorded rather than fixed here: closing it means restructuring the
+	// notify path so an enqueue can enlist in a caller's transaction, which is a
+	// change to internal/notification's contract and not a Phase 5 one.)
+	//
+	// The dedupe window is what makes an hourly job safe. 24 hours rather than the 1
+	// hour the other jobs use, and deliberately so: the thresholds are 30/7/1 days, so
+	// the window needs to be long enough that a job which runs twice inside one day
+	// cannot double-send, and short enough that a genuine restart still delivers.
+	// The caller's OccurrenceKey — keyed on lot AND threshold — is the first line of
+	// defence; this is the second.
+	for _, k := range []string{
+		EventReferralQualified, EventReferralReleased, EventReferralRevoked,
+		EventCoinsExpiring, EventCoinsExpired,
+		EventAllowanceExpiring, EventAllowanceExpired,
+	} {
+		d := Registry[k]
+		d.DedupeWin = 24 * time.Hour
+		Registry[k] = d
+	}
+
+	// The two moderation decisions, and the two coin movements, get a dedupe window
+	// for the same reason: they are emitted from inside a state transition that a
+	// retry can repeat, so without one a retried approve tells the uploader twice.
+	//
+	// coins.credited and coins.debited are ALSO added here rather than being left
+	// alone. They are emitted from the profile-award and referral-settle transactions
+	// (profile_award.go, referral.go), both of which a client can retry, and neither
+	// had a window — so a double-submitted profile completion announced two credits.
+	for _, k := range []string{
+		EventStudyResourceApproved, EventStudyResourceRejected,
+		EventCoinsCredited, EventCoinsDebited,
+	} {
+		d := Registry[k]
+		if d.DedupeWin <= 0 {
+			d.DedupeWin = 24 * time.Hour
+		}
+		Registry[k] = d
 	}
 }
 
@@ -301,7 +483,10 @@ func ValidateRegistry() error {
 		EventMessageOfflineFallback, EventJobsApplicationReceived, EventJobsStatusChanged,
 		EventProjectshikshaStatusChanged, EventPaymentSubscriptionRecorded, EventContentSaved,
 		EventCoinsDebited, EventCoinsCredited,
-		EventStudyResourceApproved, EventStudyResourceRejected} {
+		EventStudyResourceApproved, EventStudyResourceRejected,
+		EventReferralQualified, EventReferralReleased, EventReferralRevoked,
+		EventCoinsExpiring, EventCoinsExpired,
+		EventAllowanceExpiring, EventAllowanceExpired} {
 		if _, ok := Registry[k]; !ok {
 			return fmt.Errorf("constant %s missing from Registry", k)
 		}

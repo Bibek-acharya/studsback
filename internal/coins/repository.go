@@ -95,6 +95,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -1148,4 +1149,137 @@ func (tx *TxContext) applyDeltas(assignment string, deltas map[uint]int64, journ
 		}
 	}
 	return nil
+}
+
+// ClaimRemindableLots returns open lots that have entered one of the reminder
+// windows, together with the threshold each has entered.
+//
+// READ-ONLY and deliberately so. It is called "Claim" to match ClaimExpiredLots, but
+// unlike that one it takes no row locks and marks nothing: a reminder that took a lock
+// would contend with the SWEEP for the same rows, and the two jobs run in the same
+// process on the same clock. Locking here would buy nothing — the send is idempotent
+// by occurrence key, so a duplicate from two concurrent passes is suppressed rather
+// than duplicated — and would cost the sweep a blocked row on every pass.
+//
+// The window test is INCLUSIVE at the threshold and EXCLUSIVE below it: a lot exactly
+// 30 days out is inside the 30-day band, and one at 29 days and 23 hours is not. A
+// boundary drawn the other way would mean a lot entering the band at 29d23h got no
+// notice until the next day, having already skipped 30 entirely.
+//
+// The remaining predicate is the sweep's, so the two jobs agree about what "open" and
+// "has something to lose" mean. A lot the sweep would skip is a lot with nothing in
+// it, and a notice about nothing is noise.
+func (r *Repository) ClaimRemindableLots(
+	ctx context.Context, now time.Time, limit int, thresholds []int,
+) ([]RemindableLot, error) {
+	if len(thresholds) == 0 {
+		return nil, nil
+	}
+	if limit <= 0 {
+		limit = ReminderBatchDefault
+	}
+
+	// OR of `days between N-1 and N inclusive` per threshold, so "inside the 30-day
+	// band" and "inside the 1-day band" both match. The sub-day arithmetic is done in
+	// SQL because a threshold is a policy boundary and belongs next to the data it
+	// filters, not in a Go loop that could drift from it.
+	clauses := make([]string, 0, len(thresholds))
+	args := make([]any, 0, len(thresholds)+3)
+	for _, d := range thresholds {
+		clauses = append(clauses, "(l.expires_at <= ? AND l.expires_at > ?)")
+		// Upper bound: exactly `d` days out. A lot 30d00h00m out is inside.
+		args = append(args, now.AddDate(0, 0, d))
+		// Lower bound: one second short of `d-1` days, so the band is closed at the
+		// bottom. Written as an interval rather than AddDate(0,0,d-1) because the
+		// band must be exactly 24h wide and AddDate on a DST boundary is not.
+		args = append(args, now.AddDate(0, 0, d-1).Add(-time.Second))
+	}
+
+	// Table() rather than Find() alone, because the joins and the band predicates need
+	// the `l` alias and GORM's generated FROM clause carries no alias of its own. The
+	// explicit Select is what makes the alias legal: without it the scanner has no `l.*`
+	// to read.
+	var lots []CoinLot
+	if err := r.db.WithContext(ctx).
+		Table("coin_lot AS l").
+		Select("l.*").
+		Joins("JOIN coin_account a ON a.id = l.account_id").
+		Where("l.expires_at IS NOT NULL").
+		Where("l.consumed < l.granted").
+		// A closed account is a support hold. Reminding about frozen coins is noise
+		// and is actively misleading — the coins are not going anywhere.
+		Where("a.closed_at IS NULL").
+		Where("a.kind = ? AND a.owner_user_id IS NOT NULL", AccountUser).
+		Where("("+strings.Join(clauses, " OR ")+")", args...).
+		Order("l.expires_at ASC").
+		Limit(limit).
+		Find(&lots).Error; err != nil {
+		return nil, err
+	}
+	if len(lots) == 0 {
+		return nil, nil
+	}
+
+	accountIDs := make([]uint, 0, len(lots))
+	for _, lot := range lots {
+		accountIDs = append(accountIDs, lot.AccountID)
+	}
+	var owners []struct {
+		AccountID   uint
+		OwnerUserID *uint
+	}
+	if err := r.db.WithContext(ctx).
+		Model(&CoinAccount{}).
+		Select("id AS account_id, owner_user_id").
+		Where("id IN ?", accountIDs).
+		Find(&owners).Error; err != nil {
+		return nil, err
+	}
+	owner := make(map[uint]uint, len(owners))
+	for _, o := range owners {
+		if o.OwnerUserID != nil {
+			owner[o.AccountID] = *o.OwnerUserID
+		}
+	}
+
+	out := make([]RemindableLot, 0, len(lots))
+	for _, lot := range lots {
+		userID, ok := owner[lot.AccountID]
+		if !ok || userID == 0 {
+			// An account with no owner is the faucet or a burn account. A lot on one of
+			// those has no student to tell, so there is nothing to remind about.
+			continue
+		}
+		remaining := lot.Granted - lot.Consumed
+		days, ok := matchThreshold(now, lotExpiry(lot), thresholds)
+		if !ok {
+			// The band arithmetic in the WHERE clause and this one disagree. Skipping
+			// is the safe direction: a missed notice is recoverable next pass, a
+			// notice for a lot outside its window is a false statement about a date.
+			continue
+		}
+		out = append(out, RemindableLot{
+			Lot: lot, OwnerUserID: userID, Remaining: remaining, Days: days,
+		})
+	}
+	return out, nil
+}
+
+// matchThreshold returns the SMALLEST threshold band a lot sits in.
+//
+// Smallest, not largest, and that is what makes the 30/7/1 series behave: a lot 7 days
+// out is also inside the 30-day band arithmetically, and announcing "30 days" to
+// someone whose coins lapse in a week is wrong. The bands are checked nearest-first.
+//
+// Iterates the thresholds in the order given rather than sorting, so the caller
+// controls the priority and the behaviour is visible at the call site rather than
+// depending on a sort this function might reorder later.
+func matchThreshold(now, expiresAt time.Time, thresholds []int) (int, bool) {
+	for _, d := range thresholds {
+		if expiresAt.After(now.AddDate(0, 0, d-1).Add(-time.Second)) &&
+			!expiresAt.After(now.AddDate(0, 0, d)) {
+			return d, true
+		}
+	}
+	return 0, false
 }

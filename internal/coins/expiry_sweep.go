@@ -53,6 +53,7 @@ import (
 	"strconv"
 	"time"
 
+	"studsphere/backend/internal/notification"
 	"studsphere/backend/internal/shared/logger"
 
 	"github.com/google/uuid"
@@ -102,6 +103,10 @@ type ExpirySweeper struct {
 	repo   *Repository
 	ledger *Ledger
 	now    func() time.Time
+	// notifier announces an expiry — 04 §7's "always tell the student". Optional, and
+	// set through WithNotifier rather than a constructor argument so the two jobs
+	// sharing this object cannot take each other's notifier away.
+	notifier expiryNotifier
 }
 
 // NewExpirySweeper wires the sweeper. A nil ledger makes every pass an error
@@ -264,7 +269,60 @@ func (s *ExpirySweeper) burnLot(ctx context.Context, candidate ExpiringLot, rema
 		// The lot is marked FULLY CONSUMED rather than deleted or re-expiring. That
 		// single column is what makes a second sweep skip it: ClaimExpiredLots
 		// filters on consumed < granted.
-		return tx.ConsumeLot(lot.ID, remaining)
+		if err := tx.ConsumeLot(lot.ID, remaining); err != nil {
+			return err
+		}
+
+		// Tell the student, INSIDE this transaction — via NotifyTx rather than
+		// Notify, which is the difference the whole comment is about.
+		//
+		// 04 §7: "Never silently delete an expired balance … and always tell the
+		// student." Inside is the load-bearing word, and NotifyTx is what makes it
+		// true: plain Notify opens its own transaction, so a notice emitted that way
+		// would commit even if this one rolled back — leaving the student told their
+		// coins had expired while their balance says otherwise. That is 03 §5's
+		// stated failure and it is the reason NotifyTx exists.
+		//
+		// AFTER ConsumeLot, deliberately: consuming the lot is what makes this burn
+		// final, so a notice sent before it would describe a burn that could still fail.
+		//
+		// A nil notifier skips it and the burn proceeds. The alternative — refusing to
+		// burn without a notifier — would mean a missing constructor call in main.go
+		// silently disables expiry, which leaves coins that look spendable forever and
+		// inflates every currency-velocity figure on the dashboard.
+		if s.notifier != nil {
+			// Read the balance the student is LEFT with, inside this transaction, so
+			// the figure in the notice is the one their wallet will show. A read
+			// failure is not a reason to skip the notice — the amount burned is the
+			// part that matters, and the template would drop the row entirely rather
+			// than render a blank.
+			available, availErr := tx.AvailableInTx(candidate.OwnerUserID)
+			if availErr != nil {
+				available = -1
+			}
+			key := expiryOccurrenceKey(lot.ID)
+			_ = s.notifier.NotifyTx(ctx, tx.DB(), notification.NotifyRequest{
+				EventKey:   notification.EventCoinsExpired,
+				Recipients: []notification.Ref{{Type: "user", ID: candidate.OwnerUserID}},
+				Data: map[string]any{
+					// What was ACTUALLY taken, not what the lot was granted. A
+					// student told "5 expired" when 25 went looks, reasonably, like
+					// coin theft.
+					"coins": remaining,
+					// The date, not a countdown — 06 §1.4.
+					"expires_at": lotExpiry(lot).Format("2006-01-02"),
+					// What they are left with, so the balance on screen reconciles
+					// against something. Both keys are interpolated with
+					// missingkey=error, so omitting either drops the notification.
+					"balance": available,
+				},
+				// Keyed on the lot, which burns exactly once. "Once" is a stronger
+				// statement than any timestamp could be.
+				OccurrenceKey: key,
+				CorrelationID: expireLotKey(lot.ID),
+			})
+		}
+		return nil
 	})
 	return err
 }

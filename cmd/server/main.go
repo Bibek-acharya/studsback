@@ -1057,8 +1057,30 @@ func main() {
 	// It shares the reconciler's HOUR, deliberately — expiry and reconciliation are
 	// the two halves of one question ("is this balance true?"), so on the same clock
 	// a single day's logs read as one story.
-	expirySweeper := coins.NewExpirySweeper(coinsRepo, coinsLedger)
+	//
+	// The notification service is wired in as the expiry notifier because 04 §7 says
+	// "never silently delete an expired balance … and always tell the student", and
+	// that sentence is only implemented by something that can send. Without this the
+	// sweep burns coins and says nothing, which is the failure the rule forbids.
+	//
+	// WithNotifier returns a COPY rather than mutating, so the reminder job below and
+	// the sweep here share the repository without one taking the notifier from the
+	// other.
+	expirySweeper := coins.NewExpirySweeper(coinsRepo, coinsLedger).
+		WithNotifier(notificationSvc)
 	go coins.StartExpirySweeper(
+		expirySweeper,
+		config.AppConfig.CoinsExpirySweepInterval,
+		config.AppConfig.CoinsExpirySweepTimeout,
+	)
+
+	// The per-lot expiry reminders: 30 / 7 / 1 days before a lot lapses.
+	//
+	// SHARED TICKER with the sweep, deliberately. A reminder delivered an hour after
+	// the sweep that would have warned about the lot arrives after the coins are gone,
+	// which makes it worse than useless — so the two run on one clock and one log
+	// line's worth of elapsed time reads as a single story.
+	go coins.StartExpiryReminder(
 		expirySweeper,
 		config.AppConfig.CoinsExpirySweepInterval,
 		config.AppConfig.CoinsExpirySweepTimeout,
