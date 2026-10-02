@@ -43,10 +43,22 @@ func (ConfigVersion) TableName() string { return "coin_economy_config_version" }
 // actorLabel renders the actor for ChangedBy.
 func actorLabel(userID uint) string { return fmt.Sprintf("admin:%d", userID) }
 
-// VersionStore appends config audit rows. It is an interface so the service
-// can be exercised without a database.
+// VersionStore appends AND reads config audit rows. It is an interface so the
+// service can be exercised without a database.
+//
+// The read half exists because 04 §6 asks for a config version history and a table
+// nobody can query is a write-only log. It was added with the read side of Phase 4;
+// every row the append side has written since Phase 2 becomes readable at that point,
+// so no backfill is involved.
 type VersionStore interface {
 	AppendConfigVersion(version *ConfigVersion) error
+	// RecentConfigVersions returns at most limit rows, NEWEST FIRST.
+	//
+	// Newest first because the question an admin opens the page for is "what did I
+	// just change" — reading oldest-first makes them scroll to the bottom to answer
+	// it. limit is applied in the QUERY, not by slicing afterwards, so a large table
+	// is never fully read to return a page of it.
+	RecentConfigVersions(limit int) ([]ConfigVersion, error)
 }
 
 type gormVersionStore struct {
@@ -59,4 +71,24 @@ func NewVersionStore(db *gorm.DB) VersionStore {
 
 func (s *gormVersionStore) AppendConfigVersion(version *ConfigVersion) error {
 	return s.db.Create(version).Error
+}
+
+// RecentConfigVersions returns the newest rows first.
+//
+// ORDER BY id DESC rather than created_at DESC, and that is deliberate: created_at is
+// a timestamp two rows can share to the microsecond on a fast machine, and an audit
+// trail whose order is ambiguous is not an audit trail. id is the insertion sequence,
+// so it is total and monotonic.
+func (s *gormVersionStore) RecentConfigVersions(limit int) ([]ConfigVersion, error) {
+	if s == nil || s.db == nil {
+		return nil, ErrNoDatabase
+	}
+	if limit <= 0 {
+		limit = ConfigVersionHistoryDefault
+	}
+	var rows []ConfigVersion
+	if err := s.db.Order("id DESC").Limit(limit).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	return rows, nil
 }

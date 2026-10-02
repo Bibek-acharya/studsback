@@ -3,6 +3,7 @@ package coins
 import (
 	"errors"
 	"net/http"
+	"strconv"
 
 	"studsphere/backend/internal/shared/httpx"
 	"studsphere/backend/internal/shared/response"
@@ -42,6 +43,38 @@ func (h *Handler) ready(c *gin.Context) bool {
 }
 
 // GetEconomyConfig handles GET /api/v1/admin/coins/economy.
+// GetConfigHistory handles GET /api/v1/admin/coins/economy/versions.
+//
+// 04 §6's "a config version history". Every pricing change has appended a row since
+// Phase 2; this is what makes them readable.
+//
+// The response carries BOTH snapshots per row because the admin console's job here is
+// to render a diff, and a diff needs the pair. A history that returned only the new
+// value could answer "what is it now" — which GET /economy already answers — and not
+// "what changed", which is the only reason to open a history page.
+func (h *Handler) GetConfigHistory(c *gin.Context) {
+	if !h.ready(c) {
+		return
+	}
+	limit, err := strconv.Atoi(c.DefaultQuery("limit", "0"))
+	if err != nil {
+		// A malformed limit is a typo in an operator console, not an attack: fall
+		// back to the default rather than 400-ing a page that would otherwise work.
+		// Clamping happens in the service so there is one bound, not two.
+		limit = 0
+	}
+	entries, err := h.service.ConfigVersionHistory(c.Request.Context(), limit)
+	if err != nil {
+		// 500, and never an empty array on failure. "You have never changed a price"
+		// and "we could not read the audit trail" are opposite messages, and an
+		// operator reading the second as the first has just been told their pricing
+		// is unchanged when nobody knows what it is.
+		response.Error(c, statusForError(err), "Could not read the config history")
+		return
+	}
+	response.Success(c, http.StatusOK, "Config history fetched", entries)
+}
+
 func (h *Handler) GetEconomyConfig(c *gin.Context) {
 	if !h.ready(c) {
 		return

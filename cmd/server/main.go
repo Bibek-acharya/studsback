@@ -945,6 +945,20 @@ func main() {
 	// to a user.
 	coinAdminRoleMW := middleware.RequireRole("superadmin", "super_admin")
 	coins.RegisterRoutes(router, authMW, coinAdminRoleMW, coinsHandler, coins.NewAdminAPI(coinsLedger))
+	// The public coin table, mounted with NO auth middleware, and separately from the
+	// wallet routes below on purpose.
+	//
+	// Consumer Protection Act 2075 s.16(2)(n) requires the price, what is included and
+	// the expiry to be published, and the audience for that is a student who has NOT
+	// registered yet — they are the person deciding whether to. Putting it behind
+	// authMW would reach nobody the provision is about.
+	//
+	// The separation from the wallet group matters as much: that group is on authMW
+	// because every endpoint under it returns the CALLER's own coins, and its
+	// registration sits immediately after this one. One flag added to the wrong mount
+	// would either lock the public page or expose the admin economy config — which
+	// carries the earn rates and the referral fraud caps.
+	coins.RegisterPublicRoutes(router, coins.NewPublicTableAPI(coinsService))
 	// The student wallet sits on authMW alone, not on this gate: every endpoint
 	// under /api/v1/coins returns the CALLER's own balance, allowance and
 	// history, and moves nothing. POST /unlock is mounted here but dark — it

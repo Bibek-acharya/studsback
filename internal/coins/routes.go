@@ -48,6 +48,11 @@ func RegisterRoutes(r *gin.Engine, authMW, adminRoleMW gin.HandlerFunc, h *Handl
 		// operator who can correct a balance is exactly the person who needs to
 		// know whether the corrections are rising.
 		admin.GET("/economy-daily", adminAPI.EconomyHealth)
+		// 04 §6's "a config version history". Distinct path rather than a query on
+		// /economy, because the two answer different questions — "what is it now"
+		// versus "what changed" — and because the history is the larger and slower
+		// read, which should not be something the config editor's initial load does.
+		admin.GET("/economy/versions", h.GetConfigHistory)
 	}
 }
 

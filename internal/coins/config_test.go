@@ -60,6 +60,21 @@ func (f *fakeVersions) AppendConfigVersion(version *ConfigVersion) error {
 	return nil
 }
 
+// RecentConfigVersions satisfies the read half of VersionStore, added with Phase 4's
+// history reader. It returns the rows newest first so the existing append-then-assert
+// tests can keep treating the fake as an append-only log; no test in this file reads
+// the history back, which is why the ordering is the only thing simulated here.
+func (f *fakeVersions) RecentConfigVersions(limit int) ([]ConfigVersion, error) {
+	if limit <= 0 || limit > len(f.rows) {
+		limit = len(f.rows)
+	}
+	out := make([]ConfigVersion, 0, limit)
+	for i := len(f.rows) - 1; i >= len(f.rows)-limit; i-- {
+		out = append(out, f.rows[i])
+	}
+	return out, nil
+}
+
 // testService wires a service over the fakes with a clock the test drives, so
 // the cache TTL is exercised without sleeping.
 func testService(t *testing.T) (*Service, *fakeSettings, *fakeVersions, *ConfigStore) {

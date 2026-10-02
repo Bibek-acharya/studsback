@@ -154,6 +154,7 @@ func TestNoNonOperatorRoleReachesANYAdminCoinRoute(t *testing.T) {
 		{"GET", "/api/v1/admin/coins/economy"},
 		{"PUT", "/api/v1/admin/coins/economy"},
 		{"GET", "/api/v1/admin/coins/economy-daily"},
+		{"GET", "/api/v1/admin/coins/economy/versions"},
 		{"GET", "/api/v1/admin/coins/users/4242"},
 		{"POST", "/api/v1/admin/coins/adjust/4242"},
 	}
@@ -208,6 +209,9 @@ func TestTheAdminCoinRouteSurfaceIsExactlyThis(t *testing.T) {
 		// endpoint writes, so an operator who can correct a balance is exactly the
 		// person who needs to see whether corrections are rising.
 		"GET /api/v1/admin/coins/economy-daily",
+		// 04 §6's config version history — the readable half of the audit table
+		// every pricing write has been appending to since Phase 2.
+		"GET /api/v1/admin/coins/economy/versions",
 	}
 	if len(got) != len(want) {
 		t.Fatalf("admin coin route count = %d, want %d\n got: %v\nwant: %v", len(got), len(want), got, want)
