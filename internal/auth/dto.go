@@ -316,7 +316,7 @@ type UpdateProfileAccessRequest struct {
 type ClaimRegisterRequest struct {
 	CollegeID          uint   `json:"college_id" binding:"required"`
 	InstitutionName    string `json:"institution_name" binding:"required"`
-	RegistrationNumber string `json:"registration_number" binding:"required"`
+	RegistrationNumber string `json:"registration_number"`
 	Email              string `json:"email" binding:"required,email"`
 	// ReferralCode is the invite code. This is an UNAUTHENTICATED public signup
 	// route — a college claiming its own profile — so it is a genuine
