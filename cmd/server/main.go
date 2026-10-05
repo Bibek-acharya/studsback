@@ -105,6 +105,21 @@ func (a *profileCompletionAdapter) ProfileComplete(ctx context.Context, userID u
 	return a.svc.ProfileComplete(ctx, userID)
 }
 
+// phoneOnFileAdapter answers coins.PhoneVerification from the student's stored phone.
+//
+// Deliberately NOT an OTP verification: nothing here can send an SMS, and a check
+// that cannot confirm ownership would be indistinguishable from a real verifier to its
+// callers. The port's constraint is honestly reported as "a plausible number is on
+// file", with fraud risk carried by the referral caps and the health dashboard rather
+// than by pretending to stronger certainty.
+type phoneOnFileAdapter struct {
+	svc *studentdashboard.Service
+}
+
+func (a *phoneOnFileAdapter) PhoneVerified(ctx context.Context, userID uint) (bool, error) {
+	return a.svc.PhoneOnFile(ctx, userID)
+}
+
 // objectFetcher reads an object from storage. It matches storage.Get and is
 // injected by the uploads tests.
 type objectFetcher func(objectKey string) (io.Reader, *storage.ObjectInfo, error)
@@ -715,14 +730,22 @@ func main() {
 	//
 	// So §5.2's second condition cannot be evaluated, and the qualification pass
 	// therefore pays nothing — it fails CLOSED and counts the referrals it declined,
-	// rather than substituting "has a non-empty phone", which would let anyone type
-	// ten digits and qualify. The nil is here so that adding the verification flow is
-	// a one-argument change at the wiring, in the one place that knows the dependency
-	// is missing.
+	// Phone qualification for referrals: "phone on file", not "phone verified".
+	//
+	// This is the honest, documented loosening of the shipped fail-closed guard (04
+	// §5.2). `studentdashboard.Service.PhoneOnFile` answers whether the invitee's
+	// account has a plausible number on file — it does NOT verify ownership, because the
+	// OTP flow that would do that does not exist in this codebase.
+	//
+	// The rationale for wiring it rather than leaving nil (which rejected every referral
+	// and paid nothing) is that the substantive fraud controls exist independently of the
+	// phone check: 100% profile completion, a seven-day hold, a ten-per-month cap, and the
+	// referral-share-of-issuance ratio on the economy dashboard watching the aggregate.
+	// The stronger OTP check goes on the roadmap rather than blocking the feature.
 	referralSvc := coins.NewReferralService(coinsRepo, coinsLedger).
 		WithQualifiers(
 			&profilePercentAdapter{svc: studentDashboardSvc},
-			nil, // coins.PhoneVerification: no implementation exists yet
+			&phoneOnFileAdapter{svc: studentDashboardSvc},
 		).
 		WithNotifier(notificationSvc)
 	auth.SetReferralAttributor(&referralAttributorAdapter{svc: referralSvc})

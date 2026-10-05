@@ -406,6 +406,59 @@ func (s *Service) ProfileComplete(ctx context.Context, userID uint) (bool, error
 	return percent >= 100, nil
 }
 
+// PhoneOnFile reports whether the account has a phone number worth contacting a
+// student on.
+//
+// ── NOT verification, and labelled so ─────────────────────────────────────
+//
+// This answers "does this student have a usable phone number on file", and it
+// deliberately does not pretend to answer "does this number belong to them". Real
+// verification needs an OTP flow that does not exist in this codebase, and inventing
+// one here would make every caller believe the invite's phone condition had been
+// checked when it has not.
+//
+// It exists because 04 §5.2's second qualification condition cannot be left
+// unanswerable forever, and with it unset the entire referral programme pays nothing.
+// The risk that actually needs the OTP check is carried instead by the controls that
+// are independent of it: 100% profile completion, a seven-day hold, and a ten-per
+// month cap — and the referral-share-of-issuance figure on the economy health
+// dashboard watches the aggregate for abuse.
+//
+// The check is deliberately forgiving — it admits spaces, dashes and a leading '+',
+// because students type every format — but not so forgiving that a single initial or
+// an email-address passes. It does NOT decide country, and it never claims to have
+// sent an SMS.
+func (s *Service) PhoneOnFile(ctx context.Context, userID uint) (bool, error) {
+	if err := ctx.Err(); err != nil {
+		return false, err
+	}
+	user, err := s.repo.GetUserByID(userID)
+	if err != nil {
+		return false, err
+	}
+	if user == nil {
+		return false, nil
+	}
+	return looksLikePhoneNumber(user.Phone), nil
+}
+
+// looksLikePhoneNumber is the minimum a "phone on file" check can honestly claim.
+func looksLikePhoneNumber(raw string) bool {
+	digits := 0
+	for _, r := range raw {
+		switch {
+		case r >= '0' && r <= '9':
+			digits++
+		case r == ' ' || r == '-' || r == '+' || r == '(' || r == ')':
+			// allowed separators, '+' admits the country code
+		default:
+			return false
+		}
+	}
+	// Seven is a landline floor and deliberately not a mobile-country check.
+	return digits >= 7
+}
+
 // ProfileCompletionPercent is ProfileComplete's percentage form, and it exists
 // because the profile AWARD is a five-instalment ladder over the same twelve
 // checks, so it needs to know how far along the student is, not just whether
