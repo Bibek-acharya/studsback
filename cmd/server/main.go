@@ -937,6 +937,24 @@ func main() {
 	studyResourcesRoleMW := middleware.RequireRole("superadmin", "super_admin")
 	studyresources.RegisterRoutes(router, authMW, studyResourcesRoleMW, studyResourcesHandler)
 
+	// The annotated catalogue: GET /api/v1/study-resources/access.
+	//
+	// SESSION-SCOPED and mounted separately from the public catalogue above, because the
+	// access block carries `unlocked` and a remaining allowance — two per-user facts.
+	// The public route has no session by design and `gate_reachability_test.go` pins that
+	// it discloses metadata only, so putting a per-user field there would be a leak
+	// whether or not the handler intended it.
+	//
+	// This is the DISCLOSURE half of the charge gate. The gate itself is enforced at
+	// download time (`coins/download_gate.go`), so without this endpoint a student would
+	// see a plain "Download" button that refuses when pressed — a charge enforced and
+	// never disclosed. Nothing in the backend emitted this block before; the frontend
+	// has been written against it the whole time.
+	coins.RegisterCatalogueAccessRoutes(
+		router, authMW,
+		coins.NewCatalogueAccessAPI(coinsService, coinsLedger, coins.NewCatalogueLister(studyResourcesSvc)),
+	)
+
 	// Coin economy config: its own superadmin gate, deliberately NOT roleMW.
 	// roleMW admits "institution" and "scholarship_provider", and an
 	// institution account must not be able to rewrite coin pricing

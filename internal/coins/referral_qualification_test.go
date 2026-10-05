@@ -508,6 +508,13 @@ func TestTheWindowUsesTheInjectedClockNotWallTime(t *testing.T) {
 		Status: ReferralPending, CreatedAt: now.Add(-3 * 24 * time.Hour),
 	}
 
+	// Pin the clock BEFORE the first assertion. The fixture otherwise defaults to wall
+	// time, so this test's hardcoded 1 October referral drifted past its seven-day
+	// window as the calendar moved past it — it passed on 2 October and failed on the
+	// 5th, with an error that blamed the window rather than the missing injection. The
+	// test is named for using the injected clock and was not injecting one.
+	f.at(now)
+
 	if got := f.svc.windowRemaining(ref, f.cfg(nil)); got <= 0 {
 		t.Errorf("windowRemaining = %v, want a positive wait: the fixture clock is %v",
 			got, now)

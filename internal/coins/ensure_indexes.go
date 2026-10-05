@@ -56,6 +56,46 @@ func EnsurePostgresIndexes(db *gorm.DB) error {
 		`CREATE UNIQUE INDEX IF NOT EXISTS coin_journal_idem_uniq
 		   ON coin_journal (scope, idempotency_key)`,
 
+		// The starter allowance's idempotency constraint, and it was MISSING.
+		//
+		// `UserFreeAllowance.UserID` carries `gorm:"not null;index"` — a plain,
+		// NON-unique index. Three separate places in the codebase assert that
+		// UNIQUE (user_id) exists and is load-bearing: unlock.go's EnsureAllowance
+		// ("Idempotency is UNIQUE (user_id) … resolved with ON CONFLICT DO NOTHING"),
+		// unlock_repository.go's EnsureAllowanceRow ("The UNIQUE (user_id) constraint
+		// is the idempotency mechanism"), and unlock_model.go's own comment.
+		//
+		// So `INSERT … ON CONFLICT (user_id) DO NOTHING` failed with
+		// SQLSTATE 42P10 — "there is no unique or exclusion constraint matching the
+		// ON CONFLICT specification" — on every call, for every student, on any
+		// database built by AutoMigrate. Which is every database, because nothing
+		// else created it: no migration, no other index statement.
+		//
+		// The effect was that no student could ever be granted the starter allowance,
+		// so `allowance.expiring` / `allowance.expired` had nothing to report and the
+		// catalogue's "included with your account" had no allowance behind it.
+		//
+		// Found while wiring the catalogue access block, by a test that grants an
+		// allowance and reads it back.
+		//
+		// Wrapped in a DO block rather than `CREATE UNIQUE INDEX IF NOT EXISTS`,
+		// because that form still FAILS when the table does not exist, and several
+		// integration harnesses in this package migrate only LedgerModels. The guard is
+		// on the table as well as the index name.
+		//
+		// In production the table always exists — cmd/server/main.go lists
+		// &coins.UserFreeAllowance{} in the AutoMigrate set — so the guard never skips
+		// anything that matters; it stops an unrelated test harness from failing on a
+		// relation it never created.
+		`DO $$
+		BEGIN
+		    IF to_regclass('user_free_allowance') IS NOT NULL
+		       AND NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'user_free_allowance_user_uniq')
+		    THEN
+		        CREATE UNIQUE INDEX user_free_allowance_user_uniq ON user_free_allowance (user_id);
+		    END IF;
+		END $$`,
+
 		// ── partial indexes ──────────────────────────────────────────────
 		`CREATE INDEX IF NOT EXISTS coin_journal_ref_idx
 		   ON coin_journal (ref_type, ref_id) WHERE ref_type IS NOT NULL`,

@@ -9,6 +9,7 @@ package coins
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -26,6 +27,15 @@ type expiryEnv struct {
 	pool    *gorm.DB
 	ledger  *Ledger
 	sweeper *ExpirySweeper
+
+	// settings and service are held so a test can change the ECONOMY — open a gate,
+	// enable the unlock endpoint — and see the annotation react. The shipped default
+	// has every gate off, so without a handle to write one, the catalogue-access tests
+	// could only ever assert the inert case.
+	settings *fakeSettings
+	service  *Service
+	// config is the shared ConfigStore, so a test can invalidate it after a write.
+	config *ConfigStore
 }
 
 func newExpiryEnv(t *testing.T) *expiryEnv {
@@ -58,6 +68,16 @@ func newExpiryEnv(t *testing.T) *expiryEnv {
 	if err := pool.AutoMigrate(RewardGrantModels...); err != nil {
 		t.Fatalf("automigrate grants: %v", err)
 	}
+	// The UNLOCK tables — resource_unlock and user_free_allowance — are entitlements
+	// rather than ledger rows, so they are not in LedgerModels, and the catalogue-access
+	// tests read both. Migrated BEFORE EnsurePostgresIndexes, and the ordering is
+	// load-bearing rather than tidiness: that function creates the partial indexes, and
+	// EnsureAllowance's ON CONFLICT needs one of them to exist. Migrating afterwards
+	// fails with "no unique or exclusion constraint matching the ON CONFLICT
+	// specification".
+	if err := pool.AutoMigrate(&ResourceUnlock{}, &UserFreeAllowance{}); err != nil {
+		t.Fatalf("automigrate unlock models: %v", err)
+	}
 	if err := EnsurePostgresIndexes(pool); err != nil {
 		t.Fatalf("ensure indexes: %v", err)
 	}
@@ -85,12 +105,22 @@ func newExpiryEnv(t *testing.T) *expiryEnv {
 		t.Fatalf("encode config: %v", err)
 	}
 	settings.SetSystemSetting(EconomyConfigSettingKey, string(encoded))
-	ledger := NewLedger(repo, NewConfigStore(settings))
+	// ONE ConfigStore shared by the ledger and the service, and this matters rather
+	// than being tidiness. main.go passes the same `coinsConfig` to both, so they see
+	// one cache and one invalidation. Two stores here would let a test write the config
+	// through the service, invalidate the service's cache, and leave the LEDGER
+	// reading the previous values — so a gate-open test would silently assert against
+	// the value it just replaced.
+	configStore := NewConfigStore(settings)
+	ledger := NewLedger(repo, configStore)
+	// WithRepository, not NewService: HasAccess and RemainingAllowance both need the
+	// repository, and a service without one answers "no database handle". main.go
+	// uses the same constructor for exactly this reason.
+	service := NewServiceWithRepository(repo, configStore, NewVersionStore(pool))
 
 	return &expiryEnv{
-		pool:    pool,
-		ledger:  ledger,
-		sweeper: NewExpirySweeper(repo, ledger),
+		pool: pool, ledger: ledger, sweeper: NewExpirySweeper(repo, ledger),
+		settings: settings, service: service, config: configStore,
 	}
 }
 
@@ -195,4 +225,59 @@ func (e *expiryEnv) setLotConsumed(t *testing.T, lotID uint, consumed int64) {
 		UpdateColumn("consumed", consumed).Error; err != nil {
 		t.Fatalf("mark lot %d consumed=%d: %v", lotID, consumed, err)
 	}
+}
+
+// setGate opens or closes one class's charge gate.
+//
+// Written through the settings store rather than by mutating the loaded config,
+// because that is how an admin does it in production (PUT /admin/coins/economy) and
+// a test that used a different path could pass while the real one is broken.
+func (e *expiryEnv) setGate(t *testing.T, class string, on bool) error {
+	t.Helper()
+	cfg, err := e.service.GetEconomyConfig()
+	if err != nil {
+		return err
+	}
+	switch class {
+	case ResourceTypeStudyResource:
+		cfg.Gates.StudyResource = on
+	case ResourceTypeVideo:
+		cfg.Gates.Video = on
+	case ResourceTypeMockTest:
+		cfg.Gates.MockTest = on
+	default:
+		return fmt.Errorf("unknown class %q", class)
+	}
+	encoded, err := json.Marshal(cfg)
+	if err != nil {
+		return err
+	}
+	if err := e.settings.SetSystemSetting(EconomyConfigSettingKey, string(encoded)); err != nil {
+		return err
+	}
+	// The store caches, so a write that does not invalidate it would leave the test
+	// asserting against the value it just replaced.
+	e.config.Invalidate()
+	return nil
+}
+
+// setUnlockEndpointEnabled opens POST /coins/unlock.
+//
+// Separate from setGate because it is a DIFFERENT switch, and the document class
+// needs both — see TestADocumentGetsNoBlockUntilTheUnlockEndpointIsAlsoEnabled.
+func (e *expiryEnv) setUnlockEndpointEnabled(on bool) error {
+	cfg, err := e.service.GetEconomyConfig()
+	if err != nil {
+		return err
+	}
+	cfg.UnlockEndpointEnabled = on
+	encoded, err := json.Marshal(cfg)
+	if err != nil {
+		return err
+	}
+	if err := e.settings.SetSystemSetting(EconomyConfigSettingKey, string(encoded)); err != nil {
+		return err
+	}
+	e.config.Invalidate()
+	return nil
 }
