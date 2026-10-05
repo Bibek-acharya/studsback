@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"gorm.io/gorm"
+
+	"studsphere/backend/internal/shared/utils"
 )
 
 type Repository struct {
@@ -177,11 +179,14 @@ func (r *Repository) FindAll(filters CollegeFilters) ([]College, int64, error) {
 	}
 
 	if filters.Search != "" {
-		searchLike := "%" + filters.Search + "%"
-		query = query.Where(
-			"name ILIKE ? OR full_name ILIKE ? OR affiliation ILIKE ? OR location ILIKE ? OR CAST(featured_programs AS TEXT) ILIKE ? OR CAST(courses AS TEXT) ILIKE ? OR CAST(programs_list AS TEXT) ILIKE ?",
-			searchLike, searchLike, searchLike, searchLike, searchLike, searchLike, searchLike,
-		)
+		clause, args := utils.TokenizedMatchSQL(filters.Search, []string{
+			"name", "full_name", "affiliation", "location", "description",
+			"college_type", "CAST(featured_programs AS TEXT)",
+			"CAST(courses AS TEXT)", "CAST(programs_list AS TEXT)",
+		})
+		if clause != "" {
+			query = query.Where(clause, args...)
+		}
 	}
 
 	if filters.CourseID != "" {

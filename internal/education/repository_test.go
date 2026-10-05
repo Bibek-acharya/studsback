@@ -293,3 +293,37 @@ func TestFindCourseByIDWithAffiliation_DanglingAffiliationID(t *testing.T) {
 		t.Errorf("affiliation should be nil for dangling id, got %+v", aff)
 	}
 }
+
+func TestFindPublishedGlobalCourses_TokenizedSearchMatchesWordsAcrossColumns(t *testing.T) {
+	db := setupTestDB(t)
+	seedCourses(db)
+	repo := NewRepository(db)
+
+	// "Computer" (in title) + "Management" (in level/field) both tokens must match
+	courses, err := repo.FindPublishedGlobalCourses("Computer Management")
+	if err != nil {
+		t.Fatalf("FindPublishedGlobalCourses() error = %v", err)
+	}
+	if len(courses) != 0 {
+		t.Errorf("unexpected match count=%d; all tokens AND'd across columns", len(courses))
+	}
+
+	// "science management" — science in field, management appears via field too
+	courses2, err := repo.FindPublishedGlobalCourses("diploma engineering")
+	if err != nil {
+		t.Fatalf("FindPublishedGlobalCourses() error = %v", err)
+	}
+	if len(courses2) != 1 || courses2[0].Title != "Diploma Engineering" {
+		t.Errorf("want 1 Diploma Engineering result, got %+v", courses2)
+	}
+
+	// Tokens that live in different searchable columns must AND together:
+	// "bachelor" is in Level, "science" is in Field/Title of the seeded course.
+	courses3, err := repo.FindPublishedGlobalCourses("Bachelor Science")
+	if err != nil {
+		t.Fatalf("FindPublishedGlobalCourses() error = %v", err)
+	}
+	if len(courses3) == 0 {
+		t.Errorf("tokenized search across Level+Field matched nothing; want the Bachelor-of-Science seed")
+	}
+}

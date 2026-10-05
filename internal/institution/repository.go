@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+
+	"studsphere/backend/internal/shared/utils"
 )
 
 type Repository struct {
@@ -272,8 +274,14 @@ func (r *Repository) FindPublicInstitutions(page, pageSize int, search, location
 		Where("institution_users.status = ?", "approved")
 
 	if search != "" {
-		like := "%" + search + "%"
-		query = query.Where("(institution_users.institution_name ILIKE ? OR institution_users.district ILIKE ?)", like, like)
+		clause, args := utils.TokenizedMatchSQL(search, []string{
+			"institution_users.institution_name", "institution_users.district",
+			"institution_users.affiliation", "institution_users.about",
+			"institution_users.organization_type", "institution_users.local_body",
+		})
+		if clause != "" {
+			query = query.Where(clause, args...)
+		}
 	}
 	if location != "" {
 		locations := strings.Split(location, ",")

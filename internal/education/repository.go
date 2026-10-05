@@ -2,10 +2,11 @@ package education
 
 import (
 	"errors"
-	"strings"
 	"time"
 
 	"gorm.io/gorm"
+
+	"studsphere/backend/internal/shared/utils"
 )
 
 type Repository struct {
@@ -72,7 +73,13 @@ func (r *Repository) FindCoursesFiltered(page, limit int, search, level, field, 
 		Where("is_global = ? AND status = ?", true, "published")
 
 	if search != "" {
-		query = query.Where("title ILIKE ? OR field ILIKE ? OR affiliation ILIKE ?", "%"+search+"%", "%"+search+"%", "%"+search+"%")
+		clause, args := utils.TokenizedMatchSQL(search, []string{
+			"title", "short_title", "description", "field", "field_of_study",
+			"level", "non_university_affiliation",
+		})
+		if clause != "" {
+			query = query.Where(clause, args...)
+		}
 	}
 	if level != "" {
 		query = query.Where("level = ?", level)
@@ -102,7 +109,13 @@ func (r *Repository) FindPublishedGlobalCourses(search string) ([]Course, error)
 	query := r.db.Model(&Course{}).
 		Where("is_global = ? AND status = ?", true, "published")
 	if search != "" {
-		query = query.Where("title ILIKE ?", "%"+search+"%")
+		clause, args := utils.TokenizedMatchSQL(search, []string{
+			"title", "short_title", "description", "field", "field_of_study",
+			"level", "non_university_affiliation",
+		})
+		if clause != "" {
+			query = query.Where(clause, args...)
+		}
 	}
 	err := query.Order("LOWER(title) asc").Find(&courses).Error
 	return courses, err
@@ -292,11 +305,14 @@ func (r *Repository) FindAllCoursesAdmin(page, limit int, level, search string) 
 		query = query.Where("courses.level = ?", level)
 	}
 	if search != "" {
-		pattern := "%" + strings.ToLower(search) + "%"
-		query = query.Where(
-			"LOWER(courses.title) LIKE ? OR LOWER(courses.field) LIKE ? OR LOWER(courses.field_of_study) LIKE ? OR LOWER(courses.non_university_affiliation) LIKE ? OR LOWER(affiliations.name) LIKE ?",
-			pattern, pattern, pattern, pattern, pattern,
-		)
+		clause, args := utils.TokenizedMatchSQL(search, []string{
+			"courses.title", "courses.short_title", "courses.description",
+			"courses.field", "courses.field_of_study", "courses.level",
+			"courses.non_university_affiliation", "affiliations.name",
+		})
+		if clause != "" {
+			query = query.Where(clause, args...)
+		}
 	}
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
