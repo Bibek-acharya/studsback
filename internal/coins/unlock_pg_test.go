@@ -252,13 +252,25 @@ func TestEnsureEntitlementIndexesCreatesEveryConstraint(t *testing.T) {
 		"chk_resource_unlock_source_funding": "resource_unlock",
 		"chk_resource_unlock_coins_paid":     "resource_unlock",
 		"chk_resource_unlock_revocation":     "resource_unlock",
-		"uq_user_free_allowance_user":        "user_free_allowance",
 		"fk_resource_unlock_journal":         "resource_unlock",
 	}
 	for name, table := range checks {
 		if !constraintPresent(t, db, name, table) {
 			t.Errorf("constraint %s is missing from %s", name, table)
 		}
+	}
+
+	// UNIQUE (user_id) on the allowance, asserted by NAME now that AutoMigrate owns
+	// it: `uni_user_free_allowance_user_id` is GORM's canonical name for a
+	// single-column unique index, and it is what ensure_indexes.go's repair guard
+	// creates for a database that predates the model's `uniqueIndex` tag.
+	//
+	// The name is part of the assertion on purpose. This constraint used to be
+	// hand-created under bespoke names, and a hand-named unique object on an
+	// AutoMigrate-owned table is what made every boot after the first fail with
+	// 42704 from logger.Fatal.
+	if !indexPresent(t, db, "uni_user_free_allowance_user_id") {
+		t.Error("no unique index on user_free_allowance(user_id): EnsureAllowance's ON CONFLICT has nothing to resolve against")
 	}
 
 	// The partial index behind the derived `used` count. Without it, every
@@ -1120,7 +1132,7 @@ func TestConsumeAllowanceBlocksOnTheAllowanceRow(t *testing.T) {
 // The same guarantee when the race is over the FIRST allowance rather than the
 // last: seven concurrent first-timers, one row between them, and exactly one
 // consume. This is the case where the allowance row does not exist yet, so it is
-// the one place uq_user_free_allowance_user rather than the advisory lock is what
+// the one place UNIQUE (user_id) rather than the advisory lock is what
 // separates the creators.
 func TestConcurrentFirstEverConsumeCreatesOneAllowanceAndOneUnlock(t *testing.T) {
 	const (

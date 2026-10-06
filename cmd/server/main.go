@@ -216,6 +216,15 @@ func main() {
 	embedding.StartWorker()
 
 	logger.Info("Running database migrations...")
+	// Before the migrator, and not after it: AutoMigrate refuses an index it did
+	// not create, and this package's own hand-created UNIQUE (user_free_allowance.
+	// user_id) objects are exactly that — their presence made every boot after the
+	// first die with 42704 from the AutoMigrate Fatal below. See
+	// internal/coins/prepare_entitlements.go. A no-op on a database without the
+	// entitlement tables.
+	if err := coins.PrepareEntitlementSchema(db); err != nil {
+		logger.Fatal("Failed to prepare the StudsToken entitlement schema", "error", err)
+	}
 	if err := db.AutoMigrate(
 		&auth.User{},
 		&auth.InstitutionUser{},
@@ -460,6 +469,15 @@ func main() {
 		// migrations/20261002_widen_referral_status_for_expiry.go.
 		if err := migrations.WidenReferralStatusForExpiry(db); err != nil {
 			logger.Warn("Failed to widen the referral status vocabulary", "error", err)
+		}
+		// The starter allowance for accounts that predate the signup grant
+		// hook. Idempotent, and ordered after CreateStudsTokenEntitlements so
+		// the UNIQUE (user_id) it conflicts against exists even on a fresh
+		// boot. Warn, not Fatal: a failed backfill is recoverable — the lazy
+		// create in ConsumeAllowance grants the same row at first unlock —
+		// and refusing to boot over it would take every working feature down.
+		if err := migrations.BackfillStarterAllowances(db); err != nil {
+			logger.Warn("Failed to backfill starter allowances; the lazy grant at first unlock still applies", "error", err)
 		}
 		// Cleanup dangling sub-users with provider_id = 0 from previous bug
 		if err := db.Exec("DELETE FROM provider_access_users WHERE provider_id = 0").Error; err != nil {
@@ -749,6 +767,13 @@ func main() {
 		).
 		WithNotifier(notificationSvc)
 	auth.SetReferralAttributor(&referralAttributorAdapter{svc: referralSvc})
+
+	// The starter allowance: the third earn-adjacent mechanic, and the one
+	// that makes the free unlocks VISIBLE from day one. EnsureAllowance is
+	// idempotent per user, so the grant fires on both student-creation paths
+	// without a guard, and the backfill migration below covers every account
+	// created before this hook existed.
+	auth.SetStarterAllowanceGranter(&starterAllowanceGranterAdapter{svc: coinsService})
 
 	coinsWalletAPI := coins.NewUnlockAPI(coinsService, coinsLedger).
 		WithProfileEligibility(&profileCompletionAdapter{svc: studentDashboardSvc}).

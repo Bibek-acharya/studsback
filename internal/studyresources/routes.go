@@ -26,6 +26,13 @@ func RegisterRoutes(r *gin.Engine, authMW, superadminRoleMW gin.HandlerFunc, h *
 		// attachment-oriented /:id/download endpoint.
 		v1.GET("/study-resources/:id/stream", h.StreamResource)
 
+		// The document sample: the first few pages of a published PDF, inline,
+		// for anyone — the buying decision should not need a session, and the
+		// withheld remainder is what the download route charges for. Public for
+		// the same reason the metadata list is, and safe for the two reasons
+		// documented at the top of preview.go.
+		v1.GET("/study-resources/:id/preview", h.PreviewResource)
+
 		// Document downloads and playback tokens both require a session.
 		//
 		// The download route used to sit here, unauthenticated, and the only

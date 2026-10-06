@@ -56,20 +56,27 @@ func EnsurePostgresIndexes(db *gorm.DB) error {
 		`CREATE UNIQUE INDEX IF NOT EXISTS coin_journal_idem_uniq
 		   ON coin_journal (scope, idempotency_key)`,
 
-		// The starter allowance's idempotency constraint, and it was MISSING.
+		// The starter allowance's idempotency constraint. REPAIR ONLY now: the
+		// uniqueness is declared on the model (`uniqueIndex` on UserID), so a
+		// database built by AutoMigrate has it by construction, and the name used
+		// here is GORM's own so that AutoMigrate does not see an object it does
+		// not own and try to drop it.
 		//
-		// `UserFreeAllowance.UserID` carries `gorm:"not null;index"` — a plain,
-		// NON-unique index. Three separate places in the codebase assert that
-		// UNIQUE (user_id) exists and is load-bearing: unlock.go's EnsureAllowance
-		// ("Idempotency is UNIQUE (user_id) … resolved with ON CONFLICT DO NOTHING"),
-		// unlock_repository.go's EnsureAllowanceRow ("The UNIQUE (user_id) constraint
-		// is the idempotency mechanism"), and unlock_model.go's own comment.
+		// It was MISSING for a long time, and this block is where it lived:
 		//
-		// So `INSERT … ON CONFLICT (user_id) DO NOTHING` failed with
-		// SQLSTATE 42P10 — "there is no unique or exclusion constraint matching the
-		// ON CONFLICT specification" — on every call, for every student, on any
-		// database built by AutoMigrate. Which is every database, because nothing
-		// else created it: no migration, no other index statement.
+		// `UserFreeAllowance.UserID` carried `gorm:"not null;index"` — a plain,
+		// NON-unique index — while three separate places in the codebase assert
+		// that UNIQUE (user_id) exists and is load-bearing: unlock.go's
+		// EnsureAllowance ("Idempotency is UNIQUE (user_id) … resolved with ON
+		// CONFLICT DO NOTHING"), unlock_repository.go's EnsureAllowanceRow ("The
+		// UNIQUE (user_id) constraint is the idempotency mechanism"), and this
+		// model's own comment.
+		//
+		// So `INSERT … ON CONFLICT (user_id) DO NOTHING` failed with SQLSTATE
+		// 42P10 — "there is no unique or exclusion constraint matching the ON CONFLICT
+		// specification" — on every call, for every student, on any database built by
+		// AutoMigrate. Which is every database, because nothing else created it: no
+		// migration, no other index statement.
 		//
 		// The effect was that no student could ever be granted the starter allowance,
 		// so `allowance.expiring` / `allowance.expired` had nothing to report and the
@@ -83,6 +90,13 @@ func EnsurePostgresIndexes(db *gorm.DB) error {
 		// integration harnesses in this package migrate only LedgerModels. The guard is
 		// on the table as well as the index name.
 		//
+		// It creates the canonical `uni_user_free_allowance_user_id` name rather than
+		// a bespoke one for a second reason: a hand-named unique object on a table
+		// AutoMigrate owns is an object AutoMigrate will try to DROP on the next boot,
+		// deriving a constraint name from the column and failing on the mismatch. That
+		// is what took the server down once already (see the model's comment), so this
+		// repair path writes GORM's name and leaves nothing for it to reconcile.
+		//
 		// In production the table always exists — cmd/server/main.go lists
 		// &coins.UserFreeAllowance{} in the AutoMigrate set — so the guard never skips
 		// anything that matters; it stops an unrelated test harness from failing on a
@@ -90,9 +104,9 @@ func EnsurePostgresIndexes(db *gorm.DB) error {
 		`DO $$
 		BEGIN
 		    IF to_regclass('user_free_allowance') IS NOT NULL
-		       AND NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'user_free_allowance_user_uniq')
+		       AND NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'uni_user_free_allowance_user_id')
 		    THEN
-		        CREATE UNIQUE INDEX user_free_allowance_user_uniq ON user_free_allowance (user_id);
+		        CREATE UNIQUE INDEX uni_user_free_allowance_user_id ON user_free_allowance (user_id);
 		    END IF;
 		END $$`,
 

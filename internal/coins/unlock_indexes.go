@@ -145,8 +145,12 @@ func EnsureEntitlementIndexes(db *gorm.DB) error {
 
 		// One allowance per user. This is what makes EnsureAllowance idempotent
 		// at the database rather than by a SELECT-then-INSERT that races.
-		addConstraint("uq_user_free_allowance_user", `user_free_allowance`,
-			`UNIQUE (user_id)`),
+		//
+		// NOT created here any more: it is declared as `uniqueIndex` on
+		// UserFreeAllowance.UserID, so AutoMigrate owns it. The addConstraint that used
+		// to be here made a SECOND unique object that AutoMigrate could not reconcile,
+		// and a hand-named unique constraint on an AutoMigrate-owned table is exactly
+		// what turned every boot after the first into a Fatal. See the model's comment.
 
 		// ── CHECK constraints ──────────────────────────────────────────────
 		// resource_type is a class, not free text. A typo here is not a harmless

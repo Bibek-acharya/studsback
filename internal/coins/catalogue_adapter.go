@@ -44,6 +44,13 @@ func NewCatalogueLister(svc *studyresources.Service) CatalogueLister {
 //
 // page and limit are passed through rather than clamped here: the handler owns
 // pagination and clamping twice would mean two places to keep in step.
+//
+// The mapping is the rest of this file's content for one reason: this route IS the
+// catalogue for every signed-in student, so an item carrying only an id and a title
+// renders a card with no description, no course, no file type and no download count —
+// the whole card, minus the price. Which fields travel is decided HERE, in the one
+// place that knows the catalogue's shape, rather than by whatever the annotation
+// logic happens to expose.
 func (c studyresourcesCatalogue) ListCatalogue(
 	ctx context.Context, page, limit int,
 ) ([]CatalogueItem, error) {
@@ -58,11 +65,34 @@ func (c studyresourcesCatalogue) ListCatalogue(
 	}
 	out := make([]CatalogueItem, 0, len(resources))
 	for _, r := range resources {
-		out = append(out, CatalogueItem{
-			ID:           r.ID,
-			ResourceType: r.ResourceType,
-			Title:        r.Title,
-		})
+		out = append(out, newCatalogueItem(r))
 	}
 	return out, nil
+}
+
+// newCatalogueItem maps one catalogue row onto an annotated-catalogue item.
+//
+// ResourceType is the row's OWN type, not the economy class: the card renders it as
+// a label and the catalogue filters on it. The class the price is resolved against is
+// derived by catalogueClass and reported on the block, where the frontend reads it as
+// `resource_type` inside `access` — two different meanings of one field name, which is
+// why the block carries it separately rather than the item overloading it.
+func newCatalogueItem(r studyresources.StudyResource) CatalogueItem {
+	return CatalogueItem{
+		ID:              r.ID,
+		ResourceType:    r.ResourceType,
+		Title:           r.Title,
+		Description:     r.Description,
+		Course:          r.Course,
+		Year:            r.Year,
+		FileName:        r.FileName,
+		FileURL:         r.FileURL,
+		FileSize:        r.FileSize,
+		MimeType:        r.MimeType,
+		Downloads:       r.Downloads,
+		Views:           r.Views,
+		IsPublished:     r.IsPublished,
+		DurationSeconds: r.DurationSeconds,
+		CreatedAt:       r.CreatedAt,
+	}
 }

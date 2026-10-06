@@ -77,6 +77,12 @@ func TestStudyResourceRouteSurfaceIsExactlyThis(t *testing.T) {
 		// Inline video playback, authorized by the playback token rather than
 		// by a session. Deliberately not behind authMW — see routes.go.
 		"GET /api/v1/study-resources/:id/stream",
+		// The document SAMPLE: public like the metadata list, and never a path
+		// to the full bytes — it serves at most PreviewSamplePages pages and
+		// always withholds at least one (preview.go). It is the second
+		// deliberate session-guard exception, named here for the same reason
+		// the stream route is.
+		"GET /api/v1/study-resources/:id/preview",
 	}
 	sort.Strings(want)
 
@@ -105,6 +111,11 @@ func TestEveryObjectServingRouteIsClassified(t *testing.T) {
 		"GET /api/v1/study-resources/:id/download":       "session (authMW), then the coin gate",
 		"GET /api/v1/study-resources/:id/stream":         "a resource-bound playback token, never a session",
 		"GET /api/v1/study-resources/:id/playback-token": "session (authMW), then the coin gate BEFORE minting",
+		// The second anonymous byte-serving route, deliberate like stream: the
+		// sample is the shop window, and its guard is not WHO calls but WHAT it
+		// can serve — at most PreviewSamplePages of a published PDF, with at
+		// least one page always withheld (preview.go, samplePageCount).
+		"GET /api/v1/study-resources/:id/preview": "no session — public by design; it can only ever serve a page-bounded sample, never the full bytes",
 	}
 
 	gin.SetMode(gin.TestMode)

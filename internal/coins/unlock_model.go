@@ -171,9 +171,26 @@ type ResourceUnlock struct {
 // retroactively take one away from everybody. Re-granting is not "raise it to
 // the current default" either, which is why EnsureAllowance never rewrites an
 // existing row.
+//
+// **UserID carries `uniqueIndex`, not `index`, and that is load-bearing in the
+// most boring way possible.** UNIQUE (user_id) is what ON CONFLICT resolves
+// EnsureAllowance's idempotency against, so for a long time it was created by
+// hand in two places (a DO block in ensure_indexes.go and an addConstraint in
+// unlock_indexes.go) because the tag said plain `index` and AutoMigrate would
+// not make it unique. Both hand-made objects then became a BOOT FAILURE: on the
+// next AutoMigrate, GORM saw unique objects it did not create, derived a
+// constraint name for them from the column (uni_user_free_allowance_user_id),
+// and issued `ALTER TABLE … DROP CONSTRAINT` against a name Postgres had never
+// heard of — 42704, from a logger.Fatal on every boot, including a server that
+// had started perfectly once.
+//
+// So the uniqueness is declared HERE, where AutoMigrate can see it, and the two
+// hand-made definitions are gone: one owner for the constraint, and a schema
+// whose own migrator does not try to delete it. ensure_indexes.go keeps a
+// repair guard for databases built before this tag existed.
 type UserFreeAllowance struct {
 	ID              uint      `gorm:"primarykey" json:"id"`
-	UserID          uint      `gorm:"not null;index" json:"user_id"`
+	UserID          uint      `gorm:"not null;uniqueIndex" json:"user_id"`
 	GrantedAt       time.Time `gorm:"not null;default:now()" json:"granted_at"`
 	ExpiresAt       time.Time `gorm:"not null" json:"expires_at"`
 	DocumentUnlocks int64     `gorm:"not null;default:0" json:"document_unlocks"`

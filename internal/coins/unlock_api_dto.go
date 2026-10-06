@@ -340,7 +340,14 @@ func describeReason(reasonCode string, ref *RefDTO) string {
 	case ReasonResourceUnlock:
 		return "Unlocked: " + what
 	case ReasonProfileComplete:
-		return "Profile progress: " + what
+		// The profile award lands as instalments with a nil ref, so the generic
+		// `what` default — "your account" — produced "Profile progress: your
+		// account", a sentence with no verb that reads as a fragment. The wallet
+		// line is what a student reads to understand money appearing, and it
+		// should say what the money is for: progress on the profile, rewarded.
+		// There is no subject to fold in (RefType is always nil on this path),
+		// so the line is a fixed sentence rather than a template.
+		return "Profile progress reward"
 	case ReasonReferralQualified:
 		return "Referral qualified: " + what
 	case ReasonResourceApproved:

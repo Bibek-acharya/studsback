@@ -521,6 +521,12 @@ func (s *Service) VerifyOTP(email, otp string) (*LoginResponse, error) {
 		Path: "verify_otp",
 	})
 
+	// The starter allowance, on the same occasion: the row exists before the
+	// first login completes, so the wallet can show the free unlocks from day
+	// one. Students only — the institution/provider branches above return
+	// before reaching this.
+	s.grantStarterAllowance(context.Background(), user.ID, "verify_otp")
+
 	if notifierInstance != nil {
 		_ = notifierInstance.Notify(context.Background(), notification.NotifyRequest{
 			EventKey:   notification.EventAccountWelcome,
@@ -612,6 +618,11 @@ func (s *Service) GoogleLoginOrRegister(googleID, email, givenName, familyName, 
 			Code: referralCode,
 			Path: "google_login",
 		})
+
+		// The starter allowance, at creation and once per lifetime — inside
+		// the creation branch for the same reason attribution is: an existing
+		// student signing in with Google must not re-grant anything.
+		s.grantStarterAllowance(context.Background(), user.ID, "google_login")
 	} else {
 		if user.GoogleID == nil || *user.GoogleID == "" {
 			user.GoogleID = &googleID

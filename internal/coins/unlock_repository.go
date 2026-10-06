@@ -312,7 +312,8 @@ func (tx *TxContext) readUnlock(sql string, userID uint, resourceType string, re
 //
 // Note the limit of what it can do: a row lock on a row that does not exist locks
 // nothing. Two transactions racing to create a user's first allowance are
-// separated by uq_user_free_allowance_user instead, which is why
+// separated by UNIQUE (user_id) — `uni_user_free_allowance_user_id`, declared on
+// the model — instead, which is why
 // EnsureAllowanceRow resolves its conflict with ON CONFLICT DO NOTHING and
 // re-reads rather than assuming it won.
 func (tx *TxContext) LockFreeAllowance(userID uint) (*UserFreeAllowance, error) {

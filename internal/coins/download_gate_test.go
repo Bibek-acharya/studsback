@@ -568,7 +568,7 @@ func TestHistoryNamesUnlocksAndSurvivesAFailedLookup(t *testing.T) {
 	wallet := &fakeWallet{transactions: []TransactionDTO{
 		{ReasonCode: ReasonResourceUnlock, Ref: &RefDTO{Type: ResourceTypeStudyResource, ID: 812}, Description: "Unlocked: study_resource 812"},
 		{ReasonCode: ReasonResourceUnlock, Ref: &RefDTO{Type: ResourceTypeStudyResource, ID: 812}, Description: "Unlocked: study_resource 812"},
-		{ReasonCode: ReasonProfileComplete, Description: "Profile progress: your account"},
+		{ReasonCode: ReasonProfileComplete, Description: "Profile progress reward"},
 	}}
 	resources := &fakeResources{title: gateResourceTitle}
 	api := testAPI(t, &fakeEntitlements{}, wallet, nil).WithResourceLookup(resources)
@@ -582,7 +582,7 @@ func TestHistoryNamesUnlocksAndSurvivesAFailedLookup(t *testing.T) {
 				t.Errorf("item %d description = %q, want the title", i, item.Description)
 			}
 		case 2:
-			if item.Description != "Profile progress: your account" {
+			if item.Description != "Profile progress reward" {
 				t.Errorf("a profile award was renamed: %q", item.Description)
 			}
 		}

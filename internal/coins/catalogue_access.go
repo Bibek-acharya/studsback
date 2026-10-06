@@ -57,17 +57,69 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// CatalogueItem is the minimum a lister must return for the block to be computed.
+// CatalogueItem is the minimum a lister must return for the block to be computed,
+// plus the catalogue fields a card renders.
 //
 // Deliberately not `studyresources.StudyResource`: this package imports
 // `internal/studyresources`, not the reverse, and a lister adapter in main.go maps
 // one to the other. Naming the minimal shape here means the annotation logic can be
 // tested without the catalogue's whole model, and means a change to that model cannot
 // silently change what is disclosed.
+//
+// The second half of that sentence is why the fields below are spelled out rather
+// than embedded: THIS ROUTE IS THE CATALOGUE for every signed-in student, so an item
+// that carried only id/title/type would render a card with no description, no
+// course, no year, no download count and no mime type — the whole card, minus its
+// price. What it deliberately does NOT carry is the moderation interior
+// (approval_status, reviewed_by, reject_reason) or file_path: this endpoint exists to
+// render a card, and a field added to the catalogue model later must not appear on a
+// student-facing route without somebody deciding that it should.
+//
+// ResourceType is the CATALOGUE type ("past-questions", "video-lectures"), because
+// the card renders it as a label and filters on it. The economy class the price was
+// resolved against is derived — see catalogueClass — and reported separately on the
+// block.
 type CatalogueItem struct {
 	ID           uint   `json:"id"`
 	ResourceType string `json:"resource_type"`
 	Title        string `json:"title,omitempty"`
+
+	Description     string    `json:"description,omitempty"`
+	Course          string    `json:"course,omitempty"`
+	Year            string    `json:"year,omitempty"`
+	FileName        string    `json:"file_name,omitempty"`
+	FileURL         string    `json:"file_url,omitempty"`
+	FileSize        int64     `json:"file_size,omitempty"`
+	MimeType        string    `json:"mime_type,omitempty"`
+	Downloads       int       `json:"downloads"`
+	Views           int       `json:"views"`
+	IsPublished     bool      `json:"is_published"`
+	DurationSeconds int       `json:"duration_seconds,omitempty"`
+	CreatedAt       time.Time `json:"created_at"`
+}
+
+// catalogueClass resolves the economy class an item is PRICED against.
+//
+// A lister can hand over either a catalogue type or a class name: the
+// study-resources adapter has the former ("past-questions", "video-lectures")
+// and nothing else, while a future mock-test lister would have the latter
+// ("mock_test"). So the three class names are IDENTITY, and everything else is
+// a study-resource catalogue type routed through studyResourceClass — which is
+// the same mapping the download gate and the lookup already use, so the price a
+// card shows, the class an unlock is recorded against, and the class the
+// allowance is drawn from cannot disagree.
+//
+// This function is load-bearing in the way only a live deployment can show:
+// without it, priceForClass hit its default branch for every document, and the
+// gate being ON was indistinguishable from the gate being off — the price badge
+// simply never appeared, on any card, for any student.
+func catalogueClass(resourceType string) string {
+	switch resourceType {
+	case ResourceTypeStudyResource, ResourceTypeVideo, ResourceTypeMockTest:
+		return resourceType
+	default:
+		return studyResourceClass(resourceType)
+	}
 }
 
 // CatalogueAccess is the per-resource block the card renders from.
@@ -168,11 +220,14 @@ func (l *Ledger) AnnotateCatalogue(
 	}
 
 	for _, item := range items {
-		price, chargeable := priceForClass(cfg, item.ResourceType)
+		// The CLASS, not the item's own type: it is what is priced, what an
+		// entitlement is recorded against, and which allowance draws it down.
+		class := catalogueClass(item.ResourceType)
+		price, chargeable := priceForClass(cfg, class)
 		if !chargeable {
 			continue
 		}
-		unlocked, err := ent.HasAccess(ctx, userID, item.ResourceType, uint64(item.ID))
+		unlocked, err := ent.HasAccess(ctx, userID, class, uint64(item.ID))
 		if err != nil {
 			return out, err
 		}
@@ -180,9 +235,9 @@ func (l *Ledger) AnnotateCatalogue(
 		block := &CatalogueAccess{
 			Price:        price,
 			Unlocked:     unlocked,
-			ResourceType: item.ResourceType,
+			ResourceType: class,
 		}
-		if remaining := remainingForClass(status, item.ResourceType); remaining != nil {
+		if remaining := remainingForClass(status, class); remaining != nil {
 			block.Allowance = remaining
 		}
 		out[uint64(item.ID)] = block
